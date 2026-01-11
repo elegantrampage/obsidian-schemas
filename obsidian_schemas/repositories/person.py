@@ -346,3 +346,63 @@ class PersonRepository(BaseRepository[Person]):
         self.save(person, body="## Timeline\n\n", extra_fields=extra_fields)
 
         return person
+
+    def append_to_timeline(
+        self,
+        person: Person,
+        entry: str,
+        deduplicate_key: Optional[str] = None,
+    ) -> bool:
+        """
+        Append an entry to a person's Timeline section.
+
+        Inserts the entry at the start of the ## Timeline section,
+        preserving existing content.
+
+        Args:
+            person: The person whose timeline to update
+            entry: The full entry to append (e.g., "### Dec 3, 2025\\n[[Meeting]]...")
+            deduplicate_key: Optional string to check for duplicates.
+                            If provided and found in existing content, skip the update.
+
+        Returns:
+            True if entry was added, False if skipped (duplicate or error)
+
+        Raises:
+            ValueError: If person not found in repository
+        """
+        file_path = self.get_file_path(person.name)
+        if not file_path or not file_path.exists():
+            raise ValueError(f"Person file not found: {person.name}")
+
+        try:
+            content = file_path.read_text(encoding="utf-8")
+
+            # Check for duplicate if key provided
+            if deduplicate_key and deduplicate_key in content:
+                logger.debug(f"Timeline entry already exists for {person.name}: {deduplicate_key}")
+                return False
+
+            # Find the Timeline section
+            timeline_marker = "## Timeline"
+            if timeline_marker not in content:
+                logger.warning(f"No Timeline section found in {person.name}")
+                return False
+
+            # Ensure entry starts with newline for clean formatting
+            formatted_entry = entry if entry.startswith("\n") else f"\n{entry}"
+
+            # Insert after "## Timeline" marker
+            parts = content.split(timeline_marker, 1)
+            if len(parts) != 2:
+                return False
+
+            new_content = parts[0] + timeline_marker + formatted_entry + parts[1]
+            file_path.write_text(new_content, encoding="utf-8")
+
+            logger.info(f"Updated timeline for {person.name}")
+            return True
+
+        except Exception as e:
+            logger.warning(f"Failed to update timeline for {person.name}: {e}")
+            return False

@@ -331,6 +331,74 @@ tags:
         assert repo.get_by_email("newemail@example.com") is not None
         assert repo.get_by_email("newemail@example.com").name == "John Smith"
 
+    def test_append_to_timeline(self, temp_vault):
+        """Test appending an entry to the timeline section."""
+        repo = PersonRepository(temp_vault)
+        person = repo.get("John Smith")
+
+        entry = "\n### December 3, 2025\n[[Meeting 20251203|Meeting]] - Discussed project.\n"
+        result = repo.append_to_timeline(person, entry)
+
+        assert result is True
+
+        # Verify content was added
+        file_path = temp_vault / "@John Smith.md"
+        content = file_path.read_text()
+        assert "December 3, 2025" in content
+        assert "[[Meeting 20251203|Meeting]]" in content
+
+    def test_append_to_timeline_preserves_existing(self, temp_vault):
+        """Test that appending preserves existing timeline content."""
+        # First add some existing content
+        file_path = temp_vault / "@John Smith.md"
+        content = file_path.read_text()
+        content = content.replace(
+            "## Timeline\n",
+            "## Timeline\n\n### January 1, 2025\nExisting entry.\n"
+        )
+        file_path.write_text(content)
+
+        repo = PersonRepository(temp_vault)
+        person = repo.get("John Smith")
+
+        entry = "\n### December 3, 2025\nNew entry.\n"
+        repo.append_to_timeline(person, entry)
+
+        # Both entries should exist
+        new_content = file_path.read_text()
+        assert "January 1, 2025" in new_content
+        assert "Existing entry" in new_content
+        assert "December 3, 2025" in new_content
+        assert "New entry" in new_content
+
+    def test_append_to_timeline_deduplication(self, temp_vault):
+        """Test that deduplication prevents duplicate entries."""
+        repo = PersonRepository(temp_vault)
+        person = repo.get("John Smith")
+
+        entry = "\n### December 3, 2025\n[[Meeting 20251203|Meeting]] - Discussion.\n"
+
+        # First append should succeed
+        result1 = repo.append_to_timeline(person, entry, deduplicate_key="Meeting 20251203")
+        assert result1 is True
+
+        # Second append with same key should be skipped
+        result2 = repo.append_to_timeline(person, entry, deduplicate_key="Meeting 20251203")
+        assert result2 is False
+
+        # Verify only one entry exists
+        file_path = temp_vault / "@John Smith.md"
+        content = file_path.read_text()
+        assert content.count("Meeting 20251203") == 1
+
+    def test_append_to_timeline_not_found(self, temp_vault):
+        """Test append_to_timeline raises for unknown person."""
+        repo = PersonRepository(temp_vault)
+        fake_person = Person(name="Unknown Person", type="person")
+
+        with pytest.raises(ValueError, match="not found"):
+            repo.append_to_timeline(fake_person, "### Entry\n")
+
 
 class TestCompanyRepository:
     """Tests for CompanyRepository."""
