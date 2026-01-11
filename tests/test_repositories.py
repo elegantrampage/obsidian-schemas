@@ -4,7 +4,7 @@ import pytest
 import tempfile
 from pathlib import Path
 
-from obsidian_schemas import PersonRepository, CompanyRepository, Person, Company
+from obsidian_schemas import PersonRepository, CompanyRepository, BookRepository, Person, Company, Book
 
 
 @pytest.fixture
@@ -94,6 +94,76 @@ tags:
 ---
 
 Just some notes.
+""")
+
+        # Create test book files
+        (vault / "4,000 Weeks - Oliver Burkeman.md").write_text("""---
+type: book
+title: "4,000 Weeks"
+author: Oliver Burkeman
+description: "A book about time management"
+status: read
+rating: "5"
+isbn: "9781473545557"
+publisher: Random House
+publication_year: "2021"
+tags:
+  - book
+  - Self-Help
+source_url: ""
+date_added: "2025-01-01"
+date_finished: "2025-02-01"
+---
+
+# 4,000 Weeks
+
+## Notes
+Great book about productivity.
+""")
+
+        (vault / "Children of Time - Adrian Tchaikovsky.md").write_text("""---
+type: book
+title: Children of Time
+author: Adrian Tchaikovsky
+description: "Sci-fi epic about evolution"
+status: reading
+rating: ""
+isbn: "9781447273301"
+publisher: ""
+publication_year: "2015"
+tags:
+  - book
+  - Fiction
+source_url: ""
+date_added: "2025-03-01"
+date_finished: ""
+---
+
+# Children of Time
+
+## Notes
+""")
+
+        (vault / "Deep Work - Cal Newport.md").write_text("""---
+type: book
+title: Deep Work
+author: Cal Newport
+description: "Focus in a distracted world"
+status: to-read
+rating: ""
+isbn: ""
+publisher: ""
+publication_year: ""
+tags:
+  - book
+source_url: ""
+date_added: "2025-04-01"
+date_finished: ""
+---
+
+# Deep Work
+
+## Notes
 """)
 
         yield vault
@@ -666,3 +736,127 @@ class TestPhoneNormalization:
     def test_phones_match_us_format(self):
         from obsidian_schemas.repositories.person import phones_match
         assert phones_match("15551234567", "5551234567")
+
+
+class TestBookRepository:
+    """Tests for BookRepository."""
+
+    def test_load_vault(self, temp_vault):
+        """Test loading books from vault."""
+        repo = BookRepository(temp_vault)
+        assert len(repo) == 3
+
+    def test_get_by_title(self, temp_vault):
+        """Test getting book by title."""
+        repo = BookRepository(temp_vault)
+        book = repo.get("4,000 Weeks")
+        assert book is not None
+        assert book.title == "4,000 Weeks"
+        assert book.author == "Oliver Burkeman"
+
+    def test_get_by_title_case_insensitive(self, temp_vault):
+        """Test case-insensitive title lookup."""
+        repo = BookRepository(temp_vault)
+        book = repo.get("deep work")
+        assert book is not None
+        assert book.title == "Deep Work"
+
+    def test_get_by_author(self, temp_vault):
+        """Test getting books by author."""
+        repo = BookRepository(temp_vault)
+        books = repo.get_by_author("Oliver Burkeman")
+        assert len(books) == 1
+        assert books[0].title == "4,000 Weeks"
+
+    def test_get_by_author_case_insensitive(self, temp_vault):
+        """Test case-insensitive author lookup."""
+        repo = BookRepository(temp_vault)
+        books = repo.get_by_author("adrian tchaikovsky")
+        assert len(books) == 1
+        assert books[0].title == "Children of Time"
+
+    def test_get_by_isbn(self, temp_vault):
+        """Test getting book by ISBN."""
+        repo = BookRepository(temp_vault)
+        book = repo.get_by_isbn("9781473545557")
+        assert book is not None
+        assert book.title == "4,000 Weeks"
+
+    def test_get_by_isbn_with_dashes(self, temp_vault):
+        """Test ISBN lookup strips dashes."""
+        repo = BookRepository(temp_vault)
+        book = repo.get_by_isbn("978-1447273301")
+        assert book is not None
+        assert book.title == "Children of Time"
+
+    def test_get_by_status(self, temp_vault):
+        """Test getting books by status."""
+        repo = BookRepository(temp_vault)
+
+        read = repo.get_by_status("read")
+        assert len(read) == 1
+        assert read[0].title == "4,000 Weeks"
+
+        reading = repo.get_by_status("reading")
+        assert len(reading) == 1
+        assert reading[0].title == "Children of Time"
+
+        to_read = repo.get_by_status("to-read")
+        assert len(to_read) == 1
+        assert to_read[0].title == "Deep Work"
+
+    def test_resolve_by_title(self, temp_vault):
+        """Test resolve finds by title."""
+        repo = BookRepository(temp_vault)
+        book = repo.resolve("Children of Time")
+        assert book is not None
+        assert book.title == "Children of Time"
+
+    def test_resolve_by_isbn(self, temp_vault):
+        """Test resolve finds by ISBN."""
+        repo = BookRepository(temp_vault)
+        book = repo.resolve("9781473545557")
+        assert book is not None
+        assert book.title == "4,000 Weeks"
+
+    def test_resolve_by_partial_title(self, temp_vault):
+        """Test resolve finds by partial title."""
+        repo = BookRepository(temp_vault)
+        book = repo.resolve("Weeks")
+        assert book is not None
+        assert book.title == "4,000 Weeks"
+
+    def test_resolve_by_author(self, temp_vault):
+        """Test resolve finds by author (returns first book)."""
+        repo = BookRepository(temp_vault)
+        book = repo.resolve("Cal Newport")
+        assert book is not None
+        assert book.title == "Deep Work"
+
+    def test_resolve_not_found(self, temp_vault):
+        """Test resolve returns None when not found."""
+        repo = BookRepository(temp_vault)
+        book = repo.resolve("Nonexistent Book")
+        assert book is None
+
+    def test_create_stub(self, temp_vault):
+        """Test creating a stub book."""
+        repo = BookRepository(temp_vault)
+        book = repo.create_stub(
+            title="New Book",
+            author="New Author",
+            status="to-read"
+        )
+        assert book.title == "New Book"
+        assert book.author == "New Author"
+        assert book.status == "to-read"
+        assert "New Book" in repo
+        assert (temp_vault / "New Book - New Author.md").exists()
+
+    def test_create_stub_without_author(self, temp_vault):
+        """Test creating a stub book without author."""
+        repo = BookRepository(temp_vault)
+        book = repo.create_stub(title="Solo Book")
+        assert book.title == "Solo Book"
+        assert book.author == ""
+        assert (temp_vault / "Solo Book.md").exists()
