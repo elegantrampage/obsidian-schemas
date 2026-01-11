@@ -59,6 +59,7 @@ from obsidian_schemas.repositories import (
     PersonRepository,
     CompanyRepository,
     BookRepository,
+    MeetingRepository,
 )
 
 __version__ = "0.1.0"
@@ -101,4 +102,5 @@ __all__ = [
     "PersonRepository",
     "CompanyRepository",
     "BookRepository",
+    "MeetingRepository",
 ]
