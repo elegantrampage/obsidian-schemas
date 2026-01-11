@@ -254,6 +254,45 @@ tech_companies = repo.get_by_industry("Technology")
 company = repo.create_stub("New Startup", website="https://newstartup.com")
 ```
 
+### To Discuss Items
+
+Manage "To Discuss" checklist items in person files:
+
+```python
+from obsidian_schemas import PersonRepository, ToDiscussItem
+
+repo = PersonRepository("/path/to/vault")
+person = repo.get("John Smith")
+
+# Get all To Discuss items
+items = repo.get_to_discuss_items(person)
+for item in items:
+    print(f"{'[x]' if item.completed else '[ ]'} {item.text} ({item.date_added})")
+
+# Add a new item (auto-dated with today)
+repo.add_to_discuss_item(person, "Discuss contract renewal")
+
+# Mark item as complete
+repo.update_to_discuss_item(person, "Discuss contract renewal", completed=True)
+
+# Remove an item
+repo.remove_to_discuss_item(person, "Discuss contract renewal")
+```
+
+Format in markdown: `- [ ] Item text (2026-01-11)`
+
+### Timeline Updates
+
+Append entries to person timeline sections:
+
+```python
+entry = """
+### December 3, 2025
+[[Meeting 20251203|Meeting]] - Discussed project proposal.
+"""
+repo.append_to_timeline(person, entry, deduplicate_key="Meeting 20251203")
+```
+
 ### Round-Trip Preservation
 
 The parser and writer preserve fields that aren't in the model:
@@ -287,6 +326,73 @@ All models use `extra = "allow"` in their Pydantic config, which means:
 4. Round-trip operations preserve these extra fields
 
 This allows the schemas to evolve without breaking existing files.
+
+## Body Sections
+
+Low-level utilities for parsing and manipulating markdown body sections:
+
+```python
+from obsidian_schemas import (
+    parse_body_sections,
+    write_body_sections,
+    get_section,
+    update_section,
+    ensure_sections_exist,
+    get_expected_sections,
+    get_default_body,
+)
+
+body = """## To Discuss
+- [ ] Item one (2026-01-11)
+
+## Timeline
+### January 2026
+Met at conference.
+
+## Notes
+Some notes here.
+"""
+
+# Parse into ordered dict
+sections = parse_body_sections(body)
+# OrderedDict([("To Discuss", "- [ ] Item one..."), ("Timeline", "### January..."), ("Notes", "...")])
+
+# Get a specific section
+timeline = get_section(body, "Timeline")
+
+# Update a section
+new_body = update_section(body, "Notes", "Updated notes content.\n")
+
+# Ensure sections exist (adds missing ones in correct order)
+expected = get_expected_sections("person")  # ["To Discuss", "Timeline", "Notes"]
+body = ensure_sections_exist(body, expected)
+
+# Get default body for entity type
+default = get_default_body("person")  # "## To Discuss\n\n## Timeline\n\n## Notes\n"
+```
+
+## Migration
+
+### Adding To Discuss Section to Existing Files
+
+A migration script is provided to add the "To Discuss" section to existing person files:
+
+```bash
+# Dry run (preview changes)
+python scripts/migrate_person_to_discuss.py --vault /path/to/vault
+
+# Actually apply changes
+python scripts/migrate_person_to_discuss.py --vault /path/to/vault --apply
+
+# Use OBSIDIAN_VAULT_PATH environment variable
+python scripts/migrate_person_to_discuss.py --apply
+```
+
+The script:
+- Scans for `@*.md` files with `type: person`
+- Skips files that already have the "To Discuss" section
+- Adds the section in the correct position (first, before Timeline)
+- Preserves all existing content
 
 ## Development
 
