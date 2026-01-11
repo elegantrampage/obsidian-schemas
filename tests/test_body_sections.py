@@ -14,6 +14,9 @@ from obsidian_schemas.body_sections import (
     get_default_body,
     get_expected_sections,
     ENTITY_BODY_CONFIG,
+    ToDiscussItem,
+    parse_to_discuss_items,
+    write_to_discuss_items,
 )
 
 
@@ -321,3 +324,156 @@ class TestEntityBodyConfig:
         """Unknown entity type returns empty values."""
         assert get_expected_sections("unknown") == []
         assert get_default_body("unknown") == ""
+
+
+class TestToDiscussItem:
+    """Tests for ToDiscussItem dataclass."""
+
+    def test_to_markdown_unchecked(self):
+        """Unchecked item converts to markdown correctly."""
+        item = ToDiscussItem(text="Call about project", completed=False, date_added="2026-01-11")
+        assert item.to_markdown() == "- [ ] Call about project (2026-01-11)"
+
+    def test_to_markdown_checked(self):
+        """Checked item converts to markdown correctly."""
+        item = ToDiscussItem(text="Send proposal", completed=True, date_added="2026-01-08")
+        assert item.to_markdown() == "- [x] Send proposal (2026-01-08)"
+
+    def test_to_markdown_no_date(self):
+        """Item without date converts correctly."""
+        item = ToDiscussItem(text="Quick note", completed=False)
+        assert item.to_markdown() == "- [ ] Quick note"
+
+    def test_from_markdown_unchecked(self):
+        """Parse unchecked item from markdown."""
+        item = ToDiscussItem.from_markdown("- [ ] Call about project (2026-01-11)")
+        assert item is not None
+        assert item.text == "Call about project"
+        assert item.completed is False
+        assert item.date_added == "2026-01-11"
+
+    def test_from_markdown_checked(self):
+        """Parse checked item from markdown."""
+        item = ToDiscussItem.from_markdown("- [x] Send proposal (2026-01-08)")
+        assert item is not None
+        assert item.text == "Send proposal"
+        assert item.completed is True
+        assert item.date_added == "2026-01-08"
+
+    def test_from_markdown_uppercase_x(self):
+        """Parse item with uppercase X."""
+        item = ToDiscussItem.from_markdown("- [X] Done item (2026-01-08)")
+        assert item is not None
+        assert item.completed is True
+
+    def test_from_markdown_no_date(self):
+        """Parse item without date."""
+        item = ToDiscussItem.from_markdown("- [ ] Quick note")
+        assert item is not None
+        assert item.text == "Quick note"
+        assert item.date_added is None
+
+    def test_from_markdown_invalid(self):
+        """Invalid format returns None."""
+        assert ToDiscussItem.from_markdown("Not a checkbox") is None
+        assert ToDiscussItem.from_markdown("- Regular bullet") is None
+        assert ToDiscussItem.from_markdown("") is None
+
+    def test_create_with_today(self):
+        """Create method sets today's date."""
+        from datetime import date
+        item = ToDiscussItem.create("New item")
+        assert item.text == "New item"
+        assert item.completed is False
+        assert item.date_added == date.today().isoformat()
+
+    def test_roundtrip(self):
+        """Item survives markdown roundtrip."""
+        original = ToDiscussItem(text="Test item", completed=False, date_added="2026-01-11")
+        markdown = original.to_markdown()
+        parsed = ToDiscussItem.from_markdown(markdown)
+        assert parsed is not None
+        assert parsed.text == original.text
+        assert parsed.completed == original.completed
+        assert parsed.date_added == original.date_added
+
+
+class TestParseToDiscussItems:
+    """Tests for parse_to_discuss_items()."""
+
+    def test_parse_empty(self):
+        """Empty content returns empty list."""
+        assert parse_to_discuss_items("") == []
+        assert parse_to_discuss_items("   ") == []
+        assert parse_to_discuss_items("\n\n") == []
+
+    def test_parse_single_item(self):
+        """Single item is parsed."""
+        content = "- [ ] Call about project (2026-01-11)\n"
+        items = parse_to_discuss_items(content)
+        assert len(items) == 1
+        assert items[0].text == "Call about project"
+
+    def test_parse_multiple_items(self):
+        """Multiple items are parsed in order."""
+        content = """- [ ] Call about project (2026-01-11)
+- [x] Send proposal (2026-01-08)
+- [ ] Review feedback (2026-01-05)
+"""
+        items = parse_to_discuss_items(content)
+        assert len(items) == 3
+        assert items[0].text == "Call about project"
+        assert items[0].completed is False
+        assert items[1].text == "Send proposal"
+        assert items[1].completed is True
+        assert items[2].text == "Review feedback"
+
+    def test_parse_ignores_non_checkbox_lines(self):
+        """Non-checkbox lines are ignored."""
+        content = """- [ ] Real item (2026-01-11)
+Some random text
+- Another bullet without checkbox
+- [x] Another real item (2026-01-08)
+"""
+        items = parse_to_discuss_items(content)
+        assert len(items) == 2
+        assert items[0].text == "Real item"
+        assert items[1].text == "Another real item"
+
+
+class TestWriteToDiscussItems:
+    """Tests for write_to_discuss_items()."""
+
+    def test_write_empty(self):
+        """Empty list returns empty string."""
+        assert write_to_discuss_items([]) == ""
+
+    def test_write_single_item(self):
+        """Single item is written correctly."""
+        items = [ToDiscussItem(text="Call about project", completed=False, date_added="2026-01-11")]
+        result = write_to_discuss_items(items)
+        assert result == "- [ ] Call about project (2026-01-11)\n"
+
+    def test_write_multiple_items(self):
+        """Multiple items are written with newlines."""
+        items = [
+            ToDiscussItem(text="Call about project", completed=False, date_added="2026-01-11"),
+            ToDiscussItem(text="Send proposal", completed=True, date_added="2026-01-08"),
+        ]
+        result = write_to_discuss_items(items)
+        assert "- [ ] Call about project (2026-01-11)\n" in result
+        assert "- [x] Send proposal (2026-01-08)" in result
+
+    def test_roundtrip(self):
+        """Items survive write -> parse roundtrip."""
+        original = [
+            ToDiscussItem(text="Item one", completed=False, date_added="2026-01-11"),
+            ToDiscussItem(text="Item two", completed=True, date_added="2026-01-08"),
+        ]
+        markdown = write_to_discuss_items(original)
+        parsed = parse_to_discuss_items(markdown)
+        assert len(parsed) == len(original)
+        for orig, pars in zip(original, parsed):
+            assert orig.text == pars.text
+            assert orig.completed == pars.completed
+            assert orig.date_added == pars.date_added

@@ -51,6 +51,9 @@ from obsidian_schemas.body_sections import (
     get_default_body,
     get_expected_sections,
     ENTITY_BODY_CONFIG,
+    ToDiscussItem,
+    parse_to_discuss_items,
+    write_to_discuss_items,
 )
 from obsidian_schemas.repositories import (
     PersonRepository,
@@ -89,6 +92,10 @@ __all__ = [
     "get_default_body",
     "get_expected_sections",
     "ENTITY_BODY_CONFIG",
+    # To Discuss Items
+    "ToDiscussItem",
+    "parse_to_discuss_items",
+    "write_to_discuss_items",
     # Repositories
     "PersonRepository",
     "CompanyRepository",

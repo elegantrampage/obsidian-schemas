@@ -16,11 +16,18 @@ Key functions:
     - prepend_to_section(): Add content at start of section
     - append_to_section(): Add content at end of section
     - ensure_sections_exist(): Add missing sections to body
+
+To Discuss items:
+    - ToDiscussItem: Data class for checklist items with dates
+    - parse_to_discuss_items(): Parse section content into items
+    - write_to_discuss_items(): Convert items back to markdown
 """
 
 import re
 import logging
 from collections import OrderedDict
+from dataclasses import dataclass
+from datetime import date
 from typing import Optional, List
 
 logger = logging.getLogger(__name__)
@@ -339,3 +346,133 @@ def get_expected_sections(entity_type: str) -> List[str]:
     """
     config = ENTITY_BODY_CONFIG.get(entity_type)
     return config["sections"] if config else []
+
+
+# =============================================================================
+# To Discuss Items
+# =============================================================================
+
+# Regex for parsing checkbox items: - [ ] or - [x] followed by text and optional (date)
+TO_DISCUSS_PATTERN = re.compile(
+    r'^- \[([ xX])\] (.+?)(?:\s+\((\d{4}-\d{2}-\d{2})\))?$',
+    re.MULTILINE
+)
+
+
+@dataclass
+class ToDiscussItem:
+    """
+    Represents a single item in the To Discuss section.
+
+    Format in markdown:
+        - [ ] Item text (2026-01-11)    # unchecked item
+        - [x] Item text (2026-01-11)    # checked/completed item
+
+    Attributes:
+        text: The item text content
+        completed: Whether the checkbox is checked
+        date_added: Date the item was added (YYYY-MM-DD string)
+    """
+
+    text: str
+    completed: bool = False
+    date_added: Optional[str] = None
+
+    def to_markdown(self) -> str:
+        """Convert item to markdown checkbox format."""
+        checkbox = "[x]" if self.completed else "[ ]"
+        date_part = f" ({self.date_added})" if self.date_added else ""
+        return f"- {checkbox} {self.text}{date_part}"
+
+    @classmethod
+    def from_markdown(cls, line: str) -> Optional["ToDiscussItem"]:
+        """
+        Parse a single markdown line into a ToDiscussItem.
+
+        Args:
+            line: A line like "- [ ] Item text (2026-01-11)"
+
+        Returns:
+            ToDiscussItem if parsing succeeds, None otherwise
+        """
+        match = TO_DISCUSS_PATTERN.match(line.strip())
+        if not match:
+            return None
+
+        checkbox, text, date_str = match.groups()
+        return cls(
+            text=text.strip(),
+            completed=checkbox.lower() == "x",
+            date_added=date_str,
+        )
+
+    @classmethod
+    def create(cls, text: str, completed: bool = False) -> "ToDiscussItem":
+        """
+        Create a new ToDiscussItem with today's date.
+
+        Args:
+            text: The item text
+            completed: Whether the item is checked
+
+        Returns:
+            New ToDiscussItem with date_added set to today
+        """
+        return cls(
+            text=text,
+            completed=completed,
+            date_added=date.today().isoformat(),
+        )
+
+
+def parse_to_discuss_items(content: str) -> List[ToDiscussItem]:
+    """
+    Parse To Discuss section content into a list of items.
+
+    Args:
+        content: The raw content of a To Discuss section (without heading)
+
+    Returns:
+        List of ToDiscussItem objects, in order they appear
+
+    Example:
+        Input:
+            "- [ ] Call about project (2026-01-11)\\n- [x] Send proposal (2026-01-08)\\n"
+
+        Output:
+            [
+                ToDiscussItem(text="Call about project", completed=False, date_added="2026-01-11"),
+                ToDiscussItem(text="Send proposal", completed=True, date_added="2026-01-08")
+            ]
+    """
+    items = []
+    for line in content.split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        item = ToDiscussItem.from_markdown(line)
+        if item:
+            items.append(item)
+    return items
+
+
+def write_to_discuss_items(items: List[ToDiscussItem]) -> str:
+    """
+    Convert a list of ToDiscussItem objects to markdown content.
+
+    Args:
+        items: List of ToDiscussItem objects
+
+    Returns:
+        Markdown string with one checkbox per line
+
+    Example:
+        Input:
+            [ToDiscussItem(text="Call about project", completed=False, date_added="2026-01-11")]
+
+        Output:
+            "- [ ] Call about project (2026-01-11)\\n"
+    """
+    if not items:
+        return ""
+    return "\n".join(item.to_markdown() for item in items) + "\n"

@@ -6,6 +6,8 @@ Provides fast lookup of Person entities by:
 - Email address
 - Phone number (with normalization)
 - Aliases
+
+Also provides methods for managing To Discuss items.
 """
 
 import re
@@ -14,6 +16,14 @@ from pathlib import Path
 from typing import Optional, List, Type
 
 from ..models import Person
+from ..body_sections import (
+    get_default_body,
+    get_section,
+    update_section,
+    ToDiscussItem,
+    parse_to_discuss_items,
+    write_to_discuss_items,
+)
 from .base import BaseRepository
 
 logger = logging.getLogger(__name__)
@@ -343,7 +353,7 @@ class PersonRepository(BaseRepository[Person]):
         )
 
         extra_fields = {"auto_created": True} if auto_created else None
-        self.save(person, body="## Timeline\n\n", extra_fields=extra_fields)
+        self.save(person, body=get_default_body("person"), extra_fields=extra_fields)
 
         return person
 
@@ -405,4 +415,236 @@ class PersonRepository(BaseRepository[Person]):
 
         except Exception as e:
             logger.warning(f"Failed to update timeline for {person.name}: {e}")
+            return False
+
+    # =========================================================================
+    # To Discuss Methods
+    # =========================================================================
+
+    def _get_body_content(self, person: Person) -> Optional[str]:
+        """Get the body content of a person's markdown file."""
+        file_path = self.get_file_path(person.name)
+        if not file_path or not file_path.exists():
+            return None
+
+        content = file_path.read_text(encoding="utf-8")
+
+        # Split frontmatter and body
+        if content.startswith("---"):
+            parts = content.split("---", 2)
+            if len(parts) >= 3:
+                return parts[2].strip()
+        return content
+
+    def get_to_discuss_items(self, person: Person) -> List[ToDiscussItem]:
+        """
+        Get all To Discuss items for a person.
+
+        Args:
+            person: The person to get items for
+
+        Returns:
+            List of ToDiscussItem objects, or empty list if none
+
+        Raises:
+            ValueError: If person not found in repository
+        """
+        body = self._get_body_content(person)
+        if body is None:
+            raise ValueError(f"Person file not found: {person.name}")
+
+        section_content = get_section(body, "To Discuss")
+        if not section_content:
+            return []
+
+        return parse_to_discuss_items(section_content)
+
+    def add_to_discuss_item(self, person: Person, text: str) -> bool:
+        """
+        Add a new To Discuss item for a person.
+
+        Creates an unchecked item with today's date.
+
+        Args:
+            person: The person to add item for
+            text: The item text
+
+        Returns:
+            True if item was added, False on error
+
+        Raises:
+            ValueError: If person not found in repository
+        """
+        file_path = self.get_file_path(person.name)
+        if not file_path or not file_path.exists():
+            raise ValueError(f"Person file not found: {person.name}")
+
+        try:
+            content = file_path.read_text(encoding="utf-8")
+
+            # Split frontmatter and body
+            if content.startswith("---"):
+                parts = content.split("---", 2)
+                if len(parts) >= 3:
+                    frontmatter = parts[1]
+                    body = parts[2].lstrip("\n")
+                else:
+                    return False
+            else:
+                return False
+
+            # Get existing items and add new one
+            section_content = get_section(body, "To Discuss")
+            items = parse_to_discuss_items(section_content) if section_content else []
+            new_item = ToDiscussItem.create(text)
+            items.append(new_item)
+
+            # Update section
+            new_section_content = write_to_discuss_items(items)
+            new_body = update_section(body, "To Discuss", new_section_content, create_if_missing=True)
+
+            # Write back
+            new_content = f"---{frontmatter}---\n{new_body}"
+            file_path.write_text(new_content, encoding="utf-8")
+
+            logger.info(f"Added To Discuss item for {person.name}: {text[:50]}")
+            return True
+
+        except Exception as e:
+            logger.warning(f"Failed to add To Discuss item for {person.name}: {e}")
+            return False
+
+    def update_to_discuss_item(
+        self,
+        person: Person,
+        text: str,
+        completed: bool,
+    ) -> bool:
+        """
+        Update a To Discuss item's completion status.
+
+        Args:
+            person: The person to update item for
+            text: The item text to match (exact match)
+            completed: New completion status
+
+        Returns:
+            True if item was updated, False if not found or error
+
+        Raises:
+            ValueError: If person not found in repository
+        """
+        file_path = self.get_file_path(person.name)
+        if not file_path or not file_path.exists():
+            raise ValueError(f"Person file not found: {person.name}")
+
+        try:
+            content = file_path.read_text(encoding="utf-8")
+
+            # Split frontmatter and body
+            if content.startswith("---"):
+                parts = content.split("---", 2)
+                if len(parts) >= 3:
+                    frontmatter = parts[1]
+                    body = parts[2].lstrip("\n")
+                else:
+                    return False
+            else:
+                return False
+
+            # Get existing items
+            section_content = get_section(body, "To Discuss")
+            if not section_content:
+                return False
+
+            items = parse_to_discuss_items(section_content)
+
+            # Find and update the item
+            found = False
+            for item in items:
+                if item.text == text:
+                    item.completed = completed
+                    found = True
+                    break
+
+            if not found:
+                logger.debug(f"To Discuss item not found for {person.name}: {text[:50]}")
+                return False
+
+            # Update section
+            new_section_content = write_to_discuss_items(items)
+            new_body = update_section(body, "To Discuss", new_section_content)
+
+            # Write back
+            new_content = f"---{frontmatter}---\n{new_body}"
+            file_path.write_text(new_content, encoding="utf-8")
+
+            status = "completed" if completed else "uncompleted"
+            logger.info(f"Marked To Discuss item as {status} for {person.name}: {text[:50]}")
+            return True
+
+        except Exception as e:
+            logger.warning(f"Failed to update To Discuss item for {person.name}: {e}")
+            return False
+
+    def remove_to_discuss_item(self, person: Person, text: str) -> bool:
+        """
+        Remove a To Discuss item.
+
+        Args:
+            person: The person to remove item from
+            text: The item text to match (exact match)
+
+        Returns:
+            True if item was removed, False if not found or error
+
+        Raises:
+            ValueError: If person not found in repository
+        """
+        file_path = self.get_file_path(person.name)
+        if not file_path or not file_path.exists():
+            raise ValueError(f"Person file not found: {person.name}")
+
+        try:
+            content = file_path.read_text(encoding="utf-8")
+
+            # Split frontmatter and body
+            if content.startswith("---"):
+                parts = content.split("---", 2)
+                if len(parts) >= 3:
+                    frontmatter = parts[1]
+                    body = parts[2].lstrip("\n")
+                else:
+                    return False
+            else:
+                return False
+
+            # Get existing items
+            section_content = get_section(body, "To Discuss")
+            if not section_content:
+                return False
+
+            items = parse_to_discuss_items(section_content)
+            original_count = len(items)
+
+            # Filter out the item to remove
+            items = [item for item in items if item.text != text]
+
+            if len(items) == original_count:
+                logger.debug(f"To Discuss item not found for {person.name}: {text[:50]}")
+                return False
+
+            # Update section
+            new_section_content = write_to_discuss_items(items)
+            new_body = update_section(body, "To Discuss", new_section_content)
+
+            # Write back
+            new_content = f"---{frontmatter}---\n{new_body}"
+            file_path.write_text(new_content, encoding="utf-8")
+
+            logger.info(f"Removed To Discuss item for {person.name}: {text[:50]}")
+            return True
+
+        except Exception as e:
+            logger.warning(f"Failed to remove To Discuss item for {person.name}: {e}")
             return False

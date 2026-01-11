@@ -400,6 +400,172 @@ tags:
             repo.append_to_timeline(fake_person, "### Entry\n")
 
 
+class TestToDiscussMethods:
+    """Tests for To Discuss repository methods."""
+
+    @pytest.fixture
+    def vault_with_to_discuss(self, tmp_path):
+        """Create a vault with a person that has To Discuss items."""
+        vault = tmp_path / "vault"
+        vault.mkdir()
+
+        # Person with existing To Discuss items
+        (vault / "@John Smith.md").write_text("""---
+type: person
+name: John Smith
+tags:
+  - person
+created: "2025-01-01"
+---
+
+## To Discuss
+- [ ] Call about project proposal (2026-01-11)
+- [x] Review contract terms (2026-01-08)
+
+## Timeline
+
+## Notes
+Some notes here.
+""")
+
+        # Person without To Discuss section
+        (vault / "@Jane Doe.md").write_text("""---
+type: person
+name: Jane Doe
+tags:
+  - person
+created: "2025-01-01"
+---
+
+## Timeline
+
+## Notes
+""")
+
+        return vault
+
+    def test_get_to_discuss_items(self, vault_with_to_discuss):
+        """Test getting To Discuss items."""
+        repo = PersonRepository(vault_with_to_discuss)
+        person = repo.get("John Smith")
+        items = repo.get_to_discuss_items(person)
+
+        assert len(items) == 2
+        assert items[0].text == "Call about project proposal"
+        assert items[0].completed is False
+        assert items[0].date_added == "2026-01-11"
+        assert items[1].text == "Review contract terms"
+        assert items[1].completed is True
+
+    def test_get_to_discuss_items_empty(self, vault_with_to_discuss):
+        """Test getting items when section is empty or missing."""
+        repo = PersonRepository(vault_with_to_discuss)
+        person = repo.get("Jane Doe")
+        items = repo.get_to_discuss_items(person)
+        assert items == []
+
+    def test_get_to_discuss_items_not_found(self, vault_with_to_discuss):
+        """Test error for unknown person."""
+        repo = PersonRepository(vault_with_to_discuss)
+        fake_person = Person(name="Unknown", type="person")
+
+        with pytest.raises(ValueError, match="not found"):
+            repo.get_to_discuss_items(fake_person)
+
+    def test_add_to_discuss_item(self, vault_with_to_discuss):
+        """Test adding a new To Discuss item."""
+        repo = PersonRepository(vault_with_to_discuss)
+        person = repo.get("John Smith")
+
+        result = repo.add_to_discuss_item(person, "New discussion topic")
+        assert result is True
+
+        # Verify item was added
+        items = repo.get_to_discuss_items(person)
+        assert len(items) == 3
+        assert items[2].text == "New discussion topic"
+        assert items[2].completed is False
+        # Date should be today
+        from datetime import date
+        assert items[2].date_added == date.today().isoformat()
+
+    def test_add_to_discuss_item_creates_section(self, vault_with_to_discuss):
+        """Test adding item creates section if missing."""
+        repo = PersonRepository(vault_with_to_discuss)
+        person = repo.get("Jane Doe")
+
+        result = repo.add_to_discuss_item(person, "First item")
+        assert result is True
+
+        items = repo.get_to_discuss_items(person)
+        assert len(items) == 1
+        assert items[0].text == "First item"
+
+    def test_update_to_discuss_item_complete(self, vault_with_to_discuss):
+        """Test marking an item as complete."""
+        repo = PersonRepository(vault_with_to_discuss)
+        person = repo.get("John Smith")
+
+        result = repo.update_to_discuss_item(person, "Call about project proposal", completed=True)
+        assert result is True
+
+        items = repo.get_to_discuss_items(person)
+        call_item = next(i for i in items if "project proposal" in i.text)
+        assert call_item.completed is True
+
+    def test_update_to_discuss_item_uncomplete(self, vault_with_to_discuss):
+        """Test marking an item as not complete."""
+        repo = PersonRepository(vault_with_to_discuss)
+        person = repo.get("John Smith")
+
+        result = repo.update_to_discuss_item(person, "Review contract terms", completed=False)
+        assert result is True
+
+        items = repo.get_to_discuss_items(person)
+        review_item = next(i for i in items if "contract terms" in i.text)
+        assert review_item.completed is False
+
+    def test_update_to_discuss_item_not_found(self, vault_with_to_discuss):
+        """Test updating non-existent item returns False."""
+        repo = PersonRepository(vault_with_to_discuss)
+        person = repo.get("John Smith")
+
+        result = repo.update_to_discuss_item(person, "Non-existent item", completed=True)
+        assert result is False
+
+    def test_remove_to_discuss_item(self, vault_with_to_discuss):
+        """Test removing a To Discuss item."""
+        repo = PersonRepository(vault_with_to_discuss)
+        person = repo.get("John Smith")
+
+        result = repo.remove_to_discuss_item(person, "Call about project proposal")
+        assert result is True
+
+        items = repo.get_to_discuss_items(person)
+        assert len(items) == 1
+        assert items[0].text == "Review contract terms"
+
+    def test_remove_to_discuss_item_not_found(self, vault_with_to_discuss):
+        """Test removing non-existent item returns False."""
+        repo = PersonRepository(vault_with_to_discuss)
+        person = repo.get("John Smith")
+
+        result = repo.remove_to_discuss_item(person, "Non-existent item")
+        assert result is False
+
+    def test_create_stub_has_to_discuss_section(self, vault_with_to_discuss):
+        """Test that create_stub creates person with To Discuss section."""
+        repo = PersonRepository(vault_with_to_discuss)
+        person = repo.create_stub("New Contact", email="new@example.com")
+
+        # Verify the file has To Discuss section
+        file_path = vault_with_to_discuss / "@New Contact.md"
+        content = file_path.read_text()
+        assert "## To Discuss" in content
+        assert "## Timeline" in content
+        assert "## Notes" in content
+
+
 class TestCompanyRepository:
     """Tests for CompanyRepository."""
 
