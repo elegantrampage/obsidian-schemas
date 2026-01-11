@@ -58,6 +58,8 @@ from obsidian_schemas.body_sections import (
 from obsidian_schemas.repositories import (
     PersonRepository,
     CompanyRepository,
+    BookRepository,
+    MeetingRepository,
 )
 
 __version__ = "0.1.0"
@@ -99,4 +101,6 @@ __all__ = [
     # Repositories
     "PersonRepository",
     "CompanyRepository",
+    "BookRepository",
+    "MeetingRepository",
 ]

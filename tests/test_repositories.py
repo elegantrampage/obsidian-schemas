@@ -4,7 +4,10 @@ import pytest
 import tempfile
 from pathlib import Path
 
-from obsidian_schemas import PersonRepository, CompanyRepository, Person, Company
+from obsidian_schemas import (
+    PersonRepository, CompanyRepository, BookRepository, MeetingRepository,
+    Person, Company, Book, Meeting
+)
 
 
 @pytest.fixture
@@ -94,6 +97,138 @@ tags:
 ---
 
 Just some notes.
+""")
+
+        # Create test book files
+        (vault / "4,000 Weeks - Oliver Burkeman.md").write_text("""---
+type: book
+title: "4,000 Weeks"
+author: Oliver Burkeman
+description: "A book about time management"
+status: read
+rating: "5"
+isbn: "9781473545557"
+publisher: Random House
+publication_year: "2021"
+tags:
+  - book
+  - Self-Help
+source_url: ""
+date_added: "2025-01-01"
+date_finished: "2025-02-01"
+---
+
+# 4,000 Weeks
+
+## Notes
+Great book about productivity.
+""")
+
+        (vault / "Children of Time - Adrian Tchaikovsky.md").write_text("""---
+type: book
+title: Children of Time
+author: Adrian Tchaikovsky
+description: "Sci-fi epic about evolution"
+status: reading
+rating: ""
+isbn: "9781447273301"
+publisher: ""
+publication_year: "2015"
+tags:
+  - book
+  - Fiction
+source_url: ""
+date_added: "2025-03-01"
+date_finished: ""
+---
+
+# Children of Time
+
+## Notes
+""")
+
+        (vault / "Deep Work - Cal Newport.md").write_text("""---
+type: book
+title: Deep Work
+author: Cal Newport
+description: "Focus in a distracted world"
+status: to-read
+rating: ""
+isbn: ""
+publisher: ""
+publication_year: ""
+tags:
+  - book
+source_url: ""
+date_added: "2025-04-01"
+date_finished: ""
+---
+
+# Deep Work
+
+## Notes
+""")
+
+        # Create test meeting files
+        (vault / "Meeting 20251201 - Product Planning.md").write_text("""---
+type: meeting
+date: "2025-12-01"
+attendees:
+  - John Smith
+  - Jane Doe
+topics:
+  - Product roadmap
+  - Q1 planning
+  - Budget review
+meeting_id: "meeting_20251201_product"
+tags:
+  - meeting
+---
+
+# Product Planning Meeting
+
+## Notes
+Discussed Q1 priorities.
+""")
+
+        (vault / "Meeting 20251203 - Engineering Sync.md").write_text("""---
+type: meeting
+date: "2025-12-03"
+attendees:
+  - John Smith
+  - Alice Chen
+topics:
+  - Technical debt
+  - Sprint planning
+meeting_id: "meeting_20251203_eng"
+tags:
+  - meeting
+---
+
+# Engineering Sync
+
+## Notes
+Sprint planning completed.
+""")
+
+        (vault / "Meeting 20251203 - Sales Review.md").write_text("""---
+type: meeting
+date: "2025-12-03"
+attendees:
+  - Jane Doe
+  - Bob Wilson
+topics:
+  - Q4 results
+  - Pipeline review
+meeting_id: "meeting_20251203_sales"
+tags:
+  - meeting
+---
+
+# Sales Review
+
+## Notes
+Strong Q4 performance.
 """)
 
         yield vault
@@ -666,3 +801,263 @@ class TestPhoneNormalization:
     def test_phones_match_us_format(self):
         from obsidian_schemas.repositories.person import phones_match
         assert phones_match("15551234567", "5551234567")
+
+
+class TestBookRepository:
+    """Tests for BookRepository."""
+
+    def test_load_vault(self, temp_vault):
+        """Test loading books from vault."""
+        repo = BookRepository(temp_vault)
+        assert len(repo) == 3
+
+    def test_get_by_title(self, temp_vault):
+        """Test getting book by title."""
+        repo = BookRepository(temp_vault)
+        book = repo.get("4,000 Weeks")
+        assert book is not None
+        assert book.title == "4,000 Weeks"
+        assert book.author == "Oliver Burkeman"
+
+    def test_get_by_title_case_insensitive(self, temp_vault):
+        """Test case-insensitive title lookup."""
+        repo = BookRepository(temp_vault)
+        book = repo.get("deep work")
+        assert book is not None
+        assert book.title == "Deep Work"
+
+    def test_get_by_author(self, temp_vault):
+        """Test getting books by author."""
+        repo = BookRepository(temp_vault)
+        books = repo.get_by_author("Oliver Burkeman")
+        assert len(books) == 1
+        assert books[0].title == "4,000 Weeks"
+
+    def test_get_by_author_case_insensitive(self, temp_vault):
+        """Test case-insensitive author lookup."""
+        repo = BookRepository(temp_vault)
+        books = repo.get_by_author("adrian tchaikovsky")
+        assert len(books) == 1
+        assert books[0].title == "Children of Time"
+
+    def test_get_by_isbn(self, temp_vault):
+        """Test getting book by ISBN."""
+        repo = BookRepository(temp_vault)
+        book = repo.get_by_isbn("9781473545557")
+        assert book is not None
+        assert book.title == "4,000 Weeks"
+
+    def test_get_by_isbn_with_dashes(self, temp_vault):
+        """Test ISBN lookup strips dashes."""
+        repo = BookRepository(temp_vault)
+        book = repo.get_by_isbn("978-1447273301")
+        assert book is not None
+        assert book.title == "Children of Time"
+
+    def test_get_by_status(self, temp_vault):
+        """Test getting books by status."""
+        repo = BookRepository(temp_vault)
+
+        read = repo.get_by_status("read")
+        assert len(read) == 1
+        assert read[0].title == "4,000 Weeks"
+
+        reading = repo.get_by_status("reading")
+        assert len(reading) == 1
+        assert reading[0].title == "Children of Time"
+
+        to_read = repo.get_by_status("to-read")
+        assert len(to_read) == 1
+        assert to_read[0].title == "Deep Work"
+
+    def test_resolve_by_title(self, temp_vault):
+        """Test resolve finds by title."""
+        repo = BookRepository(temp_vault)
+        book = repo.resolve("Children of Time")
+        assert book is not None
+        assert book.title == "Children of Time"
+
+    def test_resolve_by_isbn(self, temp_vault):
+        """Test resolve finds by ISBN."""
+        repo = BookRepository(temp_vault)
+        book = repo.resolve("9781473545557")
+        assert book is not None
+        assert book.title == "4,000 Weeks"
+
+    def test_resolve_by_partial_title(self, temp_vault):
+        """Test resolve finds by partial title."""
+        repo = BookRepository(temp_vault)
+        book = repo.resolve("Weeks")
+        assert book is not None
+        assert book.title == "4,000 Weeks"
+
+    def test_resolve_by_author(self, temp_vault):
+        """Test resolve finds by author (returns first book)."""
+        repo = BookRepository(temp_vault)
+        book = repo.resolve("Cal Newport")
+        assert book is not None
+        assert book.title == "Deep Work"
+
+    def test_resolve_not_found(self, temp_vault):
+        """Test resolve returns None when not found."""
+        repo = BookRepository(temp_vault)
+        book = repo.resolve("Nonexistent Book")
+        assert book is None
+
+    def test_create_stub(self, temp_vault):
+        """Test creating a stub book."""
+        repo = BookRepository(temp_vault)
+        book = repo.create_stub(
+            title="New Book",
+            author="New Author",
+            status="to-read"
+        )
+        assert book.title == "New Book"
+        assert book.author == "New Author"
+        assert book.status == "to-read"
+        assert "New Book" in repo
+        assert (temp_vault / "New Book - New Author.md").exists()
+
+    def test_create_stub_without_author(self, temp_vault):
+        """Test creating a stub book without author."""
+        repo = BookRepository(temp_vault)
+        book = repo.create_stub(title="Solo Book")
+        assert book.title == "Solo Book"
+        assert book.author == ""
+        assert (temp_vault / "Solo Book.md").exists()
+
+
+class TestMeetingRepository:
+    """Tests for MeetingRepository."""
+
+    def test_load_vault(self, temp_vault):
+        """Test loading meetings from vault."""
+        repo = MeetingRepository(temp_vault)
+        assert len(repo) == 3
+
+    def test_get_by_meeting_id(self, temp_vault):
+        """Test getting meeting by meeting_id."""
+        repo = MeetingRepository(temp_vault)
+        meeting = repo.get_by_meeting_id("meeting_20251201_product")
+        assert meeting is not None
+        assert meeting.date == "2025-12-01"
+        assert "John Smith" in meeting.attendees
+
+    def test_get_by_meeting_id_case_insensitive(self, temp_vault):
+        """Test case-insensitive meeting_id lookup."""
+        repo = MeetingRepository(temp_vault)
+        meeting = repo.get_by_meeting_id("MEETING_20251203_ENG")
+        assert meeting is not None
+        assert meeting.date == "2025-12-03"
+
+    def test_get_by_date_single(self, temp_vault):
+        """Test getting meetings on a date with one meeting."""
+        repo = MeetingRepository(temp_vault)
+        meetings = repo.get_by_date("2025-12-01")
+        assert len(meetings) == 1
+        assert meetings[0].meeting_id == "meeting_20251201_product"
+
+    def test_get_by_date_multiple(self, temp_vault):
+        """Test getting meetings on a date with multiple meetings."""
+        repo = MeetingRepository(temp_vault)
+        meetings = repo.get_by_date("2025-12-03")
+        assert len(meetings) == 2
+        meeting_ids = {m.meeting_id for m in meetings}
+        assert meeting_ids == {"meeting_20251203_eng", "meeting_20251203_sales"}
+
+    def test_get_by_date_range(self, temp_vault):
+        """Test getting meetings in a date range."""
+        repo = MeetingRepository(temp_vault)
+        meetings = repo.get_by_date_range("2025-12-01", "2025-12-03")
+        assert len(meetings) == 3
+
+    def test_get_by_date_range_partial(self, temp_vault):
+        """Test getting meetings in a partial date range."""
+        repo = MeetingRepository(temp_vault)
+        meetings = repo.get_by_date_range("2025-12-02", "2025-12-03")
+        assert len(meetings) == 2
+
+    def test_get_by_attendee(self, temp_vault):
+        """Test getting meetings by attendee."""
+        repo = MeetingRepository(temp_vault)
+        meetings = repo.get_by_attendee("John Smith")
+        assert len(meetings) == 2
+        # John attended Product Planning and Engineering Sync
+
+    def test_get_by_attendee_case_insensitive(self, temp_vault):
+        """Test case-insensitive attendee lookup."""
+        repo = MeetingRepository(temp_vault)
+        meetings = repo.get_by_attendee("jane doe")
+        assert len(meetings) == 2
+        # Jane attended Product Planning and Sales Review
+
+    def test_get_by_topic(self, temp_vault):
+        """Test getting meetings by topic."""
+        repo = MeetingRepository(temp_vault)
+        meetings = repo.get_by_topic("Sprint planning")
+        assert len(meetings) == 1
+        assert meetings[0].meeting_id == "meeting_20251203_eng"
+
+    def test_search_topics(self, temp_vault):
+        """Test searching meetings by partial topic."""
+        repo = MeetingRepository(temp_vault)
+        meetings = repo.search_topics("planning")
+        assert len(meetings) == 2
+        # "Q1 planning" and "Sprint planning"
+
+    def test_resolve_by_meeting_id(self, temp_vault):
+        """Test resolve finds by meeting_id."""
+        repo = MeetingRepository(temp_vault)
+        meeting = repo.resolve("meeting_20251203_sales")
+        assert meeting is not None
+        assert "Bob Wilson" in meeting.attendees
+
+    def test_resolve_by_date(self, temp_vault):
+        """Test resolve finds by date."""
+        repo = MeetingRepository(temp_vault)
+        meeting = repo.resolve("2025-12-01")
+        assert meeting is not None
+        assert meeting.meeting_id == "meeting_20251201_product"
+
+    def test_resolve_by_attendee(self, temp_vault):
+        """Test resolve finds by attendee (returns most recent)."""
+        repo = MeetingRepository(temp_vault)
+        meeting = repo.resolve("Alice Chen")
+        assert meeting is not None
+        # Alice only attended Engineering Sync
+        assert meeting.meeting_id == "meeting_20251203_eng"
+
+    def test_resolve_by_topic(self, temp_vault):
+        """Test resolve finds by topic search."""
+        repo = MeetingRepository(temp_vault)
+        meeting = repo.resolve("Technical")
+        assert meeting is not None
+        assert "Technical debt" in meeting.topics
+
+    def test_resolve_not_found(self, temp_vault):
+        """Test resolve returns None when not found."""
+        repo = MeetingRepository(temp_vault)
+        meeting = repo.resolve("Nonexistent Meeting")
+        assert meeting is None
+
+    def test_get_recent(self, temp_vault):
+        """Test getting most recent meetings."""
+        repo = MeetingRepository(temp_vault)
+        recent = repo.get_recent(limit=2)
+        assert len(recent) == 2
+        # Most recent date should be first (2025-12-03)
+        assert recent[0].date == "2025-12-03"
+        assert recent[1].date == "2025-12-03"
+
+    def test_get_all(self, temp_vault):
+        """Test getting all meetings."""
+        repo = MeetingRepository(temp_vault)
+        all_meetings = repo.get_all()
+        assert len(all_meetings) == 3
+
+    def test_contains(self, temp_vault):
+        """Test __contains__ for checking existence."""
+        repo = MeetingRepository(temp_vault)
+        # Contains uses cache_key which is meeting_id for meetings
+        assert "meeting_20251201_product" in repo
+        assert "nonexistent" not in repo
