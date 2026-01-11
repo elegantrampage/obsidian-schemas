@@ -258,6 +258,79 @@ tags:
         assert "New Person" in repo
         assert len(repo) == 3
 
+    def test_update_fields_single(self, temp_vault):
+        """Test updating a single field."""
+        repo = PersonRepository(temp_vault)
+        person = repo.get("John Smith")
+        assert person.title == "CTO"
+
+        updated = repo.update_fields(person, {"title": "CEO"})
+
+        assert updated.title == "CEO"
+        # Cache should be updated
+        assert repo.get("John Smith").title == "CEO"
+
+    def test_update_fields_multiple(self, temp_vault):
+        """Test updating multiple fields at once."""
+        repo = PersonRepository(temp_vault)
+        person = repo.get("John Smith")
+
+        updated = repo.update_fields(person, {
+            "title": "Founder",
+            "company": "New Venture"
+        })
+
+        assert updated.title == "Founder"
+        assert updated.company == "New Venture"
+        # Original fields should be preserved
+        assert updated.name == "John Smith"
+        assert "john@example.com" in updated.emails
+
+    def test_update_fields_preserves_body(self, temp_vault):
+        """Test that updating fields preserves the markdown body."""
+        # First add some content to the body
+        file_path = temp_vault / "@John Smith.md"
+        content = file_path.read_text()
+        content = content.replace(
+            "## Timeline\n",
+            "## Timeline\n\n### January 2026\nMet at conference.\n"
+        )
+        file_path.write_text(content)
+
+        repo = PersonRepository(temp_vault)
+        person = repo.get("John Smith")
+
+        # Update a field
+        repo.update_fields(person, {"title": "Updated Title"})
+
+        # Body should be preserved
+        new_content = file_path.read_text()
+        assert "Met at conference." in new_content
+        assert "### January 2026" in new_content
+
+    def test_update_fields_not_found(self, temp_vault):
+        """Test update_fields raises for unknown entity."""
+        repo = PersonRepository(temp_vault)
+        # Create a person object not in the repo
+        fake_person = Person(name="Unknown Person", type="person")
+
+        with pytest.raises(ValueError, match="not found in repository"):
+            repo.update_fields(fake_person, {"title": "Test"})
+
+    def test_update_fields_updates_indexes(self, temp_vault):
+        """Test that updating indexed fields updates the indexes."""
+        repo = PersonRepository(temp_vault)
+        person = repo.get("John Smith")
+
+        # Update email
+        repo.update_fields(person, {"emails": ["newemail@example.com"]})
+
+        # Old email should not find the person
+        assert repo.get_by_email("john@example.com") is None
+        # New email should find the person
+        assert repo.get_by_email("newemail@example.com") is not None
+        assert repo.get_by_email("newemail@example.com").name == "John Smith"
+
 
 class TestCompanyRepository:
     """Tests for CompanyRepository."""

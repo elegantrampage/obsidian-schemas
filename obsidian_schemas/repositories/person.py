@@ -131,6 +131,34 @@ class PersonRepository(BaseRepository[Person]):
         self._phone_index.clear()
         self._alias_index.clear()
 
+    def _remove_entity_from_indexes(self, entity: Person, cache_key: str) -> None:
+        """Remove a person's entries from all indexes."""
+        # Remove emails from index
+        for email in entity.emails:
+            if email:
+                email_lower = email.lower()
+                if self._email_index.get(email_lower) == cache_key:
+                    del self._email_index[email_lower]
+
+        # Remove phones from index
+        for phone in entity.phones:
+            norm = normalize_phone(phone)
+            if norm and self._phone_index.get(norm) == cache_key:
+                del self._phone_index[norm]
+
+        # Remove WhatsApp from index
+        if entity.whatsapp:
+            norm = normalize_phone(entity.whatsapp)
+            if norm and self._phone_index.get(norm) == cache_key:
+                del self._phone_index[norm]
+
+        # Remove aliases from index
+        for alias in entity.aliases:
+            if alias:
+                alias_lower = alias.lower()
+                if self._alias_index.get(alias_lower) == cache_key:
+                    del self._alias_index[alias_lower]
+
     def get_by_email(self, email: str) -> Optional[Person]:
         """
         Get a person by email address.

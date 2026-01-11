@@ -9,11 +9,11 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Generic, TypeVar, Optional, List, Type
+from typing import Any, Generic, TypeVar, Optional, List, Type
 
 from ..models import BaseEntity
-from ..parser import parse_markdown_file
-from ..writer import write_markdown_file
+from ..parser import parse_markdown_file, parse_frontmatter
+from ..writer import write_markdown_file, write_frontmatter
 
 logger = logging.getLogger(__name__)
 
@@ -214,6 +214,69 @@ class BaseRepository(ABC, Generic[T]):
         logger.info(f"Saved {self.type_name}: {filename}")
         return file_path
 
+    def update_fields(
+        self,
+        entity: T,
+        updates: dict[str, Any],
+    ) -> T:
+        """
+        Update frontmatter fields for an entity while preserving body content.
+
+        This is the preferred way to modify entity fields - it reads the current
+        file, updates only the specified fields, and writes back preserving the
+        body and any extra fields.
+
+        Args:
+            entity: The entity to update (must already exist in vault)
+            updates: Dictionary of field names to new values
+
+        Returns:
+            Updated entity instance
+
+        Raises:
+            ValueError: If entity not found in repository
+            FileNotFoundError: If entity's file doesn't exist
+        """
+        name = getattr(entity, "name", "")
+        file_path = self.get_file_path(name)
+
+        if file_path is None:
+            raise ValueError(f"{self.type_name} not found in repository: {name}")
+
+        if not file_path.exists():
+            raise FileNotFoundError(f"File not found: {file_path}")
+
+        # Read current file content
+        content = file_path.read_text(encoding="utf-8")
+        frontmatter, body = parse_frontmatter(content)
+
+        # Update frontmatter with new values
+        frontmatter.update(updates)
+
+        # Rebuild and write file
+        yaml_content = write_frontmatter(frontmatter)
+        new_content = f"---\n{yaml_content}---\n{body}"
+        file_path.write_text(new_content, encoding="utf-8")
+
+        # Reload entity from file to get updated model
+        updated_entity = self._load_file(file_path)
+        if updated_entity is None:
+            raise ValueError(f"Failed to reload {self.type_name} after update: {name}")
+
+        # Update cache and indexes
+        name_key = self._get_cache_key(updated_entity)
+
+        # Remove old entity from indexes before adding updated version
+        old_entity = self._cache.get(name_key)
+        if old_entity:
+            self._remove_entity_from_indexes(old_entity, name_key)
+
+        self._cache[name_key] = updated_entity
+        self._index_entity(updated_entity, name_key)
+
+        logger.info(f"Updated {self.type_name} fields: {name} -> {list(updates.keys())}")
+        return updated_entity
+
     def refresh(self) -> int:
         """
         Refresh the cache by reloading from vault.
@@ -227,6 +290,19 @@ class BaseRepository(ABC, Generic[T]):
 
     def _clear_indexes(self) -> None:
         """Clear any custom indexes. Override in subclasses."""
+        pass
+
+    def _remove_entity_from_indexes(self, entity: T, cache_key: str) -> None:
+        """
+        Remove a specific entity's entries from indexes.
+
+        Override in subclasses to remove entity-specific index entries.
+        Called before re-indexing during updates.
+
+        Args:
+            entity: The entity being removed/updated
+            cache_key: The cache key for this entity
+        """
         pass
 
     def __len__(self) -> int:
