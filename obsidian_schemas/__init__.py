@@ -40,6 +40,18 @@ from obsidian_schemas.writer import (
     write_markdown_file,
     update_frontmatter_field,
 )
+from obsidian_schemas.body_sections import (
+    parse_body_sections,
+    write_body_sections,
+    get_section,
+    update_section,
+    prepend_to_section,
+    append_to_section,
+    ensure_sections_exist,
+    get_default_body,
+    get_expected_sections,
+    ENTITY_BODY_CONFIG,
+)
 from obsidian_schemas.repositories import (
     PersonRepository,
     CompanyRepository,
@@ -66,6 +78,17 @@ __all__ = [
     "write_frontmatter",
     "write_markdown_file",
     "update_frontmatter_field",
+    # Body Sections
+    "parse_body_sections",
+    "write_body_sections",
+    "get_section",
+    "update_section",
+    "prepend_to_section",
+    "append_to_section",
+    "ensure_sections_exist",
+    "get_default_body",
+    "get_expected_sections",
+    "ENTITY_BODY_CONFIG",
     # Repositories
     "PersonRepository",
     "CompanyRepository",
