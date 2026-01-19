@@ -4,7 +4,37 @@ Detailed history of work on obsidian-schemas.
 
 ---
 
+## 2026-01-19
+
+### Birthday Field Addition
+- Added `birthday: str = ""` field to Person model (DD-MM-YYYY or DD-MM format)
+- Updated docstring with birthday format documentation
+- Added 4 regression tests for birthday field
+- Commit: `d075018` pushed to main
+
+---
+
 ## 2026-01-11
+
+### Entity CRUD System - BookRepository & MeetingRepository
+
+- Added `BookRepository` (`repositories/book.py`, 346 lines)
+  - Custom indexes: `_author_index`, `_isbn_index`
+  - Methods: `get_by_author()`, `get_by_status()`, `get_by_isbn()`, `resolve()`
+  - Overrode `_load_file()` to filter by `type: book` in frontmatter
+  - Overrode `save()` to use "Title - Author.md" filename format
+  - 15 tests
+
+- Added `MeetingRepository` (`repositories/meeting.py`, 415 lines)
+  - Custom indexes: `_meeting_id_index`, `_date_index`, `_attendee_index`, `_topic_index`
+  - Methods: `get_by_meeting_id()`, `get_by_date()`, `get_by_date_range()`, `get_by_attendee()`, `get_by_topic()`, `resolve()`
+  - 19 tests
+
+- Made repo public for HAL9000 CI access
+- PR #1 merged
+- Total: 183 tests passing
+
+---
 
 ### To Discuss Feature (continued from previous session)
 

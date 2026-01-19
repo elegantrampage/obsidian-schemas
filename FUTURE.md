@@ -38,15 +38,16 @@ Deferred features and improvements for obsidian-schemas.
 
 ## Additional Repositories
 
-### MeetingRepository
-- Load meeting notes
-- Query by date range, attendees, topics
-- Link to PersonRepository for attendee resolution
+### ~~MeetingRepository~~ ✅ DONE (2026-01-11)
+- ~~Load meeting notes~~
+- ~~Query by date range, attendees, topics~~
+- ~~Link to PersonRepository for attendee resolution~~
 
-### BookRepository / WatchRepository
-- Load reading list / watch list
-- Query by status (to-read, reading, read)
-- Useful for "what should I read next?" queries
+### ~~BookRepository~~ ✅ DONE (2026-01-11) / WatchRepository
+- ~~Load reading list / watch list~~
+- ~~Query by status (to-read, reading, read)~~
+- ~~Useful for "what should I read next?" queries~~
+- WatchRepository still TODO
 
 ## Person Schema Enhancements
 
