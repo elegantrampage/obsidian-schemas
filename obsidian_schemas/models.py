@@ -54,8 +54,11 @@ class Person(BaseEntity):
         title: ""
         linkedin: ""
         roles: []
+        birthday: ""
         tags: [person]
         created: "{{date}}"
+
+    Birthday format: DD-MM-YYYY or DD-MM if year is unknown.
 
     Roles:
         Array of role identifiers that modify assistant behavior for this contact.
@@ -80,6 +83,7 @@ class Person(BaseEntity):
     title: str = ""
     linkedin: str = ""
     roles: List[str] = Field(default_factory=list)
+    birthday: str = ""
     created: str = ""
 
     def get_primary_email(self) -> Optional[str]:

@@ -61,6 +61,45 @@ class TestPerson:
         person = Person(name="John Smith")
         assert person.to_entity_id() == "person_john_smith"
 
+    def test_person_birthday_default(self):
+        """Test that birthday defaults to empty string."""
+        person = Person(name="Jane Doe")
+        assert person.birthday == ""
+
+    def test_person_birthday_full_date(self):
+        """Test birthday with full date DD-MM-YYYY format."""
+        person = Person(
+            name="John Smith",
+            birthday="15-03-1985",
+        )
+        assert person.birthday == "15-03-1985"
+
+    def test_person_birthday_without_year(self):
+        """Test birthday with just day and month DD-MM format."""
+        person = Person(
+            name="Jane Doe",
+            birthday="25-12",
+        )
+        assert person.birthday == "25-12"
+
+    def test_person_with_all_fields_including_birthday(self):
+        """Test creating a person with all fields including birthday."""
+        person = Person(
+            name="John Smith",
+            emails=["john@example.com"],
+            phones=["447990558521"],
+            company="Acme Corp",
+            title="CTO",
+            linkedin="https://linkedin.com/in/johnsmith",
+            birthday="15-03-1985",
+            roles=["vip"],
+            tags=["person", "contact"],
+            created="2025-01-01",
+        )
+        assert person.name == "John Smith"
+        assert person.birthday == "15-03-1985"
+        assert person.company == "Acme Corp"
+
 
 class TestCompany:
     """Tests for Company model."""
