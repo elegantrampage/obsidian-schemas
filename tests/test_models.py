@@ -100,6 +100,46 @@ class TestPerson:
         assert person.birthday == "15-03-1985"
         assert person.company == "Acme Corp"
 
+    def test_person_slack_default(self):
+        """Test that slack defaults to empty string."""
+        person = Person(name="Jane Doe")
+        assert person.slack == ""
+
+    def test_person_slack_user_id(self):
+        """Test slack field with Slack user ID format."""
+        person = Person(
+            name="John Smith",
+            slack="U052R9S0RB6",
+        )
+        assert person.slack == "U052R9S0RB6"
+
+    def test_person_slack_handle(self):
+        """Test slack field with @handle format."""
+        person = Person(
+            name="Jane Doe",
+            slack="@jdoe",
+        )
+        assert person.slack == "@jdoe"
+
+    def test_person_with_all_fields_including_slack(self):
+        """Test creating a person with all fields including slack."""
+        person = Person(
+            name="John Smith",
+            emails=["john@example.com"],
+            phones=["447990558521"],
+            company="Acme Corp",
+            title="CTO",
+            linkedin="https://linkedin.com/in/johnsmith",
+            slack="U052R9S0RB6",
+            birthday="15-03-1985",
+            roles=["vip"],
+            tags=["person", "contact"],
+            created="2025-01-01",
+        )
+        assert person.name == "John Smith"
+        assert person.slack == "U052R9S0RB6"
+        assert person.birthday == "15-03-1985"
+
 
 class TestCompany:
     """Tests for Company model."""

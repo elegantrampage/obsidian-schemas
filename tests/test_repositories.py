@@ -32,6 +32,7 @@ whatsapp: "447990558521"
 company: Acme Corp
 title: CTO
 linkedin: https://linkedin.com/in/johnsmith
+slack: U052R9S0RB6
 roles:
   - vip
   - coaching-client
@@ -299,6 +300,34 @@ class TestPersonRepository:
         assert person is not None
         assert person.name == "John Smith"
 
+    def test_get_by_slack(self, temp_vault):
+        """Test getting person by Slack user ID."""
+        repo = PersonRepository(temp_vault)
+        person = repo.get_by_slack("U052R9S0RB6")
+        assert person is not None
+        assert person.name == "John Smith"
+
+    def test_get_by_slack_case_insensitive(self, temp_vault):
+        """Test Slack lookup is case-insensitive."""
+        repo = PersonRepository(temp_vault)
+        person = repo.get_by_slack("u052r9s0rb6")
+        assert person is not None
+        assert person.name == "John Smith"
+
+    def test_get_by_slack_with_at_prefix(self, temp_vault):
+        """Test Slack lookup handles @ prefix."""
+        repo = PersonRepository(temp_vault)
+        # Even though stored as U052R9S0RB6, lookup with @ should work
+        person = repo.get_by_slack("@U052R9S0RB6")
+        assert person is not None
+        assert person.name == "John Smith"
+
+    def test_get_by_slack_not_found(self, temp_vault):
+        """Test Slack lookup returns None for unknown ID."""
+        repo = PersonRepository(temp_vault)
+        person = repo.get_by_slack("UNOTFOUND")
+        assert person is None
+
     def test_resolve_by_name(self, temp_vault):
         """Test resolve finds by name."""
         repo = PersonRepository(temp_vault)
@@ -465,6 +494,24 @@ tags:
         # New email should find the person
         assert repo.get_by_email("newemail@example.com") is not None
         assert repo.get_by_email("newemail@example.com").name == "John Smith"
+
+    def test_update_fields_updates_slack_index(self, temp_vault):
+        """Test that updating slack field updates the slack index."""
+        repo = PersonRepository(temp_vault)
+        person = repo.get("John Smith")
+
+        # Verify original slack is indexed
+        assert repo.get_by_slack("U052R9S0RB6") is not None
+
+        # Update slack
+        repo.update_fields(person, {"slack": "U999NEWID"})
+
+        # Old slack should not find the person
+        assert repo.get_by_slack("U052R9S0RB6") is None
+        # New slack should find the person
+        result = repo.get_by_slack("U999NEWID")
+        assert result is not None
+        assert result.name == "John Smith"
 
     def test_append_to_timeline(self, temp_vault):
         """Test appending an entry to the timeline section."""

@@ -6,6 +6,7 @@ Provides fast lookup of Person entities by:
 - Email address
 - Phone number (with normalization)
 - Aliases
+- Slack user ID or handle
 
 Also provides methods for managing To Discuss items.
 """
@@ -102,6 +103,7 @@ class PersonRepository(BaseRepository[Person]):
         self._email_index: dict[str, str] = {}  # email -> cache_key
         self._phone_index: dict[str, str] = {}  # normalized phone -> cache_key
         self._alias_index: dict[str, str] = {}  # alias -> cache_key
+        self._slack_index: dict[str, str] = {}  # slack ID/handle -> cache_key
 
     @property
     def entity_type(self) -> Type[Person]:
@@ -135,11 +137,18 @@ class PersonRepository(BaseRepository[Person]):
             if alias:
                 self._alias_index[alias.lower()] = cache_key
 
+        # Index Slack
+        if entity.slack:
+            # Store both with and without @ prefix for flexible lookup
+            slack_id = entity.slack.lstrip("@").lower()
+            self._slack_index[slack_id] = cache_key
+
     def _clear_indexes(self) -> None:
         """Clear custom indexes on refresh."""
         self._email_index.clear()
         self._phone_index.clear()
         self._alias_index.clear()
+        self._slack_index.clear()
 
     def _remove_entity_from_indexes(self, entity: Person, cache_key: str) -> None:
         """Remove a person's entries from all indexes."""
@@ -168,6 +177,12 @@ class PersonRepository(BaseRepository[Person]):
                 alias_lower = alias.lower()
                 if self._alias_index.get(alias_lower) == cache_key:
                     del self._alias_index[alias_lower]
+
+        # Remove Slack from index
+        if entity.slack:
+            slack_id = entity.slack.lstrip("@").lower()
+            if self._slack_index.get(slack_id) == cache_key:
+                del self._slack_index[slack_id]
 
     def get_by_email(self, email: str) -> Optional[Person]:
         """
@@ -226,6 +241,26 @@ class PersonRepository(BaseRepository[Person]):
         self._ensure_loaded()
         alias_lower = alias.lower().strip()
         cache_key = self._alias_index.get(alias_lower)
+        return self._cache.get(cache_key) if cache_key else None
+
+    def get_by_slack(self, slack_id: str) -> Optional[Person]:
+        """
+        Get a person by Slack user ID or handle.
+
+        Handles both formats:
+        - User ID: "U052R9S0RB6"
+        - Handle: "@jsmith" or "jsmith"
+
+        Args:
+            slack_id: Slack user ID or handle
+
+        Returns:
+            Person if found, None otherwise
+        """
+        self._ensure_loaded()
+        # Normalize: strip @ and lowercase
+        slack_normalized = slack_id.lstrip("@").lower().strip()
+        cache_key = self._slack_index.get(slack_normalized)
         return self._cache.get(cache_key) if cache_key else None
 
     def resolve(self, query: str) -> Optional[Person]:

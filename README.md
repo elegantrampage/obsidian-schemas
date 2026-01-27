@@ -49,7 +49,7 @@ person.has_role("vip")  # True
 person.has_any_role("vip", "family")  # True
 ```
 
-Fields: `type`, `name`, `aliases`, `emails`, `phones`, `whatsapp`, `company`, `title`, `linkedin`, `roles`, `tags`, `created`
+Fields: `type`, `name`, `aliases`, `emails`, `phones`, `whatsapp`, `company`, `title`, `linkedin`, `slack`, `roles`, `birthday`, `tags`, `created`
 
 **Roles**: Array of role identifiers that modify assistant behavior. Defined roles: `vip`, `coaching-client`, `family`, `investor`, `active`. See `rules.md` for full role definitions and combination rules.
 

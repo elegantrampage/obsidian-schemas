@@ -53,6 +53,7 @@ class Person(BaseEntity):
         company: ""
         title: ""
         linkedin: ""
+        slack: ""
         roles: []
         birthday: ""
         tags: [person]
@@ -82,6 +83,7 @@ class Person(BaseEntity):
     company: str = ""
     title: str = ""
     linkedin: str = ""
+    slack: str = ""
     roles: List[str] = Field(default_factory=list)
     birthday: str = ""
     created: str = ""

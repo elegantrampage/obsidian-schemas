@@ -4,6 +4,27 @@ Detailed history of work on obsidian-schemas.
 
 ---
 
+## 2026-01-26
+
+### Slack Field Addition
+- Added `slack: str = ""` field to Person model for Slack user ID/handle storage
+- Updated Person docstring template to include slack field
+- Added 4 tests for slack field (default, user ID, handle, all fields)
+- Added slack indexing to PersonRepository:
+  - `_slack_index: Dict[str, str]` for O(1) lookup
+  - `get_by_slack(slack_id)` method with @ prefix normalization
+  - Updated `_index_entity()`, `_clear_indexes()`, `_remove_entity_from_indexes()`
+- Added 4 repository tests for slack lookup
+- Updated README with slack in Person fields list
+- Total: 195 tests passing
+
+**Downstream updates:**
+- HAL9000: Added `slack` to ContactInfo dataclass and `from_person()` method
+- Exocortex: Added `slack` to ContactInfo dataclass and `from_person()` method
+- Obsidian vault: Updated person.md template, added slack to @Emma Roberts.md
+
+---
+
 ## 2026-01-19
 
 ### Birthday Field Addition
