@@ -90,6 +90,31 @@ created: "2025-01-02"
 ## People
 """)
 
+        # Create people for substring-match testing
+        (vault / "@Sandy Forster.md").write_text("""---
+type: person
+name: Sandy Forster
+company: Motability
+tags:
+  - person
+created: "2025-06-01"
+---
+
+## Timeline
+""")
+
+        (vault / "@Fred Ellis.md").write_text("""---
+type: person
+name: Fred Ellis
+company: Acme Corp
+tags:
+  - person
+created: "2025-06-01"
+---
+
+## Timeline
+""")
+
         # Create a non-entity file (should be ignored)
         (vault / "Random Note.md").write_text("""---
 title: Random Note
@@ -241,7 +266,7 @@ class TestPersonRepository:
     def test_load_vault(self, temp_vault):
         """Test loading persons from vault."""
         repo = PersonRepository(temp_vault)
-        assert len(repo) == 2
+        assert len(repo) == 4
 
     def test_get_by_name(self, temp_vault):
         """Test getting person by exact name."""
@@ -355,6 +380,32 @@ class TestPersonRepository:
         person = repo.resolve("Unknown Person")
         assert person is None
 
+    def test_resolve_rejects_substring_andy(self, temp_vault):
+        """Test that 'andy' does NOT match 'Sandy Forster'."""
+        repo = PersonRepository(temp_vault)
+        person = repo.resolve("andy")
+        assert person is None
+
+    def test_resolve_rejects_substring_ed(self, temp_vault):
+        """Test that 'ed' does NOT match 'Fred Ellis'."""
+        repo = PersonRepository(temp_vault)
+        person = repo.resolve("ed")
+        assert person is None
+
+    def test_resolve_whole_word_sandy(self, temp_vault):
+        """Test that 'sandy' matches 'Sandy Forster' (exact first name)."""
+        repo = PersonRepository(temp_vault)
+        person = repo.resolve("sandy")
+        assert person is not None
+        assert person.name == "Sandy Forster"
+
+    def test_resolve_whole_word_fred(self, temp_vault):
+        """Test that 'fred' matches 'Fred Ellis' (exact first name)."""
+        repo = PersonRepository(temp_vault)
+        person = repo.resolve("fred")
+        assert person is not None
+        assert person.name == "Fred Ellis"
+
     def test_get_by_role(self, temp_vault):
         """Test getting people by role."""
         repo = PersonRepository(temp_vault)
@@ -366,16 +417,17 @@ class TestPersonRepository:
         """Test getting people by company."""
         repo = PersonRepository(temp_vault)
         people = repo.get_by_company("Acme Corp")
-        assert len(people) == 1
-        assert people[0].name == "John Smith"
+        assert len(people) == 2
+        names = {p.name for p in people}
+        assert names == {"John Smith", "Fred Ellis"}
 
     def test_get_all(self, temp_vault):
         """Test getting all persons."""
         repo = PersonRepository(temp_vault)
         all_people = repo.get_all()
-        assert len(all_people) == 2
+        assert len(all_people) == 4
         names = {p.name for p in all_people}
-        assert names == {"John Smith", "Jane Doe"}
+        assert names == {"John Smith", "Jane Doe", "Sandy Forster", "Fred Ellis"}
 
     def test_contains(self, temp_vault):
         """Test __contains__ for checking existence."""
@@ -403,7 +455,7 @@ class TestPersonRepository:
     def test_refresh(self, temp_vault):
         """Test refreshing the cache."""
         repo = PersonRepository(temp_vault)
-        assert len(repo) == 2
+        assert len(repo) == 4
 
         # Add a new file
         (temp_vault / "@New Person.md").write_text("""---
@@ -420,7 +472,7 @@ tags:
         # Refresh
         repo.refresh()
         assert "New Person" in repo
-        assert len(repo) == 3
+        assert len(repo) == 5
 
     def test_update_fields_single(self, temp_vault):
         """Test updating a single field."""

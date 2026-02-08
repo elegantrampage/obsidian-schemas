@@ -310,9 +310,9 @@ class PersonRepository(BaseRepository[Person]):
             if person:
                 return person
 
-        # 5. Partial name match
+        # 5. Partial name match (whole words only)
         for name, person in self._cache.items():
-            if query_lower in name:
+            if query_lower in name.split():
                 return person
 
         return None
