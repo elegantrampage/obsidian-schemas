@@ -317,6 +317,10 @@ ENTITY_BODY_CONFIG = {
         "sections": ["Notes", "Quotes"],
         "default_body": "## Notes\n\n## Quotes\n",
     },
+    "exploration": {
+        "sections": ["Context", "Current Thinking", "Open Questions", "Decisions", "Ruled Out", "Next Steps"],
+        "default_body": "## Context\n\n## Current Thinking\n\n## Open Questions\n\n## Decisions\n\n## Ruled Out\n\n## Next Steps\n",
+    },
 }
 
 

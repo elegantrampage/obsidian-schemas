@@ -17,6 +17,7 @@ Entity types supported:
     - Explore: Links/topics to explore
     - GiftIdea: Gift ideas for people
     - Meeting: Meeting notes
+    - Exploration: Living documents for thinking through ideas
 """
 
 from obsidian_schemas.models import (
@@ -27,6 +28,7 @@ from obsidian_schemas.models import (
     Explore,
     GiftIdea,
     Meeting,
+    Exploration,
     EntityType,
     get_model_for_type,
 )
@@ -73,6 +75,7 @@ __all__ = [
     "Explore",
     "GiftIdea",
     "Meeting",
+    "Exploration",
     "EntityType",
     "get_model_for_type",
     # Parser

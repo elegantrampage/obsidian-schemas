@@ -1,6 +1,19 @@
-# Work Log
+# Session Log
 
-Detailed history of work on obsidian-schemas.
+
+---
+
+## 2026-02-14
+
+### CLAUDE.md and README.md Cleanup
+- Fixed file paths and doc reference updates across project documentation
+
+---
+
+## 2026-02-08
+
+### Fix Substring False Positives in PersonRepository.resolve()
+- Committed fix for substring matching producing false positive results in person resolution
 
 ---
 
@@ -76,6 +89,8 @@ Detailed history of work on obsidian-schemas.
 
 ## 2026-01-10
 
+- Created GitHub repo (elegantrampage/obsidian-schemas)
+- Initial commit pushed to main branch
 - Added Person Schema enhancement idea to FUTURE.md:
   - `profession` field (engineer, designer, PM, etc.)
   - `seniority` field (junior through C-level)
@@ -87,10 +102,3 @@ Detailed history of work on obsidian-schemas.
 
 - Created CLAUDE.md entry point
 - (FUTURE.md already exists as backlog)
-
----
-
-## 2026-01-10
-
-- Created GitHub repo (elegantrampage/obsidian-schemas)
-- Initial commit pushed to main branch

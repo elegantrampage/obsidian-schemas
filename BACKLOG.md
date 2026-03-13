@@ -1,4 +1,4 @@
-# Future Enhancements
+# Backlog
 
 Deferred features and improvements for obsidian-schemas.
 
@@ -48,6 +48,11 @@ Deferred features and improvements for obsidian-schemas.
 - ~~Query by status (to-read, reading, read)~~
 - ~~Useful for "what should I read next?" queries~~
 - WatchRepository still TODO
+
+### Exploration Entity Type
+- Partially implemented (model exists, uncommitted)
+- Needs repository, tests, and writer support
+- Entity type for explorations/ living documents
 
 ## Person Schema Enhancements
 

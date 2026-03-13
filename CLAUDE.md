@@ -39,21 +39,22 @@ vips = repo.get_by_role("vip")
 
 ```bash
 # From HAL9000 or Exocortex
-pip install -e /Users/davewascha/Documents/Code/obsidian-schemas
+pip install -e /Users/davewascha/Workspaces/obsidian-schemas
 ```
 
 ## Running Tests
 
 ```bash
-cd /Users/davewascha/Documents/Code/obsidian-schemas
-pytest  # 80 tests
+cd /Users/davewascha/Workspaces/obsidian-schemas
+pytest  # 195+ tests
 ```
 
 ## Documentation
 
-- **WORKLOG.md** - Detailed history of work on this project
+- **SESSION_LOG.md** - Chronological record of work (recent-first)
 - **README.md** - Full API documentation with examples
-- **FUTURE.md** - Deferred enhancements (backlog)
+- **BACKLOG.md** - Deferred enhancements and ideas
+- **docs/** - Planning documents and reference material (currently empty)
 
 Run `/wrap-up` at end of sessions to update all docs.
 
@@ -71,10 +72,10 @@ When modifying entity schemas:
 When creating or significantly updating documentation in this project:
 
 1. Create/update the local doc
-2. Register in the global map at `/Users/davewascha/Documents/Code/DOCS.md`:
+2. Register in the global map at `/Users/davewascha/Workspaces/DOCS.md`:
    - Add entry to the project's table in "By Project" section
    - If it fits a topic category, add to "By Topic" section
    - Format: `| Doc Name | relative/path.md | Brief description |`
 
 **What to register:** README, architecture docs, API docs, guides, specs, decisions.
-**Skip:** WORKLOG, BACKLOG (these follow standard pattern and are assumed to exist).
+**Skip:** SESSION_LOG, BACKLOG (these follow standard pattern and are assumed to exist).
