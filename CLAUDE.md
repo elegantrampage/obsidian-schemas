@@ -49,11 +49,15 @@ cd /Users/davewascha/Workspaces/obsidian-schemas
 pytest  # 195+ tests
 ```
 
+## What's Next
+
+Read `state/work-items.json` for the current backlog and pipeline state. Work items are tracked using the work-item pipeline — see `/Users/davewascha/Workspaces/workshop/docs/pipeline-quickstart-guide.md` for how it works. Use `/capture-idea` to add new ideas.
+
 ## Documentation
 
 - **SESSION_LOG.md** - Chronological record of work (recent-first)
 - **README.md** - Full API documentation with examples
-- **BACKLOG.md** - Deferred enhancements and ideas
+- **state/work-items.json** - Backlog and pipeline (replaces BACKLOG.md)
 - **docs/** - Planning documents and reference material (currently empty)
 
 Run `/wrap-up` at end of sessions to update all docs.
@@ -78,4 +82,4 @@ When creating or significantly updating documentation in this project:
    - Format: `| Doc Name | relative/path.md | Brief description |`
 
 **What to register:** README, architecture docs, API docs, guides, specs, decisions.
-**Skip:** SESSION_LOG, BACKLOG (these follow standard pattern and are assumed to exist).
+**Skip:** SESSION_LOG, state/work-items.json (these follow standard pattern and are assumed to exist).
