@@ -250,6 +250,15 @@ class BaseRepository(ABC, Generic[T]):
         content = file_path.read_text(encoding="utf-8")
         frontmatter, body = parse_frontmatter(content)
 
+        # If name is changing, preserve old filename stem as alias so the
+        # entity remains resolvable by its former name / wikilink target.
+        if "name" in updates and updates["name"] != frontmatter.get("name", ""):
+            old_stem = file_path.stem.lstrip("@")
+            aliases = frontmatter.get("aliases", [])
+            if old_stem not in aliases:
+                aliases.append(old_stem)
+                frontmatter["aliases"] = aliases
+
         # Update frontmatter with new values
         frontmatter.update(updates)
 
@@ -264,15 +273,23 @@ class BaseRepository(ABC, Generic[T]):
             raise ValueError(f"Failed to reload {self.type_name} after update: {name}")
 
         # Update cache and indexes
-        name_key = self._get_cache_key(updated_entity)
+        old_name_key = name.lower()
+        new_name_key = self._get_cache_key(updated_entity)
 
-        # Remove old entity from indexes before adding updated version
-        old_entity = self._cache.get(name_key)
+        # Remove old cache entry and indexes
+        old_entity = self._cache.get(old_name_key)
         if old_entity:
-            self._remove_entity_from_indexes(old_entity, name_key)
+            self._remove_entity_from_indexes(old_entity, old_name_key)
+            del self._cache[old_name_key]
+            self._file_map.pop(old_name_key, None)
 
-        self._cache[name_key] = updated_entity
-        self._index_entity(updated_entity, name_key)
+        # Also clean up new key if it already existed (shouldn't, but defensive)
+        if new_name_key != old_name_key and new_name_key in self._cache:
+            self._remove_entity_from_indexes(self._cache[new_name_key], new_name_key)
+
+        self._cache[new_name_key] = updated_entity
+        self._file_map[new_name_key] = file_path
+        self._index_entity(updated_entity, new_name_key)
 
         logger.info(f"Updated {self.type_name} fields: {name} -> {list(updates.keys())}")
         return updated_entity
@@ -281,12 +298,41 @@ class BaseRepository(ABC, Generic[T]):
         """
         Refresh the cache by reloading from vault.
 
+        Safety guard: if the reload finds 0 entities while the existing cache
+        had entries, the previous cache is restored and -1 is returned. This
+        prevents catastrophic cache loss when ``Path.glob`` returns empty due
+        to a transient filesystem/permission issue (e.g. macOS TCC/Full Disk
+        Access denying directory enumeration on a vault that did load
+        successfully at startup).
+
         Returns:
-            Number of entities loaded
+            Number of entities loaded, or -1 if the reload was refused to
+            avoid clobbering a non-empty cache.
         """
+        cache_snapshot = dict(self._cache)
+        file_map_snapshot = dict(self._file_map)
+        had_entries = len(cache_snapshot) > 0
+
         self._loaded = False
         self._clear_indexes()
-        return self.load()
+        count = self.load()
+
+        if count == 0 and had_entries:
+            logger.error(
+                "refresh() found 0 %s entities but cache had %d - refusing "
+                "to clobber. Likely a permission/enumeration issue (e.g. "
+                "macOS TCC/Full Disk Access). Restoring previous cache.",
+                self.type_name,
+                len(cache_snapshot),
+            )
+            self._cache = cache_snapshot
+            self._file_map = file_map_snapshot
+            for cache_key, entity in self._cache.items():
+                self._index_entity(entity, cache_key)
+            self._loaded = True
+            return -1
+
+        return count
 
     def _clear_indexes(self) -> None:
         """Clear any custom indexes. Override in subclasses."""

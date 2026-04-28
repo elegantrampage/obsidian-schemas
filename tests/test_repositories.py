@@ -474,6 +474,50 @@ tags:
         assert "New Person" in repo
         assert len(repo) == 5
 
+    def test_refresh_refuses_to_clobber_when_load_returns_zero(self, temp_vault, monkeypatch):
+        """If load() returns 0 while cache has entries, refresh must not wipe state.
+
+        Guards against the macOS TCC/Full Disk Access edge case where
+        Path.glob silently returns [] on a vault that previously loaded fine.
+        """
+        repo = PersonRepository(temp_vault)
+        original_count = len(repo)
+        assert original_count > 0
+
+        # Pin one entity so we can verify identity-preservation, not just count.
+        original_john = repo.get("John Smith")
+        assert original_john is not None
+
+        # Verify email index is populated before refresh.
+        assert repo.get_by_email("john@example.com") is not None
+
+        # Simulate the TCC failure mode: glob returns empty.
+        monkeypatch.setattr(
+            type(repo.vault_path),
+            "glob",
+            lambda self, pattern: iter([]),
+        )
+
+        result = repo.refresh()
+
+        assert result == -1, "refresh() should return -1 when refusing to clobber"
+        assert len(repo) == original_count, "cache must be preserved"
+        assert repo.get("John Smith") is original_john, "entity identity preserved"
+        # Indexes must be rebuilt after the refusal.
+        assert repo.get_by_email("john@example.com") is not None
+
+    def test_refresh_allows_legitimate_zero_when_cache_empty(self, temp_vault):
+        """If both load and existing cache are empty, refresh returns 0 normally."""
+        repo = PersonRepository(temp_vault, auto_load=False)
+        # Don't load. Cache is empty.
+        result = repo.refresh()
+        # The vault has files, so load will populate. But validate the
+        # empty-cache-empty-load path explicitly:
+        empty_vault = temp_vault.parent / "empty_vault"
+        empty_vault.mkdir(exist_ok=True)
+        empty_repo = PersonRepository(empty_vault, auto_load=False)
+        assert empty_repo.refresh() == 0
+
     def test_update_fields_single(self, temp_vault):
         """Test updating a single field."""
         repo = PersonRepository(temp_vault)
@@ -632,6 +676,59 @@ tags:
 
         with pytest.raises(ValueError, match="not found"):
             repo.append_to_timeline(fake_person, "### Entry\n")
+
+
+class TestAutoAliasOnNameChange:
+    """Tests for automatic alias preservation when name field changes."""
+
+    def test_alias_added_on_name_change(self, temp_vault):
+        """Updating name adds old filename stem to aliases."""
+        repo = PersonRepository(temp_vault)
+        person = repo.get("Jane Doe")
+
+        repo.update_fields(person, {"name": "Jane Doe-Smith"})
+
+        updated = repo.get("jane doe-smith")
+        assert updated is not None
+        assert "Jane Doe" in updated.aliases
+
+    def test_no_duplicate_alias(self, temp_vault):
+        """Old stem already in aliases → no duplicate added."""
+        repo = PersonRepository(temp_vault)
+        person = repo.get("John Smith")
+
+        # Pre-add the stem as an alias
+        repo.update_fields(person, {"aliases": ["Johnny", "john@example.com", "John Smith"]})
+        person = repo.get("John Smith")
+
+        # Now change the name — "John Smith" is already an alias
+        repo.update_fields(person, {"name": "John Smithson"})
+
+        updated = repo.get("john smithson")
+        assert updated.aliases.count("John Smith") == 1
+
+    def test_no_alias_on_non_name_update(self, temp_vault):
+        """Updating non-name fields does not touch aliases."""
+        repo = PersonRepository(temp_vault)
+        person = repo.get("Jane Doe")
+        original_aliases = list(person.aliases)
+
+        repo.update_fields(person, {"company": "New Corp"})
+
+        updated = repo.get("Jane Doe")
+        assert updated.aliases == original_aliases
+
+    def test_resolve_by_old_name_after_rename(self, temp_vault):
+        """After name change, resolve still finds entity by old name via alias."""
+        repo = PersonRepository(temp_vault)
+        person = repo.get("Jane Doe")
+
+        repo.update_fields(person, {"name": "Jane Doe-Smith"})
+
+        # Old name should resolve via alias
+        found = repo.resolve("Jane Doe")
+        assert found is not None
+        assert found.name == "Jane Doe-Smith"
 
 
 class TestToDiscussMethods:
