@@ -452,6 +452,32 @@ class TestPersonRepository:
         # File should exist
         assert (temp_vault / "@New Contact.md").exists()
 
+    def test_create_stub_with_phone(self, temp_vault):
+        """Test creating a phone-only stub (WI-083: phone-only contact path).
+
+        When a contact arrives via a phone-only channel (iMessage, WhatsApp
+        @lid without profile name), the caller passes the phone string as
+        both `name` and `phone` so the stub is identifiable until enrichment
+        confirms a real name.
+        """
+        repo = PersonRepository(temp_vault)
+        person = repo.create_stub(
+            name="+447739341679",
+            phone="+447739341679",
+        )
+
+        # Phone landed on the record so future enricher can find it.
+        assert person.phones == ["+447739341679"]
+        assert person.emails == []
+
+        # Filename: clean_name regex strips the leading '+'.
+        assert (temp_vault / "@447739341679.md").exists()
+
+        # Phone-indexed lookup resolves the new stub.
+        looked_up = repo.get_by_phone("+447739341679")
+        assert looked_up is not None
+        assert looked_up.phones == ["+447739341679"]
+
     def test_refresh(self, temp_vault):
         """Test refreshing the cache."""
         repo = PersonRepository(temp_vault)

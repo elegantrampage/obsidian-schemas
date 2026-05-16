@@ -351,17 +351,23 @@ class PersonRepository(BaseRepository[Person]):
         self,
         name: str,
         email: Optional[str] = None,
+        phone: Optional[str] = None,
         company: Optional[str] = None,
         auto_created: bool = True,
     ) -> Person:
         """
         Create a minimal stub Person and save to vault.
 
-        Useful for creating placeholder contacts from meeting attendees.
+        Useful for creating placeholder contacts from meeting attendees, or
+        from phone-only channels (iMessage, WhatsApp) where no name signal is
+        available — in which case the caller passes `name` set to the phone
+        string so the stub is identifiable by phone until enrichment confirms
+        a real name.
 
         Args:
-            name: Person's name
+            name: Person's name (or phone string if no name is known)
             email: Optional email address
+            phone: Optional phone number (E.164 preferred, e.g. "+447739341679")
             company: Optional company name
             auto_created: Mark as auto-created for later review
 
@@ -378,10 +384,13 @@ class PersonRepository(BaseRepository[Person]):
         # Build aliases from email
         aliases = [email] if email else []
 
+        phones = [phone] if phone else []
+
         person = Person(
             name=clean_name,
             aliases=aliases,
             emails=[email] if email else [],
+            phones=phones,
             company=company or "",
             tags=["person"],
             created=datetime.now().strftime("%Y-%m-%d"),
