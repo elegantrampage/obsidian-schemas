@@ -13,6 +13,7 @@ Also provides methods for managing To Discuss items.
 
 import re
 import logging
+from email.utils import parseaddr
 from pathlib import Path
 from typing import Optional, List, Type
 
@@ -375,6 +376,20 @@ class PersonRepository(BaseRepository[Person]):
             The created Person entity
         """
         from datetime import datetime
+
+        # WI-017: defensive RFC 2822 parse. If `name` looks like
+        # "Display Name <email@domain>" form, separate it cleanly so the
+        # regex sanitizer below doesn't mangle it into something like
+        # "Display Name emailatdomaincom". This protects against any caller
+        # passing the raw sender field from a scanner.
+        parsed_name, parsed_email = parseaddr(name)
+        if parsed_email and "@" in parsed_email:
+            # An email was extracted from the input. The caller's explicit
+            # `email` arg wins if present; otherwise we adopt the parsed one.
+            if not email:
+                email = parsed_email
+            # Display-name part if present, else fall back to email local-part.
+            name = parsed_name or parsed_email.split("@", 1)[0]
 
         # Clean name for use
         clean_name = re.sub(r'[^\w\s-]', '', name).strip()

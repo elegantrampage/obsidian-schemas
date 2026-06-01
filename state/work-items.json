@@ -1,0 +1,298 @@
+{
+  "project": "obsidian-schemas",
+  "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
+  "last_scanned": "2026-06-01T13:00:00Z",
+  "next_id": 18,
+  "items": [
+    {
+      "id": "WI-017",
+      "title": "PersonRepository.create_stub: parse RFC 2822 sender strings before regex-sanitizing the name",
+      "stage": "done",
+      "file": "docs/create-stub-rfc2822-parse.md",
+      "created": "2026-06-01",
+      "last_touched": "2026-06-01",
+      "stage_changed": "2026-06-01",
+      "tags": ["person-repository", "sanitization", "data-quality", "root-fix", "small-mechanical"],
+      "parent": null,
+      "children": [],
+      "depends_on": [],
+      "blocked": false,
+      "summary": "create_stub at person.py:380 regex-strips non-word/whitespace/hyphen chars from the name arg. When the caller passes a raw RFC 2822 sender field ('Display Name <email@domain>'), the regex strips <, >, @, . — leaving 'Display Name emailatdomaincom' as the canonical name AND filename. Production vault: 62 corrupted notes match this pattern. Surfaced 2026-06-01 from orchestrator/WI-102 dedupe review (e.g. @David Agmen-Smith davidasspeechmaticscom.md). Fix: add email.utils.parseaddr defensive parse at top of create_stub — extracts email from <...>, uses display-name part (or email local-part) as the name. Caller's explicit email arg wins if passed. || DONE 2026-06-01: 9 edge-case tests written test-first (5 fail on pre-fix state, 4 no-op pass). Fix shipped: 7 LOC. All 9 tests pass post-fix. Full tests/test_repositories.py (114 tests) green — zero regressions. Retroactive cleanup of the 62 corrupted vault notes is a separate orchestrator-side disposable script (not in this WI's scope)."
+    },
+    {
+      "id": "WI-004",
+      "title": "Concurrent Access",
+      "stage": "idea",
+      "file": "docs/concurrent-access.md",
+      "created": "2026-03-22",
+      "last_touched": "2026-03-22",
+      "stage_changed": "2026-03-22",
+      "tags": [
+        "repository"
+      ],
+      "parent": null,
+      "children": [],
+      "depends_on": [],
+      "blocked": false,
+      "summary": "The repository layer currently assumes single-threaded use \u2014 no locking, no thread-safe cache operations. HAL9000 runs as a FastAPI server handling concurrent requests, which means multiple request ha"
+    },
+    {
+      "id": "WI-005",
+      "title": "Cross-Repository Linking",
+      "stage": "idea",
+      "file": "docs/cross-repository-linking.md",
+      "created": "2026-03-22",
+      "last_touched": "2026-03-22",
+      "stage_changed": "2026-03-22",
+      "tags": [
+        "entity-relationships"
+      ],
+      "parent": null,
+      "children": [],
+      "depends_on": [],
+      "blocked": false,
+      "summary": "Entity relationships are currently string-based \u2014 a person's company field is just a name, not a resolved reference. Calling `person.company` returns `\"Acme Corp\"`, not the actual Company entity. To g"
+    },
+    {
+      "id": "WI-008",
+      "title": "Exploration Entity Type",
+      "stage": "idea",
+      "file": "docs/exploration-entity-type.md",
+      "created": "2026-03-22",
+      "last_touched": "2026-03-22",
+      "stage_changed": "2026-03-22",
+      "tags": [
+        "repository"
+      ],
+      "parent": null,
+      "children": [],
+      "depends_on": [],
+      "blocked": false,
+      "summary": "The Exploration entity type is partially implemented \u2014 a Pydantic model exists but hasn't been committed. It's missing a repository, tests, and writer support. Explorations are living documents in the"
+    },
+    {
+      "id": "WI-001",
+      "title": "File Watching / Real-time Updates",
+      "stage": "idea",
+      "file": "docs/file-watching-realtime-updates.md",
+      "created": "2026-03-22",
+      "last_touched": "2026-03-22",
+      "stage_changed": "2026-03-22",
+      "tags": [
+        "repository"
+      ],
+      "parent": null,
+      "children": [],
+      "depends_on": [],
+      "blocked": false,
+      "summary": "Long-running processes like the HAL9000 server hold repository instances in memory, but the underlying vault files can change at any time (Obsidian edits, other tools writing frontmatter). Currently t"
+    },
+    {
+      "id": "WI-014",
+      "title": "HAL9000 Singleton",
+      "stage": "idea",
+      "file": "docs/hal9000-singleton.md",
+      "created": "2026-03-22",
+      "last_touched": "2026-03-22",
+      "stage_changed": "2026-03-22",
+      "tags": [
+        "integration"
+      ],
+      "parent": null,
+      "children": [],
+      "depends_on": [],
+      "blocked": false,
+      "summary": "HAL9000's FastAPI server creates repository instances ad-hoc across different endpoints and services. There's no centralized lifecycle management \u2014 no shared cache, no coordinated refresh, no single p"
+    },
+    {
+      "id": "WI-013",
+      "title": "Incremental Loading",
+      "stage": "idea",
+      "file": "docs/incremental-loading.md",
+      "created": "2026-03-22",
+      "last_touched": "2026-03-22",
+      "stage_changed": "2026-03-22",
+      "tags": [
+        "performance"
+      ],
+      "parent": null,
+      "children": [],
+      "depends_on": [],
+      "blocked": false,
+      "summary": "The `refresh()` method reloads everything \u2014 every file gets re-parsed regardless of whether it changed. For a vault with hundreds of entity files, this is wasteful when only a few files were modified "
+    },
+    {
+      "id": "WI-012",
+      "title": "Index Persistence",
+      "stage": "idea",
+      "file": "docs/index-persistence.md",
+      "created": "2026-03-22",
+      "last_touched": "2026-03-22",
+      "stage_changed": "2026-03-22",
+      "tags": [
+        "performance"
+      ],
+      "parent": null,
+      "children": [],
+      "depends_on": [],
+      "blocked": false,
+      "summary": "Every time a repository is instantiated, it rebuilds its indexes from scratch by parsing every markdown file in the vault. For large vaults this is slow \u2014 startup time scales linearly with file count."
+    },
+    {
+      "id": "WI-003",
+      "title": "Lazy Loading",
+      "stage": "idea",
+      "file": "docs/lazy-loading.md",
+      "created": "2026-03-22",
+      "last_touched": "2026-03-22",
+      "stage_changed": "2026-03-22",
+      "tags": [
+        "repository"
+      ],
+      "parent": null,
+      "children": [],
+      "depends_on": [],
+      "blocked": false,
+      "summary": "Repositories currently load all entities from disk on first access \u2014 every markdown file gets parsed, even if the caller only needs one person. For large vaults this means slow startup and high memory"
+    },
+    {
+      "id": "WI-010",
+      "title": "Migration Support",
+      "stage": "idea",
+      "file": "docs/migration-support.md",
+      "created": "2026-03-22",
+      "last_touched": "2026-03-22",
+      "stage_changed": "2026-03-22",
+      "tags": [
+        "schema-evolution"
+      ],
+      "parent": null,
+      "children": [],
+      "depends_on": [],
+      "blocked": false,
+      "summary": "Schema changes are inevitable \u2014 fields get added, renamed, restructured. Currently there's no way to detect which vault files have outdated schemas or to migrate them automatically. When a schema chan"
+    },
+    {
+      "id": "WI-015",
+      "title": "Obsidian Plugin Sync",
+      "stage": "idea",
+      "file": "docs/obsidian-plugin-sync.md",
+      "created": "2026-03-22",
+      "last_touched": "2026-03-22",
+      "stage_changed": "2026-03-22",
+      "tags": [
+        "integration"
+      ],
+      "parent": null,
+      "children": [],
+      "depends_on": [],
+      "blocked": false,
+      "summary": "Both obsidian-schemas (via writer) and Obsidian itself can write to the same vault files simultaneously. There's no coordination \u2014 if the writer updates a person's frontmatter while Obsidian has the f"
+    },
+    {
+      "id": "WI-009",
+      "title": "Professional Role & Seniority Fields",
+      "stage": "idea",
+      "file": "docs/professional-role-seniority.md",
+      "created": "2026-03-22",
+      "last_touched": "2026-03-22",
+      "stage_changed": "2026-03-22",
+      "tags": [
+        "schema"
+      ],
+      "parent": null,
+      "children": [],
+      "depends_on": [],
+      "blocked": false,
+      "summary": "The Person schema has no structured fields for what someone does professionally or their seniority level. This blocks job-matching use cases \u2014 the headhunter agent can't programmatically filter \"senio"
+    },
+    {
+      "id": "WI-006",
+      "title": "Relationship Tracking",
+      "stage": "idea",
+      "file": "docs/relationship-tracking.md",
+      "created": "2026-03-22",
+      "last_touched": "2026-03-22",
+      "stage_changed": "2026-03-22",
+      "tags": [
+        "entity-relationships"
+      ],
+      "parent": null,
+      "children": [],
+      "depends_on": [
+        "WI-005"
+      ],
+      "blocked": true,
+      "summary": "The schema captures static attributes of people and companies but not the relationships between them. \"Who introduced me to this person?\" and \"Who do I know at Company X?\" are natural questions that t"
+    },
+    {
+      "id": "WI-002",
+      "title": "TTL-based Cache",
+      "stage": "idea",
+      "file": "docs/ttl-based-cache.md",
+      "created": "2026-03-22",
+      "last_touched": "2026-03-22",
+      "stage_changed": "2026-03-22",
+      "tags": [
+        "repository"
+      ],
+      "parent": null,
+      "children": [],
+      "depends_on": [],
+      "blocked": false,
+      "summary": "The current cache model is all-or-nothing: data stays cached until explicitly refreshed. File watching (WI-001) solves this for local processes, but it adds a dependency on `watchdog` and filesystem e"
+    },
+    {
+      "id": "WI-011",
+      "title": "Validation Modes",
+      "stage": "idea",
+      "file": "docs/validation-modes.md",
+      "created": "2026-03-22",
+      "last_touched": "2026-03-22",
+      "stage_changed": "2026-03-22",
+      "tags": [
+        "schema-evolution"
+      ],
+      "parent": null,
+      "children": [],
+      "depends_on": [],
+      "blocked": false,
+      "summary": "The current parser silently preserves unknown fields (lenient mode) \u2014 if a vault file has frontmatter keys the schema doesn't recognize, they pass through without any signal. This is safe but hides pr"
+    },
+    {
+      "id": "WI-016",
+      "title": "Vault Fixtures",
+      "stage": "idea",
+      "file": "docs/vault-fixtures.md",
+      "created": "2026-03-22",
+      "last_touched": "2026-03-22",
+      "stage_changed": "2026-03-22",
+      "tags": [
+        "testing"
+      ],
+      "parent": null,
+      "children": [],
+      "depends_on": [],
+      "blocked": false,
+      "summary": "Tests currently use small, hand-crafted fixture files that cover basic cases but miss edge cases and performance characteristics of real vaults. There's no shared test vault that multiple test suites "
+    },
+    {
+      "id": "WI-007",
+      "title": "WatchRepository",
+      "stage": "idea",
+      "file": "docs/watch-repository.md",
+      "created": "2026-03-22",
+      "last_touched": "2026-03-22",
+      "stage_changed": "2026-03-22",
+      "tags": [
+        "repository"
+      ],
+      "parent": null,
+      "children": [],
+      "depends_on": [],
+      "blocked": false,
+      "summary": "BookRepository was completed (2026-01-11) to manage reading list entities, but the equivalent for watch list items (movies, TV shows, documentaries) still doesn't exist. The Watch entity type likely f"
+    }
+  ],
+  "queue_order": []
+}

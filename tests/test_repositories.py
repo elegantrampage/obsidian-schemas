@@ -452,6 +452,98 @@ class TestPersonRepository:
         # File should exist
         assert (temp_vault / "@New Contact.md").exists()
 
+    # ──────────────────────────────────────────────────────────────────
+    # WI-017: defensive RFC 2822 parse in create_stub
+    # ──────────────────────────────────────────────────────────────────
+    # Surfaced 2026-06-01: production vault contains 62 person notes with
+    # corrupted names like `David Agmen-Smith davidasspeechmaticscom` —
+    # produced when a caller passes the raw email sender field
+    # (`"Name <email@domain>"`) to create_stub(name=...) and the regex
+    # sanitizer at person.py:380 strips `<`, `>`, `@`, `.`. The defensive
+    # fix detects RFC 2822 form via email.utils.parseaddr and splits
+    # cleanly. These tests pin every Edge Case row from the spec.
+
+    def test_create_stub_rfc2822_name_with_email_in_angle_brackets(self, temp_vault):
+        """Caller passes 'Display Name <email>' — split cleanly."""
+        repo = PersonRepository(temp_vault)
+        person = repo.create_stub(name="David Smith <ds@example.com>")
+        assert person.name == "David Smith"
+        assert person.emails == ["ds@example.com"]
+        # Filename uses only the clean name
+        assert (temp_vault / "@David Smith.md").exists()
+        # The corrupted form must NOT exist
+        assert not (temp_vault / "@David Smith dsexamplecom.md").exists()
+
+    def test_create_stub_rfc2822_email_only_in_angle_brackets(self, temp_vault):
+        """No display name, only '<email>' — fall back to email local-part."""
+        repo = PersonRepository(temp_vault)
+        person = repo.create_stub(name="<ds@example.com>")
+        assert person.name == "ds"
+        assert person.emails == ["ds@example.com"]
+
+    def test_create_stub_bare_email_as_name(self, temp_vault):
+        """Caller passes a bare email as name — use local-part as name + email."""
+        repo = PersonRepository(temp_vault)
+        person = repo.create_stub(name="ds@example.com")
+        assert person.name == "ds"
+        assert person.emails == ["ds@example.com"]
+
+    def test_create_stub_quoted_display_name_with_comma(self, temp_vault):
+        """RFC 2822 quoted display name (e.g. 'Doe, Jane') — quotes + comma preserved in name."""
+        repo = PersonRepository(temp_vault)
+        person = repo.create_stub(name='"Doe, Jane" <jane@example.com>')
+        # parseaddr returns 'Doe, Jane' — the regex sanitizer then strips
+        # the comma (existing behaviour for filesystem-safety). Acceptable.
+        assert "Doe" in person.name and "Jane" in person.name
+        assert person.emails == ["jane@example.com"]
+        # No '@' or '.' should leak into the name
+        assert "@" not in person.name
+        assert "example" not in person.name
+
+    def test_create_stub_phone_string_unchanged(self, temp_vault):
+        """Phone-only stub (WI-083) must still work — `@` check prevents misfire."""
+        repo = PersonRepository(temp_vault)
+        person = repo.create_stub(name="+447739341679", phone="+447739341679")
+        assert person.name == "447739341679"  # existing regex strips '+'
+        assert person.phones == ["+447739341679"]
+        assert person.emails == []  # no email derived from phone
+
+    def test_create_stub_plain_name_unchanged(self, temp_vault):
+        """Plain name with no email syntax must still work — no-op for the new parse."""
+        repo = PersonRepository(temp_vault)
+        person = repo.create_stub(name="David Smith", email="ds@example.com", company="Acme")
+        assert person.name == "David Smith"
+        assert person.emails == ["ds@example.com"]
+        assert person.company == "Acme"
+
+    def test_create_stub_explicit_email_arg_wins_over_rfc2822(self, temp_vault):
+        """If caller passes both RFC 2822 name AND a separate email, the explicit email wins."""
+        repo = PersonRepository(temp_vault)
+        person = repo.create_stub(
+            name="David Smith <ds@example.com>",
+            email="other@example.com",  # explicit arg
+        )
+        assert person.name == "David Smith"
+        assert person.emails == ["other@example.com"]  # explicit arg wins
+
+    def test_create_stub_empty_name_fallback_preserved(self, temp_vault):
+        """Empty name with email — preserve existing fallback to email local-part."""
+        repo = PersonRepository(temp_vault)
+        person = repo.create_stub(name="", email="ds@example.com")
+        assert person.name == "ds"
+        assert person.emails == ["ds@example.com"]
+
+    def test_create_stub_broken_angle_brackets_no_at_sign(self, temp_vault):
+        """If <...> contents don't contain '@', leave the name alone and let
+        existing regex sanitizer handle it. Guards against false positives."""
+        repo = PersonRepository(temp_vault)
+        person = repo.create_stub(name="David Smith <not-an-email>")
+        # parseaddr returns ("David Smith", "not-an-email") — but our '@' check
+        # rejects, so the regex sanitizer runs on the full string.
+        # Just verify '@' didn't leak; exact name shape is whatever the regex emits.
+        assert "@" not in person.name
+        assert person.emails == []
+
     def test_create_stub_with_phone(self, temp_vault):
         """Test creating a phone-only stub (WI-083: phone-only contact path).
 
