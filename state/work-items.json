@@ -1,9 +1,39 @@
 {
   "project": "obsidian-schemas",
   "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
-  "last_scanned": "2026-06-01T13:00:00Z",
-  "next_id": 18,
+  "last_scanned": "2026-06-01T16:00:00Z",
+  "next_id": 20,
   "items": [
+    {
+      "id": "WI-019",
+      "title": "find_or_create_stub: lookup-before-create entry point for all 4 stub-creation paths",
+      "stage": "done",
+      "file": "../orchestrator/docs/find-or-create-stub.md",
+      "created": "2026-06-01",
+      "last_touched": "2026-06-01",
+      "stage_changed": "2026-06-01",
+      "tags": ["person-repository", "dedupe-prevention", "root-fix"],
+      "parent": null,
+      "children": [],
+      "depends_on": ["WI-018"],
+      "blocked": false,
+      "summary": "Lookup-before-create entry point built on resolve_all (WI-018). Replaces ad-hoc create_stub calls scattered across 4 paths (orchestrator contact_normalizer + contact-detector + HAL9000 entities + exocortex Granola ingester). Cascade: get_by_email → get_by_phone → resolve_all with company hint at threshold ≥0.85 → fall through to create_stub. Identifier write-back: on reuse, if call supplied new email/phone not on canonical, append and save. || DONE 2026-06-01: 5 tests added test-first (all fail pre-fix, all pass post-fix), part of the 14-test WI-018+WI-019 batch in commit ec4393a. Caller migration NOT in this commit — sequenced as follow-on per orchestrator/docs/find-or-create-stub.md."
+    },
+    {
+      "id": "WI-018",
+      "title": "PersonRepository.resolve_all() — multi-candidate ranked resolve with company-hint disambiguation",
+      "stage": "done",
+      "file": "../orchestrator/docs/find-or-create-stub.md",
+      "created": "2026-06-01",
+      "last_touched": "2026-06-01",
+      "stage_changed": "2026-06-01",
+      "tags": ["person-repository", "dedupe-prevention", "root-fix"],
+      "parent": null,
+      "children": [],
+      "depends_on": [],
+      "blocked": false,
+      "summary": "Existing resolve() returns Optional[Person] — single match, stops at first cascade hit. resolve_all returns List[ResolveCandidate] with all plausible matches ranked by confidence. New strategies: token-subset matching (≥2 shared tokens in either direction; catches 'Emily Mendes' ⊆ 'Emily Mendes Speechmatics'), short-form 'First L' partial-match. Company-hint bump: +0.25 confidence (capped 1.0) when canonical's company matches OR canonical's name contains the company token (catches mangled-stub case where company got concatenated into name). Email match runs before alias to win label tie-breaking. || DONE 2026-06-01: 9 tests added test-first (all fail pre-fix, all pass post-fix), part of the 14-test batch in commit ec4393a. Foundation for WI-019 find_or_create_stub."
+    },
     {
       "id": "WI-017",
       "title": "PersonRepository.create_stub: parse RFC 2822 sender strings before regex-sanitizing the name",
