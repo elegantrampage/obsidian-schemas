@@ -795,6 +795,203 @@ tags:
         with pytest.raises(ValueError, match="not found"):
             repo.append_to_timeline(fake_person, "### Entry\n")
 
+    # ──────────────────────────────────────────────────────────────────
+    # WI-018: resolve_all() — multi-candidate ranked resolve
+    # ──────────────────────────────────────────────────────────────────
+    # Surfaced 2026-06-01 from orchestrator Phase 0 trace. Today at 14:05
+    # BST the exocortex Granola ingester created @Naomi Pavie.md as a
+    # duplicate of the existing canonical @Naomi Pavie Speechmatics.md,
+    # because PersonRepository.resolve("Naomi Pavie") failed to find the
+    # canonical (whose cache key is "naomi pavie speechmatics", not
+    # "naomi pavie"). resolve_all is the new multi-candidate, ranked,
+    # company-hint-aware lookup that fixes this class.
+    #
+    # Each test pins one production-grade scenario.
+
+    def test_resolve_all_exact_name_returns_single_candidate(self, temp_vault):
+        """Exact name match should return the canonical at confidence 1.0."""
+        repo = PersonRepository(temp_vault)
+        candidates = repo.resolve_all("John Smith")
+        assert len(candidates) >= 1
+        assert candidates[0].person.name == "John Smith"
+        assert candidates[0].confidence == 1.0
+        assert candidates[0].matched_via in ("exact-name", "alias")
+
+    def test_resolve_all_email_match_returns_canonical_at_1_0(self, temp_vault):
+        """Email match should return canonical at 1.0."""
+        repo = PersonRepository(temp_vault)
+        candidates = repo.resolve_all("john@example.com")
+        assert candidates
+        assert candidates[0].person.name == "John Smith"
+        assert candidates[0].confidence == 1.0
+        assert candidates[0].matched_via == "email"
+
+    def test_resolve_all_no_match_returns_empty_list(self, temp_vault):
+        """Query that matches nothing returns []."""
+        repo = PersonRepository(temp_vault)
+        assert repo.resolve_all("Nobody Here") == []
+
+    def test_resolve_all_naomi_pavie_production_case(self, temp_vault):
+        """The smoking-gun case from Phase 0 trace.
+
+        Set up: a canonical record named 'Naomi Pavie Speechmatics' (mimicking
+        @Naomi Pavie Speechmatics.md). When the Granola ingester sees a new
+        meeting attendee 'Naomi Pavie' and calls resolve_all('Naomi Pavie'),
+        it must return the canonical with high-enough confidence to reuse.
+        Optional company hint should bump confidence further.
+        """
+        repo = PersonRepository(temp_vault)
+        repo.create_stub(name="Naomi Pavie Speechmatics", company="")  # mangled-name canonical
+
+        # Without company hint — token-subset match should still find her
+        candidates = repo.resolve_all("Naomi Pavie")
+        assert candidates, "resolve_all should find Naomi via token-subset"
+        assert candidates[0].person.name == "Naomi Pavie Speechmatics"
+        assert candidates[0].confidence >= 0.65
+        assert candidates[0].matched_via in ("token-subset", "partial-name")
+
+        # With company hint — confidence bumps to ≥ 0.85
+        candidates_hinted = repo.resolve_all("Naomi Pavie", company="Speechmatics")
+        assert candidates_hinted[0].confidence >= 0.85, (
+            f"company-hint should bump confidence; got {candidates_hinted[0].confidence}"
+        )
+
+    def test_resolve_all_lorna_armstrong_production_case(self, temp_vault):
+        """Inverse: canonical is 'Lorna Armstrong' (clean), and a new scanner
+        observes 'Lorna Armstrong Speechmatics'. resolve_all should match."""
+        repo = PersonRepository(temp_vault)
+        repo.create_stub(name="Lorna Armstrong", email="lorna@speechmatics.com", company="Speechmatics")
+
+        candidates = repo.resolve_all("Lorna Armstrong Speechmatics")
+        assert candidates, "resolve_all should find Lorna via token-subset (inverse direction)"
+        assert candidates[0].person.name == "Lorna Armstrong"
+        assert candidates[0].confidence >= 0.65
+
+    def test_resolve_all_emily_m_short_form_with_company_hint(self, temp_vault):
+        """The 'Emily M' case — 2-token query, canonical is 'Emily Mendes'.
+        Without company hint: returns at partial-name confidence (≥0.6 acceptable).
+        With company hint matching: bumps to ≥0.85 → reuse."""
+        repo = PersonRepository(temp_vault)
+        repo.create_stub(name="Emily Mendes", email="emily@speechmatics.com", company="Speechmatics")
+
+        # "Emily M" — short form, only 2 chars on the last token; needs a
+        # smarter strategy than pure exact/token-subset
+        candidates_hinted = repo.resolve_all("Emily M", company="Speechmatics")
+        assert candidates_hinted, "resolve_all + company hint should find Emily Mendes from 'Emily M'"
+        assert candidates_hinted[0].person.name == "Emily Mendes"
+        assert candidates_hinted[0].confidence >= 0.85
+
+    def test_resolve_all_returns_ranked_list(self, temp_vault):
+        """When multiple candidates match, they come back ranked by confidence."""
+        repo = PersonRepository(temp_vault)
+        repo.create_stub(name="Emily Mendes", email="emily@speechmatics.com", company="Speechmatics")
+        repo.create_stub(name="Emily Marshall", company="Acme")
+
+        # Query "Emily" should match both, ranked
+        candidates = repo.resolve_all("Emily")
+        assert len(candidates) >= 2
+        # Confidences must be non-increasing
+        for i in range(len(candidates) - 1):
+            assert candidates[i].confidence >= candidates[i + 1].confidence
+
+    def test_resolve_all_phone_match(self, temp_vault):
+        """Phone matches return at 1.0."""
+        repo = PersonRepository(temp_vault)
+        candidates = repo.resolve_all("+447990558521")
+        assert candidates
+        assert candidates[0].person.name == "John Smith"
+        assert candidates[0].confidence == 1.0
+        assert candidates[0].matched_via == "phone"
+
+    def test_resolve_all_empty_query_returns_empty(self, temp_vault):
+        """Defensive: empty / None / whitespace query returns []."""
+        repo = PersonRepository(temp_vault)
+        assert repo.resolve_all("") == []
+        assert repo.resolve_all("   ") == []
+
+    # ──────────────────────────────────────────────────────────────────
+    # WI-019: find_or_create_stub() — lookup-before-create entry point
+    # ──────────────────────────────────────────────────────────────────
+    # Built on resolve_all. Becomes the canonical entry point for ALL
+    # stub-creating callers (orchestrator contact_normalizer, contact-
+    # detector role, HAL9000 entities, exocortex Granola ingester).
+    # Returns (person, created_new: bool). Optionally writes back newly-
+    # observed identifiers to the canonical record when reusing.
+
+    def test_find_or_create_stub_creates_new_when_no_match(self, temp_vault):
+        """No existing match → creates new stub."""
+        repo = PersonRepository(temp_vault)
+        person, created = repo.find_or_create_stub(
+            name="Brand New Contact",
+            email="brand.new@example.com",
+        )
+        assert created is True
+        assert person.name == "Brand New Contact"
+        assert person.emails == ["brand.new@example.com"]
+
+    def test_find_or_create_stub_reuses_via_email(self, temp_vault):
+        """Existing person found by email → reuse, no new file."""
+        repo = PersonRepository(temp_vault)
+        person, created = repo.find_or_create_stub(
+            name="J Smith",
+            email="john@example.com",  # John Smith's email from fixture
+        )
+        assert created is False
+        assert person.name == "John Smith"
+
+    def test_find_or_create_stub_reuses_via_resolve_all_naomi(self, temp_vault):
+        """The Naomi Pavie production case — exocortex Granola ingester scenario.
+
+        Pre-existing canonical: @Naomi Pavie Speechmatics.md (mangled, no email).
+        New caller: find_or_create_stub('Naomi Pavie', email='naomi@speechmatics.com', company='Speechmatics')
+        Expected: REUSE the canonical (not create @Naomi Pavie.md duplicate).
+        """
+        repo = PersonRepository(temp_vault)
+        repo.create_stub(name="Naomi Pavie Speechmatics", company="")  # mangled canonical with empty email
+
+        person, created = repo.find_or_create_stub(
+            name="Naomi Pavie",
+            email="naomi.pavie@speechmatics.com",
+            company="Speechmatics",
+        )
+        assert created is False, (
+            "Should REUSE existing canonical 'Naomi Pavie Speechmatics' — this is the WI-103 acceptance gate"
+        )
+        assert person.name == "Naomi Pavie Speechmatics"
+
+    def test_find_or_create_stub_writes_back_new_email(self, temp_vault):
+        """On reuse, if the call supplied a new identifier not on the canonical
+        record, append it (write-back). Future lookups now have stronger signal."""
+        repo = PersonRepository(temp_vault)
+        repo.create_stub(name="Naomi Pavie Speechmatics", company="")  # no email
+        person, created = repo.find_or_create_stub(
+            name="Naomi Pavie",
+            email="naomi.pavie@speechmatics.com",
+            company="Speechmatics",
+        )
+        assert created is False
+        # Re-fetch from repo to see the written-back state
+        canonical = repo.get("Naomi Pavie Speechmatics")
+        assert canonical is not None
+        assert "naomi.pavie@speechmatics.com" in canonical.emails, (
+            f"write-back should have appended new email; canonical.emails = {canonical.emails}"
+        )
+
+    def test_find_or_create_stub_respects_confidence_threshold(self, temp_vault):
+        """A weak match (e.g., shared first name only, no other signal) should
+        NOT be treated as a reuse — better to create a new stub than wrongly merge."""
+        repo = PersonRepository(temp_vault)
+        repo.create_stub(name="Emily Mendes", email="emily@speechmatics.com", company="Speechmatics")
+
+        # Calling with just "Emily" + no company hint shouldn't merge with Emily Mendes
+        # (could be a different Emily). Better to create a new stub.
+        person, created = repo.find_or_create_stub(
+            name="Emily Watson",  # different last name
+            email="emily.watson@example.com",
+        )
+        assert created is True, "Different person — should create new stub, not merge"
+        assert person.name == "Emily Watson"
+
 
 class TestAutoAliasOnNameChange:
     """Tests for automatic alias preservation when name field changes."""

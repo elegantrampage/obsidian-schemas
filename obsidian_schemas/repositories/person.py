@@ -13,11 +13,32 @@ Also provides methods for managing To Discuss items.
 
 import re
 import logging
+from dataclasses import dataclass
 from email.utils import parseaddr
 from pathlib import Path
-from typing import Optional, List, Type
+from typing import Optional, List, Tuple, Type
 
 from ..models import Person
+
+
+@dataclass(frozen=True)
+class ResolveCandidate:
+    """One candidate match from PersonRepository.resolve_all().
+
+    Confidence calibration (0.0-1.0, higher = stronger evidence):
+      1.0   — exact identifier match (exact name, alias, email, phone)
+      0.85+ — partial-name match with company hint corroboration
+      0.65  — token-subset partial-name match (no company corroboration)
+      <0.5  — weak signal; callers should treat as no-match
+
+    matched_via documents which strategy fired:
+      "exact-name" / "alias" / "email" / "phone" / "token-subset" / "partial-name"
+
+    WI-018 (2026-06-01) — surfaced from orchestrator Phase 0 trace.
+    """
+    person: Person
+    confidence: float
+    matched_via: str
 from ..body_sections import (
     get_default_body,
     get_section,
@@ -317,6 +338,243 @@ class PersonRepository(BaseRepository[Person]):
                 return person
 
         return None
+
+    def resolve_all(
+        self,
+        query: str,
+        company: Optional[str] = None,
+    ) -> List[ResolveCandidate]:
+        """Multi-candidate ranked resolve with optional company-hint disambiguation.
+
+        WI-018 (2026-06-01) — built to fix the active dupe-creation bug surfaced
+        in orchestrator Phase 0 trace. resolve() returns a single Optional[Person]
+        and stops at the first cascade hit; resolve_all returns ALL plausible
+        candidates ranked by confidence, with optional company-hint boost for
+        the partial-name case.
+
+        Cascade (each contributes one candidate per match; deduped by person):
+          1. Exact name match (case-insensitive)      → 1.0
+          2. Alias match                              → 1.0
+          3. Email match (if query has '@')           → 1.0
+          4. Phone match (if query is phone-shaped)   → 1.0
+          5. Token-subset match: query's tokens ⊆ candidate's tokens, or
+             vice versa, with ≥2 tokens shared       → 0.65
+          6. Partial-name (single-token, whole-word)  → 0.6
+
+        Company-hint bump: when `company` is provided AND a candidate's company
+        matches case-insensitively, confidence is bumped by +0.2 (capped at 1.0).
+        This catches "Emily M" + company="Speechmatics" → canonical Emily Mendes
+        bumped 0.6 → 0.8 → 0.85 cutoff for safe reuse.
+
+        Returns:
+            List of ResolveCandidate sorted by confidence descending. Empty if
+            no candidate scored above the noise floor (0.5).
+        """
+        self._ensure_loaded()
+
+        if not query or not query.strip():
+            return []
+
+        query = query.strip()
+        query_lower = query.lower()
+        query_tokens = set(query_lower.split())
+
+        # Collect candidates by (person_name, best_signal) — dedupe per-person
+        # but track best signal across multiple matches.
+        by_person: dict[str, ResolveCandidate] = {}
+
+        def record(person: Person, confidence: float, matched_via: str):
+            existing = by_person.get(person.name)
+            if existing is None or confidence > existing.confidence:
+                by_person[person.name] = ResolveCandidate(
+                    person=person,
+                    confidence=confidence,
+                    matched_via=matched_via,
+                )
+
+        # 1. Exact name match
+        if query_lower in self._cache:
+            record(self._cache[query_lower], 1.0, "exact-name")
+
+        # 2. Email match — more specific than alias; run first so it wins
+        # the label race when an alias also contains the email
+        if "@" in query_lower:
+            cache_key = self._email_index.get(query_lower)
+            if cache_key:
+                person = self._cache.get(cache_key)
+                if person:
+                    record(person, 1.0, "email")
+
+        # 3. Alias match
+        if query_lower in self._alias_index:
+            cache_key = self._alias_index[query_lower]
+            person = self._cache.get(cache_key)
+            if person:
+                record(person, 1.0, "alias")
+
+        # 4. Phone match
+        digits = normalize_phone(query)
+        if len(digits) >= 7:
+            person = self.get_by_phone(query)
+            if person:
+                record(person, 1.0, "phone")
+
+        # 5. Token-subset / token-overlap matching
+        # For each cached name, compute token overlap with the query.
+        for cache_key, person in self._cache.items():
+            cache_tokens = set(cache_key.split())
+            if not cache_tokens:
+                continue
+            if cache_tokens == query_tokens:
+                continue  # already caught by exact-name
+            shared = cache_tokens & query_tokens
+            # Skip if shared is just trivial first-name match with no other tokens
+            if not shared:
+                continue
+            # Token-subset (one side fully contained in the other) requires ≥2 shared
+            if (query_tokens.issubset(cache_tokens) or cache_tokens.issubset(query_tokens)):
+                if len(shared) >= 2:
+                    record(person, 0.65, "token-subset")
+                elif len(query_tokens) == 1 and shared:
+                    # 1-token query that's a whole word in the cache key — partial name
+                    record(person, 0.6, "partial-name")
+
+        # 6. Short-form first-token + last-initial style match
+        # E.g. query = "Emily M" against cache "emily mendes". Requires company
+        # hint to confirm — without it, this match stays low confidence (< 0.5)
+        # and gets filtered out below.
+        if len(query_tokens) == 2:
+            qparts = query_lower.split()
+            if len(qparts[1]) <= 2:  # "M", "M.", "Mc"
+                for cache_key, person in self._cache.items():
+                    cparts = cache_key.split()
+                    if len(cparts) >= 2:
+                        if (cparts[0] == qparts[0]
+                                and cparts[1].startswith(qparts[1].rstrip("."))):
+                            record(person, 0.6, "partial-name")
+
+        # Company-hint bump
+        # Matches when:
+        #   (a) canonical's company field matches case-insensitively, OR
+        #   (b) canonical's name contains the company as a whole-word token
+        #       (catches the mangled-stub case where company got concatenated
+        #       into the name, e.g. @Naomi Pavie Speechmatics.md with
+        #       company='' but "speechmatics" in the name).
+        if company:
+            company_lower = company.lower().strip()
+            for name, cand in list(by_person.items()):
+                canonical_company = (cand.person.company or "").lower().strip()
+                canonical_name_tokens = set(name.lower().split())
+                company_matches = (
+                    canonical_company == company_lower
+                    or company_lower in canonical_name_tokens
+                )
+                if company_matches:
+                    new_conf = min(1.0, cand.confidence + 0.25)
+                    if new_conf > cand.confidence:
+                        by_person[name] = ResolveCandidate(
+                            person=cand.person,
+                            confidence=new_conf,
+                            matched_via=f"{cand.matched_via}+company-hint",
+                        )
+
+        # Filter noise floor + sort
+        candidates = [c for c in by_person.values() if c.confidence >= 0.5]
+        candidates.sort(key=lambda c: c.confidence, reverse=True)
+        return candidates
+
+    def find_or_create_stub(
+        self,
+        name: str,
+        email: Optional[str] = None,
+        phone: Optional[str] = None,
+        company: Optional[str] = None,
+        auto_created: bool = True,
+        confidence_threshold: float = 0.85,
+    ) -> Tuple[Person, bool]:
+        """Lookup-before-create entry point. Replaces ad-hoc create_stub calls
+        scattered across orchestrator, HAL9000, and exocortex.
+
+        WI-019 (2026-06-01) — surfaced from orchestrator Phase 0 trace which
+        identified 4 stub-creation paths all using too-narrow lookups (just
+        get_by_email + resolve), creating duplicates when canonicals have
+        empty emails or mangled names. find_or_create_stub uses resolve_all
+        with company-hint disambiguation, then falls through to create_stub
+        only when no high-confidence match exists.
+
+        On reuse, identifier write-back: if the call supplied a new email/phone
+        not on the canonical record, append it. Future lookups have stronger
+        signal.
+
+        Returns:
+            (Person, created_new: bool). created_new is True iff a new stub
+            was written; False if an existing record was reused.
+
+        Acceptance gate from orchestrator/docs/find-or-create-stub.md:
+          Caller passes ('Naomi Pavie', email='naomi@speechmatics.com',
+          company='Speechmatics') with existing mangled canonical
+          'Naomi Pavie Speechmatics'. Must REUSE, not create a duplicate.
+        """
+        self._ensure_loaded()
+
+        # Strategy 1: exact identifier matches (email/phone) — strongest signal
+        if email:
+            existing = self.get_by_email(email)
+            if existing:
+                self._writeback_identifier(existing, email=email)
+                return existing, False
+
+        if phone:
+            existing = self.get_by_phone(phone)
+            if existing:
+                self._writeback_identifier(existing, phone=phone)
+                return existing, False
+
+        # Strategy 2: resolve_all with company hint
+        if name:
+            candidates = self.resolve_all(name, company=company)
+            if candidates and candidates[0].confidence >= confidence_threshold:
+                existing = candidates[0].person
+                self._writeback_identifier(existing, email=email, phone=phone)
+                return existing, False
+
+        # Strategy 3: no high-confidence match → create new stub
+        new_person = self.create_stub(
+            name=name,
+            email=email,
+            phone=phone,
+            company=company,
+            auto_created=auto_created,
+        )
+        return new_person, True
+
+    def _writeback_identifier(
+        self,
+        person: Person,
+        email: Optional[str] = None,
+        phone: Optional[str] = None,
+    ) -> None:
+        """Append newly-observed identifier to a canonical record (WI-019).
+
+        Called from find_or_create_stub on the reuse branch. If the supplied
+        email/phone is not already present on the canonical, append it and
+        save. No-op if the canonical already has the identifier.
+        """
+        changed = False
+        if email and email not in (person.emails or []):
+            person.emails = list(person.emails or []) + [email]
+            changed = True
+        if phone and phone not in (person.phones or []):
+            person.phones = list(person.phones or []) + [phone]
+            changed = True
+        if changed:
+            self.save(person)
+            logger.info(
+                "find_or_create_stub: wrote back new identifier(s) to '%s' (emails=%s, phones=%s)",
+                person.name,
+                person.emails,
+                person.phones,
+            )
 
     def get_by_role(self, role: str) -> List[Person]:
         """
