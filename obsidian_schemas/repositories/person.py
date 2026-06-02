@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Optional, List, Tuple, Type
 
 from ..models import Person
+from ..name_validation import NameValidator, NameValidationError
 
 
 @dataclass(frozen=True)
@@ -648,6 +649,26 @@ class PersonRepository(BaseRepository[Person]):
                 email = parsed_email
             # Display-name part if present, else fall back to email local-part.
             name = parsed_name or parsed_email.split("@", 1)[0]
+
+        # WI-105: boundary validation. Tier 1 patterns (calendar prefix,
+        # archive prefix, 'unknown contact', RFC 2822 leak, etc.) raise
+        # NameValidationError — producers must fix. Tier 2 patterns
+        # (whitespace) get cleaned transparently and logged at INFO so
+        # the WI-105 invariant can detect drift.
+        # Phone-sentinel allowance: WI-083 path passes name="+447..." with
+        # phone="+447..."; recognize that pattern and bypass digit-rejection.
+        # Empty-name allowance: legacy fallback uses email local-part as the
+        # name. Skip the validator in that case and let the existing
+        # `if not clean_name` branch below pick up the fallback.
+        if name and name.strip():
+            _allow_phone_sentinel = bool(phone) and name.strip().lstrip("+").isdigit()
+            clean_result = NameValidator().clean(name, allow_phone_sentinel=_allow_phone_sentinel)
+            if clean_result.repairs_applied:
+                logger.info(
+                    "create_stub: name repairs applied %s — input=%r output=%r",
+                    clean_result.repairs_applied, name, clean_result.cleaned_name,
+                )
+            name = clean_result.cleaned_name
 
         # Clean name for use
         clean_name = re.sub(r'[^\w\s-]', '', name).strip()
