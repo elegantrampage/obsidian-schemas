@@ -52,6 +52,30 @@ class TestRejectRfc2822Leak:
         with pytest.raises(NameValidationError):
             v.validate_strict("Ronald Ashri ronaldashriopendialogai")
 
+    def test_rejects_hyphenated_leak(self):
+        # 'no-worriescouk' — leaked-email run with a hyphen mid-run.
+        # Regex must handle [a-z][a-z0-9.\-]+ runs.
+        v = NameValidator()
+        with pytest.raises(NameValidationError):
+            v.validate_strict("Chris Oakes no-worriescouk")
+
+    def test_does_NOT_reject_maurizio(self):
+        # Falsification: 'Maurizio' ends in 'io' (a real TLD substring) but
+        # is a legitimate first name. Real production false-positive
+        # observed in 2026-06-02 repair dry-run before this fix.
+        v = NameValidator()
+        assert v.validate_strict("Maurizio Morriello") == "Maurizio Morriello"
+
+    def test_does_NOT_reject_francisco(self):
+        # Falsification: 'Francisco' ends in 'co' (a TLD substring).
+        v = NameValidator()
+        assert v.validate_strict("Francisco Vigo") == "Francisco Vigo"
+
+    def test_does_NOT_reject_patricio(self):
+        # 'Patricio' ends in 'io'.
+        v = NameValidator()
+        assert v.validate_strict("Patricio Hernandez") == "Patricio Hernandez"
+
 
 class TestRejectCalendarPrefix:
     """Pattern 2: 'Dave -', 'Me to', 'Me -' calendar/transcript prefix.

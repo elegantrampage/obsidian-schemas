@@ -37,12 +37,22 @@ from typing import List
 # Tier 1 patterns — REJECT
 # ============================================================
 
-# Pattern: trailing run of lowercase letters ending in a TLD with no @ or .
-# Example: "Naomi Pavie naomipavieatspeechmaticscom"
-# Constraint: needs a long-ish lowercase run (≥6 chars) before the TLD so
-# we don't false-positive on names like "Patricia ai" or short legit names.
+# Pattern: contiguous all-lowercase run (possibly with hyphens/digits) ending
+# in a TLD — characteristic of an email that lost its @ and . punctuation and
+# was concatenated into a name field.
+# Examples:
+#   'Naomi Pavie naomipavieatspeechmaticscom'  — ends in 'com'
+#   'Anne Almeida-Anderson anneno-worriescouk' — ends in 'uk', has hyphen
+#   'Faith Forster faithmforstergmailcom'      — ends in 'com'
+#
+# CRITICAL DESIGN: caller must NOT lowercase the input before matching. Real
+# names like 'Maurizio' (ends in 'io'!), 'Francisco' (ends in 'co'),
+# 'Patricio' ('io') would false-positive otherwise. The leaked-email run is
+# always all-lowercase because it came from the email's local-part + domain.
+# Requiring [a-z] on the *original* casing differentiates: real names start
+# with a capital and would not match the run anchor.
 _RFC2822_LEAK_RE = re.compile(
-    r"[a-z]{6,}(com|net|org|io|ai|uk|co|gov|edu|app|biz)\b"
+    r"\b[a-z][a-z0-9.\-]{4,}(com|net|org|io|ai|uk|co|gov|edu|app|biz)\b"
 )
 
 # Pattern: starts with 'Dave -', 'Me -', 'Me to', 'My -' followed by
@@ -188,19 +198,28 @@ class NameValidator:
     # ----- Tier 1 dispatcher -----
 
     def _raise_on_tier1(self, name: str) -> None:
-        """Walks the Tier 1 pattern table; raises on the first match."""
-        # RFC 2822 leak
-        if _RFC2822_LEAK_RE.search(name.lower()):
-            raise NameValidationError(
-                "rfc2822_leak",
-                f"name appears to contain an email mashed into text (TLD-suffix run detected): {name!r}",
-            )
+        """Walks the Tier 1 pattern table; raises on the first match.
 
+        Order matters: more-specific patterns first so the error reason is
+        the most informative one. `@` is a clear smoking gun (always means
+        the name carries an email), so it fires before the RFC 2822
+        heuristic which would also match an intact "name@domain.com".
+        """
         # Email-leak smoking gun: @ character in name
         if _EMAIL_CHARS_RE.search(name):
             raise NameValidationError(
                 "contains_email_chars",
                 f"name contains '@' which cannot appear in a human name: {name!r}",
+            )
+
+        # RFC 2822 leak — must search on ORIGINAL casing (see comment on
+        # _RFC2822_LEAK_RE for why). Lowercasing here would false-positive
+        # on 'Maurizio' / 'Francisco' / 'Patricio' and other names ending
+        # in TLD-substring suffixes.
+        if _RFC2822_LEAK_RE.search(name):
+            raise NameValidationError(
+                "rfc2822_leak",
+                f"name appears to contain an email mashed into text (TLD-suffix run detected): {name!r}",
             )
 
         # Calendar prefix ('Dave -', 'Me -', 'My -')
