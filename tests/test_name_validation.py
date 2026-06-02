@@ -59,6 +59,13 @@ class TestRejectRfc2822Leak:
         with pytest.raises(NameValidationError):
             v.validate_strict("Chris Oakes no-worriescouk")
 
+    def test_rejects_underscored_leak(self):
+        # 'prachi_gargoutlookcom' — leaked email with an underscore (original
+        # local-part was 'prachi_garg'). Real production case 2026-06-02.
+        v = NameValidator()
+        with pytest.raises(NameValidationError):
+            v.validate_strict("Prachi Garg prachi_gargoutlookcom")
+
     def test_does_NOT_reject_maurizio(self):
         # Falsification: 'Maurizio' ends in 'io' (a real TLD substring) but
         # is a legitimate first name. Real production false-positive

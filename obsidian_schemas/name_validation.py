@@ -52,7 +52,7 @@ from typing import List
 # Requiring [a-z] on the *original* casing differentiates: real names start
 # with a capital and would not match the run anchor.
 _RFC2822_LEAK_RE = re.compile(
-    r"\b[a-z][a-z0-9.\-]{4,}(com|net|org|io|ai|uk|co|gov|edu|app|biz)\b"
+    r"\b[a-z][a-z0-9._\-]{4,}(com|net|org|io|ai|uk|co|gov|edu|app|biz)\b"
 )
 
 # Pattern: starts with 'Dave -', 'Me -', 'Me to', 'My -' followed by
