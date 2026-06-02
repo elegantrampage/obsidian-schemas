@@ -607,6 +607,89 @@ class PersonRepository(BaseRepository[Person]):
             if p.company and p.company.lower() == company_lower
         ]
 
+    def save(self, entity, body: str = "", extra_fields=None, overwrite: bool = True):
+        """Override BaseRepository.save() to normalize field-level RFC 2822
+        corruption (WI-109).
+
+        Producers sometimes append raw 'Name <email>' / 'Name (email)' strings
+        into Person.emails[] and Person.aliases[]. This breaks exact-email
+        match in dedupe detection. Normalize at the save boundary:
+          - For each entry in emails/aliases, parseaddr it.
+          - If it yields a clean (email, display_name) pair, replace the entry
+            with the clean email and add the display_name to aliases.
+        Dedup-aware: identical clean emails after normalization collapse to one.
+        """
+        self._normalize_address_fields(entity)
+        return super().save(entity, body=body, extra_fields=extra_fields, overwrite=overwrite)
+
+    @staticmethod
+    def _normalize_address_fields(person: Person) -> None:
+        """In-place normalization of person.emails and person.aliases.
+
+        Walks each list, runs parseaddr on every entry; whenever an entry
+        contains '<' or wrapped-in-parens email, replaces it with the clean
+        email and moves the display-name to aliases. Dedupes case-insensitively
+        while preserving first-seen order.
+        """
+        def _extract_email_and_name(entry: str) -> Tuple[str, str]:
+            """Return (email, display_name). Empty strings if not extractable."""
+            if not entry or not isinstance(entry, str):
+                return "", ""
+            # parseaddr handles 'Name <email>' form natively
+            name_p, email_p = parseaddr(entry)
+            if email_p and "@" in email_p and "." in email_p:
+                return email_p, (name_p or "").strip()
+            # Try the parens form: 'Name (email@domain)'
+            m = re.match(r"^(.*?)\s*\(\s*([^@\s]+@[^\s)]+)\s*\)\s*$", entry)
+            if m:
+                return m.group(2).strip(), m.group(1).strip()
+            return "", ""
+
+        # Process emails[]: extract clean email, collect display names for aliases
+        new_emails: List[str] = []
+        extracted_names: List[str] = []
+        seen_emails_lower = set()
+        for entry in list(person.emails or []):
+            email, display = _extract_email_and_name(entry)
+            if email:
+                if email.lower() not in seen_emails_lower:
+                    new_emails.append(email)
+                    seen_emails_lower.add(email.lower())
+                if display:
+                    extracted_names.append(display)
+            else:
+                # Couldn't parseaddr — keep as-is (rare; only if entry was malformed)
+                if entry and entry.lower() not in seen_emails_lower:
+                    new_emails.append(entry)
+                    seen_emails_lower.add(entry.lower())
+        person.emails = new_emails
+
+        # Process aliases[]: same logic, but emails extracted go to emails[] (if not
+        # already there), and the cleaned alias stays in aliases[]
+        new_aliases: List[str] = []
+        seen_aliases_lower = set()
+        for entry in list(person.aliases or []):
+            email, display = _extract_email_and_name(entry)
+            if email:
+                # The alias was a wrapped email — add the clean email to emails
+                if email.lower() not in seen_emails_lower:
+                    person.emails.append(email)
+                    seen_emails_lower.add(email.lower())
+                # Add display name as alias if extracted
+                if display and display.lower() not in seen_aliases_lower:
+                    new_aliases.append(display)
+                    seen_aliases_lower.add(display.lower())
+            else:
+                if entry and entry.lower() not in seen_aliases_lower:
+                    new_aliases.append(entry)
+                    seen_aliases_lower.add(entry.lower())
+        # Also add any extracted display names from emails[] that aren't already there
+        for n in extracted_names:
+            if n and n.lower() not in seen_aliases_lower:
+                new_aliases.append(n)
+                seen_aliases_lower.add(n.lower())
+        person.aliases = new_aliases
+
     def create_stub(
         self,
         name: str,

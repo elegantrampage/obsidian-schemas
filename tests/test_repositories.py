@@ -570,6 +570,113 @@ class TestPersonRepository:
         assert looked_up is not None
         assert looked_up.phones == ["+447739341679"]
 
+    # ==================== WI-109 — field-level RFC 2822 normalization ====================
+
+    def test_save_normalizes_rfc2822_in_emails(self, temp_vault):
+        """WI-109: emails containing raw 'Name <email>' RFC 2822 strings get
+        cleaned at save time. The display-name part lands in aliases.
+
+        Real production case: 'Ed <edwardcu@mo.co.uk>' was preserved in
+        Person.emails[] as-is, breaking exact-email-match in dedupe.
+        """
+        from obsidian_schemas import Person
+        repo = PersonRepository(temp_vault)
+        person = Person(
+            name="Ed Curwen",
+            emails=["Ed <edwardcu@mo.co.uk>"],
+            aliases=[],
+            tags=["person"],
+        )
+        repo.save(person)
+
+        reloaded = repo.get("Ed Curwen")
+        # Email field now contains just the clean address
+        assert reloaded.emails == ["edwardcu@mo.co.uk"]
+        # Display-name "Ed" landed in aliases (so it's still findable by lookup)
+        assert "Ed" in reloaded.aliases
+
+    def test_save_normalizes_parens_form(self, temp_vault):
+        """Some producers wrap email in parens: 'Name (email)'."""
+        from obsidian_schemas import Person
+        repo = PersonRepository(temp_vault)
+        person = Person(
+            name="Ewan Long",
+            emails=["Ewan Long (ewan.long@royallondon.com)"],
+            tags=["person"],
+        )
+        repo.save(person)
+
+        reloaded = repo.get("Ewan Long")
+        assert reloaded.emails == ["ewan.long@royallondon.com"]
+        assert "Ewan Long" in reloaded.aliases
+
+    def test_save_preserves_clean_emails_unchanged(self, temp_vault):
+        """Non-corrupted emails pass through untouched."""
+        from obsidian_schemas import Person
+        repo = PersonRepository(temp_vault)
+        person = Person(
+            name="Clean Person",
+            emails=["clean@example.com"],
+            tags=["person"],
+        )
+        repo.save(person)
+
+        reloaded = repo.get("Clean Person")
+        assert reloaded.emails == ["clean@example.com"]
+        # No spurious alias additions
+        assert reloaded.aliases == ["clean@example.com"] or reloaded.aliases == []
+
+    def test_save_dedups_email_after_normalization(self, temp_vault):
+        """If a record has BOTH 'Name <foo>' AND 'foo' in emails, normalization
+        produces 'foo' twice; the result must dedupe so we don't get duplicates."""
+        from obsidian_schemas import Person
+        repo = PersonRepository(temp_vault)
+        person = Person(
+            name="Dup Email Person",
+            emails=["Dup <dup@example.com>", "dup@example.com"],
+            tags=["person"],
+        )
+        repo.save(person)
+
+        reloaded = repo.get("Dup Email Person")
+        # Only one entry, the clean form
+        assert reloaded.emails == ["dup@example.com"]
+
+    def test_save_does_not_extract_display_name_if_no_angle_brackets(self, temp_vault):
+        """An email like 'foo@bar.com' alone — no display name to extract."""
+        from obsidian_schemas import Person
+        repo = PersonRepository(temp_vault)
+        person = Person(
+            name="Plain Email",
+            emails=["bare@example.com"],
+            aliases=[],
+            tags=["person"],
+        )
+        repo.save(person)
+
+        reloaded = repo.get("Plain Email")
+        # No spurious alias from parseaddr (display-name part is empty)
+        assert reloaded.emails == ["bare@example.com"]
+        assert "bare@example.com" not in reloaded.aliases or len(reloaded.aliases) == 0
+
+    def test_save_handles_aliases_list_with_rfc2822(self, temp_vault):
+        """Aliases can also carry RFC 2822 corruption — same normalization."""
+        from obsidian_schemas import Person
+        repo = PersonRepository(temp_vault)
+        person = Person(
+            name="Alias Test",
+            aliases=["Alias Holder <alias@example.com>"],
+            tags=["person"],
+        )
+        repo.save(person)
+
+        reloaded = repo.get("Alias Test")
+        # Email extracted to emails[]
+        assert "alias@example.com" in reloaded.emails
+        # Original alias-with-angle replaced by the clean display name OR clean email
+        for a in reloaded.aliases:
+            assert "<" not in a and ">" not in a
+
     def test_refresh(self, temp_vault):
         """Test refreshing the cache."""
         repo = PersonRepository(temp_vault)
