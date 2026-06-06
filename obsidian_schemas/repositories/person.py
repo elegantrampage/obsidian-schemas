@@ -753,8 +753,15 @@ class PersonRepository(BaseRepository[Person]):
                 )
             name = clean_result.cleaned_name
 
-        # Clean name for use
-        clean_name = re.sub(r'[^\w\s-]', '', name).strip()
+        # WI-111 (Decision 6): NameValidator.clean() above is the SOLE name
+        # authority and is closed under validate_strict — store its output
+        # verbatim. The legacy `clean_name = re.sub(r'[^\w\s-]', '', name)`
+        # mangler that used to run here is DELETED: it manufactured tier1
+        # failures from validator-passing inputs ('Dave -> X (Co)' became
+        # 'Dave - X Co', a calendar_prefix) and corrupted valid names
+        # (O'Brien -> OBrien, Dr. Smith -> Dr Smith). Path-hostile chars are
+        # now rejected at the validator boundary, not stripped here.
+        clean_name = name.strip() if name else ""
         if not clean_name:
             clean_name = email.split("@")[0] if email else "Unknown"
 

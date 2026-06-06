@@ -124,6 +124,82 @@ class TestRejectCalendarPrefix:
         v = NameValidator()
         assert v.validate_strict("Medea Smith") == "Medea Smith"
 
+    def test_rejects_me_to_colon_form(self):
+        # WI-111 (2026-06-06 production case): 'Me to: David Field' PASSED the
+        # original `^(Me|My)\s+to\s+\w+` regex because the colon broke the
+        # `\s+\w+` tail. The legacy re.sub in create_stub then stripped the
+        # colon → 'Me to David Field' (calendar_prefix), corrupting the note.
+        # Loosened to `^(Me|My)\s+to\b` so the colon form is rejected at input.
+        v = NameValidator()
+        with pytest.raises(NameValidationError) as exc:
+            v.validate_strict("Me to: David Field")
+        assert exc.value.pattern == "calendar_prefix"
+
+    def test_rejects_my_to_colon_form(self):
+        v = NameValidator()
+        with pytest.raises(NameValidationError):
+            v.validate_strict("My to: Someone Else")
+
+
+class TestRejectArrowConnective:
+    """WI-111: connective arrow '->' — meeting/relationship descriptor leaked
+    into a name field. The 2026-06-06 production case 'Dave -> Thomas Gatten
+    (Adzact)' PASSED validate_strict on input (arrow form is not the older
+    `Dave -` prefix), then create_stub's legacy re.sub stripped '>()' →
+    'Dave - Thomas Gatten Adzact' (calendar_prefix). Reject the arrow at the
+    boundary so deleting that re.sub can't store the descriptor verbatim.
+
+    Verified 2026-06-06: 0 of 1590 live vault names contain '->'.
+    """
+
+    def test_rejects_arrow_prefix_form(self):
+        v = NameValidator()
+        with pytest.raises(NameValidationError) as exc:
+            v.validate_strict("Dave -> Thomas Gatten (Adzact)")
+        assert exc.value.pattern == "calendar_prefix"
+
+    def test_rejects_bare_arrow_between_names(self):
+        # The broader `<name> -> <name>` 1:1-title shape, not Dave-prefixed.
+        v = NameValidator()
+        with pytest.raises(NameValidationError):
+            v.validate_strict("Naomi Pavie -> David Field")
+
+    def test_clean_raises_on_arrow(self):
+        v = NameValidator()
+        with pytest.raises(NameValidationError):
+            v.clean("Dave -> Thomas Gatten (Adzact)")
+
+    def test_does_NOT_reject_hyphenated_name(self):
+        # 'Anne-Marie' has a hyphen but no arrow — must pass.
+        v = NameValidator()
+        assert v.validate_strict("Anne-Marie") == "Anne-Marie"
+
+
+class TestRejectPathHostileChar:
+    """WI-111: forward slash '/' in a name. Path-hostile (breaks the
+    @{name}.md file path) AND a connective descriptor form. create_stub used
+    to strip this via the legacy re.sub; with that mangler deleted, '/' must
+    be rejected at the boundary or it reaches the file path.
+
+    Verified 2026-06-06: 0 of 1590 live vault names contain '/'.
+    """
+
+    def test_rejects_forward_slash_between_names(self):
+        v = NameValidator()
+        with pytest.raises(NameValidationError) as exc:
+            v.validate_strict("Naomi / David")
+        assert exc.value.pattern == "path_hostile_char"
+
+    def test_rejects_slash_no_spaces(self):
+        v = NameValidator()
+        with pytest.raises(NameValidationError):
+            v.validate_strict("Foo/Bar")
+
+    def test_clean_raises_on_slash(self):
+        v = NameValidator()
+        with pytest.raises(NameValidationError):
+            v.clean("A / B")
+
 
 class TestRejectArchivePrefix:
     """Pattern 3: Obsidian 'zArchived -' convention leaked into name field."""
@@ -281,6 +357,21 @@ class TestAcceptsRealValidNames:
         "Maritza Bonano",
         "José García",                # accented chars
         "Andrea van der Berg",       # particle
+        # WI-111 false-positive guards — the vault stores companies as person
+        # notes; the 2026-06-06 audit found these 13 live '&'/'and' company
+        # names. They must NOT be rejected (an '&'/'and' tier1 pattern would
+        # destroy real notes). Verified against the live vault.
+        "Bain & Company",
+        "Marks and Spencer",
+        "Bird & Bird LLP",
+        "Bloom & Wild",
+        "Few and Far",
+        # WI-111 punctuation guards — the deleted re.sub used to mangle these
+        # (O'Brien->OBrien, Dr. Smith->Dr Smith). validate_strict passes them;
+        # post-fix create_stub must store them verbatim.
+        "Owen O'Brien",
+        "Dr. Smith",
+        "Anne-Marie",
     ])
     def test_accepts_real_valid_name(self, name):
         v = NameValidator()
@@ -301,6 +392,99 @@ class TestAcceptsRealValidNames:
 # ============================================================
 # Edge / robustness
 # ============================================================
+
+# ============================================================
+# WI-111 — closed-loop contract: clean() is closed under validate_strict
+# ============================================================
+
+# Frozen real-data corpus. Drawn from the live vault / _quarantine / _merged_dupes
+# audit (2026-06-06) plus the WI-105 / WI-017 corruption classes and valid-name
+# controls. The contract under test: a name that clean() RETURNS (does not reject)
+# can never be one validate_strict would reject. This is the executable guarantee
+# that the create_stub boundary (which stores clean()'s output verbatim, WI-111
+# Decision 6) cannot persist a tier1-corrupt name.
+_CLOSED_LOOP_CORPUS = [
+    # --- RFC 2822 leaks (WI-017 / WI-105 class) — real vault samples ---
+    "Naomi Pavie naomipavieatspeechmaticscom",
+    "Anne Almeida-Anderson anneno-worriescouk",
+    "David Field davidfspeechmaticscom",
+    "Emily Mendes emilymspeechmaticscom",
+    "Faith Forster faithmforstergmailcom",
+    "Antony Berg antonybspeechmaticscom",
+    "Chris Oakes no-worriescouk",
+    "Prachi Garg prachi_gargoutlookcom",
+    "Ronald Ashri ronaldashriopendialogai",
+    "davewaschaexclaimercom",
+    # --- calendar / transcript prefixes (real _merged_dupes samples) ---
+    "Dave - Naomi Pavie",
+    "Dave - Chris Oakes",
+    "Dave - Lauren King Speechmatics",
+    "Dave - Emily Mendes Speechmatics",
+    "Me to David Field",
+    "Me - Tom Green",
+    "zArchived - Rosie Samuels",
+    # --- THE 2026-06-06 manufactured cases (WI-111 root) — must be rejected ---
+    "Dave -> Thomas Gatten (Adzact)",
+    "Me to: David Field",
+    "Naomi Pavie -> David Field",
+    # --- path-hostile / other tier1 ---
+    "Naomi / David",
+    "Foo/Bar",
+    "219945292038370 unknown contact",
+    "naomi@speechmatics.com",
+    "+447739341679",
+    # --- valid-name controls (must pass clean() AND validate_strict cleanly) ---
+    "Naomi Pavie",
+    "David Field",
+    "Owen O'Brien",          # apostrophe — the deleted re.sub mangled this
+    "Dr. Smith",             # period — likewise
+    "José García",           # accents
+    "Anne-Marie",            # hyphen
+    "Anne-Sophie Legrain",
+    "Sören Winter",
+    "Maurizio Morriello",    # ends in 'io' — RFC2822 false-positive guard
+    "Francisco Vigo",        # ends in 'co'
+    "Andrea van der Berg",   # particle
+    "Bain & Company",        # company-as-person note ('&' must not reject)
+    "Marks and Spencer",     # company ('and' must not reject)
+    "Bird & Bird LLP",
+    "  Jane  Doe  ",         # whitespace — clean() repairs, must stay closed
+]
+
+
+class TestCleanClosedUnderValidateStrict:
+    """WI-111 Decision 6 — the executable contract.
+
+    For every name in the frozen corpus: clean() either RAISES (rejected at the
+    boundary) OR validate_strict(clean(x).cleaned_name) returns the SAME string
+    without raising. clean() can therefore never emit a name the invariant
+    (validate_strict-based) would later flag — the corruption-by-the-boundary
+    failure mode that caused the 2026-06-06 incident is closed.
+    """
+
+    @pytest.mark.parametrize("name", _CLOSED_LOOP_CORPUS)
+    def test_clean_output_passes_validate_strict(self, name):
+        v = NameValidator()
+        try:
+            cleaned = v.clean(name).cleaned_name
+        except NameValidationError:
+            return  # rejected — acceptable per the contract
+        # clean() returned a name → validate_strict must accept it UNCHANGED.
+        revalidated = v.validate_strict(cleaned)
+        assert revalidated == cleaned, (
+            f"clean({name!r}) emitted {cleaned!r} but validate_strict "
+            f"normalized it to {revalidated!r} — boundary is NOT closed"
+        )
+
+    def test_2026_06_06_cases_are_rejected_not_just_closed(self):
+        """The two production cases must land in the REJECTED branch — storing
+        them verbatim (validate_strict-green but garbage) would trade a loud
+        failure for a silent one, which deleting the re.sub alone would do."""
+        v = NameValidator()
+        for bad in ("Dave -> Thomas Gatten (Adzact)", "Me to: David Field"):
+            with pytest.raises(NameValidationError):
+                v.clean(bad)
+
 
 class TestEdgeCases:
     def test_empty_string_raises(self):

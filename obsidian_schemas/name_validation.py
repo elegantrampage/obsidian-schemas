@@ -62,10 +62,28 @@ _RFC2822_LEAK_RE = re.compile(
 _CALENDAR_PREFIX_RE = re.compile(
     r"^(Dave|Me|My)\s*[-/]\s+\w+",
 )
+# WI-111: loosened from `^(Me|My)\s+to\s+\w+` to `\bto\b`. The original required
+# whitespace+word after "to", so 'Me to: David Field' (colon) slipped through —
+# create_stub's legacy re.sub then stripped the colon → 'Me to David Field'
+# (calendar_prefix), corrupting the note the morning after. `\bto\b` catches the
+# colon form too. "Medea"/"Mehta" still pass (require whitespace after Me/My).
 _ME_TO_PREFIX_RE = re.compile(
-    r"^(Me|My)\s+to\s+\w+",
+    r"^(Me|My)\s+to\b",
     re.IGNORECASE,
 )
+
+# WI-111: connective arrow '->' anywhere — a meeting/relationship descriptor
+# ('Dave -> Thomas Gatten (Adzact)') leaked into a name. No human name contains
+# '->'. Caught here so deleting create_stub's re.sub can't store the descriptor
+# verbatim as a validate_strict-green-but-garbage name. Verified 2026-06-06:
+# 0 of 1590 live vault names contain '->'.
+_ARROW_CONNECTIVE_RE = re.compile(r"->")
+
+# WI-111: forward slash '/' anywhere — path-hostile (breaks the @{name}.md file
+# path) AND a connective descriptor form. create_stub used to strip this via the
+# legacy re.sub; with that mangler deleted, '/' must be rejected at the boundary
+# or it reaches the file path. Verified 2026-06-06: 0 live vault names contain '/'.
+_PATH_HOSTILE_RE = re.compile(r"/")
 
 # Pattern: 'zArchived' or 'zzArchived' prefix — Obsidian convention leak
 _ARCHIVE_PREFIX_RE = re.compile(r"^z+Archived\b", re.IGNORECASE)
@@ -222,6 +240,15 @@ class NameValidator:
                 f"name appears to contain an email mashed into text (TLD-suffix run detected): {name!r}",
             )
 
+        # Connective arrow ('Dave -> X', 'X -> Y') — meeting-descriptor leak.
+        # Reuses the calendar_prefix pattern key so invariant by_pattern
+        # reporting stays coherent (WI-111).
+        if _ARROW_CONNECTIVE_RE.search(name):
+            raise NameValidationError(
+                "calendar_prefix",
+                f"name contains a connective arrow '->' (meeting/relationship descriptor): {name!r}",
+            )
+
         # Calendar prefix ('Dave -', 'Me -', 'My -')
         if _CALENDAR_PREFIX_RE.match(name):
             raise NameValidationError(
@@ -234,6 +261,15 @@ class NameValidator:
             raise NameValidationError(
                 "calendar_prefix",
                 f"name starts with a 'Me to' / 'My to' transcript prefix: {name!r}",
+            )
+
+        # Path-hostile forward slash ('/') — breaks the @{name}.md file path
+        # and is a connective descriptor form. WI-111: required because the
+        # legacy create_stub re.sub that used to strip it has been deleted.
+        if _PATH_HOSTILE_RE.search(name):
+            raise NameValidationError(
+                "path_hostile_char",
+                f"name contains '/' which breaks the note file path: {name!r}",
             )
 
         # Archive convention leak

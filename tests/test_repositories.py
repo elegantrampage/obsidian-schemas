@@ -8,6 +8,7 @@ from obsidian_schemas import (
     PersonRepository, CompanyRepository, BookRepository, MeetingRepository,
     Person, Company, Book, Meeting
 )
+from obsidian_schemas.name_validation import NameValidationError
 
 
 @pytest.fixture
@@ -492,11 +493,13 @@ class TestPersonRepository:
         """RFC 2822 quoted display name (e.g. 'Doe, Jane') — quotes + comma preserved in name."""
         repo = PersonRepository(temp_vault)
         person = repo.create_stub(name='"Doe, Jane" <jane@example.com>')
-        # parseaddr returns 'Doe, Jane' — the regex sanitizer then strips
-        # the comma (existing behaviour for filesystem-safety). Acceptable.
+        # parseaddr returns 'Doe, Jane'. WI-111: the legacy re.sub (which used
+        # to strip the comma) is deleted, so the comma is now preserved — a
+        # comma is path-safe and validate_strict accepts it. The email is still
+        # split out cleanly.
         assert "Doe" in person.name and "Jane" in person.name
         assert person.emails == ["jane@example.com"]
-        # No '@' or '.' should leak into the name
+        # No '@' or domain should leak into the name
         assert "@" not in person.name
         assert "example" not in person.name
 
@@ -504,7 +507,10 @@ class TestPersonRepository:
         """Phone-only stub (WI-083) must still work — `@` check prevents misfire."""
         repo = PersonRepository(temp_vault)
         person = repo.create_stub(name="+447739341679", phone="+447739341679")
-        assert person.name == "447739341679"  # existing regex strips '+'
+        # WI-111: legacy re.sub deleted → the '+' is preserved (canonical E.164,
+        # and what the validator's phone-sentinel path returns). Phone dedup is
+        # on the normalized phone index (strips '+'), so this is duplicate-safe.
+        assert person.name == "+447739341679"
         assert person.phones == ["+447739341679"]
         assert person.emails == []  # no email derived from phone
 
@@ -544,6 +550,52 @@ class TestPersonRepository:
         assert "@" not in person.name
         assert person.emails == []
 
+    # ──────────────────────────────────────────────────────────────────
+    # WI-111: single name authority — clean()'s output stored verbatim,
+    # legacy re.sub mangler deleted (Decision 6 / Phase 1B)
+    # ──────────────────────────────────────────────────────────────────
+
+    def test_create_stub_preserves_apostrophe(self, temp_vault):
+        """O'Brien must keep its apostrophe — the deleted re.sub stripped it."""
+        repo = PersonRepository(temp_vault)
+        person = repo.create_stub(name="Owen O'Brien")
+        assert person.name == "Owen O'Brien"
+        assert (temp_vault / "@Owen O'Brien.md").exists()
+
+    def test_create_stub_preserves_period(self, temp_vault):
+        """Dr. Smith must keep its period — the deleted re.sub stripped it."""
+        repo = PersonRepository(temp_vault)
+        person = repo.create_stub(name="Dr. Smith")
+        assert person.name == "Dr. Smith"
+
+    def test_create_stub_preserves_accents(self, temp_vault):
+        repo = PersonRepository(temp_vault)
+        person = repo.create_stub(name="José García")
+        assert person.name == "José García"
+
+    def test_create_stub_rejects_arrow_descriptor(self, temp_vault):
+        """WI-111 falsification: the 2026-06-06 case must now RAISE, not write
+        a corrupted note. Previously PASSED clean() then re.sub manufactured
+        'Dave - Thomas Gatten Adzact'."""
+        repo = PersonRepository(temp_vault)
+        with pytest.raises(NameValidationError):
+            repo.create_stub(name="Dave -> Thomas Gatten (Adzact)")
+        # No file written for the rejected name.
+        assert not any(temp_vault.glob("@Dave*.md"))
+
+    def test_create_stub_rejects_me_to_colon_descriptor(self, temp_vault):
+        """WI-111 falsification: the other 2026-06-06 case."""
+        repo = PersonRepository(temp_vault)
+        with pytest.raises(NameValidationError):
+            repo.create_stub(name="Me to: David Field")
+
+    def test_find_or_create_stub_rejects_descriptor(self, temp_vault):
+        """The dedupe-aware entry point must also reject (it falls through to
+        create_stub on Strategy 3)."""
+        repo = PersonRepository(temp_vault)
+        with pytest.raises(NameValidationError):
+            repo.find_or_create_stub(name="Dave -> Thomas Gatten (Adzact)")
+
     def test_create_stub_with_phone(self, temp_vault):
         """Test creating a phone-only stub (WI-083: phone-only contact path).
 
@@ -562,8 +614,9 @@ class TestPersonRepository:
         assert person.phones == ["+447739341679"]
         assert person.emails == []
 
-        # Filename: clean_name regex strips the leading '+'.
-        assert (temp_vault / "@447739341679.md").exists()
+        # Filename: WI-111 deleted the re.sub that stripped '+', so the file is
+        # named with the verbatim validated name.
+        assert (temp_vault / "@+447739341679.md").exists()
 
         # Phone-indexed lookup resolves the new stub.
         looked_up = repo.get_by_phone("+447739341679")
