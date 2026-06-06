@@ -16,7 +16,7 @@ import logging
 from dataclasses import dataclass
 from email.utils import parseaddr
 from pathlib import Path
-from typing import Optional, List, Tuple, Type
+from typing import Optional, List, Literal, Tuple, Type
 
 from ..models import Person
 from ..name_validation import NameValidator, NameValidationError
@@ -44,6 +44,8 @@ from ..body_sections import (
     get_default_body,
     get_section,
     update_section,
+    append_to_section,
+    prepend_to_section,
     ToDiscussItem,
     parse_to_discuss_items,
     write_to_discuss_items,
@@ -843,6 +845,111 @@ class PersonRepository(BaseRepository[Person]):
 
         except Exception as e:
             logger.warning(f"Failed to update timeline for {person.name}: {e}")
+            return False
+
+    def append_to_body_section(
+        self,
+        person: Person,
+        section: str,
+        content: str,
+        operation: Literal["append", "prepend"] = "append",
+        deduplicate_key: Optional[str] = None,
+        create_if_missing: bool = True,
+    ) -> bool:
+        """Add ``content`` to a person's ``## {section}`` body section (WI-111).
+
+        The generic body-section writer the migrated writers (enricher, intro-
+        ducer, scheduler) route through instead of MCP ``patch_vault_file``.
+        Wraps the ``body_sections`` module helpers around a body-safe read/write
+        that carries the frontmatter through VERBATIM (it is never re-serialized
+        or re-normalized — body writes must not touch frontmatter).
+
+        Deliberately distinct from ``append_to_timeline`` (which prepends and
+        dedups whole-file): this method supports both operations and dedups
+        SECTION-SCOPED, so e.g. "Introduced by [[X]]" may legitimately appear in
+        both Timeline and Notes.
+
+        Args:
+            person: whose note to write (looked up by ``person.name``).
+            section: section name without the leading ``## `` (e.g. "Notes").
+            content: text to add (no leading ``## ``).
+            operation: "append" (end of section, default) or "prepend" (start).
+            deduplicate_key: if set AND already present in the TARGET section,
+                skip the write and return False.
+            create_if_missing: create the ``## {section}`` if absent (default
+                True); when False and the section is absent, no-op returns False.
+
+        Returns:
+            True if written; False if deduped, skipped (missing section with
+            ``create_if_missing=False``), or the file has no frontmatter fence.
+
+        Raises:
+            ValueError: if the person file does not exist, or ``operation`` is
+                not "append"/"prepend" (loud-fail — never silently mis-write).
+        """
+        if operation not in ("append", "prepend"):
+            raise ValueError(
+                f"append_to_body_section: operation must be 'append' or "
+                f"'prepend', got {operation!r}"
+            )
+
+        file_path = self.get_file_path(person.name)
+        if not file_path or not file_path.exists():
+            raise ValueError(f"Person file not found: {person.name}")
+
+        try:
+            content_raw = file_path.read_text(encoding="utf-8")
+
+            # Split frontmatter and body (body-safe pattern, mirrors To-Discuss).
+            if not content_raw.startswith("---"):
+                logger.warning(
+                    f"append_to_body_section: {person.name} has no frontmatter "
+                    f"fence — skipping"
+                )
+                return False
+            parts = content_raw.split("---", 2)
+            if len(parts) < 3:
+                logger.warning(
+                    f"append_to_body_section: {person.name} frontmatter malformed "
+                    f"— skipping"
+                )
+                return False
+            frontmatter = parts[1]
+            body = parts[2].lstrip("\n")
+
+            # None ⇒ section absent; "" / text ⇒ present (possibly empty).
+            existing_section = get_section(body, section)
+
+            # create_if_missing=False + absent section → genuine no-op.
+            if existing_section is None and not create_if_missing:
+                return False
+
+            # Section-scoped dedup (NOT whole-file — same key may live in
+            # Timeline AND Notes).
+            if deduplicate_key and existing_section and deduplicate_key in existing_section:
+                return False
+
+            if operation == "prepend":
+                new_body = prepend_to_section(
+                    body, section, content, create_if_missing=create_if_missing
+                )
+            else:
+                new_body = append_to_section(
+                    body, section, content, create_if_missing=create_if_missing
+                )
+
+            # Re-assemble carrying frontmatter through verbatim.
+            new_content = f"---{frontmatter}---\n{new_body}"
+            file_path.write_text(new_content, encoding="utf-8")
+            logger.info(
+                f"append_to_body_section: {operation} to '{section}' for {person.name}"
+            )
+            return True
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to append_to_body_section for {person.name}: {e}"
+            )
             return False
 
     # =========================================================================

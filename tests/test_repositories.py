@@ -956,6 +956,159 @@ tags:
             repo.append_to_timeline(fake_person, "### Entry\n")
 
     # ──────────────────────────────────────────────────────────────────
+    # WI-111 Phase 1: append_to_body_section (generic body-section writer)
+    # ──────────────────────────────────────────────────────────────────
+
+    def _write_multi_section_person(self, vault, name="Sören Winter"):
+        """Write a realistic multi-section person note (real-data-shaped:
+        accented name, populated frontmatter, Timeline + Notes sections)."""
+        path = vault / f"@{name}.md"
+        path.write_text(
+            "---\n"
+            "type: person\n"
+            f"name: {name}\n"
+            "emails:\n"
+            "  - soren@example.de\n"
+            "company: Beispiel GmbH\n"
+            "tags:\n"
+            "  - person\n"
+            'created: "2025-03-01"\n'
+            "---\n\n"
+            "## Timeline\n\n"
+            "### March 1, 2025\n[[Intro]] — first contact.\n\n"
+            "## Notes\n\n"
+            "- Prefers email.\n",
+            encoding="utf-8",
+        )
+        return path
+
+    def test_append_to_body_section_new_section_append(self, temp_vault):
+        repo = PersonRepository(temp_vault)
+        person = repo.get("John Smith")  # has Timeline only
+        ok = repo.append_to_body_section(person, "Notes", "- Likes coffee.\n")
+        assert ok is True
+        content = (temp_vault / "@John Smith.md").read_text()
+        assert "## Notes" in content
+        assert "Likes coffee" in content
+
+    def test_append_to_body_section_new_section_prepend(self, temp_vault):
+        repo = PersonRepository(temp_vault)
+        person = repo.get("John Smith")
+        ok = repo.append_to_body_section(
+            person, "Notes", "- Newest.\n", operation="prepend"
+        )
+        assert ok is True
+        assert "Newest" in (temp_vault / "@John Smith.md").read_text()
+
+    def test_append_to_body_section_existing_section_append(self, temp_vault):
+        path = self._write_multi_section_person(temp_vault)
+        repo = PersonRepository(temp_vault)
+        person = repo.get("Sören Winter")
+        ok = repo.append_to_body_section(person, "Notes", "- Second note.\n")
+        assert ok is True
+        body = path.read_text()
+        # Appended AFTER the existing note.
+        assert body.index("Prefers email") < body.index("Second note")
+
+    def test_append_to_body_section_existing_section_prepend(self, temp_vault):
+        path = self._write_multi_section_person(temp_vault)
+        repo = PersonRepository(temp_vault)
+        person = repo.get("Sören Winter")
+        ok = repo.append_to_body_section(
+            person, "Notes", "- Top note.\n", operation="prepend"
+        )
+        assert ok is True
+        body = path.read_text()
+        assert body.index("Top note") < body.index("Prefers email")
+
+    def test_append_to_body_section_dedupe_hit_skips(self, temp_vault):
+        path = self._write_multi_section_person(temp_vault)
+        repo = PersonRepository(temp_vault)
+        person = repo.get("Sören Winter")
+        key = "Introduced by [[Dave]]"
+        assert repo.append_to_body_section(
+            person, "Notes", f"- {key}\n", deduplicate_key=key
+        ) is True
+        # Second identical append with the same key is skipped.
+        assert repo.append_to_body_section(
+            person, "Notes", f"- {key}\n", deduplicate_key=key
+        ) is False
+        assert path.read_text().count(key) == 1
+
+    def test_append_to_body_section_dedupe_is_section_scoped(self, temp_vault):
+        """The key correctness proof: a deduplicate_key present in Timeline must
+        NOT suppress an append of the same key to Notes (section-scoped, not
+        whole-file — unlike append_to_timeline)."""
+        path = self._write_multi_section_person(temp_vault)
+        repo = PersonRepository(temp_vault)
+        person = repo.get("Sören Winter")
+        key = "Introduced by [[Dave]]"
+        # Put the key in Timeline first.
+        assert repo.append_to_body_section(person, "Timeline", f"{key}\n") is True
+        # Same key into Notes must still be written (different section).
+        assert repo.append_to_body_section(
+            person, "Notes", f"- {key}\n", deduplicate_key=key
+        ) is True
+        content = path.read_text()
+        assert content.count(key) == 2
+
+    def test_append_to_body_section_create_if_missing_false_noop(self, temp_vault):
+        repo = PersonRepository(temp_vault)
+        person = repo.get("John Smith")  # no Notes section
+        ok = repo.append_to_body_section(
+            person, "Notes", "- nope.\n", create_if_missing=False
+        )
+        assert ok is False
+        assert "## Notes" not in (temp_vault / "@John Smith.md").read_text()
+
+    def test_append_to_body_section_preserves_frontmatter_and_other_sections(self, temp_vault):
+        """Body-preservation: frontmatter bytes + all OTHER sections untouched;
+        only the target section changes."""
+        path = self._write_multi_section_person(temp_vault)
+        original = path.read_text()
+        original_frontmatter = original.split("---", 2)[1]
+        repo = PersonRepository(temp_vault)
+        person = repo.get("Sören Winter")
+        repo.append_to_body_section(person, "Notes", "- Added.\n")
+        after = path.read_text()
+        # Frontmatter byte-identical.
+        assert after.split("---", 2)[1] == original_frontmatter
+        # Timeline section untouched.
+        assert "### March 1, 2025" in after
+        assert "[[Intro]] — first contact." in after
+        # Accented name preserved.
+        assert "name: Sören Winter" in after
+
+    def test_append_to_body_section_missing_file_raises(self, temp_vault):
+        repo = PersonRepository(temp_vault)
+        fake = Person(name="Ghost Person", type="person")
+        with pytest.raises(ValueError, match="not found"):
+            repo.append_to_body_section(fake, "Notes", "- x\n")
+
+    def test_append_to_body_section_no_frontmatter_fence_returns_false(self, temp_vault):
+        # Write WITH frontmatter so the note loads into the cache (get_file_path
+        # resolves), then externally strip the fence — simulates a note edited
+        # out-of-band between load and write. The fence guard must return False.
+        path = temp_vault / "@Nofence Person.md"
+        path.write_text(
+            "---\ntype: person\nname: Nofence Person\ntags:\n  - person\n---\n\n## Notes\n",
+            encoding="utf-8",
+        )
+        repo = PersonRepository(temp_vault)
+        person = repo.get("Nofence Person")
+        # Now corrupt the on-disk file: remove the frontmatter fence.
+        path.write_text("## Notes\n\n- no frontmatter here\n", encoding="utf-8")
+        ok = repo.append_to_body_section(person, "Notes", "- x\n")
+        assert ok is False
+
+    def test_append_to_body_section_invalid_operation_raises(self, temp_vault):
+        """Loud-fail: an unknown operation must raise, not silently append."""
+        repo = PersonRepository(temp_vault)
+        person = repo.get("John Smith")
+        with pytest.raises(ValueError, match="operation"):
+            repo.append_to_body_section(person, "Notes", "- x\n", operation="insert")
+
+    # ──────────────────────────────────────────────────────────────────
     # WI-018: resolve_all() — multi-candidate ranked resolve
     # ──────────────────────────────────────────────────────────────────
     # Surfaced 2026-06-01 from orchestrator Phase 0 trace. Today at 14:05
