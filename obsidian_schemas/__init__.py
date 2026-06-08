@@ -63,6 +63,7 @@ from obsidian_schemas.repositories import (
     BookRepository,
     MeetingRepository,
 )
+from obsidian_schemas.name_cleaning import clean_person_name
 
 __version__ = "0.1.0"
 
@@ -106,4 +107,6 @@ __all__ = [
     "CompanyRepository",
     "BookRepository",
     "MeetingRepository",
+    # Name cleaning (WI-117)
+    "clean_person_name",
 ]

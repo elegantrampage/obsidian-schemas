@@ -19,7 +19,13 @@ from pathlib import Path
 from typing import Optional, List, Literal, Tuple, Type
 
 from ..models import Person
-from ..name_validation import NameValidator, NameValidationError
+from ..name_validation import (
+    NameValidator,
+    NameValidationError,
+    WeakIdentityError,
+    weak_identity_reason,
+)
+from ..name_cleaning import clean_person_name
 
 
 @dataclass(frozen=True)
@@ -129,6 +135,11 @@ class PersonRepository(BaseRepository[Person]):
         self._phone_index: dict[str, str] = {}  # normalized phone -> cache_key
         self._alias_index: dict[str, str] = {}  # alias -> cache_key
         self._slack_index: dict[str, str] = {}  # slack ID/handle -> cache_key
+        # WI-117: lazily-held CompanyRepository for corroborated name-cleaning.
+        # Loaded at most once per process (same lifetime as this repo's own
+        # cache); the known-companies SET is still rebuilt per-call. None until
+        # first 3+-token find_or_create_stub call that needs corroboration.
+        self._company_repo_for_cleaning = None
 
     @property
     def entity_type(self) -> Type[Person]:
@@ -365,9 +376,11 @@ class PersonRepository(BaseRepository[Person]):
           6. Partial-name (single-token, whole-word)  → 0.6
 
         Company-hint bump: when `company` is provided AND a candidate's company
-        matches case-insensitively, confidence is bumped by +0.2 (capped at 1.0).
-        This catches "Emily M" + company="Speechmatics" → canonical Emily Mendes
-        bumped 0.6 → 0.8 → 0.85 cutoff for safe reuse.
+        matches case-insensitively, confidence is bumped by +0.25 (capped at 1.0;
+        see the code at person.py:~476 — this docstring previously said +0.2, a
+        drift fixed in WI-117). This catches "Emily M" + company="Speechmatics" →
+        canonical Emily Mendes bumped 0.65 → 0.90 ≥ 0.85 cutoff for safe reuse,
+        and is the mechanism the WI-103 Naomi Pavie acceptance gate depends on.
 
         Returns:
             List of ResolveCandidate sorted by confidence descending. Empty if
@@ -517,10 +530,46 @@ class PersonRepository(BaseRepository[Person]):
           Caller passes ('Naomi Pavie', email='naomi@speechmatics.com',
           company='Speechmatics') with existing mangled canonical
           'Naomi Pavie Speechmatics'. Must REUSE, not create a duplicate.
+
+        WI-117 (2026-06-07) — two additions, both at this door so every channel
+        gets them:
+          1. Name-cleaning BEFORE lookup. The query is run through
+             clean_person_name (safe recoveries: digits, calendar/archive
+             prefixes, 'unknown contact') and a CORROBORATED company-suffix
+             strip (only when the trailing token is a known company AND it's
+             corroborated by company= or the email domain). 'Darryl Friend Kato'
+             + @kato.app → 'Darryl Friend' → exact-name match (1.0) → reuse.
+             The strip is corroborated-only on purpose: 'Emma Roberts Kato' with
+             no corroboration is NOT stripped, so it can't wrong-merge onto a
+             bare 'Emma Roberts' canonical. resolve_all's tiers/thresholds are
+             untouched (the +0.25 company-hint reuse WI-103 relies on is
+             preserved).
+          2. Weak-identity guard. When auto_created=True and no match was found,
+             a bare single-token-no-id name or a social-handle raises
+             WeakIdentityError (the name is valid, the identity's just too weak
+             to safely mint a new note for someone Dave likely already knows).
+             Gated on auto_created so manual single-name notes are untouched;
+             existing single-name canonicals (@Adam) are still REUSED via
+             exact-match before the guard can fire.
+
+        Raises:
+            NameValidationError: the created name is a Tier-1 non-person string
+              (only on the create path, from create_stub).
+            WeakIdentityError: auto_created and the identity is too weak to
+              create (no match found first).
         """
         self._ensure_loaded()
 
-        # Strategy 1: exact identifier matches (email/phone) — strongest signal
+        # WI-117: clean the query before lookup. Non-company recoveries are
+        # always safe; the company-suffix strip is corroborated-only (see
+        # _strip_corroborated_company_suffix). The cleaned name is used for the
+        # name-based lookup AND as the created name (lookup-clean == creation-
+        # name; both safe — the strip is idempotent and conservative-keep on
+        # no-corroboration means worst case is "no worse than today").
+        lookup_name = self._clean_query_for_lookup(name, email=email, company=company)
+
+        # Strategy 1: exact identifier matches (email/phone) — strongest signal.
+        # Name-independent, so a strong identifier reuses even past a weak name.
         if email:
             existing = self.get_by_email(email)
             if existing:
@@ -533,23 +582,161 @@ class PersonRepository(BaseRepository[Person]):
                 self._writeback_identifier(existing, phone=phone)
                 return existing, False
 
-        # Strategy 2: resolve_all with company hint
-        if name:
-            candidates = self.resolve_all(name, company=company)
+        # Strategy 2: resolve_all with company hint, on the CLEANED name.
+        if lookup_name:
+            candidates = self.resolve_all(lookup_name, company=company)
             if candidates and candidates[0].confidence >= confidence_threshold:
                 existing = candidates[0].person
                 self._writeback_identifier(existing, email=email, phone=phone)
                 return existing, False
 
-        # Strategy 3: no high-confidence match → create new stub
+        # WI-117 weak-identity guard: only when about to auto-create AND no
+        # match was found above. Manual creates (auto_created=False) skip it.
+        if auto_created:
+            reason = weak_identity_reason(lookup_name, email=email, phone=phone)
+            if reason:
+                logger.info(
+                    "find_or_create_stub: refusing weak-identity auto-create "
+                    "(%s) for name=%r email=%r phone=%r",
+                    reason, name, email, phone,
+                )
+                raise WeakIdentityError(reason)
+
+        # Strategy 3: no high-confidence match → create new stub (cleaned name)
         new_person = self.create_stub(
-            name=name,
+            name=lookup_name,
             email=email,
             phone=phone,
             company=company,
             auto_created=auto_created,
         )
         return new_person, True
+
+    # ──────────────────────────────────────────────────────────────────
+    # WI-117 name-cleaning helpers (corroborated company-suffix strip)
+    # ──────────────────────────────────────────────────────────────────
+
+    def _clean_query_for_lookup(
+        self,
+        name: str,
+        email: Optional[str] = None,
+        company: Optional[str] = None,
+    ) -> str:
+        """Clean a query name for find_or_create_stub (WI-117).
+
+        Two stages:
+          1. clean_person_name WITHOUT known_companies — the unconditionally-safe
+             recoveries (trailing/embedded digits, calendar/archive prefixes,
+             'unknown contact' suffix). known_companies is deliberately NOT
+             passed: its unconditional company strip would collapse
+             'Emma Roberts Kato' onto a bare 'Emma Roberts' with no corroboration
+             (a wrong merge). email is NOT passed either — clean_person_name's
+             email-domain strip skips the known-company sanity check; we do the
+             corroborated strip ourselves in stage 2.
+          2. _strip_corroborated_company_suffix — the conservative strip
+             (token ∈ known-companies AND (company== OR email-domain match)).
+        """
+        if not name:
+            return name
+        cleaned = clean_person_name(name)
+        cleaned = self._strip_corroborated_company_suffix(
+            cleaned, company=company, email=email
+        )
+        return cleaned
+
+    def _strip_corroborated_company_suffix(
+        self,
+        name: str,
+        company: Optional[str] = None,
+        email: Optional[str] = None,
+    ) -> str:
+        """Strip a trailing company token from `name` ONLY when corroborated
+        (WI-117 Decision 2 — the wrong-merge safety belt).
+
+        Strips trailing token(s) T (1–3-word windows, longest first) iff:
+          - T is in the vault's known-companies set, AND
+          - (company == T case-insensitively) OR
+            (the email domain's primary label == T, lowercased/spaces-removed),
+            where primary label = domain.split('.')[0] (matching
+            clean_person_name's existing convention).
+        Never strips below 2 remaining tokens. If nothing is corroborated, the
+        name is returned VERBATIM (no worse than today).
+
+        Examples (T='Kato'/'Speechmatics' assumed in known-companies):
+          'Darryl Friend Kato',  company='Kato'                 → 'Darryl Friend'
+          'Darryl Friend Kato',  email='d@kato.app'             → 'Darryl Friend'
+          'Naomi Pavie Speechmatics', email='n@speechmatics.com'→ 'Naomi Pavie'
+          'Emma Roberts Kato',   (no company, no email)         → 'Emma Roberts Kato'  (no strip)
+          'Emma Kato',           anything                        → 'Emma Kato'          (2 tokens, guard)
+        """
+        if not name:
+            return name
+        words = name.split()
+        if len(words) < 3:
+            # Need ≥3 tokens to strip ≥1 and keep ≥2. (Also avoids building the
+            # company set for the common 2-token case.)
+            return name
+
+        company_lower = (company or "").lower().strip()
+        domain_label = ""
+        if email and "@" in email:
+            domain_label = email.lower().split("@", 1)[1].split(".")[0]
+
+        # Nothing can corroborate → keep verbatim (and skip the company scan).
+        if not company_lower and not domain_label:
+            return name
+
+        known_lower = {c.lower() for c in self._known_companies()}
+        if not known_lower:
+            return name
+
+        for n in (3, 2, 1):
+            if len(words) - n < 2:
+                continue
+            suffix_lower = " ".join(words[-n:]).lower()
+            if suffix_lower not in known_lower:
+                continue
+            suffix_nospace = suffix_lower.replace(" ", "")
+            corroborated = (
+                (company_lower and suffix_lower == company_lower)
+                or (domain_label and (suffix_lower == domain_label
+                                      or suffix_nospace == domain_label))
+            )
+            if corroborated:
+                return " ".join(words[:-n])
+        return name
+
+    def _known_companies(self) -> set:
+        """Build the known-companies set for corroborated name-cleaning (WI-117).
+
+        Built PER-CALL (no derived-set cache, no cross-repo invalidation —
+        that machinery was cut as over-engineering; exocortex builds the same
+        set per-meeting and perf is fine). Union of Person.company values (free
+        — this repo is already loaded) and CompanyRepository names (a lazily-held
+        instance so company files are scanned at most once per process, same
+        lifetime as this repo's own cache). Degrades to the person-company set
+        if CompanyRepository is unavailable.
+        """
+        companies = {
+            p.company.strip()
+            for p in self.get_all()
+            if p.company and p.company.strip()
+        }
+        try:
+            if self._company_repo_for_cleaning is None:
+                from .company import CompanyRepository
+                self._company_repo_for_cleaning = CompanyRepository(self.vault_path)
+            companies |= {
+                c.name.strip()
+                for c in self._company_repo_for_cleaning.get_all()
+                if c.name and c.name.strip()
+            }
+        except Exception:
+            logger.debug(
+                "find_or_create_stub: CompanyRepository unavailable for "
+                "name-cleaning; using person-company set only"
+            )
+        return companies
 
     def _writeback_identifier(
         self,

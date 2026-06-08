@@ -8,7 +8,7 @@ from obsidian_schemas import (
     PersonRepository, CompanyRepository, BookRepository, MeetingRepository,
     Person, Company, Book, Meeting
 )
-from obsidian_schemas.name_validation import NameValidationError
+from obsidian_schemas.name_validation import NameValidationError, WeakIdentityError
 
 
 @pytest.fixture
@@ -1304,6 +1304,160 @@ tags:
         )
         assert created is True, "Different person — should create new stub, not merge"
         assert person.name == "Emily Watson"
+
+
+class TestFindOrCreateStubWI117:
+    """WI-117 trap set — harden find_or_create_stub against NEW duplicates.
+
+    Two new behaviours, both at this door:
+      1. Corroborated name-cleaning before lookup ('Darryl Friend Kato' →
+         'Darryl Friend' when corroborated → exact-match reuse), WITHOUT
+         wrong-merging the uncorroborated 'Emma Roberts Kato'.
+      2. Weak-identity guard: bare single-token-no-id + social-handle auto-creates
+         raise WeakIdentityError instead of minting a probable duplicate.
+
+    These are real-data shapes (Darryl Friend coaching client; Naomi Pavie /
+    Speechmatics; the Emma namesake hazard the handoff flagged as the #1 risk).
+    """
+
+    # ── Gate 2: Darryl-class reuse via corroborated cleaning → exact match ──
+
+    def test_company_suffix_cleaned_then_exact_match_reuses_via_email(self, temp_vault):
+        """'Darryl Friend Kato' + @kato.app → clean to 'Darryl Friend' (email-
+        domain corroborates 'Kato') → exact-name match (1.0) → REUSE. No new note.
+        The canonical has NO email, so the win MUST come from cleaning→exact-match
+        (not from a Strategy-1 email short-circuit)."""
+        repo = PersonRepository(temp_vault)
+        repo.create_stub(name="Darryl Friend", company="Kato")  # seeds 'Kato'; no email
+
+        person, created = repo.find_or_create_stub(
+            name="Darryl Friend Kato",
+            email="darryl@kato.app",  # domain 'kato' corroborates the strip
+        )
+        assert created is False, "should reuse 'Darryl Friend' via cleaned-query exact match"
+        assert person.name == "Darryl Friend"
+
+    def test_company_suffix_cleaned_via_company_arg_reuses(self, temp_vault):
+        """Same win via the company= corroboration branch (the meeting path has
+        no email but does pass company)."""
+        repo = PersonRepository(temp_vault)
+        repo.create_stub(name="Darryl Friend", company="Kato")
+
+        person, created = repo.find_or_create_stub(
+            name="Darryl Friend Kato",
+            company="Kato",  # company== corroborates the strip
+        )
+        assert created is False
+        assert person.name == "Darryl Friend"
+
+    # ── Gate 3: weak-identity refusal ──
+
+    def test_bare_first_name_no_id_raises_weak_identity(self, temp_vault):
+        """A bare 'Darryl' with no email/phone, auto_created, no match → refuse.
+        Can't tell WHICH Darryl; almost certainly a thin mention of an existing
+        canonical, so don't mint @Darryl.md."""
+        repo = PersonRepository(temp_vault)
+        repo.create_stub(name="Darryl Friend", company="Kato")  # a Darryl exists, but bare won't merge
+
+        with pytest.raises(WeakIdentityError) as exc:
+            repo.find_or_create_stub(name="Darryl", auto_created=True)
+        assert exc.value.reason == "single-name, no email"
+        # No note written.
+        assert repo.get("Darryl") is None
+
+    def test_social_handle_raises_weak_identity(self, temp_vault):
+        """A social handle ('darryl_f') is not a name — refuse the auto-create."""
+        repo = PersonRepository(temp_vault)
+        with pytest.raises(WeakIdentityError) as exc:
+            # email present so the handle branch (case 2) fires distinctly
+            repo.find_or_create_stub(name="darryl_f", email="x@y.com", auto_created=True)
+        assert exc.value.reason == "social handle pattern: darryl_f"
+
+    def test_weak_identity_guard_skipped_when_not_auto_created(self, temp_vault):
+        """Manual creates (auto_created=False) are NEVER refused — Dave can mint
+        a single-name note by hand."""
+        repo = PersonRepository(temp_vault)
+        person, created = repo.find_or_create_stub(name="Cher", auto_created=False)
+        assert created is True
+        assert person.name == "Cher"
+
+    # ── Gate 4: email-corroborated creation strips company from the NAME ──
+
+    def test_creates_with_company_stripped_from_name_when_no_canonical(self, temp_vault):
+        """'Naomi Pavie Speechmatics' + @speechmatics.com, NO existing canonical →
+        create '@Naomi Pavie.md' (company stripped from the name), company field
+        set to 'Speechmatics'."""
+        repo = PersonRepository(temp_vault)
+        # Seed 'Speechmatics' into known-companies without creating a Naomi.
+        repo.create_stub(name="Someone Else", company="Speechmatics")
+
+        person, created = repo.find_or_create_stub(
+            name="Naomi Pavie Speechmatics",
+            email="naomi.pavie@speechmatics.com",
+            company="Speechmatics",
+        )
+        assert created is True
+        assert person.name == "Naomi Pavie", "company token should be stripped from the created name"
+        assert person.company == "Speechmatics"
+
+    # ── Gate 5 + the #1 wrong-merge hazard: no surname/namesake corruption ──
+
+    def test_surname_equal_company_word_not_stripped(self, temp_vault):
+        """'Emma Kato' (2 tokens, no corroboration) is created VERBATIM — the
+        2-token guard + conservative-keep means a surname that happens to equal a
+        company word ('Kato') is never stripped to 'Emma'."""
+        repo = PersonRepository(temp_vault)
+        repo.create_stub(name="Bob Kato", company="Kato")  # seeds 'Kato'
+        person, created = repo.find_or_create_stub(name="Emma Kato", email="emma@gmail.com")
+        assert created is True
+        assert person.name == "Emma Kato"
+
+    def test_uncorroborated_company_token_does_not_wrong_merge(self, temp_vault):
+        """THE #1 RISK. 'Emma Roberts Kato' with NO email/company corroboration
+        must NOT clean to 'Emma Roberts' and merge onto a bare 'Emma Roberts'
+        canonical (who may be a different human). Stays separate."""
+        repo = PersonRepository(temp_vault)
+        repo.create_stub(name="Emma Roberts", company="")  # bare canonical
+        repo.create_stub(name="Bob Kato", company="Kato")  # 'Kato' is a known company
+
+        person, created = repo.find_or_create_stub(name="Emma Roberts Kato")  # no email, no company
+        assert created is True, "uncorroborated 3-token name must NOT merge onto bare canonical"
+        assert person.name == "Emma Roberts Kato"
+        # The bare canonical is untouched.
+        assert repo.get("Emma Roberts").name == "Emma Roberts"
+
+    # ── Gate 8: existing single-name canonicals still reused, never refused ──
+
+    def test_existing_single_name_canonical_is_reused_not_refused(self, temp_vault):
+        """@Adam (a manual single-name canonical) is REUSED via exact-match
+        before the weak guard can fire — refusal only ever happens on no-match."""
+        repo = PersonRepository(temp_vault)
+        repo.create_stub(name="Adam", auto_created=False)  # manual single-name canonical
+
+        # Auto-created lookup with the same bare name → exact-match reuse, NOT refused.
+        person, created = repo.find_or_create_stub(name="Adam", auto_created=True)
+        assert created is False
+        assert person.name == "Adam"
+
+    # ── Gate 6: the WI-103 company-hinted reuse mechanism still works ──
+
+    def test_wi103_naomi_company_hinted_reuse_preserved(self, temp_vault):
+        """Regression guard: the +0.25 company-hint reuse WI-103 depends on must
+        still fire. Mangled canonical 'Naomi Pavie Speechmatics' (no email);
+        caller 'Naomi Pavie' + company='Speechmatics' → reuse via token-subset
+        (0.65) + company-hint (+0.25) = 0.90 ≥ 0.85. (Cleaning leaves 'Naomi
+        Pavie' as-is here — 'Pavie' is not a known company — so this exercises
+        the resolve_all path, untouched by WI-117.)"""
+        repo = PersonRepository(temp_vault)
+        repo.create_stub(name="Naomi Pavie Speechmatics", company="")  # mangled, no email
+
+        person, created = repo.find_or_create_stub(
+            name="Naomi Pavie",
+            email="naomi.pavie@speechmatics.com",
+            company="Speechmatics",
+        )
+        assert created is False
+        assert person.name == "Naomi Pavie Speechmatics"
 
 
 class TestAutoAliasOnNameChange:

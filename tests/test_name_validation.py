@@ -15,6 +15,8 @@ from obsidian_schemas.name_validation import (
     NameValidator,
     NameValidationError,
     CleanResult,
+    WeakIdentityError,
+    weak_identity_reason,
 )
 
 
@@ -527,3 +529,74 @@ class TestCleanResultShape:
         result = v.clean("  Jane  Doe  ")
         # Both leading-strip AND double-space-collapse should be recorded
         assert set(result.repairs_applied) >= {"strip_whitespace", "double_space_collapse"}
+
+
+# ============================================================
+# Weak-identity predicate (WI-117)
+# ============================================================
+
+class TestWeakIdentityReason:
+    """weak_identity_reason is the shared predicate behind find_or_create_stub's
+    WeakIdentityError and exocortex's _should_skip_stub. It MUST match the live
+    exocortex behaviour exactly (transcript.py:711-724), incl. the byte-identical
+    reason strings the review queue consumes.
+    """
+
+    # --- Case 1: single-token name, no identifier ---
+
+    def test_bare_first_name_no_id_is_weak(self):
+        assert weak_identity_reason("Darryl") == "single-name, no email"
+
+    def test_bare_first_name_with_email_is_strong(self):
+        assert weak_identity_reason("Darryl", email="d@kato.app") is None
+
+    def test_bare_first_name_with_phone_is_strong(self):
+        # The orchestrator caller supplies phone; a phone is enough identity.
+        assert weak_identity_reason("Darryl", phone="+447700900123") is None
+
+    def test_multi_token_name_no_id_is_strong(self):
+        assert weak_identity_reason("Darryl Friend") is None
+
+    # --- Case 2: social-handle pattern ---
+
+    def test_social_handle_with_no_id_falls_to_case1_first(self):
+        # PRECEDENCE (matches exocortex _should_skip_stub exactly): a handle with
+        # no email/phone is also single-token-no-id, and case 1 is checked first,
+        # so the reason is "single-name, no email", not the handle reason. This
+        # pins the ordering so it can't silently flip.
+        assert weak_identity_reason("darryl_f") == "single-name, no email"
+
+    def test_social_handle_is_weak_when_email_present(self):
+        # With an email, case 1 (no-email) is bypassed, so the handle branch
+        # fires and we get the social-handle reason. This is the distinct path
+        # the case-2 branch exists for.
+        assert weak_identity_reason("john_doe_92", email="x@y.com") == "social handle pattern: john_doe_92"
+
+    def test_underscore_with_space_is_not_a_handle(self):
+        # A space means it reads as a name, not a handle.
+        assert weak_identity_reason("John Doe_X", email="x@y.com") is None
+
+    # --- reason-string fidelity (the round-trip exocortex depends on) ---
+
+    def test_reason_strings_match_exocortex_originals(self):
+        assert weak_identity_reason("Vlad") == "single-name, no email"
+        # Handle reason only surfaces when an identifier bypasses case 1.
+        assert weak_identity_reason("vlad_p", email="x@y.com") == "social handle pattern: vlad_p"
+
+    def test_empty_name_is_not_weak_identity(self):
+        # Empty names are the NameValidator boundary's job, not weak-identity's.
+        assert weak_identity_reason("") is None
+
+
+class TestWeakIdentityError:
+    def test_carries_reason_attribute(self):
+        err = WeakIdentityError("single-name, no email")
+        assert err.reason == "single-name, no email"
+        assert str(err) == "single-name, no email"
+
+    def test_is_a_valueerror_sibling_of_name_validation_error(self):
+        # Both subclass ValueError so a broad `except ValueError` still catches
+        # either, but they're distinct types so callers can disposition them
+        # separately (422 reason vs 422 pattern).
+        assert issubclass(WeakIdentityError, ValueError)
+        assert not issubclass(WeakIdentityError, NameValidationError)

@@ -30,7 +30,7 @@ See orchestrator/docs/name-validation-and-cleanup.md for the audit.
 
 import re
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Optional
 
 
 # ============================================================
@@ -126,6 +126,80 @@ class NameValidationError(ValueError):
         super().__init__(f"{pattern}: {detail}")
         self.pattern = pattern
         self.detail = detail
+
+
+class WeakIdentityError(ValueError):
+    """Raised by find_or_create_stub when a name is VALID but the identity is
+    too weak to safely auto-create a new person note (WI-117).
+
+    Distinct from NameValidationError: the name is a perfectly good human name,
+    there's just not enough identity signal to justify spawning a (probably
+    duplicate, probably half-empty) note for someone Dave likely already knows.
+    Genuinely new people arrive ~5/week; a bare first name with no email/phone
+    is overwhelmingly a thin mention of an EXISTING canonical, not a new person.
+
+    Carries a human-readable `reason` string so callers can route it:
+      - exocortex's _should_skip_stub wrapper → _flag_for_review(reason=...)
+      - orchestrator contact_normalizer → WARN + weak_identity_skipped[] counter
+      - HAL9000 entities endpoint → 422 (mirrors NameValidationError→422)
+
+    Mirrors NameValidationError's carry-the-string pattern: `.reason` is the
+    sibling of `.pattern`, kept stable so the exocortex review-queue text is
+    unchanged across the round-trip.
+    """
+
+    def __init__(self, reason: str):
+        super().__init__(reason)
+        self.reason = reason
+
+
+# ============================================================
+# Weak-identity predicate (WI-117)
+# ============================================================
+
+# Single source of truth for "is this identity too weak to auto-create a stub?"
+# Moved here from exocortex's transcript._should_skip_stub so BOTH the meetings
+# ingester (via a thin wrapper) and find_or_create_stub apply the SAME rule.
+# The reason strings are kept BYTE-IDENTICAL to the exocortex originals
+# (transcript.py:718,722) so the existing review_queue.json text is unchanged.
+
+def weak_identity_reason(
+    name: str,
+    email: Optional[str] = None,
+    phone: Optional[str] = None,
+) -> Optional[str]:
+    """Return a skip-reason string if `name` is too weak to auto-create a stub,
+    else None.
+
+    Two cases (matching the live exocortex _should_skip_stub exactly):
+
+      1. Single-token name AND no email AND no phone — a bare first-name
+         mention ("Darryl", "Vlad", "Gee"). Can't tell WHICH Darryl, and
+         there's no identifier to disambiguate, so creating a new note almost
+         always duplicates an existing canonical.
+
+      2. Social-handle pattern: an underscore with no spaces ("darryl_f",
+         "john_doe_92"). A handle, not a name — should be resolved to a person,
+         not minted as one.
+
+    The meetings path never supplies `phone` (it's (name, email, company)), so
+    case 1 effectively gates exocortex on email-only — which is the historical
+    _should_skip_stub behaviour, preserved.
+    """
+    if not name:
+        # An empty/whitespace name is weaker than weak; let the NameValidator
+        # boundary own that case. Treat as "not a weak-identity match" here.
+        return None
+
+    # Case 1: single-token name with no email and no phone.
+    if " " not in name and not email and not phone:
+        return "single-name, no email"
+
+    # Case 2: social-handle pattern (underscore, no spaces).
+    if "_" in name and " " not in name:
+        return f"social handle pattern: {name}"
+
+    return None
 
 
 @dataclass(frozen=True)
