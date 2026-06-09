@@ -44,6 +44,14 @@ import re
 # exocortex originals exactly (NOT the stricter name_validation.py regexes of the
 # same name — those are the reject gate; these are the recovery pass).
 _CALENDAR_PREFIX_RE = re.compile(r"^(Dave|Me|My)\s*[-/]\s+", re.IGNORECASE)
+# WI-117 follow-up (2026-06-09): leading first-person UNICODE-arrow prefix —
+# "Me → Thyra October" (a WhatsApp/iMessage chat-direction label "Me → recipient"
+# leaked into the name field). Recovered to the participant ("Thyra October"),
+# exactly like the dash ("Me - X") and "Me to X" forms above. ASCII "Me -> X" is
+# deliberately NOT recovered here (WI-111 rejects it at the boundary — see
+# test_clean_person_name_wi111_divergence); only the Unicode-arrow chat-direction
+# form, which recovers cleanly with no trailing descriptor, is handled.
+_ARROW_PREFIX_RE = re.compile(r"^(Dave|Me|My)\s*[→⟶⇒➜↦⇨]\s*", re.IGNORECASE)
 _ME_TO_PREFIX_RE = re.compile(r"^(Me|My)\s+to\s+", re.IGNORECASE)
 _ARCHIVE_PREFIX_RE = re.compile(r"^z+Archived\s*-\s*", re.IGNORECASE)
 _UNKNOWN_CONTACT_SUFFIX_RE = re.compile(r"\s+unknown\s+contact\b", re.IGNORECASE)
@@ -111,6 +119,9 @@ def clean_person_name(
 
     # 'Dave -', 'Me -', 'My -' prefix
     cleaned = _CALENDAR_PREFIX_RE.sub("", cleaned, count=1).strip()
+
+    # 'Dave →', 'Me →', 'My →' leading Unicode-arrow chat-direction prefix
+    cleaned = _ARROW_PREFIX_RE.sub("", cleaned, count=1).strip()
 
     # 'X unknown contact' suffix
     cleaned = _UNKNOWN_CONTACT_SUFFIX_RE.sub("", cleaned).strip()

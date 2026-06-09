@@ -77,7 +77,16 @@ _ME_TO_PREFIX_RE = re.compile(
 # '->'. Caught here so deleting create_stub's re.sub can't store the descriptor
 # verbatim as a validate_strict-green-but-garbage name. Verified 2026-06-06:
 # 0 of 1590 live vault names contain '->'.
-_ARROW_CONNECTIVE_RE = re.compile(r"->")
+#
+# WI-117 follow-up (2026-06-09): extended to UNICODE arrows (→ ⟶ ⇒ ➜ ↦ ⇨). A
+# WhatsApp chat-direction label "Me → Thyra October" slipped through both the
+# recovery pass (name_cleaning only handled ASCII '[-/]') AND this gate (ASCII
+# '->' only), and was stored verbatim as a junk duplicate of the real
+# '@Thyra October.md'. name_cleaning now RECOVERS the leading "Me →" first-person
+# form (-> the participant); this gate rejects any arrow that survives recovery
+# (mid-string connectives like 'X → Y'). Verified 2026-06-09: 1 live vault name
+# contained '→' (that junk dup, removed in the same fix); 0 contain the others.
+_ARROW_CONNECTIVE_RE = re.compile(r"->|[→⟶⇒➜↦⇨]")
 
 # WI-111: forward slash '/' anywhere — path-hostile (breaks the @{name}.md file
 # path) AND a connective descriptor form. create_stub used to strip this via the

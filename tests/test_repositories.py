@@ -1439,6 +1439,18 @@ class TestFindOrCreateStubWI117:
         assert created is False
         assert person.name == "Adam"
 
+    def test_unicode_arrow_prefix_dedups_to_canonical(self, temp_vault):
+        """WI-117 follow-up (the 2026-06-09 production dup): a WhatsApp chat-
+        direction label 'Me → Thyra October' must clean to 'Thyra October' and
+        REUSE the existing canonical — not create '@Me → Thyra October.md', a
+        junk duplicate (which is exactly what happened before the fix)."""
+        repo = PersonRepository(temp_vault)
+        repo.create_stub(name="Thyra October")  # the real canonical
+
+        person, created = repo.find_or_create_stub(name="Me → Thyra October")
+        assert created is False, "leading 'Me →' must be stripped → exact-match reuse, not a dup"
+        assert person.name == "Thyra October"
+
     # ── Gate 6: the WI-103 company-hinted reuse mechanism still works ──
 
     def test_wi103_naomi_company_hinted_reuse_preserved(self, temp_vault):

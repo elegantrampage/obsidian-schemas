@@ -91,6 +91,26 @@ class TestCleanPersonNameWithoutEmail:
     def test_me_to_prefix_stripped(self):
         assert clean_person_name("Me to Tom Green") == "Tom Green"
 
+    def test_unicode_arrow_prefix_recovered(self):
+        # WI-117 follow-up (2026-06-09): a WhatsApp chat-direction label
+        # "Me → Thyra October" leaked into a name and created a junk duplicate
+        # of the real @Thyra October.md. The leading first-person Unicode-arrow
+        # prefix recovers to the participant, like "Me - X" / "Me to X".
+        assert clean_person_name("Me → Thyra October") == "Thyra October"
+        assert clean_person_name("Dave → Thomas Gatten") == "Thomas Gatten"
+        assert clean_person_name("My → Naomi Pavie") == "Naomi Pavie"
+
+    def test_ascii_arrow_prefix_NOT_recovered(self):
+        # WI-111 divergence preserved: ASCII '->' is NOT recovered here (it's
+        # rejected at the validator boundary). Only the Unicode-arrow chat-
+        # direction form is recovered. Don't let this regress.
+        assert clean_person_name("Dave -> Thomas Gatten (Adzact)") == "Dave -> Thomas Gatten (Adzact)"
+
+    def test_medea_not_mistaken_for_me_arrow(self):
+        # Guard: a real name starting with "Me"/"My" but no arrow is untouched.
+        assert clean_person_name("Medea Smith") == "Medea Smith"
+        assert clean_person_name("Myles Arrow") == "Myles Arrow"
+
     def test_clean_person_name_wi111_divergence(self):
         """WI-111 single-authority decision (2026-06-06): this strip-to-recover
         pass intentionally diverges from obsidian-schemas NameValidator (a

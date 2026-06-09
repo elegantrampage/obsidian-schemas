@@ -176,6 +176,23 @@ class TestRejectArrowConnective:
         v = NameValidator()
         assert v.validate_strict("Anne-Marie") == "Anne-Marie"
 
+    def test_rejects_unicode_arrow(self):
+        # WI-117 follow-up (2026-06-09): the 2026-06-09 production case
+        # 'Me → Thyra October' (Unicode → U+2192, a WhatsApp chat-direction
+        # label) slipped through the ASCII-only '->' gate and was stored as a
+        # junk duplicate. The gate now rejects Unicode arrows too. (The leading
+        # 'Me →' first-person form is RECOVERED upstream by name_cleaning; this
+        # gate catches any arrow that survives — mid-string connectives.)
+        v = NameValidator()
+        with pytest.raises(NameValidationError) as exc:
+            v.validate_strict("Thomas Gatten → Naomi Pavie")
+        assert exc.value.pattern == "calendar_prefix"
+
+    def test_does_NOT_reject_clean_name_after_arrow_recovery(self):
+        # The recovered participant name itself (no arrow) must pass.
+        v = NameValidator()
+        assert v.validate_strict("Thyra October") == "Thyra October"
+
 
 class TestRejectPathHostileChar:
     """WI-111: forward slash '/' in a name. Path-hostile (breaks the
