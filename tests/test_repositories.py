@@ -1472,6 +1472,101 @@ class TestFindOrCreateStubWI117:
         assert person.name == "Naomi Pavie Speechmatics"
 
 
+class TestCreatedByProvenance:
+    """WI-119 — `created_by` provenance on every stub.
+
+    `auto_created` turned out to be a workflow flag (the enricher flips it to
+    false), not provenance — which is why the 2026-06-09 'mystery writer' notes
+    looked unattributable. `created_by` is written once at create-time and never
+    mutated. Callers that don't self-label get the loud-fail sentinel "unknown"
+    plus a WARN log.
+    """
+
+    def test_create_stub_with_created_by_round_trips(self, temp_vault):
+        """(i) create with created_by='x' → readback from disk shows it."""
+        repo = PersonRepository(temp_vault)
+        repo.create_stub(name="Prov Test", email="prov@example.com",
+                         created_by="contact_normalizer")
+        # Verify-by-readback: fresh repo instance loads from disk
+        fresh = PersonRepository(temp_vault)
+        person = fresh.get("Prov Test")
+        assert person is not None
+        assert (person.model_extra or {}).get("created_by") == "contact_normalizer"
+        # auto_created (default True) still rides along
+        assert (person.model_extra or {}).get("auto_created") is True
+
+    def test_create_stub_without_created_by_records_unknown_and_warns(
+        self, temp_vault, caplog
+    ):
+        """(ii) no created_by → 'unknown' sentinel + WARN log."""
+        import logging
+        repo = PersonRepository(temp_vault)
+        with caplog.at_level(logging.WARNING):
+            repo.create_stub(name="Anon Writer", email="anon@example.com")
+        fresh = PersonRepository(temp_vault)
+        person = fresh.get("Anon Writer")
+        assert (person.model_extra or {}).get("created_by") == "unknown"
+        assert any(
+            "created_by" in rec.message and "Anon Writer" in rec.message
+            for rec in caplog.records if rec.levelno >= logging.WARNING
+        ), "expected a WARN naming the unlabeled stub"
+
+    def test_create_stub_empty_string_created_by_is_unknown(self, temp_vault, caplog):
+        """Edge case: falsy created_by ('') treated exactly like None."""
+        import logging
+        repo = PersonRepository(temp_vault)
+        with caplog.at_level(logging.WARNING):
+            repo.create_stub(name="Empty Label", created_by="")
+        fresh = PersonRepository(temp_vault)
+        person = fresh.get("Empty Label")
+        assert (person.model_extra or {}).get("created_by") == "unknown"
+
+    def test_create_stub_manual_no_auto_created_still_gets_created_by(self, temp_vault):
+        """auto_created=False notes still carry provenance (created_by is
+        unconditional; only auto_created is conditional)."""
+        repo = PersonRepository(temp_vault)
+        repo.create_stub(name="Manual Person", auto_created=False,
+                         created_by="new-person-skill")
+        fresh = PersonRepository(temp_vault)
+        person = fresh.get("Manual Person")
+        assert (person.model_extra or {}).get("created_by") == "new-person-skill"
+        assert "auto_created" not in (person.model_extra or {})
+
+    def test_find_or_create_stub_passes_created_by_through(self, temp_vault):
+        """(iv) find_or_create_stub passthrough on the create branch."""
+        repo = PersonRepository(temp_vault)
+        person, created = repo.find_or_create_stub(
+            name="Pass Through",
+            email="pass.through@example.com",
+            created_by="exocortex-meetings",
+        )
+        assert created is True
+        fresh = PersonRepository(temp_vault)
+        loaded = fresh.get("Pass Through")
+        assert (loaded.model_extra or {}).get("created_by") == "exocortex-meetings"
+
+    def test_find_or_create_stub_reuse_leaves_canonical_created_by_alone(
+        self, temp_vault
+    ):
+        """(iii) reuse branch never writes created_by — provenance records
+        creation, not reuse."""
+        repo = PersonRepository(temp_vault)
+        repo.create_stub(name="Original Canonical",
+                         email="orig.canonical@example.com",
+                         created_by="contact-detector")
+        person, created = repo.find_or_create_stub(
+            name="Original Canonical",
+            email="orig.canonical@example.com",
+            created_by="contact_normalizer",  # different label on the reuse call
+        )
+        assert created is False
+        fresh = PersonRepository(temp_vault)
+        loaded = fresh.get("Original Canonical")
+        assert (loaded.model_extra or {}).get("created_by") == "contact-detector", (
+            "reuse must not overwrite the canonical's original provenance"
+        )
+
+
 class TestAutoAliasOnNameChange:
     """Tests for automatic alias preservation when name field changes."""
 

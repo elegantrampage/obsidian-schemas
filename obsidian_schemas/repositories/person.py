@@ -507,6 +507,7 @@ class PersonRepository(BaseRepository[Person]):
         company: Optional[str] = None,
         auto_created: bool = True,
         confidence_threshold: float = 0.85,
+        created_by: Optional[str] = None,
     ) -> Tuple[Person, bool]:
         """Lookup-before-create entry point. Replaces ad-hoc create_stub calls
         scattered across orchestrator, HAL9000, and exocortex.
@@ -603,12 +604,15 @@ class PersonRepository(BaseRepository[Person]):
                 raise WeakIdentityError(reason)
 
         # Strategy 3: no high-confidence match → create new stub (cleaned name)
+        # WI-119: created_by passes through to creation only — the reuse
+        # branches above never write it (provenance records creation, not reuse).
         new_person = self.create_stub(
             name=lookup_name,
             email=email,
             phone=phone,
             company=company,
             auto_created=auto_created,
+            created_by=created_by,
         )
         return new_person, True
 
@@ -886,6 +890,7 @@ class PersonRepository(BaseRepository[Person]):
         phone: Optional[str] = None,
         company: Optional[str] = None,
         auto_created: bool = True,
+        created_by: Optional[str] = None,
     ) -> Person:
         """
         Create a minimal stub Person and save to vault.
@@ -902,6 +907,12 @@ class PersonRepository(BaseRepository[Person]):
             phone: Optional phone number (E.164 preferred, e.g. "+447739341679")
             company: Optional company name
             auto_created: Mark as auto-created for later review
+            created_by: WI-119 provenance — the writer's self-label (e.g.
+                "contact_normalizer", "exocortex-meetings"). Written once at
+                creation, never mutated afterward (unlike auto_created, which
+                the enricher flips — a workflow flag, not provenance). Falsy /
+                non-string → recorded as "unknown" + WARN, the loud-fail
+                sentinel for unlabeled code writers.
 
         Returns:
             The created Person entity
@@ -969,7 +980,18 @@ class PersonRepository(BaseRepository[Person]):
             created=datetime.now().strftime("%Y-%m-%d"),
         )
 
-        extra_fields = {"auto_created": True} if auto_created else None
+        # WI-119: provenance. Always written; "unknown" + WARN surfaces
+        # unlabeled writers. Falsy ('' / None) and non-string values are
+        # treated as unlabeled (an empty label is an unlabeled writer).
+        if not created_by or not isinstance(created_by, str):
+            logger.warning(
+                "create_stub: no created_by provenance for %r — recording 'unknown'",
+                clean_name,
+            )
+            created_by = "unknown"
+        extra_fields = {"created_by": created_by}
+        if auto_created:
+            extra_fields["auto_created"] = True
         self.save(person, body=get_default_body("person"), extra_fields=extra_fields)
 
         return person
