@@ -35,6 +35,7 @@ from ..identifier import (
     IdentifierError,
     EntityRef,
     IdentifierConflict,
+    parse_identifiers,
 )
 
 
@@ -654,8 +655,51 @@ class PersonRepository(BaseRepository[Person]):
         confidence_threshold: float = 0.85,
         created_by: Optional[str] = None,
     ) -> Tuple[Person, bool]:
-        """Lookup-before-create entry point. Replaces ad-hoc create_stub calls
-        scattered across orchestrator, HAL9000, and exocortex.
+        """Lookup-before-create entry point (WI-125 Phase 4 — the engine adapter).
+
+        Same signature, same `(Person, created_new)` return, same exception set
+        (`NameValidationError`, `WeakIdentityError` — no new exception; identifier
+        conflicts flag to `repo.conflicts`, never raise) as the original. Parses
+        the stringly args into typed `Identifier`s and delegates to the
+        identifier-first engine `resolve_or_create` (model §4). The original body
+        is preserved verbatim as `_find_or_create_stub_legacy` — the Phase-5
+        parity baseline AND the one-commit rollback.
+
+        Callers (contact_normalizer.py:422 direct; HAL9000 entities.py:178 via
+        HTTP) are unchanged — they keep their exact call sites and catch blocks.
+
+        `strict=False` on the parse: a malformed email/phone is skipped (not
+        raised), so the adapter never fails where the legacy string path would
+        have silently carried the junk to `get_by_email`/`create_stub`. The
+        legacy path indexed malformed values; the engine resolves on the typed
+        ones and the name path. The Phase-5 replay confirms zero return-value
+        divergence over the real vault.
+        """
+        ids = parse_identifiers(email=email, phone=phone, strict=False)
+        ref, created = self.resolve_or_create(
+            ids,
+            display_name=name,
+            company_hint=company,
+            provenance=created_by,
+            auto_created=auto_created,
+            threshold=confidence_threshold,
+        )
+        return self._hydrate(ref), created
+
+    def _find_or_create_stub_legacy(
+        self,
+        name: str,
+        email: Optional[str] = None,
+        phone: Optional[str] = None,
+        company: Optional[str] = None,
+        auto_created: bool = True,
+        confidence_threshold: float = 0.85,
+        created_by: Optional[str] = None,
+    ) -> Tuple[Person, bool]:
+        """The pre-WI-125 `find_or_create_stub` body, preserved verbatim (WI-125
+        Phase 4). Two roles: (1) the Phase-5 offline parity baseline the engine
+        is diffed against; (2) the one-commit rollback — revert the adapter and
+        this is the live method again. NOT called in production; kept callable.
 
         WI-019 (2026-06-01) — surfaced from orchestrator Phase 0 trace which
         identified 4 stub-creation paths all using too-narrow lookups (just
