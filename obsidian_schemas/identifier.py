@@ -33,7 +33,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from email.utils import parseaddr
-from typing import ClassVar, FrozenSet, Optional
+from typing import ClassVar, FrozenSet, Optional, Tuple
 
 
 # ── Public email providers (the WI-124 denylist) ─────────────────────────────
@@ -69,6 +69,34 @@ class IdentifierError(ValueError):
         self.kind = kind
         self.raw = raw
         self.detail = detail
+
+
+@dataclass(frozen=True)
+class EntityRef:
+    """A reference to a resolved entity — the *value* of the Phase-2 unified
+    index (model §2: `Identifier → EntityRef`). `entity_type` matches a
+    repository's `type_name` ("person"/"company"/"meeting"); `canonical_key` is
+    that repo's cache key (the lowercase note name today). Pure value object —
+    hashable, comparable by value, no I/O. Hydrating it back into a live entity
+    is the repo's job (Phase 3 `_hydrate`)."""
+
+    entity_type: str
+    canonical_key: str
+
+
+@dataclass(frozen=True)
+class IdentifierConflict:
+    """A reconciliation finding: one identifier key maps to >1 entity (model §2
+    "every identifier maps to exactly one entity"). A violation is a real-data
+    collision — almost always a duplicate note pair sharing an email/LinkedIn/
+    phone (the WI-119 invariant generalized from "no dup notes" to "no ambiguous
+    identifier"). The library *exposes* these (`repo.conflicts`); the orchestrator
+    *persists* them to `state/identity-conflicts.json` and alarms (the WI-095
+    state-file-not-log-grep split). `entities` names every candidate the key was
+    seen on, so a 3-way dup is one record, not two."""
+
+    identifier_key: str
+    entities: Tuple[EntityRef, ...]  # the >1 entities this key maps to
 
 
 @dataclass(frozen=True)

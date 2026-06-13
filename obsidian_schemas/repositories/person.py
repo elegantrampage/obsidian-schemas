@@ -26,6 +26,16 @@ from ..name_validation import (
     weak_identity_reason,
 )
 from ..name_cleaning import clean_person_name
+from ..identifier import (
+    Email,
+    Phone,
+    WhatsAppJID,
+    LinkedInSlug,
+    Identifier,
+    IdentifierError,
+    EntityRef,
+    IdentifierConflict,
+)
 
 
 @dataclass(frozen=True)
@@ -135,6 +145,18 @@ class PersonRepository(BaseRepository[Person]):
         self._phone_index: dict[str, str] = {}  # normalized phone -> cache_key
         self._alias_index: dict[str, str] = {}  # alias -> cache_key
         self._slack_index: dict[str, str] = {}  # slack ID/handle -> cache_key
+        # WI-125 Phase 2 — the unified resolution contract (model §2:
+        # `Identifier → EntityRef`). Built ALONGSIDE the per-kind dicts above,
+        # not as a rewiring of them: the dicts stay the permissive lookup surface
+        # (zero parity risk) while this typed index becomes the source Phase-3
+        # `resolve_or_create` resolves through. Collapsing the dicts into views
+        # of this map + deleting them is the strangler's later deletion cut.
+        # Keyed on `identifier.key`; only PERSON-resolving identifiers land here.
+        self._identifier_index: dict[str, EntityRef] = {}
+        # Reconciliation findings: identifier key -> the set of EntityRefs it was
+        # seen on. Only populated when a key collides (>1 entity) — a real-data
+        # duplicate (the WI-119 invariant generalized). Exposed via `.conflicts`.
+        self._conflict_sets: dict[str, set] = {}
         # WI-117: lazily-held CompanyRepository for corroborated name-cleaning.
         # Loaded at most once per process (same lifetime as this repo's own
         # cache); the known-companies SET is still rebuilt per-call. None until
@@ -179,12 +201,111 @@ class PersonRepository(BaseRepository[Person]):
             slack_id = entity.slack.lstrip("@").lower()
             self._slack_index[slack_id] = cache_key
 
+        # WI-125 Phase 2 — also project into the unified identifier index.
+        self._index_identifiers(entity, cache_key)
+
+    # ──────────────────────────────────────────────────────────────────
+    # WI-125 Phase 2 — unified identifier index + reconciliation
+    # ──────────────────────────────────────────────────────────────────
+
+    def _project_identifiers(self, entity: Person) -> List[Identifier]:
+        """Project a person note's frontmatter into its PERSON-resolving typed
+        identifiers (model §2). Lenient by design: anything that won't parse is
+        skipped, NOT raised — the legacy per-kind dicts remain the permissive
+        lookup surface during transition, so a malformed-but-present field still
+        resolves the old way while this typed index just omits it.
+
+        Audited against the live vault (942 notes, 2026-06-13): email/phone/
+        whatsapp/linkedin parse with ZERO failures, so this loses nothing real.
+        `slack` is deliberately NOT projected: the frontmatter carries a bare
+        handle with no workspace, and a typed SlackUserId requires one — only 2
+        notes have slack, and they stay on `_slack_index` until frontmatter
+        carries a workspace (a later cut). EmailDomain (company) is also omitted:
+        this repo indexes persons, and Company isn't activated this cut.
+        """
+        ids: List[Identifier] = []
+
+        def add(parser, raw):
+            if raw is None or (isinstance(raw, str) and not raw.strip()):
+                return
+            try:
+                ids.append(parser(raw))
+            except IdentifierError:
+                pass  # lenient — legacy per-kind dict still indexes it
+
+        for email in (entity.emails or []):
+            add(Email.parse, email)
+        for phone in (entity.phones or []):
+            add(Phone.parse, phone)
+        if entity.whatsapp:
+            add(WhatsAppJID.parse, entity.whatsapp)
+        if entity.linkedin:
+            add(LinkedInSlug.parse, entity.linkedin)
+        return ids
+
+    def _index_identifiers(self, entity: Person, cache_key: str) -> None:
+        """Insert a person's identifiers into the unified index, detecting
+        cross-entity collisions (the reconciliation check, model §2).
+
+        On collision (a key already mapped to a DIFFERENT entity) the key is
+        recorded to `_conflict_sets` naming every entity it's been seen on, and
+        a loud WARN fires. The stored value is last-writer-wins — byte-identical
+        to the legacy per-kind dicts' overwrite semantics (both iterate the same
+        glob order in `load`), so Phase-3 resolution through this index returns
+        the same entity legacy lookups do. Never merges, never raises: a conflict
+        is an observability output, not a behavior change.
+
+        Note: a person whose `whatsapp` equals one of their `phones` produces the
+        same `phone:` key twice — same EntityRef, so NOT a conflict (idempotent).
+        Requirement (b) of the model's check ("no entity with an identifier is
+        unreachable") is subsumed here: an entity shadowed out of the index by a
+        later collision is, by construction, a participant in that collision's
+        `_conflict_sets` record — so naming all participants surfaces it.
+        """
+        ref = EntityRef(entity_type=self.type_name, canonical_key=cache_key)
+        for ident in self._project_identifiers(entity):
+            key = ident.key
+            existing = self._identifier_index.get(key)
+            if existing is not None and existing != ref:
+                seen = self._conflict_sets.setdefault(key, {existing})
+                seen.add(ref)
+                logger.warning(
+                    "identity reconciliation conflict: identifier %r maps to "
+                    "multiple persons: %s (last-wins=%s)",
+                    key,
+                    sorted(r.canonical_key for r in seen),
+                    ref.canonical_key,
+                )
+            self._identifier_index[key] = ref
+
+    @property
+    def conflicts(self) -> List[IdentifierConflict]:
+        """The reconciliation conflicts found at index-build time (model §2).
+
+        One record per colliding identifier key, naming every entity the key was
+        seen on. The library exposes; the orchestrator persists to
+        `state/identity-conflicts.json` and alarms (the WI-095 state-file split).
+        Empty when the vault has no ambiguous identifiers.
+        """
+        self._ensure_loaded()
+        return [
+            IdentifierConflict(
+                identifier_key=key,
+                entities=tuple(
+                    sorted(refs, key=lambda r: (r.entity_type, r.canonical_key))
+                ),
+            )
+            for key, refs in sorted(self._conflict_sets.items())
+        ]
+
     def _clear_indexes(self) -> None:
         """Clear custom indexes on refresh."""
         self._email_index.clear()
         self._phone_index.clear()
         self._alias_index.clear()
         self._slack_index.clear()
+        self._identifier_index.clear()
+        self._conflict_sets.clear()
 
     def _remove_entity_from_indexes(self, entity: Person, cache_key: str) -> None:
         """Remove a person's entries from all indexes."""
@@ -219,6 +340,16 @@ class PersonRepository(BaseRepository[Person]):
             slack_id = entity.slack.lstrip("@").lower()
             if self._slack_index.get(slack_id) == cache_key:
                 del self._slack_index[slack_id]
+
+        # WI-125 Phase 2 — remove from the unified identifier index. Mirrors the
+        # per-kind pattern (delete only the keys still pointing at this entity).
+        # `_conflict_sets` is left intact: it's load-time reconciliation forensics
+        # that's rebuilt wholesale on the next load()/refresh(); a mid-session
+        # update_fields is an edge case not worth partial-conflict bookkeeping.
+        ref = EntityRef(entity_type=self.type_name, canonical_key=cache_key)
+        for ident in self._project_identifiers(entity):
+            if self._identifier_index.get(ident.key) == ref:
+                del self._identifier_index[ident.key]
 
     def get_by_email(self, email: str) -> Optional[Person]:
         """

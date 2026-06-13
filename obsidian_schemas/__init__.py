@@ -67,6 +67,8 @@ from obsidian_schemas.name_cleaning import clean_person_name
 from obsidian_schemas.identifier import (
     Identifier,
     IdentifierError,
+    EntityRef,
+    IdentifierConflict,
     Email,
     EmailDomain,
     Phone,
@@ -127,6 +129,9 @@ __all__ = [
     # Identifier union (WI-125 — identity core, Phase 1)
     "Identifier",
     "IdentifierError",
+    # Unified index value types (WI-125 — Phase 2)
+    "EntityRef",
+    "IdentifierConflict",
     "Email",
     "EmailDomain",
     "Phone",
