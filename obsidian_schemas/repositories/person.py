@@ -157,6 +157,12 @@ class PersonRepository(BaseRepository[Person]):
         # seen on. Only populated when a key collides (>1 entity) — a real-data
         # duplicate (the WI-119 invariant generalized). Exposed via `.conflicts`.
         self._conflict_sets: dict[str, set] = {}
+        # WI-125 Phase 3 — resolution-time conflicts: a single resolve_or_create
+        # call whose identifiers point at DIFFERENT people (email→X, phone→Y).
+        # Distinct from the load-time `_conflict_sets` (vault-internal dups) but
+        # surfaced through the same `.conflicts` accessor (spec §3 / Gate 2). A
+        # call-event log — NOT cleared by refresh (it records calls, not state).
+        self._resolution_conflicts: List[IdentifierConflict] = []
         # WI-117: lazily-held CompanyRepository for corroborated name-cleaning.
         # Loaded at most once per process (same lifetime as this repo's own
         # cache); the known-companies SET is still rebuilt per-call. None until
@@ -280,15 +286,22 @@ class PersonRepository(BaseRepository[Person]):
 
     @property
     def conflicts(self) -> List[IdentifierConflict]:
-        """The reconciliation conflicts found at index-build time (model §2).
+        """All ambiguous-identifier findings, of two kinds (spec §3 / Gate 2):
 
-        One record per colliding identifier key, naming every entity the key was
-        seen on. The library exposes; the orchestrator persists to
+        1. **Load-time** (model §2): an identifier key on >1 note — a vault dup
+           (the WI-119 invariant generalized). Keyed on the identifier (`email:…`,
+           `linkedin:…`).
+        2. **Resolution-time** (Phase 3, Branch A): a single `resolve_or_create`
+           call whose identifiers point at different people (`email→X, phone→Y`).
+           Keyed `resolve:<k1>|<k2>`.
+
+        The library exposes; the orchestrator persists to
         `state/identity-conflicts.json` and alarms (the WI-095 state-file split).
-        Empty when the vault has no ambiguous identifiers.
+        Empty when the vault has no ambiguous identifiers and no conflicting
+        resolve has been made.
         """
         self._ensure_loaded()
-        return [
+        load_time = [
             IdentifierConflict(
                 identifier_key=key,
                 entities=tuple(
@@ -297,6 +310,7 @@ class PersonRepository(BaseRepository[Person]):
             )
             for key, refs in sorted(self._conflict_sets.items())
         ]
+        return load_time + list(self._resolution_conflicts)
 
     def _clear_indexes(self) -> None:
         """Clear custom indexes on refresh."""
@@ -746,6 +760,170 @@ class PersonRepository(BaseRepository[Person]):
             created_by=created_by,
         )
         return new_person, True
+
+    # ──────────────────────────────────────────────────────────────────
+    # WI-125 Phase 3 — the identity engine: resolve_or_create
+    # ──────────────────────────────────────────────────────────────────
+
+    # Resolution priority for the Branch-A best-hit (parity: email before phone,
+    # per find_or_create_stub Strategy 1 at person.py Strategy-1). Lower wins.
+    # A phone-bearing WhatsAppJID resolves like a Phone (same number → same
+    # person), so it shares phone's priority. Richer kinds (linkedin/slack) rank
+    # below — no current caller passes them, so they never affect parity; they're
+    # there so a future WI-115 producer's richer identifiers resolve generically.
+    _IDENTIFIER_PRIORITY = {"email": 0, "phone": 1, "whatsapp_jid": 1}
+
+    def resolve_or_create(
+        self,
+        identifiers,
+        display_name: str,
+        company_hint: Optional[str] = None,
+        provenance: Optional[str] = None,
+        auto_created: bool = True,
+        threshold: float = 0.85,
+    ) -> Tuple[EntityRef, bool]:
+        """The identity engine (model §4) — the identifier-first core that the
+        Phase-4 adapter will run `find_or_create_stub` through.
+
+        Reproduces `find_or_create_stub`'s **return-value** behavior exactly
+        (the Phase-5 parity contract is `(resolved_name, created_new)` — side
+        effects are explicitly out of the contract), with **one genuinely-new
+        behavior: conflict detection** (Branch A). Operates on a typed
+        `set[Identifier]` + display name + company *hint* (a company NAME is a
+        display hint, not an identifier — `parse_identifiers`' own rule), and
+        returns `(EntityRef, created_new)`.
+
+        - **Branch A — identifier hit.** Resolve each PERSON-resolving identifier
+          (email/phone via the legacy fuzzy `get_by_email`/`get_by_phone` — their
+          country-code/casing fuzzing has no index equivalent this cut, so
+          delegating is parity-exact; richer kinds via the unified index). The
+          best hit (email before phone) is the resolved entity — **byte-identical
+          to legacy Strategy 1**, which returns on the first (email) hit. If hits
+          disagree (`email→X, phone→Y`) it's a **CONFLICT**: still return the
+          legacy best-hit (no merge, no raise), but record it to `.conflicts`
+          naming both candidates (the new observability). No writeback on a hit:
+          the matched identifier is already on the note by definition, so legacy's
+          writeback-on-hit is a no-op (or, on a fuzzy phone hit, would append a
+          format-variant — exactly the dup-noise the identity model reduces);
+          skipping it changes no return value and improves vault hygiene.
+        - **Branch B — name + corroboration** (legacy Strategy 2). Clean the
+          name, `resolve_all(cleaned, company_hint)`; ≥ threshold → reuse +
+          writeback the supplied email/phone (the meaningful attach case).
+        - **Branch C — weak guard then create** (legacy Strategy 3). auto_created
+          + weak identity → raise `WeakIdentityError` (UNCHANGED this cut — the
+          `needs_resolution` flip is a follow-on). Else `create_stub`.
+
+        Not yet wired into `find_or_create_stub` — that's the Phase-4 adapter
+        swap, gated by the Phase-5 offline parity replay.
+        """
+        self._ensure_loaded()
+
+        ids = [i for i in (identifiers or []) if "person" in i.resolves]
+        # Extract the leaf strings the existing string-typed methods take — the
+        # parity bridge (the leaves stay stable; the typed identifiers are the
+        # new interface producers will emit).
+        email_str = next((i.value for i in ids if isinstance(i, Email)), None)
+        phone_str = next((i.value for i in ids if isinstance(i, Phone)), None)
+        if phone_str is None:
+            phone_str = next(
+                (i.phone_digits for i in ids
+                 if isinstance(i, WhatsAppJID) and i.phone_digits),
+                None,
+            )
+
+        cleaned = self._clean_query_for_lookup(
+            display_name, email=email_str, company=company_hint
+        )
+
+        # ── Branch A — identifier hits ──────────────────────────────────────
+        hits: List[Tuple[Identifier, EntityRef]] = []
+        for ident in sorted(ids, key=lambda i: self._IDENTIFIER_PRIORITY.get(i.kind, 2)):
+            ref = self._resolve_identifier(ident)
+            if ref is not None:
+                hits.append((ident, ref))
+        if hits:
+            _, best_ref = hits[0]  # highest priority (email before phone) = legacy best-hit
+            if len({r for _, r in hits}) > 1:
+                self._record_resolution_conflict(hits)
+            return best_ref, False
+
+        # ── Branch B — name + corroboration ─────────────────────────────────
+        if cleaned:
+            candidates = self.resolve_all(cleaned, company=company_hint)
+            if candidates and candidates[0].confidence >= threshold:
+                existing = candidates[0].person
+                self._writeback_identifier(existing, email=email_str, phone=phone_str)
+                return EntityRef(self.type_name, self._get_cache_key(existing)), False
+
+        # ── Branch C — weak guard, then create ──────────────────────────────
+        if auto_created:
+            reason = weak_identity_reason(cleaned, email=email_str, phone=phone_str)
+            if reason:
+                logger.info(
+                    "resolve_or_create: refusing weak-identity auto-create (%s) "
+                    "for name=%r email=%r phone=%r",
+                    reason, display_name, email_str, phone_str,
+                )
+                raise WeakIdentityError(reason)
+
+        new_person = self.create_stub(
+            name=cleaned,
+            email=email_str,
+            phone=phone_str,
+            company=company_hint,
+            auto_created=auto_created,
+            created_by=provenance,
+        )
+        return EntityRef(self.type_name, self._get_cache_key(new_person)), True
+
+    def _resolve_identifier(self, ident: Identifier) -> Optional[EntityRef]:
+        """Resolve a single identifier to an EntityRef, or None.
+
+        Email/phone delegate to the legacy fuzzy `get_by_*` (parity-exact —
+        `get_by_phone`'s UK/US country-code fuzzing has no index equivalent this
+        cut); a phone-bearing JID pivots to `get_by_phone` (WI-035); richer kinds
+        resolve through the unified index.
+        """
+        person = None
+        if isinstance(ident, Email):
+            person = self.get_by_email(ident.value)
+        elif isinstance(ident, Phone):
+            person = self.get_by_phone(ident.value)
+        elif isinstance(ident, WhatsAppJID):
+            if ident.phone_digits:
+                person = self.get_by_phone(ident.phone_digits)
+            else:
+                return self._identifier_index.get(ident.key)
+        else:
+            return self._identifier_index.get(ident.key)
+        return EntityRef(self.type_name, self._get_cache_key(person)) if person else None
+
+    def _record_resolution_conflict(
+        self, hits: List[Tuple[Identifier, EntityRef]]
+    ) -> None:
+        """Record a Branch-A conflict (identifiers in one call pointing at
+        different people). Never raises, never merges — observability only."""
+        distinct = sorted(
+            {r for _, r in hits}, key=lambda r: (r.entity_type, r.canonical_key)
+        )
+        key = "resolve:" + "|".join(sorted(i.key for i, _ in hits))
+        self._resolution_conflicts.append(
+            IdentifierConflict(identifier_key=key, entities=tuple(distinct))
+        )
+        logger.warning(
+            "identity resolution conflict: identifiers %s resolve to multiple "
+            "persons %s — returning best-hit %s (no merge, no raise)",
+            [i.key for i, _ in hits],
+            [r.canonical_key for r in distinct],
+            hits[0][1].canonical_key,
+        )
+
+    def _hydrate(self, ref: Optional[EntityRef]) -> Optional[Person]:
+        """Turn an EntityRef back into the live Person (the Phase-4 adapter's
+        last step). None-safe."""
+        if ref is None:
+            return None
+        return self._cache.get(ref.canonical_key)
 
     # ──────────────────────────────────────────────────────────────────
     # WI-117 name-cleaning helpers (corroborated company-suffix strip)
