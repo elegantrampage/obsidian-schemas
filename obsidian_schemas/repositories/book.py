@@ -139,6 +139,7 @@ class BookRepository(BaseRepository[Book]):
         body: str = "",
         extra_fields: Optional[dict] = None,
         overwrite: bool = True,
+        allow_body_replacement: bool = False,
     ) -> Path:
         """
         Save a book to the vault.
@@ -163,6 +164,7 @@ class BookRepository(BaseRepository[Book]):
             body=body,
             extra_fields=extra_fields,
             overwrite=overwrite,
+            allow_body_replacement=allow_body_replacement,
         )
 
         # Update cache

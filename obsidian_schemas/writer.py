@@ -27,6 +27,48 @@ def _represent_ordereddict(dumper: yaml.Dumper, data: OrderedDict) -> yaml.Node:
 yaml.add_representer(OrderedDict, _represent_ordereddict)
 
 
+class BodyTruncationError(Exception):
+    """Raised when an overwrite would silently shrink an existing note's body.
+
+    WI-126 — the write-layer invariant (R1). ``write_markdown_file`` rebuilds a
+    file from scratch and never reads the existing one, so saving an entity with
+    the default empty (or template) body over an existing note silently destroys
+    the note body (the meeting Timeline). The frontmatter survives (``extra=allow``
+    round-trips ``model_extra``); the body is the loss. This guard turns that
+    silent data loss into a loud failure at the write boundary — it holds for
+    every present/future/external caller, not just the doors we found.
+
+    A caller that genuinely intends to replace or clear a body passes
+    ``allow_body_replacement=True``; the body-preserving path for partial updates
+    is ``update_fields`` (which never calls ``write_markdown_file``).
+    """
+
+    def __init__(self, file_path: Union[str, Path], dropped_count: int):
+        self.file_path = str(file_path)
+        self.dropped_count = dropped_count
+        super().__init__(
+            f"Refusing to overwrite {self.file_path}: the write would drop "
+            f"{dropped_count} existing body content line(s). This is almost "
+            f"always a body-only data-loss bug (use update_fields for a "
+            f"frontmatter-only change); pass allow_body_replacement=True only if "
+            f"replacing/clearing the body is intended."
+        )
+
+
+def _body_content_lines(body: str) -> set[str]:
+    """The content lines of a markdown body: non-blank, non-heading lines,
+    stripped. Headings (``#``/``##``/``###`` …) are structural scaffolding; the
+    content that must not vanish silently is the ``[[…]]`` links and prose.
+    """
+    lines: set[str] = set()
+    for raw in body.splitlines():
+        stripped = raw.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        lines.add(stripped)
+    return lines
+
+
 def model_to_frontmatter(
     entity: BaseEntity,
     extra_fields: Optional[dict[str, Any]] = None,
@@ -105,6 +147,7 @@ def write_markdown_file(
     body: str = "",
     extra_fields: Optional[dict[str, Any]] = None,
     overwrite: bool = False,
+    allow_body_replacement: bool = False,
 ) -> Path:
     """
     Write a complete Obsidian markdown file with frontmatter.
@@ -116,17 +159,40 @@ def write_markdown_file(
         body: Markdown body content
         extra_fields: Additional fields to add to frontmatter
         overwrite: If True, overwrite existing file
+        allow_body_replacement: If True, bypass the WI-126 body-shrink guard
+            (the explicit escape for an intentional body replacement/clear).
 
     Returns:
         Path to the written file
 
     Raises:
         FileExistsError: If file exists and overwrite is False
+        BodyTruncationError: If overwriting would silently drop existing body
+            content lines and allow_body_replacement is False (WI-126 / R1).
     """
     file_path = Path(file_path)
 
     if file_path.exists() and not overwrite:
         raise FileExistsError(f"File already exists: {file_path}")
+
+    # WI-126 (R1) — the body-shrink guard. On an overwrite of an existing file,
+    # refuse to silently drop existing body content. This makes the silent-wipe
+    # class (save() with an empty/template body over a rich note) impossible for
+    # every caller. Body-preserving paths (update_fields, the section writers) do
+    # their own read+write and never reach here, so they are guard-exempt. New
+    # files have no existing body, so the guard is a no-op on create.
+    if file_path.exists() and overwrite and not allow_body_replacement:
+        try:
+            _, existing_body = parse_frontmatter(
+                file_path.read_text(encoding="utf-8")
+            )
+        except Exception:
+            existing_body = ""
+        existing_lines = _body_content_lines(existing_body)
+        if existing_lines:
+            dropped = existing_lines - _body_content_lines(body)
+            if dropped:
+                raise BodyTruncationError(file_path, len(dropped))
 
     # Build frontmatter from entity or raw dict
     if entity is not None:

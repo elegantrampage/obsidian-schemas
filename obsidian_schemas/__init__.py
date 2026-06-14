@@ -41,6 +41,7 @@ from obsidian_schemas.writer import (
     write_frontmatter,
     write_markdown_file,
     update_frontmatter_field,
+    BodyTruncationError,
 )
 from obsidian_schemas.body_sections import (
     parse_body_sections,
@@ -104,6 +105,7 @@ __all__ = [
     "write_frontmatter",
     "write_markdown_file",
     "update_frontmatter_field",
+    "BodyTruncationError",
     # Body Sections
     "parse_body_sections",
     "write_body_sections",

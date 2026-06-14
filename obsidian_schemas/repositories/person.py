@@ -1107,15 +1107,20 @@ class PersonRepository(BaseRepository[Person]):
         email/phone is not already present on the canonical, append it and
         save. No-op if the canonical already has the identifier.
         """
-        changed = False
+        updates: dict = {}
         if email and email not in (person.emails or []):
             person.emails = list(person.emails or []) + [email]
-            changed = True
+            updates["emails"] = person.emails
         if phone and phone not in (person.phones or []):
             person.phones = list(person.phones or []) + [phone]
-            changed = True
-        if changed:
-            self.save(person)
+            updates["phones"] = person.phones
+        if updates:
+            # WI-126: route through update_fields (body-preserving), NOT save().
+            # save() rebuilds the file with the default empty body and so silently
+            # TRUNCATED the note body (the meeting Timeline) on every reuse — a
+            # signature-less data-loss door (door A). update_fields reads the file,
+            # rewrites only the named frontmatter fields, and preserves the body.
+            self.update_fields(person, updates)
             logger.info(
                 "find_or_create_stub: wrote back new identifier(s) to '%s' (emails=%s, phones=%s)",
                 person.name,
@@ -1153,7 +1158,8 @@ class PersonRepository(BaseRepository[Person]):
             if p.company and p.company.lower() == company_lower
         ]
 
-    def save(self, entity, body: str = "", extra_fields=None, overwrite: bool = True):
+    def save(self, entity, body: str = "", extra_fields=None, overwrite: bool = True,
+             allow_body_replacement: bool = False):
         """Override BaseRepository.save() to normalize field-level RFC 2822
         corruption (WI-109).
 
@@ -1166,7 +1172,8 @@ class PersonRepository(BaseRepository[Person]):
         Dedup-aware: identical clean emails after normalization collapse to one.
         """
         self._normalize_address_fields(entity)
-        return super().save(entity, body=body, extra_fields=extra_fields, overwrite=overwrite)
+        return super().save(entity, body=body, extra_fields=extra_fields,
+                            overwrite=overwrite, allow_body_replacement=allow_body_replacement)
 
     @staticmethod
     def _normalize_address_fields(person: Person) -> None:
@@ -1317,6 +1324,26 @@ class PersonRepository(BaseRepository[Person]):
         clean_name = name.strip() if name else ""
         if not clean_name:
             clean_name = email.split("@")[0] if email else "Unknown"
+
+        # WI-126 door C: reuse-on-collision. If a note already exists for this
+        # exact (case-insensitive) name, REUSE it — never overwrite a rich note
+        # with the empty template, which resets `created`/`created_by` and wipes
+        # the Timeline (the loud door WI-119 caught on 06-14). Existence-only, no
+        # content predicate: any collision is an upstream resolution miss worth
+        # surfacing, and reuse is strictly safer than overwrite (the vault keys
+        # on @{name}.md, so a create would clobber the same file regardless). The
+        # supplied email/phone merge non-destructively via the now body-preserving
+        # _writeback_identifier (door A fix). A genuinely new name → get() is None
+        # → normal create below (no existing body, so R1 is a no-op).
+        existing = self.get(clean_name)
+        if existing is not None:
+            logger.warning(
+                "create_stub: '%s' already exists — reusing instead of overwriting "
+                "(upstream resolution miss; created_by=%r)",
+                clean_name, created_by,
+            )
+            self._writeback_identifier(existing, email=email, phone=phone)
+            return existing
 
         # Build aliases from email
         aliases = [email] if email else []

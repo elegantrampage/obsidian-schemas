@@ -156,7 +156,14 @@ class TestWriteMarkdownFile:
                 )
 
     def test_overwrite_when_requested(self):
-        """Test overwriting when overwrite=True."""
+        """Test overwriting when overwrite=True.
+
+        WI-126: this intentionally REPLACES the existing body ("original content"
+        → empty), so it is the explicit body-replacement case and passes
+        allow_body_replacement=True (the WI-126/R1 escape). Without the flag the
+        body-shrink guard correctly raises BodyTruncationError — see
+        TestBodyShrinkGuard.
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             file_path = Path(tmpdir) / "test.md"
             file_path.write_text("original content")
@@ -165,6 +172,7 @@ class TestWriteMarkdownFile:
                 file_path,
                 frontmatter={"type": "person", "name": "New Person"},
                 overwrite=True,
+                allow_body_replacement=True,
             )
 
             content = file_path.read_text()
@@ -322,3 +330,108 @@ Some notes here.
             assert "person" in doc2.entity.tags
             assert doc2.extra_fields.get("custom_field") == "custom value"
             assert "## Timeline" in doc2.body
+
+
+class TestBodyShrinkGuard:
+    """WI-126 (R1) — write_markdown_file must loud-fail (BodyTruncationError) on
+    any overwrite that would silently drop existing body content lines, unless
+    allow_body_replacement=True. The universal backstop for the silent-wipe class.
+    """
+
+    RICH = (
+        "## Timeline\n\n"
+        "### Jan 3, 2026\n[[2026-01-03 Strategy Sync Meeting]]\n\n"
+        "### Dec 12, 2025\n[[2025-12-12 Kickoff Meeting]]\n\n"
+        "## Notes\nAlbion VC relationship.\n"
+    )
+    TEMPLATE = "## To Discuss\n\n## Timeline\n\n## Notes\n"
+
+    def _seed(self, tmp_path, body):
+        from obsidian_schemas.models import Person
+        fp = tmp_path / "@Rich.md"
+        write_markdown_file(fp, entity=Person(name="Rich", tags=["person"]), body=body)
+        return fp
+
+    def test_overwrite_emptying_body_raises(self, tmp_path):
+        from obsidian_schemas.writer import BodyTruncationError
+        from obsidian_schemas.models import Person
+        fp = self._seed(tmp_path, self.RICH)
+        with pytest.raises(BodyTruncationError) as exc:
+            write_markdown_file(fp, entity=Person(name="Rich", tags=["person"]),
+                                body="", overwrite=True)
+        assert exc.value.dropped_count >= 2  # two meeting links dropped
+        # The file was NOT modified (raise happened before write).
+        assert "[[2026-01-03 Strategy Sync Meeting]]" in fp.read_text()
+
+    def test_overwrite_template_over_rich_raises(self, tmp_path):
+        from obsidian_schemas.writer import BodyTruncationError
+        from obsidian_schemas.models import Person
+        fp = self._seed(tmp_path, self.RICH)
+        with pytest.raises(BodyTruncationError):
+            write_markdown_file(fp, entity=Person(name="Rich", tags=["person"]),
+                                body=self.TEMPLATE, overwrite=True)
+
+    def test_allow_body_replacement_permits_shrink(self, tmp_path):
+        from obsidian_schemas.models import Person
+        fp = self._seed(tmp_path, self.RICH)
+        write_markdown_file(fp, entity=Person(name="Rich", tags=["person"]),
+                            body="", overwrite=True, allow_body_replacement=True)
+        assert "Meeting]]" not in fp.read_text()  # replacement honored
+
+    def test_new_file_no_guard(self, tmp_path):
+        from obsidian_schemas.models import Person
+        fp = tmp_path / "@Fresh.md"
+        write_markdown_file(fp, entity=Person(name="Fresh", tags=["person"]), body="")
+        assert fp.exists()
+
+    def test_superset_body_does_not_raise(self, tmp_path):
+        from obsidian_schemas.models import Person
+        fp = self._seed(tmp_path, self.RICH)
+        grown = self.RICH + "\n### Feb 1, 2026\n[[2026-02-01 New Meeting]]\n"
+        write_markdown_file(fp, entity=Person(name="Rich", tags=["person"]),
+                            body=grown, overwrite=True)
+        assert "[[2026-02-01 New Meeting]]" in fp.read_text()
+
+    def test_identical_body_does_not_raise(self, tmp_path):
+        from obsidian_schemas.models import Person
+        fp = self._seed(tmp_path, self.RICH)
+        write_markdown_file(fp, entity=Person(name="Rich", tags=["person"]),
+                            body=self.RICH, overwrite=True)
+
+    def test_template_over_empty_stub_does_not_raise(self, tmp_path):
+        """Re-stubbing an existing EMPTY stub (template→template) is not a shrink."""
+        from obsidian_schemas.models import Person
+        fp = self._seed(tmp_path, self.TEMPLATE)
+        write_markdown_file(fp, entity=Person(name="Rich", tags=["person"]),
+                            body=self.TEMPLATE, overwrite=True)
+
+    def test_reordered_same_content_does_not_raise(self, tmp_path):
+        from obsidian_schemas.models import Person
+        fp = self._seed(tmp_path, self.RICH)
+        reordered = (
+            "## Notes\nAlbion VC relationship.\n\n"
+            "## Timeline\n\n"
+            "### Dec 12, 2025\n[[2025-12-12 Kickoff Meeting]]\n\n"
+            "### Jan 3, 2026\n[[2026-01-03 Strategy Sync Meeting]]\n"
+        )
+        write_markdown_file(fp, entity=Person(name="Rich", tags=["person"]),
+                            body=reordered, overwrite=True)
+
+    def test_repo_save_raises_on_shrink(self, tmp_path):
+        """The integration path: PersonRepository.save() inherits the guard."""
+        from obsidian_schemas import PersonRepository, Person
+        from obsidian_schemas.writer import BodyTruncationError
+        vault = tmp_path / "vault"; vault.mkdir()
+        repo = PersonRepository(vault)
+        repo.save(Person(name="Rich", tags=["person"]), body=self.RICH)
+        with pytest.raises(BodyTruncationError):
+            repo.save(Person(name="Rich", tags=["person"]), body="")
+
+    def test_repo_save_allow_body_replacement(self, tmp_path):
+        from obsidian_schemas import PersonRepository, Person
+        vault = tmp_path / "vault"; vault.mkdir()
+        repo = PersonRepository(vault)
+        repo.save(Person(name="Rich", tags=["person"]), body=self.RICH)
+        repo.save(Person(name="Rich", tags=["person"]), body="",
+                  allow_body_replacement=True)
+        assert "Meeting]]" not in (vault / "@Rich.md").read_text()

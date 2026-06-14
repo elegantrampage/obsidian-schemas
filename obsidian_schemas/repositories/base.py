@@ -180,6 +180,7 @@ class BaseRepository(ABC, Generic[T]):
         body: str = "",
         extra_fields: Optional[dict] = None,
         overwrite: bool = True,
+        allow_body_replacement: bool = False,
     ) -> Path:
         """
         Save an entity to the vault.
@@ -189,6 +190,9 @@ class BaseRepository(ABC, Generic[T]):
             body: Markdown body content
             extra_fields: Additional frontmatter fields
             overwrite: If True, overwrite existing file
+            allow_body_replacement: If True, bypass the WI-126 body-shrink guard.
+                Use only when intentionally replacing/clearing a body; for a
+                frontmatter-only change use update_fields (body-preserving).
 
         Returns:
             Path to the saved file
@@ -203,6 +207,7 @@ class BaseRepository(ABC, Generic[T]):
             body=body,
             extra_fields=extra_fields,
             overwrite=overwrite,
+            allow_body_replacement=allow_body_replacement,
         )
 
         # Update cache
