@@ -2146,3 +2146,94 @@ class TestMeetingRepository:
         # Contains uses cache_key which is meeting_id for meetings
         assert "meeting_20251201_product" in repo
         assert "nonexistent" not in repo
+
+
+# ── WI-121: trailing-paren decoration at find_or_create_stub ─────────
+
+from obsidian_schemas.repositories.person import _split_trailing_paren
+
+
+class TestSplitTrailingParen:
+    """WI-121 predicate: strip a TRAILING '(X)' for lookup + surface X as a hint."""
+
+    def test_company_paren(self):
+        assert _split_trailing_paren("Louron Pratt (Pendo)") == ("Louron Pratt", "Pendo")
+
+    def test_role_paren(self):
+        assert _split_trailing_paren("Kate Sellwood (PA)") == ("Kate Sellwood", "PA")
+
+    def test_mid_string_paren_not_trailing(self):
+        assert _split_trailing_paren("Jane (Acme) Smith") == ("Jane (Acme) Smith", None)
+
+    def test_sequential_parens_strips_last_only(self):
+        assert _split_trailing_paren("Foo (A) (B)") == ("Foo (A)", "B")
+
+    def test_nested_parens_no_strip(self):
+        assert _split_trailing_paren("Foo (A (B))") == ("Foo (A (B))", None)
+
+    def test_paren_only_kept_verbatim(self):
+        assert _split_trailing_paren("(Pendo)") == ("(Pendo)", None)
+
+    def test_empty(self):
+        assert _split_trailing_paren("") == ("", None)
+
+    def test_plain_name(self):
+        assert _split_trailing_paren("Plain Name") == ("Plain Name", None)
+
+    def test_unbalanced_paren_kept_verbatim(self):
+        assert _split_trailing_paren("Foo (Bar") == ("Foo (Bar", None)
+
+
+class TestFindOrCreateStubWI121Paren:
+    """WI-121 behavioural trap set — paren-strip-for-lookup + company-hint."""
+
+    def test_paren_company_reuses_canonical(self, temp_vault):
+        """'Louron Pratt (Pendo)' must REUSE @Louron Pratt.md (the 2026-06-10 dup)."""
+        repo = PersonRepository(temp_vault)
+        repo.create_stub(name="Louron Pratt", company="")
+        person, created = repo.find_or_create_stub(name="Louron Pratt (Pendo)")
+        assert created is False, "trailing-paren strip should reuse the canonical"
+        assert person.name == "Louron Pratt"
+
+    def test_paren_role_annotation_reuses(self, temp_vault):
+        """'Kate Sellwood (PA)' reuses @Kate Sellwood.md (PA is a harmless hint)."""
+        repo = PersonRepository(temp_vault)
+        repo.create_stub(name="Kate Sellwood", company="")
+        person, created = repo.find_or_create_stub(name="Kate Sellwood (PA)")
+        assert created is False
+        assert person.name == "Kate Sellwood"
+
+    def test_paren_known_company_stored_on_create(self, temp_vault):
+        """No canonical → create '@Naomi Pavie' + company=Speechmatics (known)."""
+        repo = PersonRepository(temp_vault)
+        # Make 'Speechmatics' a known company via an unrelated note.
+        repo.create_stub(name="Some Speechmatics Person", company="Speechmatics")
+        person, created = repo.find_or_create_stub(name="Naomi Pavie (Speechmatics)")
+        assert created is True
+        assert person.name == "Naomi Pavie"
+        assert person.company == "Speechmatics", (
+            "a known paren-company must be stored on the new note"
+        )
+
+    def test_paren_role_annotation_not_stored_as_company(self, temp_vault):
+        """No canonical → create '@Jo Bloggs'; 'PA' is NOT a known company → not stored."""
+        repo = PersonRepository(temp_vault)
+        person, created = repo.find_or_create_stub(
+            name="Jo Bloggs (PA)", email="jo@example.com"
+        )
+        assert created is True
+        assert person.name == "Jo Bloggs"
+        assert (person.company or "") == "", (
+            "a role annotation must never be persisted as a company"
+        )
+
+    def test_caller_company_wins_over_paren(self, temp_vault):
+        """Caller-supplied company wins over the paren-derived one (and is stored
+        as-is — caller company is the stronger signal, not paren-filtered)."""
+        repo = PersonRepository(temp_vault)
+        person, created = repo.find_or_create_stub(
+            name="Foo Bar (Wrong Co)", company="Right Co", email="foo@example.com"
+        )
+        assert created is True
+        assert person.name == "Foo Bar"
+        assert person.company == "Right Co"

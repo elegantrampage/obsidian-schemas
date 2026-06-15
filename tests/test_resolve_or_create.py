@@ -175,6 +175,7 @@ PARITY_CASES = [
     ("Jane", None, "+15551234567", None),                         # A: phone hit
     ("Naomi Pavie", "naomi@speechmatics.com", None, "Speechmatics"),  # B: name reuse
     ("Brand New Person", "fresh@example.com", None, "Acme"),      # C: create
+    ("Louron Pratt (Pendo)", None, None, None),                  # WI-121: B reuse via paren-strip
 ]
 
 
@@ -182,6 +183,7 @@ def _seed(vault):
     _note(vault, "John Smith", emails=["john@example.com"])
     _note(vault, "Jane Doe", phones=["+15551234567"])
     _note(vault, "Naomi Pavie Speechmatics", company="Speechmatics")
+    _note(vault, "Louron Pratt")  # WI-121: paren-strip must reuse this canonical
 
 
 @pytest.mark.parametrize("name,email,phone,company", PARITY_CASES)

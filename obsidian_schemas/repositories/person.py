@@ -72,6 +72,36 @@ from .base import BaseRepository
 logger = logging.getLogger(__name__)
 
 
+# WI-121: a TRAILING parenthetical '(X)' is never part of a legal human name
+# ('Louron Pratt (Pendo)', 'Kate Sellwood (PA)') — it is always an annotation.
+# Trailing-only ($-anchored), single group ([^()]+ forbids nesting), strip-to-
+# empty guarded. See docs/paren-decoration-at-the-door.md.
+_TRAILING_PAREN_RE = re.compile(r"^(?P<head>.*?)\s*\((?P<inner>[^()]+)\)\s*$")
+
+
+def _split_trailing_paren(name: str) -> Tuple[str, Optional[str]]:
+    """Split a TRAILING '(X)' off a name. Trailing-only, single group, no nesting.
+
+    'Louron Pratt (Pendo)'  -> ('Louron Pratt', 'Pendo')
+    'Kate Sellwood (PA)'     -> ('Kate Sellwood', 'PA')
+    'Jane (Acme) Smith'      -> ('Jane (Acme) Smith', None)   # paren not trailing
+    'Foo (A) (B)'            -> ('Foo (A)', 'B')               # strips the LAST only
+    'Foo (A (B))'            -> ('Foo (A (B))', None)          # nested -> [^()] fails -> no strip
+    '(Pendo)'                -> ('(Pendo)', None)              # head empty -> keep verbatim
+    'Plain Name'             -> ('Plain Name', None)
+    """
+    if not name:
+        return name, None
+    m = _TRAILING_PAREN_RE.match(name)
+    if not m:
+        return name, None
+    head = m.group("head").strip()
+    inner = m.group("inner").strip()
+    if not head or not inner:        # never strip to empty; never derive an empty hint
+        return name, None
+    return head, inner
+
+
 def normalize_phone(phone: str) -> str:
     """
     Normalize a phone number to digits only.
@@ -756,7 +786,15 @@ class PersonRepository(BaseRepository[Person]):
         # name-based lookup AND as the created name (lookup-clean == creation-
         # name; both safe — the strip is idempotent and conservative-keep on
         # no-corroboration means worst case is "no worse than today").
-        lookup_name = self._clean_query_for_lookup(name, email=email, company=company)
+        lookup_name, derived_company = self._clean_query_for_lookup(
+            name, email=email, company=company
+        )
+        # WI-121: caller's explicit company wins; the paren-derived company is the
+        # fallback resolve hint (unfiltered — a non-matching hint causes no bump).
+        # For storage on a NEW note, only a known paren-company is kept; the
+        # caller's own company is stored as-is (pre-WI-121 behaviour preserved).
+        effective_company = company or derived_company
+        create_company = company or self._company_if_known(derived_company)
 
         # Strategy 1: exact identifier matches (email/phone) — strongest signal.
         # Name-independent, so a strong identifier reuses even past a weak name.
@@ -774,7 +812,7 @@ class PersonRepository(BaseRepository[Person]):
 
         # Strategy 2: resolve_all with company hint, on the CLEANED name.
         if lookup_name:
-            candidates = self.resolve_all(lookup_name, company=company)
+            candidates = self.resolve_all(lookup_name, company=effective_company)
             if candidates and candidates[0].confidence >= confidence_threshold:
                 existing = candidates[0].person
                 self._writeback_identifier(existing, email=email, phone=phone)
@@ -799,7 +837,7 @@ class PersonRepository(BaseRepository[Person]):
             name=lookup_name,
             email=email,
             phone=phone,
-            company=company,
+            company=create_company,
             auto_created=auto_created,
             created_by=created_by,
         )
@@ -875,9 +913,14 @@ class PersonRepository(BaseRepository[Person]):
                 None,
             )
 
-        cleaned = self._clean_query_for_lookup(
+        cleaned, derived_company = self._clean_query_for_lookup(
             display_name, email=email_str, company=company_hint
         )
+        # WI-121: caller's company_hint wins; the paren-derived company is the
+        # fallback resolve hint (unfiltered). On a NEW note, only a known paren-
+        # company is stored; the caller's company_hint is stored as-is.
+        effective_company = company_hint or derived_company
+        create_company = company_hint or self._company_if_known(derived_company)
 
         # ── Branch A — identifier hits ──────────────────────────────────────
         hits: List[Tuple[Identifier, EntityRef]] = []
@@ -893,7 +936,7 @@ class PersonRepository(BaseRepository[Person]):
 
         # ── Branch B — name + corroboration ─────────────────────────────────
         if cleaned:
-            candidates = self.resolve_all(cleaned, company=company_hint)
+            candidates = self.resolve_all(cleaned, company=effective_company)
             if candidates and candidates[0].confidence >= threshold:
                 existing = candidates[0].person
                 self._writeback_identifier(existing, email=email_str, phone=phone_str)
@@ -914,7 +957,7 @@ class PersonRepository(BaseRepository[Person]):
             name=cleaned,
             email=email_str,
             phone=phone_str,
-            company=company_hint,
+            company=create_company,
             auto_created=auto_created,
             created_by=provenance,
         )
@@ -978,10 +1021,20 @@ class PersonRepository(BaseRepository[Person]):
         name: str,
         email: Optional[str] = None,
         company: Optional[str] = None,
-    ) -> str:
-        """Clean a query name for find_or_create_stub (WI-117).
+    ) -> Tuple[str, Optional[str]]:
+        """Clean a query name for find_or_create_stub (WI-117 + WI-121).
 
-        Two stages:
+        Returns (cleaned_name, derived_company). `derived_company` is the inner
+        text of a TRAILING parenthetical (e.g. 'Pendo' from 'Louron Pratt
+        (Pendo)'), or None. It is a RAW hint — NOT filtered against known-
+        companies; the caller merges it (caller-wins) for the resolve hint and
+        the creation site filters it via _company_if_known.
+
+        Stages:
+          0. WI-121 — strip a trailing '(X)' FIRST (so the token-based rules
+             below see paren-free ground), surfacing X as derived_company. A
+             trailing parenthetical is never part of a legal name → safe to
+             strip for lookup AND as the created name.
           1. clean_person_name WITHOUT known_companies — the unconditionally-safe
              recoveries (trailing/embedded digits, calendar/archive prefixes,
              'unknown contact' suffix). known_companies is deliberately NOT
@@ -994,12 +1047,24 @@ class PersonRepository(BaseRepository[Person]):
              (token ∈ known-companies AND (company== OR email-domain match)).
         """
         if not name:
-            return name
-        cleaned = clean_person_name(name)
+            return name, None
+        stripped, derived_company = _split_trailing_paren(name)
+        cleaned = clean_person_name(stripped)
         cleaned = self._strip_corroborated_company_suffix(
             cleaned, company=company, email=email
         )
-        return cleaned
+        return cleaned, derived_company
+
+    def _company_if_known(self, company: Optional[str]) -> Optional[str]:
+        """WI-121: return `company` iff it's a known company (case-insensitive),
+        else None. Used at the CREATE site for the PAREN-DERIVED company only, so
+        a role-annotation ('PA', "Dave's EA") is never persisted as a company.
+        A caller-supplied company is NOT routed through this (it is the stronger
+        signal and is stored as-is, preserving pre-WI-121 behaviour). Empty → None."""
+        if not company:
+            return None
+        known_lower = {c.lower() for c in self._known_companies()}
+        return company if company.lower() in known_lower else None
 
     def _strip_corroborated_company_suffix(
         self,
