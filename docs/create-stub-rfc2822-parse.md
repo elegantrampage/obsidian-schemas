@@ -2,9 +2,9 @@
 id: WI-017
 title: "PersonRepository.create_stub: parse RFC 2822 sender strings before regex-sanitizing the name"
 project: obsidian-schemas
-stage: specced
+stage: done
 created: 2026-06-01
-last_touched: 2026-06-01
+last_touched: 2026-07-05
 stage_changed: 2026-06-01
 touched_by: session
 tags: [person-repository, sanitization, data-quality, root-fix, small-mechanical]

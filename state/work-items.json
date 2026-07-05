@@ -1,8 +1,8 @@
 {
   "project": "obsidian-schemas",
   "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
-  "last_scanned": "2026-06-01T16:00:00Z",
-  "next_id": 20,
+  "last_scanned": "2026-07-05T00:00:00Z",
+  "next_id": 28,
   "items": [
     {
       "id": "WI-019",
@@ -10,14 +10,14 @@
       "stage": "done",
       "file": "../orchestrator/docs/find-or-create-stub.md",
       "created": "2026-06-01",
-      "last_touched": "2026-06-01",
+      "last_touched": "2026-07-05",
       "stage_changed": "2026-06-01",
       "tags": ["person-repository", "dedupe-prevention", "root-fix"],
       "parent": null,
       "children": [],
       "depends_on": ["WI-018"],
       "blocked": false,
-      "summary": "Lookup-before-create entry point built on resolve_all (WI-018). Replaces ad-hoc create_stub calls scattered across 4 paths (orchestrator contact_normalizer + contact-detector + HAL9000 entities + exocortex Granola ingester). Cascade: get_by_email → get_by_phone → resolve_all with company hint at threshold ≥0.85 → fall through to create_stub. Identifier write-back: on reuse, if call supplied new email/phone not on canonical, append and save. || DONE 2026-06-01: 5 tests added test-first (all fail pre-fix, all pass post-fix), part of the 14-test WI-018+WI-019 batch in commit ec4393a. Caller migration NOT in this commit — sequenced as follow-on per orchestrator/docs/find-or-create-stub.md."
+      "summary": "Lookup-before-create entry point built on resolve_all (WI-018). Replaces ad-hoc create_stub calls scattered across 4 paths (orchestrator contact_normalizer + contact-detector + HAL9000 entities + exocortex Granola ingester). Cascade: get_by_email → get_by_phone → resolve_all with company hint at threshold ≥0.85 → fall through to create_stub. Identifier write-back: on reuse, if call supplied new email/phone not on canonical, append and save. || DONE 2026-06-01: 5 tests added test-first, commit ec4393a. || 2026-07-05 campaign note: library side since reshaped into the WI-125 engine adapter (person.py:678). Caller migration is HALF done and owner-elsewhere: paths 1 (contact_normalizer) + 3 (HAL9000 entities, with a create_stub fallback branch at entities.py:203) migrated; path 2 (contact-detector role) and path 4 (exocortex Granola ingester — highest-frequency caller) NOT migrated, tracked as orchestrator WI-118 (blocked on shadow harness). See campaign doc Cross-project signals."
     },
     {
       "id": "WI-018",
@@ -32,7 +32,7 @@
       "children": [],
       "depends_on": [],
       "blocked": false,
-      "summary": "Existing resolve() returns Optional[Person] — single match, stops at first cascade hit. resolve_all returns List[ResolveCandidate] with all plausible matches ranked by confidence. New strategies: token-subset matching (≥2 shared tokens in either direction; catches 'Emily Mendes' ⊆ 'Emily Mendes Speechmatics'), short-form 'First L' partial-match. Company-hint bump: +0.25 confidence (capped 1.0) when canonical's company matches OR canonical's name contains the company token (catches mangled-stub case where company got concatenated into name). Email match runs before alias to win label tie-breaking. || DONE 2026-06-01: 9 tests added test-first (all fail pre-fix, all pass post-fix), part of the 14-test batch in commit ec4393a. Foundation for WI-019 find_or_create_stub."
+      "summary": "resolve_all returns List[ResolveCandidate] with all plausible matches ranked by confidence. Token-subset matching, short-form 'First L' partial-match, company-hint bump +0.25. || DONE 2026-06-01: 9 tests added test-first, commit ec4393a. Foundation for WI-019 find_or_create_stub."
     },
     {
       "id": "WI-017",
@@ -40,31 +40,29 @@
       "stage": "done",
       "file": "docs/create-stub-rfc2822-parse.md",
       "created": "2026-06-01",
-      "last_touched": "2026-06-01",
+      "last_touched": "2026-07-05",
       "stage_changed": "2026-06-01",
       "tags": ["person-repository", "sanitization", "data-quality", "root-fix", "small-mechanical"],
       "parent": null,
       "children": [],
       "depends_on": [],
       "blocked": false,
-      "summary": "create_stub at person.py:380 regex-strips non-word/whitespace/hyphen chars from the name arg. When the caller passes a raw RFC 2822 sender field ('Display Name <email@domain>'), the regex strips <, >, @, . — leaving 'Display Name emailatdomaincom' as the canonical name AND filename. Production vault: 62 corrupted notes match this pattern. Surfaced 2026-06-01 from orchestrator/WI-102 dedupe review (e.g. @David Agmen-Smith davidasspeechmaticscom.md). Fix: add email.utils.parseaddr defensive parse at top of create_stub — extracts email from <...>, uses display-name part (or email local-part) as the name. Caller's explicit email arg wins if passed. || DONE 2026-06-01: 9 edge-case tests written test-first (5 fail on pre-fix state, 4 no-op pass). Fix shipped: 7 LOC. All 9 tests pass post-fix. Full tests/test_repositories.py (114 tests) green — zero regressions. Retroactive cleanup of the 62 corrupted vault notes is a separate orchestrator-side disposable script (not in this WI's scope)."
+      "summary": "create_stub regex-stripped RFC 2822 sender fields into mangled names ('Display Name emailatdomaincom'); 62 corrupted vault notes. Fix: email.utils.parseaddr defensive parse at top of create_stub. || DONE 2026-06-01 (commit 424f0b8), 9 edge-case tests test-first. Superseded further by WI-105 NameValidator boundary + WI-109 normalize-at-save. Doc frontmatter stage corrected specced→done 2026-07-05."
     },
     {
       "id": "WI-004",
-      "title": "Concurrent Access",
+      "title": "Concurrent & external write safety (atomic writes, locking, stale-read protection)",
       "stage": "idea",
       "file": "docs/concurrent-access.md",
       "created": "2026-03-22",
-      "last_touched": "2026-03-22",
+      "last_touched": "2026-07-05",
       "stage_changed": "2026-03-22",
-      "tags": [
-        "repository"
-      ],
+      "tags": ["repository", "write-safety", "corruption-class"],
       "parent": null,
       "children": [],
-      "depends_on": [],
+      "depends_on": ["WI-020"],
       "blocked": false,
-      "summary": "The repository layer currently assumes single-threaded use \u2014 no locking, no thread-safe cache operations. HAL9000 runs as a FastAPI server handling concurrent requests, which means multiple request ha"
+      "summary": "RESLICED 2026-07-05: every write in the package is an unlocked, non-atomic read-modify-write (base.py:254, writer.py, five body-section writers) while HAL9000/orchestrator/CLI/Obsidian write the same live vault. Lost-update + torn-write classes. Absorbs WI-015 (writer-vs-Obsidian); consolidation rider: route all six hand-rolled frontmatter splits through the one new primitive. Routing: FABLE explore (named fork: flock vs single-writer vs mtime-precondition vs rename-only), Opus/xhigh spec-review (campaign's single xhigh), Opus/high build."
     },
     {
       "id": "WI-005",
@@ -72,16 +70,14 @@
       "stage": "idea",
       "file": "docs/cross-repository-linking.md",
       "created": "2026-03-22",
-      "last_touched": "2026-03-22",
+      "last_touched": "2026-07-05",
       "stage_changed": "2026-03-22",
-      "tags": [
-        "entity-relationships"
-      ],
+      "tags": ["entity-relationships"],
       "parent": null,
       "children": [],
       "depends_on": [],
       "blocked": false,
-      "summary": "Entity relationships are currently string-based \u2014 a person's company field is just a name, not a resolved reference. Calling `person.company` returns `\"Acme Corp\"`, not the actual Company entity. To g"
+      "summary": "Entity relationships are string-based — person.company returns \"Acme Corp\", not the Company entity. Verified valid 2026-07-05 (models.py:84 company: str). Reshaped since March: PersonRepository already consults CompanyRepository for company-hint resolution (person.py:1131 _known_companies), so repos are no longer strictly ignorant of each other — but the typed accessor / unified VaultRepository remains unbuilt. Unqueued."
     },
     {
       "id": "WI-008",
@@ -89,16 +85,14 @@
       "stage": "idea",
       "file": "docs/exploration-entity-type.md",
       "created": "2026-03-22",
-      "last_touched": "2026-03-22",
+      "last_touched": "2026-07-05",
       "stage_changed": "2026-03-22",
-      "tags": [
-        "repository"
-      ],
+      "tags": ["repository"],
       "parent": null,
       "children": [],
       "depends_on": [],
       "blocked": false,
-      "summary": "The Exploration entity type is partially implemented \u2014 a Pydantic model exists but hasn't been committed. It's missing a repository, tests, and writer support. Explorations are living documents in the"
+      "summary": "Premise updated 2026-07-05: Exploration model IS committed (models.py:266, wired into EntityType + TYPE_TO_MODEL). Residual: repository + writer round-trip; the missing model test folded into WI-016's fixture scope. Unqueued."
     },
     {
       "id": "WI-001",
@@ -106,33 +100,29 @@
       "stage": "idea",
       "file": "docs/file-watching-realtime-updates.md",
       "created": "2026-03-22",
-      "last_touched": "2026-03-22",
+      "last_touched": "2026-07-05",
       "stage_changed": "2026-03-22",
-      "tags": [
-        "repository"
-      ],
+      "tags": ["repository"],
       "parent": null,
       "children": [],
       "depends_on": [],
       "blocked": false,
-      "summary": "Long-running processes like the HAL9000 server hold repository instances in memory, but the underlying vault files can change at any time (Obsidian edits, other tools writing frontmatter). Currently t"
+      "summary": "Long-running processes hold repository caches while vault files change underneath. Verified valid 2026-07-05: no watchdog/mtime tracking; load is eager one-shot (base.py:81-98). Unqueued — no recorded current pain; performance/freshness cluster."
     },
     {
       "id": "WI-014",
       "title": "HAL9000 Singleton",
-      "stage": "idea",
+      "stage": "parked",
       "file": "docs/hal9000-singleton.md",
       "created": "2026-03-22",
-      "last_touched": "2026-03-22",
-      "stage_changed": "2026-03-22",
-      "tags": [
-        "integration"
-      ],
+      "last_touched": "2026-07-05",
+      "stage_changed": "2026-07-05",
+      "tags": ["integration"],
       "parent": null,
       "children": [],
       "depends_on": [],
       "blocked": false,
-      "summary": "HAL9000's FastAPI server creates repository instances ad-hoc across different endpoints and services. There's no centralized lifecycle management \u2014 no shared cache, no coordinated refresh, no single p"
+      "summary": "PARKED 2026-07-05 (campaign): premise eroded — HAL9000 now has a repository factory (entity_registry.py:34 get_repository). Remaining lifecycle work belongs to HAL9000 (solve-in-one-place). Library-side concurrency prerequisite lives on as WI-004."
     },
     {
       "id": "WI-013",
@@ -140,16 +130,14 @@
       "stage": "idea",
       "file": "docs/incremental-loading.md",
       "created": "2026-03-22",
-      "last_touched": "2026-03-22",
+      "last_touched": "2026-07-05",
       "stage_changed": "2026-03-22",
-      "tags": [
-        "performance"
-      ],
+      "tags": ["performance"],
       "parent": null,
       "children": [],
       "depends_on": [],
       "blocked": false,
-      "summary": "The `refresh()` method reloads everything \u2014 every file gets re-parsed regardless of whether it changed. For a vault with hundreds of entity files, this is wasteful when only a few files were modified "
+      "summary": "refresh() reloads and re-parses everything regardless of what changed. Verified valid 2026-07-05 (base.py:302-337; no per-file mtime tracking). Unqueued — performance cluster, no recorded pain."
     },
     {
       "id": "WI-012",
@@ -157,16 +145,14 @@
       "stage": "idea",
       "file": "docs/index-persistence.md",
       "created": "2026-03-22",
-      "last_touched": "2026-03-22",
+      "last_touched": "2026-07-05",
       "stage_changed": "2026-03-22",
-      "tags": [
-        "performance"
-      ],
+      "tags": ["performance"],
       "parent": null,
       "children": [],
       "depends_on": [],
       "blocked": false,
-      "summary": "Every time a repository is instantiated, it rebuilds its indexes from scratch by parsing every markdown file in the vault. For large vaults this is slow \u2014 startup time scales linearly with file count."
+      "summary": "Indexes rebuilt from scratch on every instantiation; startup scales linearly with vault size. Verified valid 2026-07-05 (eager load → _index_entity/_index_identifiers, no persistence). Unqueued — performance cluster."
     },
     {
       "id": "WI-003",
@@ -174,16 +160,14 @@
       "stage": "idea",
       "file": "docs/lazy-loading.md",
       "created": "2026-03-22",
-      "last_touched": "2026-03-22",
+      "last_touched": "2026-07-05",
       "stage_changed": "2026-03-22",
-      "tags": [
-        "repository"
-      ],
+      "tags": ["repository"],
       "parent": null,
       "children": [],
       "depends_on": [],
       "blocked": false,
-      "summary": "Repositories currently load all entities from disk on first access \u2014 every markdown file gets parsed, even if the caller only needs one person. For large vaults this means slow startup and high memory"
+      "summary": "Repositories eager-load all entities on first access. Verified valid 2026-07-05 (base.py:83 _ensure_loaded → load; identity index built in the same eager pass). Unqueued — performance cluster."
     },
     {
       "id": "WI-010",
@@ -191,33 +175,29 @@
       "stage": "idea",
       "file": "docs/migration-support.md",
       "created": "2026-03-22",
-      "last_touched": "2026-03-22",
+      "last_touched": "2026-07-05",
       "stage_changed": "2026-03-22",
-      "tags": [
-        "schema-evolution"
-      ],
+      "tags": ["schema-evolution"],
       "parent": null,
       "children": [],
       "depends_on": [],
       "blocked": false,
-      "summary": "Schema changes are inevitable \u2014 fields get added, renamed, restructured. Currently there's no way to detect which vault files have outdated schemas or to migrate them automatically. When a schema chan"
+      "summary": "No schema_version field, no outdated-schema detection, no migration framework. Verified valid 2026-07-05 (grep clean; only ad-hoc one-off scripts have been run). Unqueued."
     },
     {
       "id": "WI-015",
       "title": "Obsidian Plugin Sync",
-      "stage": "idea",
+      "stage": "parked",
       "file": "docs/obsidian-plugin-sync.md",
       "created": "2026-03-22",
-      "last_touched": "2026-03-22",
-      "stage_changed": "2026-03-22",
-      "tags": [
-        "integration"
-      ],
+      "last_touched": "2026-07-05",
+      "stage_changed": "2026-07-05",
+      "tags": ["integration"],
       "parent": null,
       "children": [],
       "depends_on": [],
       "blocked": false,
-      "summary": "Both obsidian-schemas (via writer) and Obsidian itself can write to the same vault files simultaneously. There's no coordination \u2014 if the writer updates a person's frontmatter while Obsidian has the f"
+      "summary": "PARKED 2026-07-05 (campaign) — merged into WI-004: same root cause (unlocked read-modify-write vs a second writer), same mechanism (atomic write + stale-read detection). WI-126 narrowed the writer-vs-itself class only."
     },
     {
       "id": "WI-009",
@@ -225,16 +205,14 @@
       "stage": "idea",
       "file": "docs/professional-role-seniority.md",
       "created": "2026-03-22",
-      "last_touched": "2026-03-22",
+      "last_touched": "2026-07-05",
       "stage_changed": "2026-03-22",
-      "tags": [
-        "schema"
-      ],
+      "tags": ["schema"],
       "parent": null,
       "children": [],
       "depends_on": [],
       "blocked": false,
-      "summary": "The Person schema has no structured fields for what someone does professionally or their seniority level. This blocks job-matching use cases \u2014 the headhunter agent can't programmatically filter \"senio"
+      "summary": "No structured profession/seniority on Person — blocks headhunter filtering. Verified unshipped 2026-07-05 (models.py:78-90; roles field is behavior-modifiers, not profession). QUEUED Phase 5. Consumer-facing schema change: spec must list HAL9000/Exocortex ContactInfo mirror updates. Routing in doc."
     },
     {
       "id": "WI-006",
@@ -242,18 +220,14 @@
       "stage": "idea",
       "file": "docs/relationship-tracking.md",
       "created": "2026-03-22",
-      "last_touched": "2026-03-22",
+      "last_touched": "2026-07-05",
       "stage_changed": "2026-03-22",
-      "tags": [
-        "entity-relationships"
-      ],
+      "tags": ["entity-relationships"],
       "parent": null,
       "children": [],
-      "depends_on": [
-        "WI-005"
-      ],
+      "depends_on": ["WI-005"],
       "blocked": true,
-      "summary": "The schema captures static attributes of people and companies but not the relationships between them. \"Who introduced me to this person?\" and \"Who do I know at Company X?\" are natural questions that t"
+      "summary": "Schema captures static attributes but not relationships (who introduced whom, who-knows-who at Company X). Verified valid 2026-07-05; WI-119 created_by is code-provenance, not human relationships. Still blocked on WI-005. Unqueued."
     },
     {
       "id": "WI-002",
@@ -261,16 +235,14 @@
       "stage": "idea",
       "file": "docs/ttl-based-cache.md",
       "created": "2026-03-22",
-      "last_touched": "2026-03-22",
+      "last_touched": "2026-07-05",
       "stage_changed": "2026-03-22",
-      "tags": [
-        "repository"
-      ],
+      "tags": ["repository"],
       "parent": null,
       "children": [],
       "depends_on": [],
       "blocked": false,
-      "summary": "The current cache model is all-or-nothing: data stays cached until explicitly refreshed. File watching (WI-001) solves this for local processes, but it adds a dependency on `watchdog` and filesystem e"
+      "summary": "Cache is all-or-nothing until explicit refresh; TTL is the lighter alternative to file watching (WI-001). Verified valid 2026-07-05. Unqueued — performance/freshness cluster."
     },
     {
       "id": "WI-011",
@@ -278,33 +250,29 @@
       "stage": "idea",
       "file": "docs/validation-modes.md",
       "created": "2026-03-22",
-      "last_touched": "2026-03-22",
+      "last_touched": "2026-07-05",
       "stage_changed": "2026-03-22",
-      "tags": [
-        "schema-evolution"
-      ],
+      "tags": ["schema-evolution"],
       "parent": null,
       "children": [],
       "depends_on": [],
       "blocked": false,
-      "summary": "The current parser silently preserves unknown fields (lenient mode) \u2014 if a vault file has frontmatter keys the schema doesn't recognize, they pass through without any signal. This is safe but hides pr"
+      "summary": "Strict/lenient/warn mode selector for unknown frontmatter fields. Scope note 2026-07-05: the malformed-YAML silent-degrade bug class is NOT this item — corruption-class, owned by WI-020 (queued P1). This stays the unknown-field mode selector. Unqueued."
     },
     {
       "id": "WI-016",
-      "title": "Vault Fixtures",
+      "title": "Frozen anonymized real-data fixture vault",
       "stage": "idea",
       "file": "docs/vault-fixtures.md",
       "created": "2026-03-22",
-      "last_touched": "2026-03-22",
+      "last_touched": "2026-07-05",
       "stage_changed": "2026-03-22",
-      "tags": [
-        "testing"
-      ],
+      "tags": ["testing", "real-data-fixtures"],
       "parent": null,
       "children": [],
       "depends_on": [],
       "blocked": false,
-      "summary": "Tests currently use small, hand-crafted fixture files that cover basic cases but miss edge cases and performance characteristics of real vaults. There's no shared test vault that multiple test suites "
+      "summary": "RESLICED 2026-07-05: real-data-shaped fixtures became the convention organically but live as scattered inline literals. Residual: frozen anonymized ~50-note fixture vault (incl. malformed-frontmatter + mangled-stub specimens + Exploration round-trip); Hypothesis demoted to stretch. Anonymization design coordinated with exocortex WI-034 — one shared design (cross-project signal). QUEUED Phase 3. Routing in doc."
     },
     {
       "id": "WI-007",
@@ -312,17 +280,146 @@
       "stage": "idea",
       "file": "docs/watch-repository.md",
       "created": "2026-03-22",
-      "last_touched": "2026-03-22",
+      "last_touched": "2026-07-05",
       "stage_changed": "2026-03-22",
-      "tags": [
-        "repository"
-      ],
+      "tags": ["repository"],
       "parent": null,
       "children": [],
       "depends_on": [],
       "blocked": false,
-      "summary": "BookRepository was completed (2026-01-11) to manage reading list entities, but the equivalent for watch list items (movies, TV shows, documentaries) still doesn't exist. The Watch entity type likely f"
+      "summary": "Watch model exists (models.py:173) but no WatchRepository (only base/book/company/meeting/person). Verified valid 2026-07-05. Unqueued — low value until watch-list tooling is wanted."
+    },
+    {
+      "id": "WI-020",
+      "title": "Loud-fail hardening: parse, guard, and write-return boundaries",
+      "stage": "idea",
+      "file": "docs/loud-fail-boundaries.md",
+      "created": "2026-07-05",
+      "last_touched": "2026-07-05",
+      "stage_changed": "2026-07-05",
+      "tags": ["corruption-class", "loud-fail", "parser", "writer"],
+      "parent": null,
+      "children": [],
+      "depends_on": [],
+      "blocked": false,
+      "summary": "Five verified silent-degrade sites (2026-07-05 review C2/C3/C4/C5/N4): malformed YAML → ({}, content) at parser.py:78-80, which the rebuild paths turn into frontmatter destruction; WI-126 guard self-disables on read error (writer.py:189-190); un-loadable notes vanish at DEBUG → duplicate stubs (base.py:125); parse_to_model swallows validation errors; write failures return the same False as no-ops. Design call: quarantine semantics for malformed notes. QUEUED Phase 1 #1. Routing: Opus/high throughout."
+    },
+    {
+      "id": "WI-021",
+      "title": "Close the write-door bypasses: name validation + address normalization on every mutation path",
+      "stage": "idea",
+      "file": "docs/write-door-bypasses.md",
+      "created": "2026-07-05",
+      "last_touched": "2026-07-05",
+      "stage_changed": "2026-07-05",
+      "tags": ["typed-boundaries", "name-validation", "rfc2822"],
+      "parent": null,
+      "children": [],
+      "depends_on": ["WI-004"],
+      "blocked": false,
+      "summary": "NameValidator is create-only (save/update_fields write unvalidated names, incl. path-hostile '/'); _writeback_identifier appends raw email/phone bypassing _normalize_address_fields (WI-109's corruption back through a side door); RFC 2822 parsing lives in ≥4 sites — collapse to one authority. After WI-004: hang the checks on the new primitive. QUEUED Phase 2. Routing: Opus/medium throughout."
+    },
+    {
+      "id": "WI-022",
+      "title": "Company stub parity: retire the deleted name-mangler, add validation + provenance",
+      "stage": "idea",
+      "file": "docs/company-stub-parity.md",
+      "created": "2026-07-05",
+      "last_touched": "2026-07-05",
+      "stage_changed": "2026-07-05",
+      "tags": ["company-repository", "data-quality", "small-mechanical"],
+      "parent": null,
+      "children": [],
+      "depends_on": [],
+      "blocked": false,
+      "summary": "CompanyRepository.create_stub (company.py:171) still runs the exact mangler regex WI-111 deleted from the Person side ('O'Reilly'→'OReilly', 'AT&T'→'ATT'); no NameValidator, no created_by provenance. Company-appropriate cleaning contract (punctuation often load-bearing), Person pattern as template. QUEUED Phase 2, independent — schedule opportunistically. Routing: Sonnet spec/build + Opus review."
+    },
+    {
+      "id": "WI-023",
+      "title": "Identity engine endgame: delete the legacy cascade, cut over the unified index",
+      "stage": "idea",
+      "file": "docs/identity-engine-endgame.md",
+      "created": "2026-07-05",
+      "last_touched": "2026-07-05",
+      "stage_changed": "2026-07-05",
+      "tags": ["identity", "wi-125-followup", "strangler-completion"],
+      "parent": null,
+      "children": [],
+      "depends_on": [],
+      "blocked": false,
+      "summary": "WI-125 left the strangler half-cut: legacy _find_or_create_stub_legacy (person.py:719) maintained in lockstep by hand (WI-121 threaded through both copies); unified index built every load but bypassed for email/phone (person.py:966-986). Parity replay PASSED (942 inputs, 0 diffs) — deletion unblocked. Scope: delete legacy; index cutover (resolve Phone.key vs phones_match fuzz); consolidate resolve/resolve_all (N5); move normalize_phone out to break the identifier.py import cycle; fix dangling doc ref person.py:78. Gates WI-025. QUEUED Phase 3. Routing: Opus (spec/review high, build medium)."
+    },
+    {
+      "id": "WI-024",
+      "title": "Remove the hardcoded live-vault default path (loud-fail when unconfigured)",
+      "stage": "idea",
+      "file": "docs/default-vault-path.md",
+      "created": "2026-07-05",
+      "last_touched": "2026-07-05",
+      "stage_changed": "2026-07-05",
+      "tags": ["loud-fail", "configuration", "small-mechanical"],
+      "parent": null,
+      "children": [],
+      "depends_on": [],
+      "blocked": false,
+      "summary": "DEFAULT_VAULT_PATH (base.py:21) silently points unconfigured consumers at Dave's live vault; untested fallback; duplicated in lint_vault.py:50. Fix: unconfigured construction raises. Breaking change — consumer audit (no-arg constructions in all 3 repos) + Dave sign-off first. QUEUED Phase 1 #2. Routing: Sonnet/low build + Opus review."
+    },
+    {
+      "id": "WI-025",
+      "title": "Decompose person.py (1,839 LOC, five concerns)",
+      "stage": "idea",
+      "file": "docs/person-repo-decomposition.md",
+      "created": "2026-07-05",
+      "last_touched": "2026-07-05",
+      "stage_changed": "2026-07-05",
+      "tags": ["architecture", "maintainability"],
+      "parent": null,
+      "children": [],
+      "depends_on": ["WI-023"],
+      "blocked": true,
+      "summary": "person.py is 1,839 LOC (2.6× the ~700 ceiling), fan-in hub holding five concerns (indexes, resolve cascades, identity engine, stub creation, body-section CRUD). Pure-move refactor, 563-test net, WHY-comments travel. STRICTLY after WI-023 (delete the duplicate before moving what remains). QUEUED Phase 4. Routing: Opus/medium throughout."
+    },
+    {
+      "id": "WI-026",
+      "title": "lint_vault.py --fix safety: route through the guarded primitive + a test floor for scripts",
+      "stage": "idea",
+      "file": "docs/lint-vault-fix-safety.md",
+      "created": "2026-07-05",
+      "last_touched": "2026-07-05",
+      "stage_changed": "2026-07-05",
+      "tags": ["scripts", "write-safety", "testing"],
+      "parent": null,
+      "children": [],
+      "depends_on": ["WI-004", "WI-020"],
+      "blocked": true,
+      "summary": "lint_vault.py (1,198 LOC, zero tests) mutates the whole vault under --fix, bypasses the WI-126 guard, and on malformed-YAML notes can rewrite a file dropping its original frontmatter (the C2 corruption behind a manual flag). Route --fix through the WI-004 primitive, respect WI-020 quarantine semantics, fixture-vault test per fix rule. QUEUED Phase 4. Routing: Sonnet build + Opus review."
+    },
+    {
+      "id": "WI-027",
+      "title": "Weak-identity needs_resolution flip (WI-125 deferred follow-on)",
+      "stage": "idea",
+      "file": "docs/needs-resolution-flip.md",
+      "created": "2026-07-05",
+      "last_touched": "2026-07-05",
+      "stage_changed": "2026-07-05",
+      "tags": ["identity", "wi-125-followup", "cross-project"],
+      "parent": null,
+      "children": [],
+      "depends_on": [],
+      "blocked": false,
+      "summary": "resolve_or_create still raises WeakIdentityError; the flip to create-with-needs_resolution:true is caller-visible across all consumers and needs a review surface to receive flagged stubs (flip without queue = silent debt). Sequence with orchestrator WI-118's caller migration so the contract changes once. UNQUEUED — captured so person.py:895's deferral note stops being the only record."
     }
   ],
-  "queue_order": []
+  "queue_order": [
+    "WI-020",
+    "WI-024",
+    "WI-004",
+    "WI-021",
+    "WI-022",
+    "WI-023",
+    "WI-016",
+    "WI-025",
+    "WI-026",
+    "WI-009"
+  ]
 }

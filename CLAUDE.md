@@ -24,6 +24,7 @@ vips = repo.get_by_role("vip")
 
 - **HAL9000** - Contact resolution, intro previews
 - **Exocortex** - Attendee resolution, entity linking
+- **orchestrator** - Contact normalization, stub creation (find_or_create_stub)
 
 ## Key Files
 
@@ -32,8 +33,12 @@ vips = repo.get_by_role("vip")
 | `obsidian_schemas/models.py` | All entity schemas |
 | `obsidian_schemas/parser.py` | Markdown → typed models |
 | `obsidian_schemas/writer.py` | Models → markdown files |
-| `obsidian_schemas/repositories/person.py` | PersonRepository |
+| `obsidian_schemas/repositories/person.py` | PersonRepository (incl. resolve cascade + WI-125 identity engine) |
 | `obsidian_schemas/repositories/company.py` | CompanyRepository |
+| `obsidian_schemas/identifier.py` | Typed Identifier union + EntityRef (identity core, WI-125) |
+| `obsidian_schemas/name_validation.py` | NameValidator boundary contract (WI-105) |
+| `obsidian_schemas/name_cleaning.py` | clean_person_name (WI-117) |
+| `obsidian_schemas/body_sections.py` | Markdown body section parse/write, To-Discuss items |
 
 ## Installation
 
@@ -46,7 +51,7 @@ pip install -e /Users/davewascha/Workspaces/obsidian-schemas
 
 ```bash
 cd /Users/davewascha/Workspaces/obsidian-schemas
-pytest  # 195+ tests
+.venv/bin/python -m pytest -q  # hermetic, ~1s; run this for the current count (system python has no pytest)
 ```
 
 ## What's Next
@@ -58,7 +63,7 @@ Read `state/work-items.json` for the current backlog and pipeline state. Work it
 - **SESSION_LOG.md** - Chronological record of work (recent-first)
 - **README.md** - Full API documentation with examples
 - **state/work-items.json** - Backlog and pipeline (replaces BACKLOG.md)
-- **docs/** - Planning documents and reference material (currently empty)
+- **docs/** - Work-item docs (one per item, YAML frontmatter) + campaign docs. Current queue and routing: `docs/backlog-campaign-2026-07-05.md`
 
 Run `/wrap-up` at end of sessions to update all docs.
 
@@ -68,18 +73,3 @@ When modifying entity schemas:
 1. Update `models.py`
 2. Run tests: `pytest`
 3. Both HAL9000 and Exocortex will pick up the change (they install via `-e`)
-
----
-
-## Documentation Registry
-
-When creating or significantly updating documentation in this project:
-
-1. Create/update the local doc
-2. Register in the global map at `/Users/davewascha/Workspaces/DOCS.md`:
-   - Add entry to the project's table in "By Project" section
-   - If it fits a topic category, add to "By Topic" section
-   - Format: `| Doc Name | relative/path.md | Brief description |`
-
-**What to register:** README, architecture docs, API docs, guides, specs, decisions.
-**Skip:** SESSION_LOG, state/work-items.json (these follow standard pattern and are assumed to exist).

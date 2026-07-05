@@ -1,5 +1,35 @@
 # Session Log
 
+## 2026-07-05
+
+### Backlog campaign (Fable review)
+
+Full project review (architecture / code health / test suite / work-item corpus, four parallel agents, corruption-class claims spot-verified) + campaign-style curation. Artifact: `docs/backlog-campaign-2026-07-05.md` — state of play, curation table, phased queue with per-stage model/effort routing.
+
+- **Suite verified: 563 tests, green, hermetic, 1.09s** (CLAUDE.md said "195+" — fixed to a run-to-check instruction).
+- **Curation:** WI-004 resliced (concurrent & external write safety; absorbs WI-015, parked→merged); WI-014 parked (premise eroded, HAL9000-owned); WI-016 resliced (frozen anonymized fixture vault); WI-008 premise fixed (Exploration model IS committed); WI-017 doc stage corrected specced→done. 8 new items opened from review findings: WI-020 loud-fail boundaries, WI-021 write-door bypasses, WI-022 company stub parity, WI-023 identity engine endgame, WI-024 remove live-vault default path, WI-025 person.py decomposition, WI-026 lint_vault --fix safety, WI-027 needs_resolution flip (unqueued). Queue: 10 items across 5 phases; routing per stage in each doc. State file rewritten + readback-verified (27 items, next_id 28).
+- **Headline code findings** (ticketed, not fixed — campaign is read-only on code): malformed-YAML silent degrade × rebuild paths destroys frontmatter (parser.py:78-80); WI-126 guard self-disables on read error (writer.py:189-190); no locking/atomic writes anywhere; Company create_stub still runs the mangler regex Person deleted; hardcoded live-vault default (base.py:21).
+- **Hygiene:** BACKLOG.archive.md → docs/; CLAUDE.md stale claims fixed (docs/ "empty", test count, Key Files, orchestrator as consumer); the long-uncommitted March entry below + docs/ + state bootstrap finally committed this session.
+
+**Gap note:** SESSION_LOG has no entries for the June identity-engine arc (WI-105→WI-126, 15 commits, 2026-06-13→15) — that work was driven and logged from orchestrator sessions; git log + orchestrator docs are the record.
+
+---
+
+## 2026-03-15
+
+### Auto-alias on name change + cache key fix
+
+**Problem:** When enriching a stub contact (e.g. updating `name` from "Bruno" to "Bruno Haag"), the file stays at `@Bruno.md` but the old name becomes unresolvable — breaking wikilinks and any code referencing the old name.
+
+**Fix 1 — Auto-alias (new):** `BaseRepository.update_fields()` now automatically adds the old filename stem to `aliases` when the `name` field changes. Entity remains resolvable by its former name.
+
+**Fix 2 — Stale cache key (pre-existing bug):** Changing the `name` field left a stale cache entry under the old key. Now properly removes old key + file map entry before inserting under the new key.
+
+**Files modified:**
+- `obsidian_schemas/repositories/base.py` — auto-alias logic + cache key cleanup in `update_fields()`
+- `tests/test_repositories.py` — 4 new tests (`TestAutoAliasOnNameChange`)
+
+**Tests:** 204/204 passing
 
 ---
 
