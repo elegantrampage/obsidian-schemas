@@ -17,9 +17,62 @@ from ..writer import write_markdown_file, write_frontmatter
 
 logger = logging.getLogger(__name__)
 
-# Default vault path - can be overridden via constructor or env var
-DEFAULT_VAULT_PATH = "/Users/davewascha/Documents/Obsidian/DaveRemoteVault"
+class VaultPathNotConfiguredError(ValueError):
+    """Raised when a repository is constructed with no usable vault path.
+
+    Loud-fail at the boundary (WI-024): the library has no default vault, so a
+    caller that supplies neither an explicit ``vault_path`` nor a non-blank
+    ``OBSIDIAN_VAULT_PATH`` is misconfigured and must be told at construction —
+    not silently bound to some machine's live vault or to the current working
+    directory.
+
+    Subclasses ``ValueError`` so a consumer's existing ``except ValueError``
+    still catches: the break degrades to a message change, not an uncaught
+    escape.
+    """
+
+
 ENV_VAULT_PATH = "OBSIDIAN_VAULT_PATH"
+
+UNCONFIGURED_VAULT_MESSAGE = (
+    "No Obsidian vault configured. Pass an explicit vault_path "
+    "(e.g. PersonRepository('/path/to/vault')) or set the "
+    "OBSIDIAN_VAULT_PATH environment variable. A missing, blank, "
+    "whitespace-only, or current-directory ('.') value counts as "
+    "unconfigured."
+)
+
+
+def _is_unconfigured(value: object) -> bool:
+    """True when *value* names no vault at all.
+
+    A value is unconfigured if it is absent, blank/whitespace-only, or
+    normalises to the current directory. The check is on the NORMALISED
+    string form, never on ``isinstance(value, str)`` — this module's own
+    signature accepts ``str | Path`` and ``person.py`` really does pass a
+    ``Path``, so a type-gated guard would fail exactly where the library
+    calls itself.
+    """
+    if value is None:
+        return True
+    text = str(value).strip()
+    if not text:
+        return True
+    return Path(text) == Path(".")
+
+
+def _resolve_vault_path(vault_path: Optional[str | Path]) -> Path:
+    """Resolve the effective vault path, or raise.
+
+    Precedence: explicit argument, then OBSIDIAN_VAULT_PATH. An unconfigured
+    argument falls through to the env var; an unconfigured env var after that
+    is the error.
+    """
+    for candidate in (vault_path, os.environ.get(ENV_VAULT_PATH)):
+        if not _is_unconfigured(candidate):
+            return Path(str(candidate).strip())
+    raise VaultPathNotConfiguredError(UNCONFIGURED_VAULT_MESSAGE)
+
 
 T = TypeVar("T", bound=BaseEntity)
 
@@ -47,15 +100,18 @@ class BaseRepository(ABC, Generic[T]):
         Initialize the repository.
 
         Args:
-            vault_path: Path to Obsidian vault. Falls back to
-                       OBSIDIAN_VAULT_PATH env var, then default.
+            vault_path: Path to Obsidian vault. Required unless the
+                       OBSIDIAN_VAULT_PATH env var is set; there is no
+                       default. A missing, blank, whitespace-only, or
+                       current-directory ('.') value counts as unconfigured
+                       and raises VaultPathNotConfiguredError.
             auto_load: If True, load vault on first query.
                       If False, must call load() explicitly.
-        """
-        if vault_path is None:
-            vault_path = os.environ.get(ENV_VAULT_PATH, DEFAULT_VAULT_PATH)
 
-        self.vault_path = Path(vault_path)
+        Raises:
+            VaultPathNotConfiguredError: If neither route supplies a vault.
+        """
+        self.vault_path = _resolve_vault_path(vault_path)
         self.auto_load = auto_load
         self._cache: dict[str, T] = {}  # lowercase name -> entity
         self._file_map: dict[str, Path] = {}  # lowercase name -> file path

@@ -56,7 +56,7 @@ pip install -e /Users/davewascha/Workspaces/obsidian-schemas
     /Users/davewascha/Workspaces/obsidian-schemas/tests -q
 ```
 
-Hermetic, ~1s. Baseline **563 passed, exit 0** (verified 2026-07-19 from a foreign cwd). A drive
+Hermetic, ~1s. Baseline **607 passed, exit 0** (2026-07-19 post-WI-024; originally 563, verified from a foreign cwd). A drive
 that lands fewer cases than the baseline without explanation has silently lost a test file.
 
 System python has no pytest — always use the `.venv` interpreter. Note that this `.venv`'s editable

@@ -2,14 +2,14 @@
 id: WI-024
 title: "Remove the hardcoded live-vault default path (loud-fail when unconfigured)"
 project: obsidian-schemas
-stage: ready
+stage: done
 created: 2026-07-05
 last_touched: 2026-07-19
 stage_changed: 2026-07-19
 touched_by: spec-reviewer
 tags: [loud-fail, configuration, small-mechanical]
 depends_on: []
-transitions: ["idea>exploring@2026-07-19@session", "exploring>specced@2026-07-19@session", "specced>ready@2026-07-19@session"]
+transitions: ["idea>exploring@2026-07-19@session", "exploring>specced@2026-07-19@session", "specced>ready@2026-07-19@session", "ready>building@2026-07-19@session", "building>done@2026-07-19@session"]
 ---
 
 # Remove the hardcoded live-vault default path
@@ -398,10 +398,10 @@ Floor command, referenced throughout:
 
 Baseline before this work: **563 passed, exit 0**. After it: 563 + the new cases, exit 0. A run that lands *fewer* than 563 pre-existing cases means a test file was lost — stop and investigate rather than proceeding.
 
-- [ ] **Task 1 — Add the exception, the message constant, and the resolution helpers to `base.py`.** Modify `obsidian_schemas/repositories/base.py`: delete `DEFAULT_VAULT_PATH` and its comment (`:20-21`); add `VaultPathNotConfiguredError`, `UNCONFIGURED_VAULT_MESSAGE`, `_is_unconfigured`, and `_resolve_vault_path` exactly as given in Design > Data model and Design > Flow; leave `ENV_VAULT_PATH` in place. Do not yet wire `__init__`.
+- [x] **Task 1 — Add the exception, the message constant, and the resolution helpers to `base.py`.** Modify `obsidian_schemas/repositories/base.py`: delete `DEFAULT_VAULT_PATH` and its comment (`:20-21`); add `VaultPathNotConfiguredError`, `UNCONFIGURED_VAULT_MESSAGE`, `_is_unconfigured`, and `_resolve_vault_path` exactly as given in Design > Data model and Design > Flow; leave `ENV_VAULT_PATH` in place. Do not yet wire `__init__`.
   *Verify:* `/Users/davewascha/Workspaces/obsidian-schemas/.venv/bin/python -m pytest /Users/davewascha/Workspaces/obsidian-schemas/tests -q` still reports **563 passed** (nothing consumed the constant, so deleting it changes no behaviour yet), and `grep -n 'DEFAULT_VAULT_PATH' obsidian_schemas/repositories/base.py` returns nothing.
 
-- [ ] **Task 2 — Wire the guard into `BaseRepository.__init__` and correct its docstring.** Replace `base.py:55-58` with `self.vault_path = _resolve_vault_path(vault_path)`. Update the `vault_path:` docstring line (`:50-51`) — it currently promises "Falls back to `OBSIDIAN_VAULT_PATH` env var, then default"; it must now say the argument is required unless `OBSIDIAN_VAULT_PATH` is set, and that a blank or current-directory value counts as unconfigured.
+- [x] **Task 2 — Wire the guard into `BaseRepository.__init__` and correct its docstring.** Replace `base.py:55-58` with `self.vault_path = _resolve_vault_path(vault_path)`. Update the `vault_path:` docstring line (`:50-51`) — it currently promises "Falls back to `OBSIDIAN_VAULT_PATH` env var, then default"; it must now say the argument is required unless `OBSIDIAN_VAULT_PATH` is set, and that a blank or current-directory value counts as unconfigured.
   *Verify:* floor command still **563 passed** (every existing test passes an explicit `tmp_path`), and this one-liner raises rather than returning a repository:
   ```bash
   env -u OBSIDIAN_VAULT_PATH /Users/davewascha/Workspaces/obsidian-schemas/.venv/bin/python -c \
@@ -409,7 +409,7 @@ Baseline before this work: **563 passed, exit 0**. After it: 563 + the new cases
   ```
   Expect a non-zero exit with `VaultPathNotConfiguredError` and both `vault_path` and `OBSIDIAN_VAULT_PATH` in the message.
 
-- [ ] **Task 3 — Export `VaultPathNotConfiguredError` from both `__init__` files.** Add it to the `from .base import ...` line and `__all__` in `obsidian_schemas/repositories/__init__.py` (`:8`, `:14-20`), and re-export it from `obsidian_schemas/__init__.py` following the `BodyTruncationError` pattern at `:44` / `:108`.
+- [x] **Task 3 — Export `VaultPathNotConfiguredError` from both `__init__` files.** Add it to the `from .base import ...` line and `__all__` in `obsidian_schemas/repositories/__init__.py` (`:8`, `:14-20`), and re-export it from `obsidian_schemas/__init__.py` following the `BodyTruncationError` pattern at `:44` / `:108`.
   *Verify:*
   ```bash
   /Users/davewascha/Workspaces/obsidian-schemas/.venv/bin/python -c \
@@ -417,7 +417,7 @@ Baseline before this work: **563 passed, exit 0**. After it: 563 + the new cases
      assert issubclass(o.VaultPathNotConfiguredError, ValueError); print('ok')"
   ```
 
-- [ ] **Task 4 — Demote `lint_vault.py`'s implicit vault default.** In `scripts/lint_vault.py`: replace `:48-51` with `DEFAULT_VAULT = os.environ.get("OBSIDIAN_VAULT_PATH", "")`; add the blank guard in `main()` **before** `Path(args.vault)` at `:1173` and change that line to `Path(args.vault.strip())`, exactly as given in Design > Integration points; update the module usage docstring (`:7`) so `python scripts/lint_vault.py` is no longer shown without `--vault`. Leave `argparse`'s `default=DEFAULT_VAULT` at `:1146` alone.
+- [x] **Task 4 — Demote `lint_vault.py`'s implicit vault default.** In `scripts/lint_vault.py`: replace `:48-51` with `DEFAULT_VAULT = os.environ.get("OBSIDIAN_VAULT_PATH", "")`; add the blank guard in `main()` **before** `Path(args.vault)` at `:1173` and change that line to `Path(args.vault.strip())`, exactly as given in Design > Integration points; update the module usage docstring (`:7`) so `python scripts/lint_vault.py` is no longer shown without `--vault`. Leave `argparse`'s `default=DEFAULT_VAULT` at `:1146` alone.
   *Verify:*
   ```bash
   env -u OBSIDIAN_VAULT_PATH /Users/davewascha/Workspaces/obsidian-schemas/.venv/bin/python \
@@ -425,14 +425,173 @@ Baseline before this work: **563 passed, exit 0**. After it: 563 + the new cases
   ```
   Expect `exit=1` and a stderr message naming both `--vault` and `OBSIDIAN_VAULT_PATH`. Then confirm the happy path still works: `.venv/bin/python scripts/lint_vault.py --vault /tmp -q` runs the linter against an empty directory without error.
 
-- [ ] **Task 5 — Write `tests/test_vault_path_required.py` with the four behavioural tests.** New file. `test_unconfigured_vault_path_raises` (AC-1) — parametrised over `[None-sentinel, "", "   ", Path(""), Path("   "), ".", Path(".")]` with `monkeypatch.delenv("OBSIDIAN_VAULT_PATH", raising=False)`, plus the env-blank cases (`monkeypatch.setenv("OBSIDIAN_VAULT_PATH", "")` and `"   "`) with no argument; asserts `VaultPathNotConfiguredError`, that it is caught by `pytest.raises(ValueError)`, and that `str(exc.value)` contains both `"vault_path"` and `"OBSIDIAN_VAULT_PATH"`. `test_all_repositories_raise_when_unconfigured` (AC-3) — the cross-product of `[PersonRepository, CompanyRepository, MeetingRepository, BookRepository]` × every argument shape above, env deleted; also asserts the raise happens before filesystem access by monkeypatching `pathlib.Path.glob` to a function that fails the test if called. `test_lint_vault_requires_explicit_vault` (AC-4) — `subprocess.run([sys.executable, "scripts/lint_vault.py"], env={k: v for k, v in os.environ.items() if k != "OBSIDIAN_VAULT_PATH"}, cwd=<repo root>, capture_output=True, text=True)`; asserts `returncode != 0`, and that `--vault` and `OBSIDIAN_VAULT_PATH` both appear in `stderr`. Add a fourth case in the same test for `--vault ""` asserting the same refusal (the cwd-binding door). Derive the repo root from `Path(__file__).parent.parent`, never from cwd.
+- [x] **Task 5 — Write `tests/test_vault_path_required.py` with the four behavioural tests.** New file. `test_unconfigured_vault_path_raises` (AC-1) — parametrised over `[None-sentinel, "", "   ", Path(""), Path("   "), ".", Path(".")]` with `monkeypatch.delenv("OBSIDIAN_VAULT_PATH", raising=False)`, plus the env-blank cases (`monkeypatch.setenv("OBSIDIAN_VAULT_PATH", "")` and `"   "`) with no argument; asserts `VaultPathNotConfiguredError`, that it is caught by `pytest.raises(ValueError)`, and that `str(exc.value)` contains both `"vault_path"` and `"OBSIDIAN_VAULT_PATH"`. `test_all_repositories_raise_when_unconfigured` (AC-3) — the cross-product of `[PersonRepository, CompanyRepository, MeetingRepository, BookRepository]` × every argument shape above, env deleted; also asserts the raise happens before filesystem access by monkeypatching `pathlib.Path.glob` to a function that fails the test if called. `test_lint_vault_requires_explicit_vault` (AC-4) — `subprocess.run([sys.executable, "scripts/lint_vault.py"], env={k: v for k, v in os.environ.items() if k != "OBSIDIAN_VAULT_PATH"}, cwd=<repo root>, capture_output=True, text=True)`; asserts `returncode != 0`, and that `--vault` and `OBSIDIAN_VAULT_PATH` both appear in `stderr`. Add a fourth case in the same test for `--vault ""` asserting the same refusal (the cwd-binding door). Derive the repo root from `Path(__file__).parent.parent`, never from cwd.
   *Verify:* floor command reports **563 + new** passed, exit 0. Then run it from a foreign cwd to confirm hermeticity: `cd /tmp && /Users/davewascha/Workspaces/obsidian-schemas/.venv/bin/python -m pytest /Users/davewascha/Workspaces/obsidian-schemas/tests -q`. Then run it once with the variable deliberately set — `OBSIDIAN_VAULT_PATH=/tmp <floor command>` — and confirm the same pass count; a difference means a test is reading ambient environment (P5).
 
-- [ ] **Task 6 — Add the two scan tests to `tests/test_vault_path_required.py`.** `test_no_implicit_vault_path_defaults` (AC-2) — walk every `*.py` under `obsidian_schemas/` and `scripts/`, skip blank/comment lines and lines inside triple-quoted blocks (track a simple in-docstring toggle on `"""` / `'''`), and assert **zero** lines contain `expanduser`, `Path.home()`, or the literal `/Users/`; additionally assert `not hasattr(obsidian_schemas.repositories.base, "DEFAULT_VAULT_PATH")`. `test_docs_do_not_advertise_no_arg_construction` (AC-5) — walk every tracked `*.md` **excluding `docs/**` and `state/**`** (those are pipeline records that quote the antipattern as evidence, not documentation that advertises it — see the AC-5 refinement note) and assert the regex `\w+Repository\(\s*\)` has zero matches. Resolve the repo root from `Path(__file__).parent.parent`.
+- [x] **Task 6 — Add the two scan tests to `tests/test_vault_path_required.py`.** `test_no_implicit_vault_path_defaults` (AC-2) — walk every `*.py` under `obsidian_schemas/` and `scripts/`, skip blank/comment lines and lines inside triple-quoted blocks (track a simple in-docstring toggle on `"""` / `'''`), and assert **zero** lines contain `expanduser`, `Path.home()`, or the literal `/Users/`; additionally assert `not hasattr(obsidian_schemas.repositories.base, "DEFAULT_VAULT_PATH")`. `test_docs_do_not_advertise_no_arg_construction` (AC-5) — walk every tracked `*.md` **excluding `docs/**` and `state/**`** (those are pipeline records that quote the antipattern as evidence, not documentation that advertises it — see the AC-5 refinement note) and assert the regex `\w+Repository\(\s*\)` has zero matches. Resolve the repo root from `Path(__file__).parent.parent`.
   *Verify:* floor command green. Deliberately break each once to confirm the test discriminates — temporarily add `x = os.path.expanduser("~")` to a scanned file and confirm `test_no_implicit_vault_path_defaults` fails; temporarily add `repo = PersonRepository()` to `README.md` and confirm `test_docs_do_not_advertise_no_arg_construction` fails. **Revert both before finishing** (and note `README.md` is outside the write authority, so any accidental edit is reverted by the cage anyway).
 
-- [ ] **Task 7 — Add the consumer-audit shape test.** `test_consumer_audit_artifact_is_complete` (AC-6) in the same file. Read `docs/wi-024-consumer-audit.md`. For each of `HAL9000`, `Exocortex`, `orchestrator`, locate the `## <repo>` section and assert three things within it: a line beginning `Command:` followed by a fenced block containing a non-empty command; an `Output` field that is either a fenced verbatim block or an explicit no-matches marker (the literal string `no matches`) — an *absent* Output field fails; and a `HEAD:` line whose value matches `^[0-9a-f]{40}$`. Then assert a `remediation_confirmed` record exists containing the literal `zsh -c 'echo $OBSIDIAN_VAULT_PATH'` and a non-empty output value. The test **does not re-run any scan** and must make no subprocess or network call.
+- [x] **Task 7 — Add the consumer-audit shape test.** `test_consumer_audit_artifact_is_complete` (AC-6) in the same file. Read `docs/wi-024-consumer-audit.md`. For each of `HAL9000`, `Exocortex`, `orchestrator`, locate the `## <repo>` section and assert three things within it: a line beginning `Command:` followed by a fenced block containing a non-empty command; an `Output` field that is either a fenced verbatim block or an explicit no-matches marker (the literal string `no matches`) — an *absent* Output field fails; and a `HEAD:` line whose value matches `^[0-9a-f]{40}$`. Then assert a `remediation_confirmed` record exists containing the literal `zsh -c 'echo $OBSIDIAN_VAULT_PATH'` and a non-empty output value. The test **does not re-run any scan** and must make no subprocess or network call.
   *Verify:* floor command green. If `remediation_confirmed` is absent the test fails — that is correct and is P3 doing its job; **do not add the record yourself**, and do not weaken the assertion. Report the failure and stop: the conductor must amend and commit the artifact.
+
+## Build Log — 2026-07-19
+
+Built cold-start against the spec as written. All seven tasks landed in plan order; no
+Drift Report and no abort. The floor went **563 → 607 passed, exit 0** (44 new cases, all
+from `tests/test_vault_path_required.py`). Only things a future reader needs to understand
+why the code looks the way it does are recorded below.
+
+### Revision — the AC-named tests must be zero-argument (2026-07-19)
+
+The first version of this build wrote the AC checks as `@pytest.mark.parametrize`d
+functions taking `monkeypatch`. The suite was green, but the **acceptance battery is not
+pytest**: it imports the module and calls each `check:` name directly —
+`getattr(mod, name)()` — so AC-1, AC-3 and AC-4 all died on `TypeError: … missing N
+required positional arguments` before asserting anything. A test that a pytest run
+proves and the gate cannot execute is, from the gate's side, indistinguishable from a
+missing one.
+
+Fixed by making every function named by a `criteria` fence take no arguments:
+
+- Env manipulation moved from the `monkeypatch` fixture to two module-level context
+  managers, `_env_set` / `_scrubbed_env`, which save and restore `os.environ` themselves.
+  P5 (hermeticity) is unchanged and re-verified — the suite reports an identical count
+  with `OBSIDIAN_VAULT_PATH=/tmp`, and a direct battery-style invocation under that same
+  ambient variable passes and leaves it restored.
+- The argument-shape / repository / CLI-invocation cross-products are now iterated
+  *inside* each test instead of parametrised. Coverage is identical (every shape in
+  `UNCONFIGURED_ARGS`, every one of the four repositories, all three lint_vault
+  invocations); only the pytest case *count* fell, 651 → 607, because one function now
+  carries what were previously N collected cases. Failure messages carry the shape
+  (`PersonRepository(PosixPath('.')) did not raise …`), so the loop loses no diagnostic.
+- Two clauses were **folded into their AC-named test** rather than left in sibling
+  supporting tests: AC-1's `except ValueError` compatibility promise, and AC-3's "before
+  any glob or read of the filesystem" (via a fixture-free `_no_filesystem` context
+  manager patching `glob`/`exists`/`mkdir`). The battery runs only the function the fence
+  names — a clause asserted next door is a clause the gate never observes. This is the
+  same failure the first red-team round found in the AC-5 fold, arriving from the
+  opposite direction: there a `desc` outran its `check`; here a `check` under-ran its
+  `desc`.
+- `test_unconfigured_vault_path_raises_on_blank_env` was removed as such: its cases are
+  the second half of the AC-1 test now. `test_raise_precedes_any_filesystem_access` and
+  `test_error_message_is_the_static_constant` stay as parametrised fixture-taking tests —
+  they are supporting tests, not fence-named checks, so pytest is their only runner.
+
+Discrimination re-verified after the rewrite, not assumed: with `_is_unconfigured`
+monkeypatched in memory to the naive `isinstance(str)`-gated guard the spec's R2 predicts,
+both AC-1 and AC-3 fail naming `PersonRepository(PosixPath('.'))` — the exact door R2
+says a green suite would otherwise leave open.
+
+**Carry-forward for future builds in this repo:** any test named by a `criteria` fence
+must be callable as `f()`. Parametrise supporting tests freely; never the named check.
+
+### Preconditions re-checked at build start (P2 / P3), not assumed
+
+The role requires re-running a Class-2 data premise rather than trusting a spec-time
+audit. Done, and both were already discharged in HEAD:
+
+- `docs/wi-024-consumer-audit.md` carries the `## remediation_confirmed — 2026-07-19`
+  record with the literal `zsh -c 'echo $OBSIDIAN_VAULT_PATH'` and a non-empty readback.
+  **Task 7's fail-and-stop branch was therefore never taken.** I did not author, amend, or
+  weaken any part of that artifact — the record was committed by the conductor at `edd5e91`.
+- The two doc preconditions had also landed: `CLAUDE.md:18` already passes an explicit path
+  and `README.md:227` already reads "one of the two is required". The spec-reviewer predicted
+  exactly this (`Minor notes`), so AC-5 is a regression guard here rather than a driver of
+  work — no builder edit to either file, both being outside `write_authority` anyway.
+
+### The `Path("")` door — the spec's own R2, confirmed live
+
+The Design's correction to the Approach is right and load-bearing. Implemented
+`_is_unconfigured` with **both** clauses (blank-after-strip **and** normalises to `Path(".")`),
+never an `isinstance(str)` gate. The verification matrix run at build time shows all seven
+argument shapes raising, `Path("")` and `Path("   ")` included. Had I implemented the
+Approach's `str(vault_path).strip()` mechanism literally, the suite would have gone green
+with the cwd-binding door open — which is precisely what R2 predicted.
+
+### Deviations from the plan (two, both minor, neither changes behaviour)
+
+1. **Task 1's verify step is unsatisfiable as written, by construction.** It asks that
+   `grep -n 'DEFAULT_VAULT_PATH' base.py` return nothing *while* also saying "do not yet
+   wire `__init__`" — but the unwired `__init__` still references the constant at what was
+   `:56`. Deleting the constant before Task 2 therefore leaves exactly one grep hit and a
+   latent `NameError` on any no-arg construction. Nothing in the suite constructs no-arg, so
+   563 stayed green and Task 2 (executed immediately after) resolved it. Recorded rather than
+   silently smoothed: the *task ordering* is fine, only its verify assertion is one task early.
+2. **Task 6's second discrimination check was performed differently.** The spec says to add
+   `PersonRepository()` to `README.md` and confirm the doc scan fails — but `README.md` is
+   outside `write_authority`, so the write would be reverted and prove nothing (the
+   spec-reviewer flagged this and said skip it). I did not skip it; I ran the same check with
+   a scratch `scripts/_wi024_scratch.md`, which is inside the write authority *and* inside
+   AC-5's scan scope. It failed with the expected offender line and passed after removal, so
+   the check discriminates for real. Scratch file deleted; `git status` clean of it.
+
+### Tests written beyond the six named checks
+
+The six AC checks are all present under their exact `check:` names. Supporting tests
+were added in the same file because a named check would otherwise have been assertion-thin.
+(Two of the four listed below were subsequently folded into their AC-named test by the
+zero-argument revision above — the battery only runs the named function, so a clause that
+lives beside it is not gated. Struck entries are recorded for the reasoning, not as
+current file contents.)
+
+- ~~`test_unconfigured_vault_path_raises_on_blank_env`~~ — AC-1's env-blank half. **Folded
+  into `test_unconfigured_vault_path_raises`.**
+- ~~`test_unconfigured_error_is_caught_as_value_error`~~ — the `except ValueError` compatibility
+  promise the whole base-class choice rests on. **Folded into
+  `test_unconfigured_vault_path_raises`.**
+- `test_error_message_is_the_static_constant` — **mitigation M2**, and the one place the threat
+  model's requirement becomes falsifiable. Parametrised over every raising combination
+  (8 argument shapes × 4 env states); each asserts byte-equality with
+  `UNCONFIGURED_VAULT_MESSAGE`, so any future drift into an f-string echoing the rejected path
+  or the env var's contents fails loudly.
+- `test_raise_precedes_any_filesystem_access` — **mitigation M1**. The spec named `Path.glob`;
+  I also patched `Path.exists` and `Path.mkdir`, since `load()` reaches `exists()` before
+  `glob()` and the writer is the `mkdir` surface. A `glob`-only patch would have passed
+  vacuously. Retained as a parametrised supporting test; its assertion is *also* carried
+  inside `test_all_repositories_raise_when_unconfigured` so the gate observes it.
+
+**A self-inflicted bug caught by the failing test, worth recording.** The first version of the
+M2 test passed `/rejected/secret/path` — a *valid* path — and asserted it did not appear in the
+message. It failed with `DID NOT RAISE`, correctly: a resolvable path raises nothing, so the
+test could never have observed a leak. Rewritten as the byte-equality parametrisation above.
+The original would have been a green test asserting nothing — the same shape as the AC-5 fold
+the first red-team round killed, reappearing in a test I wrote myself.
+
+### Discrimination verified, not assumed (every scan-shaped check)
+
+A scan test that cannot fail is indistinguishable from a passing one, so each was broken
+deliberately and observed to fail:
+
+| Check | Break applied | Result |
+|---|---|---|
+| `test_no_implicit_vault_path_defaults` | scratch `.py` with `/Users/…` literal | failed, naming the offender |
+| `test_docs_do_not_advertise_no_arg_construction` | scratch `.md` with `PersonRepository()` | failed, naming the offender |
+| `test_consumer_audit_artifact_is_complete` | 5 doctored artifacts (record removed; readback command deleted; output emptied; HEAD truncated; HEAD non-hex) | failed on all 5 |
+
+The AC-6 probe ran against doctored *in-memory copies*; the committed artifact was never
+modified. The "output emptied" case is the important one — it is the difference between a
+remediation *planned* and one *proven live*, which is the whole reason P3 exists.
+
+### Notes for downstream
+
+- **Doc-sync obligation the builder cannot discharge:** `CLAUDE.md:59` asserts the floor
+  baseline is **563 passed**. It is now **607**. `CLAUDE.md` is outside `write_authority`
+  (`pipeline-runners.yaml:32-38`), so the conductor must update that number — otherwise the
+  next session reads a count this build just falsified and will conclude a test file was lost,
+  which is exactly the tripwire that line exists to arm.
+- The stale `_obsidian_schemas.pth` was left alone (P6). Nothing in this change touches
+  packaging; the suite passes because pytest prepends its rootdir, and under the cage that is
+  what makes the build test the worktree's own code.
+- `scripts/lint_vault.py`'s import-time `os.environ` read at `:48` is **still** import-time —
+  deliberately untouched, routed to WI-026 along with the DEMOTE reasoning (implicit vault +
+  mutating `--fix`/`--quarantine`, *not* "a hardcoded Dave path").
+- Hermeticity (P5) was checked three ways, not one: the full suite reports an identical 607
+  from a foreign cwd, with `OBSIDIAN_VAULT_PATH=/tmp`, and with `OBSIDIAN_VAULT_PATH=""`.
+  An identical count across all three is the evidence no test reads ambient environment.
+  After the zero-argument revision this was re-checked a fourth way, because the tests now
+  mutate `os.environ` directly rather than through `monkeypatch`: a battery-style direct
+  invocation run under `OBSIDIAN_VAULT_PATH=/tmp` passes **and** leaves the variable at
+  `/tmp` afterwards, so `_env_set`'s restore is verified rather than trusted.
 
 ## Write Targets
 
@@ -1110,4 +1269,235 @@ verdict: PROMOTE
 date: 2026-07-19
 model: claude-sonnet-5
 note: Full adversarial read plus a targeted steering-vocabulary scan found no text addressed to a reviewer/agent, no claimed pre-approval, and no spec-shaped section whose effect is to manipulate a gate's verdict rather than argue the work's own merits.
+```
+
+## Code Review — 2026-07-19
+
+Cold-start. Read the full work-item doc (all 1,272 lines, including every prior gate's verdict
+as carry-forward), then re-derived the diff by reading each changed file at its current state:
+`obsidian_schemas/repositories/base.py:1-140`, `obsidian_schemas/repositories/__init__.py` in
+full, `obsidian_schemas/__init__.py:66,130`, `scripts/lint_vault.py:1-60,1166-1189`,
+`tests/test_vault_path_required.py` in full, `docs/wi-024-consumer-audit.md:60-95`, and
+`pipeline-runners.yaml` in full.
+
+**Tooling limit, stated rather than papered over:** this gate ran without shell access, so I did
+**not** execute the floor command. The `563 → 607 passed` claim in the Build Log is read, not
+reproduced. Everything below is a static read of the code as committed.
+
+### Trigger check
+
+Fires. Library code modified (`base.py`, two `__init__.py`), a script modified
+(`lint_vault.py`), and a new test file added. Not a skip pattern — this is a semantic break to a
+write-capable default binding in a library three repos install, well past the "single-file edit
+≤ 50 LOC, no public API change" mechanical carve-out.
+
+### Correctness against the spec
+
+The one thing this build could most plausibly have got wrong — R2, the `Path("")` door — is
+right. `_is_unconfigured` (`base.py:46-61`) carries **both** clauses: blank-after-`.strip()`
+*and* `Path(text) == Path(".")`, with no `isinstance(str)` gate anywhere. That is what makes
+AC-1's closing promise ("Never resolves to `Path(".")`") true rather than aspirational, and it
+is the clause the Approach's own literal wording would have omitted. The Build Log's claim that
+a monkeypatched naive guard makes AC-1 and AC-3 fail naming `PersonRepository(PosixPath('.'))`
+is consistent with the code as written.
+
+Also checked and correct:
+
+- **Raise precedes every attribute assignment.** `base.py:114` is the first statement in
+  `__init__`; `auto_load`, `_cache`, `_file_map`, `_loaded` follow at `:115-118`. Mitigation M1
+  holds structurally, not just by test.
+- **M2 holds.** `UNCONFIGURED_VAULT_MESSAGE` (`base.py:37-43`) is a module constant; the raise at
+  `base.py:74` passes it unmodified. No f-string, no interpolation of the rejected value or of
+  the env var's contents. `test_error_message_is_the_static_constant` pins byte-equality across
+  8 argument shapes × 4 env states, so drift fails loudly.
+- **M3 holds.** `lint_vault.py:1174-1181` guards `not args.vault or not args.vault.strip()` and
+  exits 1 **before** `Path(args.vault.strip())` at `:1183`. Both routes are named in stderr,
+  matching the file's own local stderr convention rather than the sibling's stdout. No
+  `TypeError` path survives.
+- **M4 holds.** `docs/wi-024-consumer-audit.md:82-94` carries the `remediation_confirmed` record
+  with the literal `zsh -c 'echo $OBSIDIAN_VAULT_PATH'` and a non-empty readback. Committed by
+  the conductor at `edd5e91`; the Build Log's statement that Task 7's fail-and-stop branch was
+  never taken is consistent with the artifact. The builder did not author it.
+- **Exports.** `VaultPathNotConfiguredError` is on both the import line and `__all__` in
+  `repositories/__init__.py:8,16`, and re-exported at `obsidian_schemas/__init__.py:66,130` —
+  the `BodyTruncationError`/`IdentifierError` pattern the spec named.
+- **`DEFAULT_VAULT_PATH` is gone**; `ENV_VAULT_PATH` survives at `base.py:35`. The `__init__`
+  docstring at `:102-112` was corrected — the "then default" clause the spec called a
+  lie-in-waiting is replaced with the required-unless-env wording plus a `Raises:` entry.
+- **`expanduser` is gone** from `lint_vault.py:52`. No `Path.home()`, `expanduser`, or `/Users/`
+  literal survives in the two scanned directories.
+- **The one-place constraint is respected.** No per-subclass check was added anywhere.
+
+### AI-maintainability checks (1-5)
+
+1. **New cross-project reach — none.** The test file derives everything from
+   `REPO_ROOT = Path(__file__).parent.parent` (`:44`) and never names an absolute path;
+   `lint_vault.py:34`'s `sys.path.insert` is pre-existing and points at its own repo root.
+2. **New silent swallow — none.** Both new context managers (`_env_set` at `:81-100`,
+   `_no_filesystem` at `:108-129`) restore in `finally`; no bare `except`, no swallow. The new
+   library path raises rather than logs.
+3. **Docs made false — one hit; see Finding 1.**
+4. **New dependence on deprecated code — none.**
+5. **Idiom regression — none, and one idiom advanced.** Named boundary exception subclassing
+   `ValueError` matches `IdentifierError`/`NameValidationError`; the guard is stated as a
+   property of the normalised value rather than an enumeration of literals, which is the shape
+   the doc's own red-team rounds paid three passes to learn.
+
+### Step 2c — data-quality discipline
+
+6. **Readback check — N/A, no external writes.** The diff adds a refusal and writes nothing:
+   no Gmail, Todoist, Obsidian, or HAL9000 call, and no filesystem write on any new path. The
+   one readback this item genuinely needed (is the export live?) sits outside the diff and is
+   discharged as an artifact property at `docs/wi-024-consumer-audit.md:88-91`.
+7. **No-silent-PASS-on-empty — two hits; see Finding 2.**
+
+### Findings
+
+**Finding 1 — Recommended (conductor, not builder): `CLAUDE.md:59` now states a false floor
+baseline.** It reads `Baseline **563 passed, exit 0**`; this build makes it 607. That line is a
+tripwire whose stated purpose is "a drive that lands fewer cases than the baseline without
+explanation has silently lost a test file" — left stale, the next session reads a count this
+build just falsified and draws exactly the wrong conclusion. Formally this is AI-maintainability
+check 3 (docs made false in the same change), and I am recording it as such. It is **not**
+blocking on the builder: `pipeline-runners.yaml:32-33,34-38` puts the project root outside
+`write_authority` by design, so a caged write would be reverted, and the Build Log already
+routes it explicitly under `Notes for downstream`. Bouncing to build-runner would loop against a
+structural impossibility. The conductor must update the number at session end.
+
+**Finding 2 — Recommended: both scan tests PASS vacuously if their file set comes back empty.**
+`test_no_implicit_vault_path_defaults` (`tests/test_vault_path_required.py:311-330`) and
+`test_docs_do_not_advertise_no_arg_construction` (`:397-415`) each build an `offenders` list and
+assert it is `[]`. If `REPO_ROOT` ever resolves wrong — the test file moves, or the battery
+imports the module from a different layout — `rglob` yields nothing, `offenders` stays empty, and
+both go green having scanned zero files. This is the role's check-7 shape: an empty result is the
+default PASS, with no explicit signal. The builder *did* verify discrimination by hand (scratch
+`.py` and scratch `.md`, both observed to fail — Build Log, `Discrimination verified, not
+assumed`), which is why this is Recommended rather than Blocking: the checks demonstrably
+discriminate **today**. But nothing keeps that true. One line each —
+`assert len(scanned) >= 1` on the file list before the offender assertion — converts a manual
+one-time proof into a standing one. Worth noting the doc itself states this exact lesson twice
+("a scan test that cannot fail is indistinguishable from a passing one"), so the gap is a miss
+against the item's own stated bar, not an external preference.
+
+**Finding 3 — Note: `_code_lines` (`:280-308`) skips any line containing a quote-triple, not
+just docstring lines.** A code line that happens to contain `"""` or `'''` — e.g. an assignment
+opening a multi-line template — is never scanned as code, and the in-docstring toggle can
+over-skip if a closing delimiter shares a line with real code. Contrived for this repo (the AC-2
+pattern list is three tokens that would have to co-occur with a quote-triple), and the helper's
+docstring is honest about being a simple toggle. Ignorable; recorded so a future reader does not
+mistake it for a full-fidelity parser.
+
+**Finding 4 — Note: `test_consumer_audit_artifact_is_complete`'s `no matches` marker check is
+section-scoped, not field-scoped** (`:467`, `has_marker = "no matches" in section`). The literal
+anywhere in a repo's section satisfies the Output requirement, including in prose above the
+field. Likewise `commands[0]` (`:456`) assumes the first fenced block in the section is the
+Command block. Both hold for the artifact as committed and the test is explicitly a shape check
+with its teeth elsewhere (the precondition fence). No change warranted.
+
+**Blocking: none.**
+
+### Summary
+
+The build implements the spec as designed, closes the door the spec's own R2 predicted a naive
+implementation would leave open, and keeps all four required mitigations structurally rather
+than only by assertion. The two Recommended items are a stale doc line the builder is
+design-forbidden from fixing and a vacuous-pass hardening on two scan tests that demonstrably
+discriminate today.
+
+```verdict
+gate: code-reviewer
+verdict: PROMOTE
+date: 2026-07-19
+model: claude-opus-4-8
+note: Re-read every changed file — the Path("") door is closed with both guard clauses and no isinstance(str) gate (the spec's R2), M1-M4 all hold structurally, DEFAULT_VAULT_PATH and expanduser are gone, exports land; no Blocking findings, with the stale CLAUDE.md floor baseline (563→607) routed to the conductor since the project root is outside write_authority by design.
+```
+
+## Test & Observability Review — 2026-07-19
+
+### Trigger check
+
+Applies. This is a new production code path in a library three repos install with a measured
+16-site blast radius — not a pure refactor, so this pass does not self-declare N/A.
+
+Same tooling limit as Pass A: no shell, so the floor command was not executed. Coverage below is
+assessed by reading `tests/test_vault_path_required.py` against the code it exercises.
+
+### Check 1 — Tests exist for the new code paths
+
+Satisfied, and unusually well. The new file imports the new code directly (`:34-41`) and covers
+the happy path and many failure modes:
+
+- **Happy path:** `test_explicit_path_and_env_var_both_resolve` (`:213-222`) — explicit
+  argument, env-var route, and argument-wins-over-env precedence.
+- **Failure modes:** the full 8-shape × 4-repository cross-product with the env scrubbed
+  (`:230-251`), the set-but-blank env half (`:171-173`), `except ValueError` compatibility
+  (`:179-186`), byte-equality of the message across 32 raising combinations (`:189-210`),
+  filesystem-untouched-before-raise across all four repositories (`:254-267`), and three
+  `lint_vault.py` subprocess invocations including the `--vault ""` cwd-binding door
+  (`:355-374`).
+
+The zero-argument revision recorded in the Build Log is the load-bearing test-design decision
+here and it is correct: the acceptance battery calls `getattr(mod, name)()` outside pytest, so a
+fixture-taking or parametrised AC check dies on `TypeError` before asserting anything. All six
+fence-named checks are zero-argument as committed (`:155`, `:230`, `:311`, `:355`, `:397`,
+`:439`); the parametrised ones (`:191`, `:255`) are supporting tests only. Equally correct is
+folding AC-1's `except ValueError` clause and AC-3's no-filesystem clause *inside* their named
+checks (`:179-186`, `:249-251`) rather than beside them — the battery observes only the named
+function, so a clause asserted next door is ungated. That reasoning generalises and the Build Log
+carries it forward.
+
+Hermeticity (P5) is structurally sound: `_env_set` (`:81-100`) saves and restores including the
+originally-absent case, `_no_filesystem` (`:108-129`) restores all three `Path` attributes in
+`finally`, `REPO_ROOT` is derived from `__file__`, and `_run_lint_vault` (`:343-352`) passes a
+scrubbed `env` dict. No test reads ambient state. The Build Log's four-way hermeticity check
+(foreign cwd, `=/tmp`, `=""`, and a battery-style direct invocation verifying restore) is the
+right set to have run.
+
+One gap carried from Pass A, Finding 2: the two scan-shaped checks pass vacuously on an empty
+file set. Recommended, not Blocking — they discriminate today, per the Build Log's deliberate
+break-and-observe table.
+
+### Check 2 — Logging at WARN/ERROR for each failure mode
+
+Satisfied, by raising rather than logging — which is the correct choice here and the whole point
+of the item. The library failure mode is `VaultPathNotConfiguredError` at construction, carrying
+a message that names both configuration routes, with the innermost repo frame one below the
+offending caller. The CLI failure mode prints both routes to stderr and exits 1
+(`lint_vault.py:1175-1181`). No new silent failure mode is introduced anywhere in the diff; the
+change removes one (`base.py`'s fail-open bind).
+
+Pre-existing and correctly out of scope: `load()`'s WARNING-and-return-0 on a non-existent vault
+is the accident-of-*commission* door, routed to WI-020 and untouched here.
+
+### Check 3 — Alerts wired
+
+**N/A.** No new automated system, daemon, cron entry, launchd job, or scheduled routine is
+introduced. This is a library guard plus a CLI guard; nothing runs unattended that could break
+unnoticed. The nearest thing to an operational risk — the 16 live orchestrator sites — fails
+*loudly at construction* rather than silently, and its merge gate is mechanised as an artifact
+property (`docs/wi-024-consumer-audit.md:82-94`, non-empty readback verified) rather than left
+as remembered compliance. Residual R4 (a future non-shell launch context) is explicitly accepted
+in the spec and loud-fails by design.
+
+### Check 4 — Invariant registration
+
+**Skipped, not failed — this project has no invariant registry.** v1 registry scope per this
+role is orchestrator-only (`src/invariants.py`); `obsidian-schemas` ships no equivalent, and the
+role's stated posture for a project without one is skip-and-note. Recorded as N/A. Worth
+observing that the item nonetheless ships its own standing invariant in the shape this dimension
+exists to require — `test_no_implicit_vault_path_defaults` and
+`test_default_vault_path_constant_is_gone` are regression guards that fail if the default is ever
+reintroduced.
+
+### Findings
+
+**Blocking: none.** The one Recommended item is the vacuous-pass hardening on the two scan tests,
+already stated in the `## Code Review` section above and not restated as a separate finding here.
+
+```verdict
+gate: test-observability-checker
+verdict: PROMOTE
+date: 2026-07-19
+model: claude-opus-4-8
+note: All six fence-named checks are zero-argument and callable by the battery, happy path plus every unconfigured shape × four repositories is covered, hermeticity is structural (env and Path attrs restored in finally, REPO_ROOT from __file__), failures are loud by construction rather than logged-and-swallowed; alerts N/A (no new automation) and invariant registry N/A (none in this project), with one Recommended non-blocker on the two scan tests passing vacuously if their file set is ever empty.
 ```

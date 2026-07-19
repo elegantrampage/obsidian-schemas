@@ -3,14 +3,18 @@
 Obsidian Vault Linter — checks completeness, link integrity, timeline
 consistency, noise/garbage, and structural issues across all vault notes.
 
+A vault must be named explicitly: pass --vault, or set OBSIDIAN_VAULT_PATH in
+the environment. There is no default vault (WI-024) — this script mutates
+notes (--fix, --quarantine), so it never picks one implicitly.
+
 Usage:
-    python scripts/lint_vault.py                          # Full report
-    python scripts/lint_vault.py --category completeness  # Just completeness
-    python scripts/lint_vault.py --type person             # Person notes only
-    python scripts/lint_vault.py --severity warning        # Skip INFO
-    python scripts/lint_vault.py --fix                     # Apply safe auto-fixes
-    python scripts/lint_vault.py --report                  # JSON output
-    python scripts/lint_vault.py -q                        # Summary only
+    python scripts/lint_vault.py --vault /path/to/vault    # Full report
+    python scripts/lint_vault.py --vault VAULT --category completeness
+    python scripts/lint_vault.py --vault VAULT --type person
+    python scripts/lint_vault.py --vault VAULT --severity warning
+    python scripts/lint_vault.py --vault VAULT --fix       # Apply safe auto-fixes
+    python scripts/lint_vault.py --vault VAULT --report    # JSON output
+    python scripts/lint_vault.py --vault VAULT -q          # Summary only
 """
 
 import argparse
@@ -45,10 +49,7 @@ from obsidian_schemas.writer import update_frontmatter_fields
 # Constants
 # ---------------------------------------------------------------------------
 
-DEFAULT_VAULT = os.environ.get(
-    "OBSIDIAN_VAULT_PATH",
-    os.path.expanduser("~/Documents/Obsidian/DaveRemoteVault"),
-)
+DEFAULT_VAULT = os.environ.get("OBSIDIAN_VAULT_PATH", "")
 
 SKIP_DIRS = {".obsidian", "Templates", "src", ".trash", "_quarantine", "_merged_dupes"}
 
@@ -1170,7 +1171,16 @@ def main():
 
     args = parser.parse_args()
 
-    vault_path = Path(args.vault)
+    if not args.vault or not args.vault.strip():
+        print("Error: no vault path provided.", file=sys.stderr)
+        print(
+            "Use --vault /path/to/vault or set the OBSIDIAN_VAULT_PATH "
+            "environment variable.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    vault_path = Path(args.vault.strip())
     if not vault_path.exists():
         print(f"Error: vault not found: {vault_path}", file=sys.stderr)
         sys.exit(1)

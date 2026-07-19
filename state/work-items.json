@@ -1,7 +1,7 @@
 {
   "project": "obsidian-schemas",
   "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
-  "last_scanned": "2026-07-19T13:35:05Z",
+  "last_scanned": "2026-07-19T16:42:49Z",
   "next_id": 28,
   "items": [
     {
@@ -109,7 +109,7 @@
     {
       "id": "WI-024",
       "title": "Remove the hardcoded live-vault default path (loud-fail when unconfigured)",
-      "stage": "ready",
+      "stage": "done",
       "file": "docs/default-vault-path.md",
       "created": "2026-07-05",
       "last_touched": "2026-07-19",
@@ -141,6 +141,20 @@
         {
           "from": "specced",
           "to": "ready",
+          "at": "2026-07-19",
+          "by": "session",
+          "forced": false
+        },
+        {
+          "from": "ready",
+          "to": "building",
+          "at": "2026-07-19",
+          "by": "session",
+          "forced": false
+        },
+        {
+          "from": "building",
+          "to": "done",
           "at": "2026-07-19",
           "by": "session",
           "forced": false
@@ -205,6 +219,20 @@
           "date": "2026-07-19",
           "model": "claude-sonnet-5",
           "note": "Full adversarial read plus a targeted steering-vocabulary scan found no text addressed to a reviewer/agent, no claimed pre-approval, and no spec-shaped section whose effect is to manipulate a gate's verdict rather than argue the work's own merits."
+        },
+        "code-reviewer": {
+          "gate": "code-reviewer",
+          "verdict": "PROMOTE",
+          "date": "2026-07-19",
+          "model": "claude-opus-4-8",
+          "note": "Re-read every changed file \u2014 the Path(\"\") door is closed with both guard clauses and no isinstance(str) gate (the spec's R2), M1-M4 all hold structurally, DEFAULT_VAULT_PATH and expanduser are gone, exports land; no Blocking findings, with the stale CLAUDE.md floor baseline (563\u2192607) routed to the conductor since the project root is outside write_authority by design."
+        },
+        "test-observability-checker": {
+          "gate": "test-observability-checker",
+          "verdict": "PROMOTE",
+          "date": "2026-07-19",
+          "model": "claude-opus-4-8",
+          "note": "All six fence-named checks are zero-argument and callable by the battery, happy path plus every unconfigured shape \u00d7 four repositories is covered, hermeticity is structural (env and Path attrs restored in finally, REPO_ROOT from __file__), failures are loud by construction rather than logged-and-swallowed; alerts N/A (no new automation) and invariant registry N/A (none in this project), with one Recommended non-blocker on the two scan tests passing vacuously if their file set is ever empty."
         }
       },
       "verdicts": [
@@ -280,6 +308,20 @@
           "date": "2026-07-19",
           "model": "claude-sonnet-5",
           "note": "Full adversarial read plus a targeted steering-vocabulary scan found no text addressed to a reviewer/agent, no claimed pre-approval, and no spec-shaped section whose effect is to manipulate a gate's verdict rather than argue the work's own merits."
+        },
+        {
+          "gate": "code-reviewer",
+          "verdict": "PROMOTE",
+          "date": "2026-07-19",
+          "model": "claude-opus-4-8",
+          "note": "Re-read every changed file \u2014 the Path(\"\") door is closed with both guard clauses and no isinstance(str) gate (the spec's R2), M1-M4 all hold structurally, DEFAULT_VAULT_PATH and expanduser are gone, exports land; no Blocking findings, with the stale CLAUDE.md floor baseline (563\u2192607) routed to the conductor since the project root is outside write_authority by design."
+        },
+        {
+          "gate": "test-observability-checker",
+          "verdict": "PROMOTE",
+          "date": "2026-07-19",
+          "model": "claude-opus-4-8",
+          "note": "All six fence-named checks are zero-argument and callable by the battery, happy path plus every unconfigured shape \u00d7 four repositories is covered, hermeticity is structural (env and Path attrs restored in finally, REPO_ROOT from __file__), failures are loud by construction rather than logged-and-swallowed; alerts N/A (no new automation) and invariant registry N/A (none in this project), with one Recommended non-blocker on the two scan tests passing vacuously if their file set is ever empty."
         }
       ],
       "acceptance_criteria": [

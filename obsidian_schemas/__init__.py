@@ -63,6 +63,7 @@ from obsidian_schemas.repositories import (
     CompanyRepository,
     BookRepository,
     MeetingRepository,
+    VaultPathNotConfiguredError,
 )
 from obsidian_schemas.name_cleaning import clean_person_name
 from obsidian_schemas.identifier import (
@@ -126,6 +127,7 @@ __all__ = [
     "CompanyRepository",
     "BookRepository",
     "MeetingRepository",
+    "VaultPathNotConfiguredError",
     # Name cleaning (WI-117)
     "clean_person_name",
     # Identifier union (WI-125 — identity core, Phase 1)
