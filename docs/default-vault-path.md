@@ -2,14 +2,14 @@
 id: WI-024
 title: "Remove the hardcoded live-vault default path (loud-fail when unconfigured)"
 project: obsidian-schemas
-stage: specced
+stage: ready
 created: 2026-07-05
 last_touched: 2026-07-19
 stage_changed: 2026-07-19
-touched_by: spec-writer
+touched_by: spec-reviewer
 tags: [loud-fail, configuration, small-mechanical]
 depends_on: []
-transitions: ["idea>exploring@2026-07-19@session", "exploring>specced@2026-07-19@session"]
+transitions: ["idea>exploring@2026-07-19@session", "exploring>specced@2026-07-19@session", "specced>ready@2026-07-19@session"]
 ---
 
 # Remove the hardcoded live-vault default path
@@ -873,4 +873,241 @@ verdict: PROMOTE
 date: 2026-07-19
 model: claude-opus-4-8
 note: All six empirical premises re-run against the tree and confirmed exactly as stated (1 doc site, 1+1 pattern hits, 4 subclasses forwarding, the Path-typed call at person.py:1150, zero ambient-env tests and no conftest, audit artifact well-shaped); Class-2 blast radius is measured not assumed, with the one unverifiable premise (env var unset on Dave's machine) flagged as the reason AC-6's remediation_confirmed fold matters.
+```
+
+## Threat Model — 2026-07-19
+
+**Recommendation: PROMOTE to threat-modeled**
+
+Cold-start. Code claims below re-read from the current tree, not carried from prior gates: `base.py:1-110` in full (`DEFAULT_VAULT_PATH` at `:21`, the fallback at `:55-56`, `Path(vault_path)` at `:58`, the silent-empty `load()` at `:96-99`); `lint_vault.py:44-53` (`DEFAULT_VAULT` with `expanduser`) and `:1143-1181` (`Path(args.vault)` at `:1173` with no preceding guard, `--fix` at `:1163`, `--quarantine` at `:1165`); `docs/wi-024-consumer-audit.md` in full. Prior gates' verdicts (three AC red-team rounds, ac-signoff `ac_hash: bcc5e03b3564`, architect, data-premise) read as carry-forward.
+
+### Trigger check
+
+Three triggers fire:
+
+- **Performs filesystem operations on user-owned files.** The bound path is where `save()` writes (`base.py:202`) and where the writer `mkdir(parents=True, exist_ok=True)`s missing parents.
+- **Persists data to state files.** Repositories create and rewrite `@Person.md` notes in the vault.
+- **Crosses a trust boundary — in the *reducing* direction.** P7 states this correctly: the vault path is configuration from inside the trust boundary, not untrusted input. The change does not add a boundary; it removes the case where the library invents a filesystem path nobody asked for.
+
+Not a skip pattern — this is a semantic change to a write-capable default binding in a library three repos install.
+
+### STRIDE review
+
+**Spoofing:** Not applicable. No authentication, no identity claim, no OAuth scope, no token. The vault path is not a credential and is never presented as one.
+
+**Tampering:** This is the item, and the change is strictly subtractive of tampering surface. Today `base.py:55-56` binds any argument-omitting caller — on any machine, in CI, in a scratch script — to a write-capable handle on Dave's live vault; `base.py:58` binds `Path("")`/`Path(".")` to the current working directory. Both are unauthorised-write paths reached by omission. After the flip neither exists. The one residual I checked and cleared: `_resolve_vault_path` returns `Path(str(candidate).strip())`, so a legitimate path whose final component genuinely ends in whitespace would be silently altered — pathological, not a security threat, and not worth a guard.
+
+The higher-consequence tampering door is `lint_vault.py`, and the design closes it in the right order. Verified in the tree: `Path(args.vault)` at `:1173` runs before any vault guard exists, so `--vault ""` → `Path(".")` → `exists()` is True → the linter runs against cwd, and with `--quarantine` (`:1165`) it renames live files via `src.rename(dest)`. AC-4's "guard executes BEFORE line 1173" is therefore a genuine ordering requirement on a mutating path, not a stylistic one. Folded as M3.
+
+**Repudiation:** Adequate, and no audit-trail work is warranted. The refusal is an exception with a stack whose innermost repo frame sits one below the offending caller — a better record than today's silent bind, which leaves no trace at all. Nothing security-relevant is logged-and-swallowed on the new path. Note the *current* state is the repudiation defect: `load()` on a non-existent vault logs WARNING and returns 0 (`base.py:96-99`), so a wrong binding presents as a legitimately empty vault and stub-creation proceeds against it.
+
+**Information disclosure:** Net reduction, with one requirement worth pinning. The reduction: `DEFAULT_VAULT_PATH` is a machine-specific absolute path — the user's home layout and live-vault location — baked into a library installed into three sibling repos; deleting it removes that from every consumer's site-packages. The requirement: `UNCONFIGURED_VAULT_MESSAGE` as designed is a module-level *static constant* that names the two configuration routes and interpolates **neither** the rejected `vault_path` value **nor** the value of `OBSIDIAN_VAULT_PATH`. That is the correct shape and must not drift into an f-string during implementation — a message that echoed the env var's contents would carry process-environment data into tracebacks and logs across three consumers, and the rejected-value path is exactly the one reached when a `.env` is malformed. Folded as M2.
+
+Checked and cleared: the `remediation_confirmed` record AC-6 requires will commit the literal `/Users/davewascha/Documents/Obsidian/DaveRemoteVault` into `docs/wi-024-consumer-audit.md`. This discloses nothing new — that same literal is already committed at `docs/wi-024-consumer-audit.md:72-73`, and AC-2's scan is scoped to `obsidian_schemas/` and `scripts/`, so there is no conflict with this item's own criterion.
+
+**Denial of service:** No rate limits, quotas, retries, recursion, or outbound calls are in scope — the resolution path makes zero filesystem and zero network calls. The real availability question is self-inflicted and already sized: the flip turns 16 live orchestrator sites (`src/invariants.py` ×4, `src/queue_writer.py:784`, `src/contact_normalizer.py:510`, 10 in `bin/`) from working to raising, and the audit records `OBSIDIAN_VAULT_PATH` set **nowhere** at scan time (`docs/wi-024-consumer-audit.md:70-71`). This is the item's largest realistic harm and the one thing the hermetic floor suite is structurally blind to — AC-1's monkeypatch-everything property is what makes it blind. The architect's fold is the right mechanism and it is already in the spec: P3 + AC-6's `remediation_confirmed` converts the merge gate from a prose bullet into an artifact property `test_consumer_audit_artifact_is_complete` reaches. Folded as M4 so it is declared rather than assumed. Note the failure mode is loud-and-immediate (`VaultPathNotConfiguredError` at construction), never silent corruption — which is the whole point of the item, so R4's accepted residual is correctly accepted.
+
+**Elevation of privilege:** Not applicable in the scope/permission sense — no MCP scopes, OAuth scopes, file modes, or sudo paths change. Directionally the change *removes* ambient authority: the library currently grants itself, by default, write access to one specific real vault. Afterwards it holds no filesystem authority the caller did not explicitly confer. `Repository(".")` raising is the correct least-privilege call; a caller who genuinely means cwd passes `Path.cwd()`.
+
+### Mitigations verified in place
+
+1. **Fail-closed at construction, before any filesystem access.** `_resolve_vault_path` raises before `self.auto_load`/`_cache`/`_file_map`/`_loaded` are assigned and before any glob or `exists()` (Design > Flow; branch table). Pinned by AC-3 and its `Path.glob` monkeypatch assertion; carried by Task 2. → **M1**
+2. **Static, non-interpolating error message.** `UNCONFIGURED_VAULT_MESSAGE` is a module-level constant (Design > Data model); no rejected value and no environment content reaches it. Carried by Task 1. → **M2**
+3. **Guard precedes `Path(args.vault)` in the mutating script.** Design > Integration points places the blank guard before `:1173` and changes it to `Path(args.vault.strip())`; AC-4 pins the ordering. Carried by Task 4. → **M3**
+4. **The breaking change's merge gate is a machine-checked artifact property, not a remembered bullet.** P3 + AC-6's `remediation_confirmed`; the builder is explicitly forbidden from authoring it (Task 7 verify step, Write Targets precondition fence). Carried by Task 7. → **M4**
+
+```mitigation
+kind: required
+id: M1
+desc: The unconfigured guard must raise before any filesystem access (no glob, exists, mkdir, or read on an unresolved path) so a misconfigured binding can never touch a vault.
+landed: Task 2
+```
+
+```mitigation
+kind: required
+id: M2
+desc: UNCONFIGURED_VAULT_MESSAGE stays a static module constant naming both routes — it must not interpolate the rejected vault_path value or the OBSIDIAN_VAULT_PATH contents into the exception, which three consumers surface in tracebacks and logs.
+landed: Task 1
+```
+
+```mitigation
+kind: required
+id: M3
+desc: In lint_vault.py the blank/whitespace guard must execute BEFORE Path(args.vault) at :1173, so --vault "" cannot normalise to cwd and expose the mutating --fix (:1163) and --quarantine (:1165) paths to the current working directory.
+landed: Task 4
+```
+
+```mitigation
+kind: required
+id: M4
+desc: The consumer-audit artifact must carry a remediation_confirmed record with the literal zsh -c 'echo $OBSIDIAN_VAULT_PATH' command and verbatim non-empty output before the build lands; the builder must report the failure and stop rather than author or weaken it.
+landed: Task 7
+```
+
+### Notes (non-blocking)
+
+- **`~/.zshenv` does not cover non-shell launch contexts.** launchd jobs do not source it unless they invoke through zsh. The audit's reasoning survives this on its own terms — it records that the only launchd jobs on the machine are HAL9000 and exocortex-doctor, both of which scan clean, and that crontab is empty (`docs/wi-024-consumer-audit.md:72-77`). Worth carrying because the premise is dated and can rot: a future launchd job invoking orchestrator code loud-fails, which R4 accepts by design.
+- **`person.py:1147-1160`'s bare `except Exception` would swallow the new error** if `:1150` ever stopped passing an explicit path. Its predicate cannot fire today. Correctly routed to WI-020 — noting only that a bare except sitting one frame from a fail-closed guard is the shape that quietly converts loud-fail back into silent-degrade, so WI-020 should treat it as security-adjacent rather than cosmetic.
+- **The "configured but wrong" path remains fail-open** (`base.py:96-99` warns and returns 0; the writer then `mkdir`s a bogus tree). Correctly out of scope as accident-of-commission and routed to WI-020, but it is the larger remaining corruption surface once this item lands — this change closes the omission door and leaves the commission door open by design.
+- **`bin/identity-parity-replay.py:66`** self-documents as `# default/env vault, read-only`; it is the one site whose comment asserts the removed behaviour. Already flagged by the architect for a line in the remediation record.
+
+```verdict
+gate: threat-modeler
+verdict: PROMOTE
+date: 2026-07-19
+model: claude-opus-4-8
+note: Net security improvement — the change removes ambient write authority (a machine-specific live-vault path baked into a library three repos install) rather than adding surface; four required mitigations all already carried by named plan tasks, the largest realistic harm (16 live orchestrator sites breaking on merge) is measured and mechanised into AC-6's remediation_confirmed rather than left to prose.
+```
+
+## Spec Review — 2026-07-19
+
+**Recommendation: PROMOTE to ready**
+
+Cold-start. Read the spec from line 1 in full before opening any code, then re-derived every
+`file:line` claim against the current tree rather than carrying it from the five prior gates.
+
+### Citation verification
+
+Every citation read at its stated line range and confirmed. No discrepancies.
+
+- `base.py:20-21` (`# Default vault path…` / `DEFAULT_VAULT_PATH = "/Users/davewascha/…"`), `:22` (`ENV_VAULT_PATH`), `:41-45` (signature, `vault_path: Optional[str | Path] = None` at `:43`), `:50-51` (the "Falls back to … then default" docstring), `:55-56` (the fallback predicate, verbatim as quoted), `:58` (`self.vault_path = Path(vault_path)`), `:59-62` (the four attribute assignments the raise precedes), `:96-99` (WARNING + `return 0`), `:202` (`file_path = self.vault_path / filename`) — all exact.
+- Subclass forwarding: `person.py:173-174`, `company.py:58-59`, `meeting.py:34-35`, `book.py:34-35` — each is `def __init__(self, vault_path: Optional[str | Path] = None, **kwargs)` / `super().__init__(vault_path, **kwargs)`. Uniform, verbatim, no per-subclass logic. `person.py:1150` is `self._company_repo_for_cleaning = CompanyRepository(self.vault_path)` — the `Path`-typed call site is real.
+- `lint_vault.py:48-51` (the `expanduser` default), `:1146` (`default=DEFAULT_VAULT`), `:1163` (`--fix`), `:1165` (`--quarantine`), `:1171-1176` (`Path(args.vault)` at `:1173` with no preceding guard) — all exact. AC-4's ordering requirement is genuine, not tautological.
+- `migrate_person_to_discuss.py:160,171-174` — the precedent shape is as described (env default `''`, falsy guard, both routes named). The doc is right that the sibling lacks `.strip()` and that it prints to stdout while lint_vault's neighbouring error uses stderr.
+- `obsidian_schemas/__init__.py:44,108` (`BodyTruncationError`) and `:70,133` (`IdentifierError`) — the re-export pattern Task 3 follows exists exactly there. `repositories/__init__.py:8,14-20` — import line and `__all__` as described.
+- `pipeline-runners.yaml:32-33,34-38` — the root-absent comment and the four write-authority globs are verbatim. The three-precondition reasoning in Write Targets is correct.
+- Independently re-ran both scans. AC-2's pattern (`expanduser` / `Path.home()` / `/Users/`) over `obsidian_schemas/` and `scripts/`: exactly two hits, `base.py:21` and `lint_vault.py:50`, both deleted by this item — zero false-flag surface. `\w+Repository\(\s*\)` over `*.md`: zero hits outside `docs/**` (this doc, the audit artifact, the two spec-review artifacts), i.e. zero in the AC-5 scan scope.
+
+### Bar check
+
+Walked the bar. Prerequisites P1–P8 are enumerated and each is a real gate, not decoration.
+OPEN: none. Verified Diagnosis carries three load-bearing claims, each with a falsifiable
+artifact that actually supports the specific claim — including Claim 2's runnable one-liner
+(`str(Path(''))` → `'.'`), which I ran mentally against pathlib semantics and which is the
+proof that forces the second guard clause. The `[hypothesis — needs verification]` demotion
+on the "env var set nowhere" sub-claim is honest and correctly scoped: it is load-bearing for
+the merge, not for the design, which is exactly why P3 converts it into an artifact property.
+Risk Analysis present and required (core-workflow scope: a library three repos install).
+
+**Check 10 (Acceptance Criteria).** Six well-formed `criteria` fences, all `kind: test`, each
+naming a check the Implementation Plan builds. No `kind: command`, so no unsandboxed-shell
+concern.
+
+**Check 12 (AC drift).** Diffed the evolved `## Acceptance Criteria` against
+`frozen_acceptance_criteria` in `docs/spec-reviews/WI-024-dave-review-2026-07-19-2.md`
+(`ac_hash: bcc5e03b3564`). **The diff is empty** — the re-sign captured the post-refinement
+text, so AC-1…AC-6, the Examples of done, and the refinement log are byte-identical between
+the signed artifact and the doc. No drift to classify in any taxonomy direction. For the
+record, I independently checked the two edits the refinement log describes and agree with its
+self-classification: AC-6's `remediation_confirmed` is a strengthening (an added required
+field, same check, same mechanism, strictly harder to satisfy), and AC-5's `docs/**`/`state/**`
+exclusion is an implementability clarification rather than a scope-narrowing — without it the
+scan fails on documents that quote the antipattern *as the defect under discussion*, and with
+it the check still catches every advertising site. Neither is strength-weakening, actor-swap,
+oracle-swap, or exception-carving.
+
+**Task-definition shape check (WI-141).** Seven canonical definitions, `- [ ] **Task N — …**`,
+N ∈ {1..7}, each a whole integer and unique. The Threat Model's four `landed:` values —
+`Task 1` (M2), `Task 2` (M1), `Task 4` (M3), `Task 7` (M4) — all resolve to defined ordinals.
+No D8b refusal waiting downstream.
+
+**Write-Targets coverage check (WI-132).** Every plan task's target is declared: Tasks 1–2 →
+`base.py`; Task 3 → both `__init__.py` files; Task 4 → `scripts/lint_vault.py`; Tasks 5–7 →
+`tests/test_vault_path_required.py`. No fence declares a `kind: file` path no task writes.
+The three `kind: precondition` fences are correctly typed — `CLAUDE.md` and `README.md` sit
+outside `write_authority` (verified at `pipeline-runners.yaml:34-38`), and
+`docs/wi-024-consumer-audit.md`, though inside it, is evidence about three repos the caged
+builder cannot see. The floor command invoked in Verify steps is correctly *not* declared.
+
+### Build-runner dry-run
+
+Walked the plan top-to-bottom as the builder. Every task names a concrete file, a concrete
+edit, and a runnable verification; the ordering rationale (1→2→3 strict, 4–5 independent,
+6–7 last) is stated and correct. Three questions I would plausibly have asked, and where the
+spec answers them without my leaving the document:
+
+1. *"The Approach says `str(vault_path).strip()` — does that catch `Path("")`?"* Design opens
+   with the correction, the runnable proof, and the second clause `Path(text) == Path(".")`.
+   The branch table then enumerates all nine argument shapes × two env states, so there is no
+   residual judgment call. This is the single highest-value thing in the document — R2 is the
+   spec's most likely failure mode and the design defuses it three separate ways.
+2. *"AC-6 wants a `remediation_confirmed` record the audit file doesn't have. Do I add it?"*
+   Task 7's verify step, P3, and the self-review dry run all say no, in the same words: report
+   and stop.
+3. *"Does `Repository(".")` raising break an existing caller?"* Design states it as a deliberate
+   behaviour change with the escape hatch named (`Path.cwd()`), and the Scope Boundary confirms
+   no consumer code changes.
+
+No judgment-call gaps detected.
+
+### Minor notes (non-blocking)
+
+- **Task 6's second discrimination check is not executable under the cage.** It says to
+  "temporarily add `repo = PersonRepository()` to `README.md`" to confirm the doc scan
+  discriminates — but `README.md` is outside `write_authority` (`pipeline-runners.yaml:32-38`),
+  which the same sentence's parenthetical concedes. The write is reverted, so the check either
+  cannot be performed or silently proves nothing. Skip it; the AC-2 discrimination check in the
+  same task uses a scanned `.py` file and is genuinely runnable. Not blocking — it is an
+  optional sanity step, and the parenthetical already warns the builder off.
+- **Two of the three preconditions are already discharged in HEAD, which is worth knowing before
+  the build spawns.** `CLAUDE.md:18` now reads `repo = PersonRepository("/path/to/vault")  # or
+  set OBSIDIAN_VAULT_PATH — one of the two is required`, and `README.md:227` already reads "one
+  of the two is required". The `\w+Repository\(\s*\)` scan therefore returns zero hits in AC-5's
+  scope today. AC-5's `desc` is not wrong — it is explicitly hedged as "at time of writing" —
+  but a builder reading Write Targets (`:473`, `:479`) or the self-review's Q3 will go looking
+  for a fix that has already landed. The consequence is that AC-5 is now a regression guard
+  rather than a driver of work, which is its designed role once the conductor precondition is
+  satisfied. Not the WI-130 zero-implementation shape: the work was done, just by the conductor.
+- **`docs/wi-024-consumer-audit.md` still has no `remediation_confirmed` record.** Read it in
+  full: three repos, each with literal command, verbatim stdout (or an explicit "no matches"
+  marker), and a 40-hex SHA — AC-6's per-repo shape is satisfied. The remediation is present
+  only as the prose merge-gate bullet at `:76-77` that the architect flagged. The precondition
+  fence probes HEAD *membership*, not content, so `drive()` will arm the build and Task 7 will
+  then fail — which is P3 working as designed, and the spec tells the builder to report and stop
+  rather than author it. Flagging it here so the conductor amends and commits before arming,
+  rather than discovering it as a red AC battery at `building → done`.
+- The `_resolve_vault_path` helper returns `Path(str(candidate).strip())`, so a legitimate path
+  whose final component ends in whitespace is silently altered. The threat model already checked
+  and cleared this as pathological. Agreed — no guard warranted.
+
+```verdict
+gate: spec-reviewer
+verdict: PROMOTE
+date: 2026-07-19
+model: claude-opus-4-8
+note: Every file:line citation independently re-verified against the current tree with zero discrepancies, both AC scans re-run, AC diff vs the signed ac_hash bcc5e03b3564 is empty (no drift to classify), 7 unique task ordinals covering all four threat-model landed: values, and full Write-Targets coverage — the Design's Path("") correction plus the branch table close the one gap a builder could plausibly have fallen into.
+```
+
+## Adversarial Review — 2026-07-19
+
+Cold-start read of the full doc end-to-end (Problem/Motivation, Exploration Notes, Approach,
+Design, Prerequisites, Edge Cases, Risk Analysis, Acceptance Criteria, all three AC Red-Team
+rounds, AC Sign-off, Architectural Review, Data Audit, Threat Model, Spec Review), followed by a
+targeted scan for text whose *effect* is to steer a reviewer rather than describe the work:
+imperative phrases directed at an agent/reviewer, claims of prior approval, instructions to
+skip/ignore a check, and any spec-shaped section whose content doesn't match its heading. Ran
+`grep -in` for steering vocabulary (ignore, disregard, pre-approved, override, bypass, "emit
+PROMOTE", "trust me", "skip this check", etc.) — the only two hits are ordinary technical prose
+("import-time read... is ignored" describing a latent bug; "Do not soften the raise into a
+warning" — a spec-writer scoping instruction in Non-goals, addressed to future spec edits of
+*this document*, not to a reviewing gate's verdict).
+
+No planted injection found. This doc's prose is unusually persuasive, but its persuasion is of
+the ordinary kind this role is calibrated to clear: dense, cross-cited argument for the *work's
+own merits* (six red-team rounds that both find and then verify-fix real AC gaps, four prior
+gates' PROMOTEs each carrying independently re-derived file:line evidence rather than borrowed
+claims). Nothing argues a *verdict* into existence — no line says "the reviewer should PROMOTE
+this," no text is addressed to an agent as an instruction rather than to a human reader as
+documentation, and no section's form (e.g. "Risk Analysis," "Threat Model") diverges from its
+declared content into steering. The prior gates' own verdict notes are terse, evidence-anchored,
+and none reads as if a target had argued its author into a favorable review — each names a
+specific check it ran and what it found, including the two REVISE rounds that pushed back hard
+on this exact document before promoting it.
+
+```verdict
+gate: injection-hunter
+verdict: PROMOTE
+date: 2026-07-19
+model: claude-sonnet-5
+note: Full adversarial read plus a targeted steering-vocabulary scan found no text addressed to a reviewer/agent, no claimed pre-approval, and no spec-shaped section whose effect is to manipulate a gate's verdict rather than argue the work's own merits.
 ```

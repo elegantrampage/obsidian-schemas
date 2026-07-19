@@ -1,7 +1,7 @@
 {
   "project": "obsidian-schemas",
   "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
-  "last_scanned": "2026-07-19T12:11:26Z",
+  "last_scanned": "2026-07-19T13:35:05Z",
   "next_id": 28,
   "items": [
     {
@@ -109,7 +109,7 @@
     {
       "id": "WI-024",
       "title": "Remove the hardcoded live-vault default path (loud-fail when unconfigured)",
-      "stage": "specced",
+      "stage": "ready",
       "file": "docs/default-vault-path.md",
       "created": "2026-07-05",
       "last_touched": "2026-07-19",
@@ -137,6 +137,13 @@
           "at": "2026-07-19",
           "by": "session",
           "forced": false
+        },
+        {
+          "from": "specced",
+          "to": "ready",
+          "at": "2026-07-19",
+          "by": "session",
+          "forced": false
         }
       ],
       "latest_verdicts": {
@@ -153,16 +160,16 @@
           "date": "2026-07-19",
           "reviewer": "dave",
           "channel": "conversational",
-          "signed_at": "2026-07-19T11:46:12+01:00",
-          "ac_hash": "7a5468f98ac9",
+          "signed_at": "2026-07-19T12:25:18+01:00",
+          "ac_hash": "bcc5e03b3564",
           "intent_hash": "da32901f3c7f",
           "ac_hash_AC-1": "b051e2f15439",
           "ac_hash_AC-2": "eb365b438852",
           "ac_hash_AC-3": "7854f12b9b4d",
           "ac_hash_AC-4": "f981c6f66257",
-          "ac_hash_AC-5": "f6ec5002fe0d",
-          "ac_hash_AC-6": "b1674c34084d",
-          "artifact": "docs/spec-reviews/WI-024-dave-review-2026-07-19.md"
+          "ac_hash_AC-5": "c095a1c179d5",
+          "ac_hash_AC-6": "9878e458ac13",
+          "artifact": "docs/spec-reviews/WI-024-dave-review-2026-07-19-2.md"
         },
         "architect": {
           "gate": "architect",
@@ -177,6 +184,27 @@
           "date": "2026-07-19",
           "model": "claude-opus-4-8",
           "note": "All six empirical premises re-run against the tree and confirmed exactly as stated (1 doc site, 1+1 pattern hits, 4 subclasses forwarding, the Path-typed call at person.py:1150, zero ambient-env tests and no conftest, audit artifact well-shaped); Class-2 blast radius is measured not assumed, with the one unverifiable premise (env var unset on Dave's machine) flagged as the reason AC-6's remediation_confirmed fold matters."
+        },
+        "threat-modeler": {
+          "gate": "threat-modeler",
+          "verdict": "PROMOTE",
+          "date": "2026-07-19",
+          "model": "claude-opus-4-8",
+          "note": "Net security improvement \u2014 the change removes ambient write authority (a machine-specific live-vault path baked into a library three repos install) rather than adding surface; four required mitigations all already carried by named plan tasks, the largest realistic harm (16 live orchestrator sites breaking on merge) is measured and mechanised into AC-6's remediation_confirmed rather than left to prose."
+        },
+        "spec-reviewer": {
+          "gate": "spec-reviewer",
+          "verdict": "PROMOTE",
+          "date": "2026-07-19",
+          "model": "claude-opus-4-8",
+          "note": "Every file:line citation independently re-verified against the current tree with zero discrepancies, both AC scans re-run, AC diff vs the signed ac_hash bcc5e03b3564 is empty (no drift to classify), 7 unique task ordinals covering all four threat-model landed: values, and full Write-Targets coverage \u2014 the Design's Path(\"\") correction plus the branch table close the one gap a builder could plausibly have fallen into."
+        },
+        "injection-hunter": {
+          "gate": "injection-hunter",
+          "verdict": "PROMOTE",
+          "date": "2026-07-19",
+          "model": "claude-sonnet-5",
+          "note": "Full adversarial read plus a targeted steering-vocabulary scan found no text addressed to a reviewer/agent, no claimed pre-approval, and no spec-shaped section whose effect is to manipulate a gate's verdict rather than argue the work's own merits."
         }
       },
       "verdicts": [
@@ -207,16 +235,16 @@
           "date": "2026-07-19",
           "reviewer": "dave",
           "channel": "conversational",
-          "signed_at": "2026-07-19T11:46:12+01:00",
-          "ac_hash": "7a5468f98ac9",
+          "signed_at": "2026-07-19T12:25:18+01:00",
+          "ac_hash": "bcc5e03b3564",
           "intent_hash": "da32901f3c7f",
           "ac_hash_AC-1": "b051e2f15439",
           "ac_hash_AC-2": "eb365b438852",
           "ac_hash_AC-3": "7854f12b9b4d",
           "ac_hash_AC-4": "f981c6f66257",
-          "ac_hash_AC-5": "f6ec5002fe0d",
-          "ac_hash_AC-6": "b1674c34084d",
-          "artifact": "docs/spec-reviews/WI-024-dave-review-2026-07-19.md"
+          "ac_hash_AC-5": "c095a1c179d5",
+          "ac_hash_AC-6": "9878e458ac13",
+          "artifact": "docs/spec-reviews/WI-024-dave-review-2026-07-19-2.md"
         },
         {
           "gate": "architect",
@@ -231,6 +259,27 @@
           "date": "2026-07-19",
           "model": "claude-opus-4-8",
           "note": "All six empirical premises re-run against the tree and confirmed exactly as stated (1 doc site, 1+1 pattern hits, 4 subclasses forwarding, the Path-typed call at person.py:1150, zero ambient-env tests and no conftest, audit artifact well-shaped); Class-2 blast radius is measured not assumed, with the one unverifiable premise (env var unset on Dave's machine) flagged as the reason AC-6's remediation_confirmed fold matters."
+        },
+        {
+          "gate": "threat-modeler",
+          "verdict": "PROMOTE",
+          "date": "2026-07-19",
+          "model": "claude-opus-4-8",
+          "note": "Net security improvement \u2014 the change removes ambient write authority (a machine-specific live-vault path baked into a library three repos install) rather than adding surface; four required mitigations all already carried by named plan tasks, the largest realistic harm (16 live orchestrator sites breaking on merge) is measured and mechanised into AC-6's remediation_confirmed rather than left to prose."
+        },
+        {
+          "gate": "spec-reviewer",
+          "verdict": "PROMOTE",
+          "date": "2026-07-19",
+          "model": "claude-opus-4-8",
+          "note": "Every file:line citation independently re-verified against the current tree with zero discrepancies, both AC scans re-run, AC diff vs the signed ac_hash bcc5e03b3564 is empty (no drift to classify), 7 unique task ordinals covering all four threat-model landed: values, and full Write-Targets coverage \u2014 the Design's Path(\"\") correction plus the branch table close the one gap a builder could plausibly have fallen into."
+        },
+        {
+          "gate": "injection-hunter",
+          "verdict": "PROMOTE",
+          "date": "2026-07-19",
+          "model": "claude-sonnet-5",
+          "note": "Full adversarial read plus a targeted steering-vocabulary scan found no text addressed to a reviewer/agent, no claimed pre-approval, and no spec-shaped section whose effect is to manipulate a gate's verdict rather than argue the work's own merits."
         }
       ],
       "acceptance_criteria": [
