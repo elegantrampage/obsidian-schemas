@@ -78,3 +78,17 @@ HEAD: `114b258cd900075f5505b942835be230e9a2fb39`
 - Residual risk, accepted: a future non-shell context (new launchd job, IDE runner) that
   invokes orchestrator code without the env var will loud-fail at construction — which is
   WI-024's designed behaviour, not a regression.
+
+## remediation_confirmed — 2026-07-19
+
+The Dave-approved remediation is live. Export appended to `~/.zshenv` by Dave in-session
+(the conductor's own write was classifier-refused, both sessions — shell-startup files
+need the human), then verified in a fresh shell by the workshop conductor session:
+
+```
+$ zsh -c 'echo $OBSIDIAN_VAULT_PATH'
+/Users/davewascha/Documents/Obsidian/DaveRemoteVault
+```
+
+Non-empty, matches the vault path verified to exist on disk. The AC-6 merge gate above is
+satisfied; the build leg may proceed.
