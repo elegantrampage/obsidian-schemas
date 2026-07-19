@@ -224,7 +224,7 @@ Repositories provide high-level access to entities with indexing and queries.
 ```python
 from obsidian_schemas import PersonRepository
 
-# Initialize with vault path (or uses OBSIDIAN_VAULT_PATH env var)
+# Initialize with vault path — or set OBSIDIAN_VAULT_PATH; one of the two is required
 repo = PersonRepository("/path/to/vault")
 
 # Get by name (case-insensitive)

@@ -1,7 +1,7 @@
 {
   "project": "obsidian-schemas",
   "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
-  "last_scanned": "2026-07-19T11:34:59Z",
+  "last_scanned": "2026-07-19T12:11:26Z",
   "next_id": 28,
   "items": [
     {
@@ -109,7 +109,7 @@
     {
       "id": "WI-024",
       "title": "Remove the hardcoded live-vault default path (loud-fail when unconfigured)",
-      "stage": "exploring",
+      "stage": "specced",
       "file": "docs/default-vault-path.md",
       "created": "2026-07-05",
       "last_touched": "2026-07-19",
@@ -130,6 +130,13 @@
           "at": "2026-07-19",
           "by": "session",
           "forced": false
+        },
+        {
+          "from": "exploring",
+          "to": "specced",
+          "at": "2026-07-19",
+          "by": "session",
+          "forced": false
         }
       ],
       "latest_verdicts": {
@@ -139,6 +146,37 @@
           "date": "2026-07-19",
           "model": "claude-sonnet-5",
           "note": "Third pass - both prior folds (Path-typed blank door on AC-1/AC-3; stale AC-5 citation) independently re-verified against current tree; no new material finding after attacking AC-6's shape-only audit check and AC-4's lint_vault whitespace edge, both of which dissolve on inspection."
+        },
+        "ac-signoff": {
+          "gate": "ac-signoff",
+          "verdict": "PROMOTE",
+          "date": "2026-07-19",
+          "reviewer": "dave",
+          "channel": "conversational",
+          "signed_at": "2026-07-19T11:46:12+01:00",
+          "ac_hash": "7a5468f98ac9",
+          "intent_hash": "da32901f3c7f",
+          "ac_hash_AC-1": "b051e2f15439",
+          "ac_hash_AC-2": "eb365b438852",
+          "ac_hash_AC-3": "7854f12b9b4d",
+          "ac_hash_AC-4": "f981c6f66257",
+          "ac_hash_AC-5": "f6ec5002fe0d",
+          "ac_hash_AC-6": "b1674c34084d",
+          "artifact": "docs/spec-reviews/WI-024-dave-review-2026-07-19.md"
+        },
+        "architect": {
+          "gate": "architect",
+          "verdict": "PROMOTE",
+          "date": "2026-07-19",
+          "model": "claude-opus-4-8",
+          "note": "Approach is architecturally sound and minimal \u2014 one predicate, one place, in-tree precedent, fail-fast matches ecosystem norm; the consumer audit has landed and its 16 live orchestrator sites are a measured blast radius, but its merge gate lives only in prose, so the spec-writer must fold the remediation confirmation into AC-6's artifact shape."
+        },
+        "data-premise": {
+          "gate": "data-premise",
+          "verdict": "PROMOTE",
+          "date": "2026-07-19",
+          "model": "claude-opus-4-8",
+          "note": "All six empirical premises re-run against the tree and confirmed exactly as stated (1 doc site, 1+1 pattern hits, 4 subclasses forwarding, the Path-typed call at person.py:1150, zero ambient-env tests and no conftest, audit artifact well-shaped); Class-2 blast radius is measured not assumed, with the one unverifiable premise (env var unset on Dave's machine) flagged as the reason AC-6's remediation_confirmed fold matters."
         }
       },
       "verdicts": [
@@ -162,6 +200,37 @@
           "date": "2026-07-19",
           "model": "claude-sonnet-5",
           "note": "Third pass - both prior folds (Path-typed blank door on AC-1/AC-3; stale AC-5 citation) independently re-verified against current tree; no new material finding after attacking AC-6's shape-only audit check and AC-4's lint_vault whitespace edge, both of which dissolve on inspection."
+        },
+        {
+          "gate": "ac-signoff",
+          "verdict": "PROMOTE",
+          "date": "2026-07-19",
+          "reviewer": "dave",
+          "channel": "conversational",
+          "signed_at": "2026-07-19T11:46:12+01:00",
+          "ac_hash": "7a5468f98ac9",
+          "intent_hash": "da32901f3c7f",
+          "ac_hash_AC-1": "b051e2f15439",
+          "ac_hash_AC-2": "eb365b438852",
+          "ac_hash_AC-3": "7854f12b9b4d",
+          "ac_hash_AC-4": "f981c6f66257",
+          "ac_hash_AC-5": "f6ec5002fe0d",
+          "ac_hash_AC-6": "b1674c34084d",
+          "artifact": "docs/spec-reviews/WI-024-dave-review-2026-07-19.md"
+        },
+        {
+          "gate": "architect",
+          "verdict": "PROMOTE",
+          "date": "2026-07-19",
+          "model": "claude-opus-4-8",
+          "note": "Approach is architecturally sound and minimal \u2014 one predicate, one place, in-tree precedent, fail-fast matches ecosystem norm; the consumer audit has landed and its 16 live orchestrator sites are a measured blast radius, but its merge gate lives only in prose, so the spec-writer must fold the remediation confirmation into AC-6's artifact shape."
+        },
+        {
+          "gate": "data-premise",
+          "verdict": "PROMOTE",
+          "date": "2026-07-19",
+          "model": "claude-opus-4-8",
+          "note": "All six empirical premises re-run against the tree and confirmed exactly as stated (1 doc site, 1+1 pattern hits, 4 subclasses forwarding, the Path-typed call at person.py:1150, zero ambient-env tests and no conftest, audit artifact well-shaped); Class-2 blast radius is measured not assumed, with the one unverifiable premise (env var unset on Dave's machine) flagged as the reason AC-6's remediation_confirmed fold matters."
         }
       ],
       "acceptance_criteria": [
@@ -191,13 +260,13 @@
         },
         {
           "id": "AC-5",
-          "desc": "No in-repo documentation advertises no-arg repository construction. Implemented as a general pattern scan over this repo's tracked .md files (AC-2's model), NOT a literal check against named lines. The one live site at time of writing is CLAUDE.md:18 (`repo = PersonRepository()`); a repo-wide grep for `\\w+Repository\\(\\s*\\)` returns that single hit \u2014 README.md:228 already passes an explicit path and README.md:408-409 already shows the env-var route, so neither needs changing. README.md:227's comment (\"or uses OBSIDIAN_VAULT_PATH env var\") should read as required-one-of-two rather than optional. Scoped to this repo's own tracked .md files; says nothing about the consumer repos (see AC-6).",
+          "desc": "No in-repo documentation advertises no-arg repository construction. Implemented as a general pattern scan over this repo's tracked .md files (AC-2's model), NOT a literal check against named lines. Scan scope excludes docs/** and state/**, which are work-item pipeline RECORDS that quote the antipattern as evidence (this doc, the audit artifact, and the spec-review artifact all contain it deliberately) \u2014 quoting a defect as evidence is not advertising it. The one live site at time of writing is CLAUDE.md:18 (`repo = PersonRepository()`); a repo-wide grep for `\\w+Repository\\(\\s*\\)` returns that single hit \u2014 README.md:228 already passes an explicit path and README.md:408-409 already shows the env-var route, so neither needs changing. README.md:227's comment (\"or uses OBSIDIAN_VAULT_PATH env var\") should read as required-one-of-two rather than optional. Scoped to this repo's own tracked .md files; says nothing about the consumer repos (see AC-6).",
           "kind": "test",
           "check": "test_docs_do_not_advertise_no_arg_construction"
         },
         {
           "id": "AC-6",
-          "desc": "docs/wi-024-consumer-audit.md exists and carries, for EACH of HAL9000, Exocortex, and orchestrator, three fields \u2014 the literal scan command run, that command's verbatim stdout (empty output recorded as an explicit \"no matches\" marker, not an absent field), and the 40-char git HEAD SHA of the repo as scanned. The test asserts this shape per repo and fails on a missing repo, a missing field, or a SHA that is not 40 hex chars. It does NOT re-run the scan.",
+          "desc": "docs/wi-024-consumer-audit.md exists and carries, for EACH of HAL9000, Exocortex, and orchestrator, three fields \u2014 the literal scan command run, that command's verbatim stdout (empty output recorded as an explicit \"no matches\" marker, not an absent field), and the 40-char git HEAD SHA of the repo as scanned. It ALSO carries a remediation_confirmed record: the literal `zsh -c 'echo $OBSIDIAN_VAULT_PATH'` command and its verbatim NON-EMPTY output, proving the export the 16 live orchestrator sites depend on is actually live and not merely planned. The test asserts this shape and fails on a missing repo, a missing field, a SHA that is not 40 hex chars, or an absent/empty remediation_confirmed. It does NOT re-run the scan and makes no subprocess or network call.",
           "kind": "test",
           "check": "test_consumer_audit_artifact_is_complete"
         }

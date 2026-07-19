@@ -15,7 +15,7 @@ Shared library providing:
 ```python
 from obsidian_schemas import PersonRepository
 
-repo = PersonRepository()  # Uses OBSIDIAN_VAULT_PATH env var
+repo = PersonRepository("/path/to/vault")  # or set OBSIDIAN_VAULT_PATH — one of the two is required
 person = repo.resolve("john@example.com")  # Smart lookup
 vips = repo.get_by_role("vip")
 ```

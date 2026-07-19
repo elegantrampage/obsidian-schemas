@@ -2,14 +2,14 @@
 id: WI-024
 title: "Remove the hardcoded live-vault default path (loud-fail when unconfigured)"
 project: obsidian-schemas
-stage: exploring
+stage: specced
 created: 2026-07-05
 last_touched: 2026-07-19
 stage_changed: 2026-07-19
-touched_by: session
+touched_by: spec-writer
 tags: [loud-fail, configuration, small-mechanical]
 depends_on: []
-transitions: ["idea>exploring@2026-07-19@session"]
+transitions: ["idea>exploring@2026-07-19@session", "exploring>specced@2026-07-19@session"]
 ---
 
 # Remove the hardcoded live-vault default path
@@ -56,9 +56,11 @@ if vault_path is None:
 
 The predicate is **"the caller omitted an argument."** It is not conditioned on the machine, the user, the environment, or interactivity. The docstring's story ("Falls back to `OBSIDIAN_VAULT_PATH` env var, then default" — base.py:50-51) and the comment's story ("Default vault path - can be overridden" — base.py:20) both describe an *effect*; neither is a predicate that distinguishes Dave's laptop from a CI runner. The two diverge completely: the name says "sensible default", the predicate says "silently bind any forgetful caller anywhere to one specific absolute path, with write capability".
 
-Load-bearing? No — verified, not assumed. `DEFAULT_VAULT_PATH` is not re-exported from `repositories/__init__.py`; it has no importer anywhere in the tree; no test references it; and there is **no no-arg repository construction anywhere in the tree** (`grep -n 'Repository(\s*)'` returns exactly one hit, the prose example at `CLAUDE.md:18`). Every one of the four subclasses (`person.py:173`, `company.py:58`, `meeting.py:34`, `book.py:34`) forwards `vault_path` straight to `super().__init__`, so the predicate lives in exactly one place. The single internal repository-constructing call site, `person.py:1150` (`CompanyRepository(self.vault_path)`), passes an explicit path.
+Load-bearing **in this tree**? No — verified, not assumed. `DEFAULT_VAULT_PATH` is not re-exported from `repositories/__init__.py`; it has no importer anywhere in the tree; no test references it; and there is **no no-arg repository construction anywhere in this repo** (`grep -n 'Repository(\s*)'` returns exactly one hit, the prose example at `CLAUDE.md:18`). Every one of the four subclasses (`person.py:173`, `company.py:58`, `meeting.py:34`, `book.py:34`) forwards `vault_path` straight to `super().__init__`, so the predicate lives in exactly one place. The single internal repository-constructing call site, `person.py:1150` (`CompanyRepository(self.vault_path)`), passes an explicit path.
 
-**Verdict: REMOVE.** Uncontested — the predicate is fail-open by construction and nothing depends on it.
+**Scope correction (2026-07-19, after the consumer audit landed — architect + data-premise gates both flagged the original wording).** The sentence above is true *of this tree* and **false of production**. `docs/wi-024-consumer-audit.md` records **18 no-arg hits in orchestrator, 16 of them live code** (`src/invariants.py` ×4, `src/queue_writer.py:784`, `src/contact_normalizer.py:510`, plus 10 in `bin/`), and records that `OBSIDIAN_VAULT_PATH` was set **nowhere** at scan time — so today those 16 sites resolve through `DEFAULT_VAULT_PATH`. HAL9000 and Exocortex scan clean. Do not carry "nothing depends on it" forward as a global claim: it is a claim about *this repo's* code only. The blast radius is measured, sized, and remediated (see Prerequisites & Assumptions, P3).
+
+**Verdict: REMOVE.** Uncontested — the predicate is fail-open by construction and nothing *in this repo* depends on it; the out-of-repo dependents are the measured blast radius the audit exists to bound, not a reason to keep the fallback.
 
 **Mechanism B — `DEFAULT_VAULT` in `scripts/lint_vault.py:48-51`, consumed at :1146.**
 
@@ -139,6 +141,438 @@ Two red-team proposals were **rejected** as scope creep on a leaf build and rero
 
 Delete `DEFAULT_VAULT_PATH` and replace the fallback at `base.py:55-56` with a single resolution step in `BaseRepository.__init__` that treats *both* a missing/blank `vault_path` argument and a missing/blank `OBSIDIAN_VAULT_PATH` as unconfigured, and raises `VaultPathNotConfiguredError(ValueError)` naming both routes. "Blank" is a property of the *normalised* value, not of its type: `str(vault_path).strip()` (or equivalent) is what gets tested, so `Path("")` — which `pathlib` has already collapsed to `Path(".")` — is caught alongside `""`; an `isinstance(str)`-gated guard is explicitly the wrong shape here, because the library's own `person.py:1150` call passes a `Path`. One place, one predicate, all four subclasses inherit it. `scripts/lint_vault.py` gets the same treatment in the shape its sibling `scripts/migrate_person_to_discuss.py:171-174` already uses — `--vault` defaults to the env var or `''`, and an explicit guard fires *before* `Path(args.vault)` at :1173 — demoted for its own reason (implicit vault + mutating `--fix`/`--quarantine`), not by inheritance from the base.py argument. An invariant test pins unconfigured and blank construction across all four repositories, using `monkeypatch` so the suite stays invariant to the developer's environment. Docs that currently advertise no-arg construction are corrected in the same change — a repo-wide grep for `\w+Repository\(\s*\)` finds exactly one live site, `CLAUDE.md:18`; `README.md:228` already passes an explicit path and `README.md:408-409` already uses the env-var route, so the doc fix is smaller than the earlier framing suggested and the check must be a pattern scan rather than a line-targeted edit list. **Build prerequisite, unchanged and still open — but now mechanised rather than remembered:** the no-arg-construction audit of HAL9000, Exocortex, and orchestrator is performed by the conductor (not the caged builder, which cannot reach those repos) and committed as `docs/wi-024-consumer-audit.md` — one entry per repo carrying the literal scan command, its verbatim output, and the scanned HEAD SHA. The spec-writer declares that path as a `kind: precondition` write fence, so `drive()` refuses to arm the build until the artifact is in git HEAD; AC-6 then pins its shape. See the "cannot be an acceptance criterion" constraint for why no AC kind can carry this obligation directly.
 
+## Design
+
+### Correction to the Approach's stated mechanism (read this first)
+
+The Approach paragraph says: *"`str(vault_path).strip()` (or equivalent) is what gets tested, so `Path("")` — which `pathlib` has already collapsed to `Path(".")` — is caught alongside `""`."* **That mechanism does not work, and a builder who implements it literally ships a green suite with the door still open.**
+
+`pathlib` collapses `Path("")` to `Path(".")` at the caller's construction, so by the time `__init__` sees it the value stringifies to `"."` — which is one character long and survives `.strip()` intact:
+
+```python
+>>> str(Path(""))
+'.'
+>>> bool(str(Path("")).strip())
+True          # <-- a blank-string guard waves it straight through
+```
+
+A blank check alone therefore catches `""`, `"   "`, and `Path("   ")` (which pathlib does *not* normalise — it stays literal whitespace) but **not** `Path("")`. Since `Path("")` is precisely the shape AC-1 names as a required test input, and precisely the shape that binds to cwd, the guard needs a **second clause**: a normalised value equal to `Path(".")` is unconfigured. That clause is what makes AC-1's closing sentence — *"Never resolves to `Path(".")`"* — actually true rather than aspirational.
+
+Consequence worth stating plainly, because it is a deliberate behaviour change beyond the blank doors: **an explicit `Repository(".")` or `Repository(Path("."))` also raises.** Binding a write-capable repository to the current working directory is never a thing anyone means to do, and permitting it would leave the `Path("")` door open by definition (the two are indistinguishable after normalisation). A caller who genuinely wants cwd passes `Path.cwd()` — an absolute path, which resolves fine.
+
+### Data model
+
+No new entities, files, or schemas. One new exception type, one new module-private helper, one deleted constant.
+
+**New public exception**, in `obsidian_schemas/repositories/base.py`, defined immediately after the imports and before `ENV_VAULT_PATH`:
+
+```python
+class VaultPathNotConfiguredError(ValueError):
+    """Raised when a repository is constructed with no usable vault path.
+
+    Loud-fail at the boundary (WI-024): the library has no default vault, so a
+    caller that supplies neither an explicit ``vault_path`` nor a non-blank
+    ``OBSIDIAN_VAULT_PATH`` is misconfigured and must be told at construction —
+    not silently bound to some machine's live vault or to the current working
+    directory.
+
+    Subclasses ``ValueError`` so a consumer's existing ``except ValueError``
+    still catches: the break degrades to a message change, not an uncaught
+    escape.
+    """
+```
+
+`ValueError` as the base is the repo's established convention for boundary exceptions — `IdentifierError(ValueError)` (`identifier.py:58`), `NameValidationError(ValueError)` (`name_validation.py:125`), `WeakIdentityError(ValueError)` (`name_validation.py:140`). (`BodyTruncationError(Exception)` at `writer.py:30` is the one that deviates; do not follow it here — the `except ValueError` compatibility argument is the whole reason the base class was chosen.)
+
+**Deleted:** `DEFAULT_VAULT_PATH` (`base.py:21`) and the comment above it (`base.py:20`). `ENV_VAULT_PATH = "OBSIDIAN_VAULT_PATH"` (`base.py:22`) **stays** — it is the surviving configuration route.
+
+### Flow
+
+`BaseRepository.__init__` (`base.py:41-62`) today reads, verbatim:
+
+```python
+    def __init__(
+        self,
+        vault_path: Optional[str | Path] = None,
+        auto_load: bool = True,
+    ):
+        ...
+        if vault_path is None:
+            vault_path = os.environ.get(ENV_VAULT_PATH, DEFAULT_VAULT_PATH)
+
+        self.vault_path = Path(vault_path)
+```
+
+The signature is unchanged. Lines 55-56 are replaced by a call to a module-level helper, and line 58 consumes its return value:
+
+```python
+def _is_unconfigured(value: object) -> bool:
+    """True when *value* names no vault at all.
+
+    A value is unconfigured if it is absent, blank/whitespace-only, or
+    normalises to the current directory. The check is on the NORMALISED
+    string form, never on ``isinstance(value, str)`` — ``base.py``'s own
+    signature accepts ``str | Path`` and ``person.py:1150`` really does pass
+    a ``Path``, so a type-gated guard would fail exactly where the library
+    calls itself.
+    """
+    if value is None:
+        return True
+    text = str(value).strip()
+    if not text:
+        return True
+    return Path(text) == Path(".")
+
+
+def _resolve_vault_path(vault_path: Optional[str | Path]) -> Path:
+    """Resolve the effective vault path, or raise.
+
+    Precedence: explicit argument, then OBSIDIAN_VAULT_PATH. An unconfigured
+    argument falls through to the env var (AC-1's conjunction); an
+    unconfigured env var after that is the error.
+    """
+    for candidate in (vault_path, os.environ.get(ENV_VAULT_PATH)):
+        if not _is_unconfigured(candidate):
+            return Path(str(candidate).strip())
+    raise VaultPathNotConfiguredError(UNCONFIGURED_VAULT_MESSAGE)
+```
+
+and in `__init__`, replacing lines 55-58:
+
+```python
+        self.vault_path = _resolve_vault_path(vault_path)
+```
+
+**The message**, a module-level constant so the test can assert against one string rather than a substring guess:
+
+```python
+UNCONFIGURED_VAULT_MESSAGE = (
+    "No Obsidian vault configured. Pass an explicit vault_path "
+    "(e.g. PersonRepository('/path/to/vault')) or set the "
+    "OBSIDIAN_VAULT_PATH environment variable. A missing, blank, "
+    "whitespace-only, or current-directory ('.') value counts as "
+    "unconfigured."
+)
+```
+
+It contains the literal tokens `vault_path` and `OBSIDIAN_VAULT_PATH`, which is what AC-1 requires ("The message names both routes").
+
+**Branch enumeration** — every path through `_resolve_vault_path`, with the argument shape on the left and env state across the top. `raise` means `VaultPathNotConfiguredError`; a path means `self.vault_path` binds to it.
+
+| `vault_path` argument | env unset / blank / `"."` | env `"/vault"` |
+|---|---|---|
+| omitted (`None`) | raise | `Path("/vault")` |
+| `""` | raise | `Path("/vault")` |
+| `"   "` | raise | `Path("/vault")` |
+| `Path("")` (≡ `Path(".")`) | raise | `Path("/vault")` |
+| `Path("   ")` | raise | `Path("/vault")` |
+| `"."` / `Path(".")` | raise | `Path("/vault")` |
+| `"/vault"` / `Path("/vault")` | `Path("/vault")` | `Path("/vault")` (argument wins) |
+| `" /vault "` | `Path("/vault")` (stripped) | `Path("/vault")` |
+| `"./sub"` (≡ `Path("sub")`) | `Path("sub")` | `Path("sub")` (relative but not cwd — allowed) |
+
+The raise happens before `self.auto_load`, `self._cache`, `self._file_map`, and `self._loaded` are assigned, and therefore before any glob, `exists()`, or read — which is AC-3's "at construction, before any glob or read of the filesystem." No filesystem call occurs anywhere in the resolution path.
+
+### Integration points
+
+| File | Change | Detail |
+|---|---|---|
+| `obsidian_schemas/repositories/base.py` | modify | Delete `DEFAULT_VAULT_PATH` (`:20-21`); add `VaultPathNotConfiguredError`, `UNCONFIGURED_VAULT_MESSAGE`, `_is_unconfigured`, `_resolve_vault_path`; replace `:55-58` with the one-line call; update the `vault_path` docstring at `:50-51` (it currently promises "Falls back to `OBSIDIAN_VAULT_PATH` env var, then default" — the "then default" clause becomes a lie). |
+| `obsidian_schemas/repositories/__init__.py` | modify | Add `VaultPathNotConfiguredError` to the `from .base import ...` line (`:8`) and to `__all__` (`:14-20`). |
+| `obsidian_schemas/__init__.py` | modify | Re-export `VaultPathNotConfiguredError`, following the existing pattern for `BodyTruncationError` (`:44`, `:108`) and `IdentifierError` (`:70`, `:133`). Consumers catch from the top-level package. |
+| `obsidian_schemas/repositories/{person,company,meeting,book}.py` | **unchanged** | All four forward `vault_path` positionally and verbatim: `person.py:173-174`, `company.py:58-59`, `meeting.py:34-35`, `book.py:34-35` — each `super().__init__(vault_path, **kwargs)`. They inherit the guard. Do **not** add per-subclass checks. |
+| `obsidian_schemas/repositories/person.py:1150` | **unchanged** | `CompanyRepository(self.vault_path)` — `self.vault_path` is an already-validated `Path` (set by `_resolve_vault_path`), so it re-resolves cleanly. This is the call site that makes the `Path`-typed door real; it is also the reason a `isinstance(str)` guard is forbidden. |
+| `scripts/lint_vault.py` | modify | `DEFAULT_VAULT` (`:48-51`) loses `expanduser`; guard added in `main()` before `Path(args.vault)` at `:1173`; module usage docstring (`:7`) updated. |
+| `tests/test_vault_path_required.py` | **new** | All six AC tests. |
+| `CLAUDE.md`, `README.md`, `docs/wi-024-consumer-audit.md` | **conductor precondition** | Outside the builder's write authority (root files) or evidence the builder must not author (the audit). See Write Targets. |
+
+**`scripts/lint_vault.py` — the demoted mechanism.** This is a *different* mechanism from the base.py one and is changed for its own reason: an implicitly-chosen vault combined with mutating flags (`--fix` at `:1163` rewrites frontmatter and bodies; `--quarantine` at `:1165` renames live notes via `src.rename(dest)` at `:1037`). It is **not** "the same duplication as base.py" — `expanduser("~")` resolves against the *running* user, so B is already fail-closed everywhere except Dave's own laptop while A is fail-open everywhere. Carry that story to WI-026 verbatim.
+
+Current state, verbatim:
+
+```python
+# lint_vault.py:48-51
+DEFAULT_VAULT = os.environ.get(
+    "OBSIDIAN_VAULT_PATH",
+    os.path.expanduser("~/Documents/Obsidian/DaveRemoteVault"),
+)
+# lint_vault.py:1146
+        "--vault", type=str, default=DEFAULT_VAULT,
+# lint_vault.py:1171-1176
+    args = parser.parse_args()
+
+    vault_path = Path(args.vault)
+    if not vault_path.exists():
+        print(f"Error: vault not found: {vault_path}", file=sys.stderr)
+        sys.exit(1)
+```
+
+Target state — the shape its sibling `scripts/migrate_person_to_discuss.py:160,171-174` already uses (env-var default of `''`, explicit guard, message naming both routes), **plus** a `.strip()` the sibling lacks:
+
+```python
+# replaces :48-51
+DEFAULT_VAULT = os.environ.get("OBSIDIAN_VAULT_PATH", "")
+
+# in main(), replacing :1173 and preceding it
+    if not args.vault or not args.vault.strip():
+        print("Error: no vault path provided.", file=sys.stderr)
+        print(
+            "Use --vault /path/to/vault or set the OBSIDIAN_VAULT_PATH "
+            "environment variable.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    vault_path = Path(args.vault.strip())
+```
+
+The guard **must precede** `Path(args.vault)`. If `DEFAULT_VAULT` merely became `None`, argparse would yield `args.vault is None` and `Path(None)` raises `TypeError` — a traceback, not a message naming both routes (AC-4). The `.strip()` matters for the same reason it does in the library: `--vault ""` gives `Path("")` → `Path(".")` → `exists()` is True → lint runs against the current working directory, and with `--quarantine` it would rename files there. `--vault "   "` is caught by the strip; even without it, `Path("   ")` does not normalise to cwd and would fall through to the pre-existing `exists()` check — a worse message, not a corruption path.
+
+Message text is written to **stderr** (matching the existing `:1175` convention) and exits `1`. It differs from `migrate_person_to_discuss.py:172-173`, which prints to stdout — follow lint_vault's own local convention, not the sibling's, since the surrounding error at `:1175` already uses stderr.
+
+Note deliberately **not** changed: `DEFAULT_VAULT`'s import-time `os.environ` read means a var mutated after import is ignored. Latent, real, out of scope — routed to WI-026 (see Non-goals).
+
+### Configuration
+
+| Setting | Where | Default | Valid range |
+|---|---|---|---|
+| `OBSIDIAN_VAULT_PATH` | process environment | **none** (previously `/Users/davewascha/Documents/Obsidian/DaveRemoteVault`) | any non-blank path string that does not normalise to `.` |
+| `vault_path` constructor argument | caller code | `None` | `str` or `Path`; same non-blank, non-`.` rule |
+| `--vault` | `scripts/lint_vault.py` CLI | `os.environ.get("OBSIDIAN_VAULT_PATH", "")` | same |
+
+There is no toggle, no feature flag, and no opt-in escape hatch. A3 (`Repository(use_default=True)`) was rejected during exploration precisely because an opt-in flag is a second door someone eventually walks through.
+
+### Prerequisites & Assumptions
+
+Explicit, and each one is a real gate on this build:
+
+- **P1 — Python ≥ 3.10.** `base.py:43` already uses `str | Path` in an annotation evaluated at runtime, so the floor predates this item. No new requirement.
+- **P2 — the consumer-audit artifact is in git HEAD before the builder is armed.** `docs/wi-024-consumer-audit.md` is a `kind: precondition` write target; `drive()` probes HEAD membership and refuses the drive if it is absent. It is currently committed (`c64e054`). The caged builder cannot reach HAL9000, Exocortex, or orchestrator, so it can neither perform nor amend this audit.
+- **P3 — the orchestrator remediation is live, and recorded in the audit artifact, before merge.** This is the one prerequisite that is about Dave's *machine*, not about any file in this repo, and it is the only load-bearing premise no gate has been able to verify (data-premise gate, carry-forward flag 2). The audit records that `OBSIDIAN_VAULT_PATH` was set **nowhere** at scan time and that 16 live orchestrator sites construct repositories with no argument — so absent the remediation, this build breaks orchestrator the moment it merges. The remediation is `export OBSIDIAN_VAULT_PATH="/Users/davewascha/Documents/Obsidian/DaveRemoteVault"` in `~/.zshenv`. **The conductor must amend `docs/wi-024-consumer-audit.md` with a `remediation_confirmed` record — the literal `zsh -c 'echo $OBSIDIAN_VAULT_PATH'` command and its verbatim non-empty output — and commit it before the builder is armed.** AC-6 tests for that record; if it is missing, the AC battery fails loudly at `building → done` and the build does not land. The builder cannot fix this: it must not fabricate an assertion about Dave's shell environment.
+- **P4 — no service must be running.** This is a pure library + script change. HAL9000 and Exocortex need not be up; nothing is called over a network; no credentials, OAuth scopes, or MCP permissions are involved.
+- **P5 — the test suite is hermetic and must stay so.** There is no `conftest.py` in the repo (verified) and zero tests reference `OBSIDIAN_VAULT_PATH` (verified). The new tests **must** use `monkeypatch.delenv(..., raising=False)` / `monkeypatch.setenv(...)` so they pass identically on a machine where the variable is legitimately set — which, after P3, is Dave's. The campaign's rider ("no test may ever touch `OBSIDIAN_VAULT_PATH`") is a wording trap: the real property is *no test depends on ambient environment*, and monkeypatching is how you get it.
+- **P6 — the stale editable install is load-bearing and untouched.** `_obsidian_schemas.pth` points at a dead path; a bare `import obsidian_schemas` fails; the suite works because pytest prepends its rootdir. Nothing in this change touches packaging. Do not "fix" the `.pth`. Under the cage this is *correct*: the suite imports the worktree's `obsidian_schemas`, so the build tests the code it just wrote (`pipeline-runners.yaml:10-17`).
+- **P7 — trust boundary.** The vault path is configuration, not user input: it arrives from the caller's own code or the process environment, both of which are already inside the trust boundary. This change does not introduce a new boundary — it *closes* one, by removing the case where the library supplies a filesystem path nobody asked for. No escaping, sanitisation, or path-traversal defence is in scope; the value is used as a path, exactly as it is today.
+- **P8 — no state is migrated and no data is written.** The change adds a refusal; it never creates, moves, or deletes a vault file.
+
+## Edge Cases & Open Questions
+
+- **Empty / null / malformed input** — **Case:** `vault_path` arrives as `None`, `""`, `"   "`, `Path("")`, `Path("   ")`, `"."`, `Path(".")`, or `OBSIDIAN_VAULT_PATH` is unset / `""` / `"   "` / `"."`. **Decision:** every one raises `VaultPathNotConfiguredError` with `UNCONFIGURED_VAULT_MESSAGE`; the branch table above enumerates all of them. **Reasoning:** this is the item. The property is stated on the *normalised* value regardless of arrival type, not as an enumeration of literals — an enumeration is always gameable by a value one shape removed from the list, which is how the `Path("")` door survived two AC drafts. *Tested by:* `test_unconfigured_vault_path_raises`, `test_all_repositories_raise_when_unconfigured`.
+  A malformed-but-non-blank path (`"/does/not/exist"`, `"\x00"`) is **out of scope** — accident of *commission*, routed to WI-020. `Path("\x00")` raises `ValueError` from pathlib itself on use, which is loud enough.
+
+- **Race conditions / concurrent access** — **Not applicable.** `_resolve_vault_path` is a pure function of its argument and one `os.environ.get`; it holds no lock, mutates no shared state, and touches no file. Two threads constructing repositories concurrently cannot interfere. The only shared mutable state in the neighbourhood is `os.environ` itself, and reading it is atomic at the granularity that matters here.
+
+- **External dependency failure** — **Not applicable.** No API, no service, no network. The nearest thing to an external dependency is `os.environ`, whose failure mode (unset) *is* the handled case.
+
+- **First-run vs subsequent-run** — **Not applicable.** Construction is stateless with respect to prior runs. There is no cache file, no marker, no bootstrap.
+
+- **Migration / backfill** — **Case:** 16 live orchestrator call sites currently resolve through `DEFAULT_VAULT_PATH` and will raise after the flip. **Decision:** migrate the *environment*, not the code — `export OBSIDIAN_VAULT_PATH` in `~/.zshenv`, per P3 and the audit's remediation section. No code in any consumer changes; no data is backfilled. **Reasoning:** those 16 sites are already written in the no-arg + env-var idiom, so supplying the env var makes them correct rather than merely working. Relocating machine-specific configuration to the machine is the point of the item. *Tested by:* `test_consumer_audit_artifact_is_complete` (pins that the remediation was confirmed, not merely planned).
+
+- **Idempotency** — **Case:** the change is re-applied, or a repository is constructed twice with the same input. **Decision:** both are safe. `_resolve_vault_path` is pure and referentially transparent; constructing N repositories yields N identical bindings and no side effects. The edit itself is a deletion plus a guard — re-running the build against an already-built tree is a no-op. **Reasoning:** nothing is written, so there is nothing to make non-idempotent.
+
+- **Retry semantics** — **Case:** a caller catches the error and retries. **Decision:** the failure is **permanent, never transient** — retrying without changing the argument or the environment raises again, identically and immediately. Callers must not retry-with-backoff. **Reasoning:** a configuration error has no time dimension; presenting it as retryable would invite exactly the retry loop that makes misconfiguration look like flakiness.
+
+- **Partial failure** — **Case:** the change lands in `base.py` but not in `lint_vault.py` (or vice versa), e.g. an aborted build resumed mid-plan. **Decision:** the two are independent and each is individually correct; there is no intermediate state in which the tree is *worse* than today. Task ordering (base first, script second) is chosen so the higher-blast-radius library change is complete and tested before the script is touched. The Implementation Plan's checkboxes are the resume point. **Reasoning:** no shared state couples the two changes — they share only the `OBSIDIAN_VAULT_PATH` name, which is a string constant in each.
+
+- **Error propagation** — **Case:** what does an existing caller see? **Decision:** `VaultPathNotConfiguredError`, which **is a `ValueError`** — so a consumer's existing `except ValueError:` still catches it and the break degrades to a message change rather than an uncaught escape. The traceback's innermost repo frame is `_resolve_vault_path`, one frame below the caller's own `PersonRepository(...)` line, so the stack points at the offending caller. **Reasoning:** A2 (raise lazily at first I/O) was rejected exactly here — it would let a misconfigured repository be constructed, stored on a service object, and blow up later at a call site with nothing to do with the bug. *Tested by:* `test_unconfigured_vault_path_raises` asserts `issubclass(VaultPathNotConfiguredError, ValueError)` and that `pytest.raises(ValueError)` catches it.
+  **Known interaction, deliberately not fixed here:** `person.py:1147-1160`'s bare `except Exception` would swallow the new error if that call site ever stopped passing an explicit path. Its predicate cannot fire today (`:1150` passes `self.vault_path`, always validated). Bare-except narrowing is WI-020's territory — solve in one place.
+
+- **Trust boundary crossings** — **Not applicable** in the input-validation sense; see P7. The vault path is configuration from inside the trust boundary, and this change reduces the surface by removing a path the library invented on its own.
+
+- **What-if from exploration: a test machine where `OBSIDIAN_VAULT_PATH` is legitimately set** (which, after P3, is Dave's) — **Case:** the invariant tests assert a raise, but the ambient env var would satisfy the guard and no raise occurs. **Decision:** every test that asserts the unconfigured behaviour calls `monkeypatch.delenv("OBSIDIAN_VAULT_PATH", raising=False)` first; every test that asserts blank-env behaviour uses `monkeypatch.setenv`. **Reasoning:** this is P5, and it is the single most likely way this item's own suite goes silently wrong — a green run on a clean machine, a red run on Dave's, or worse, a test that passes for the wrong reason. *Tested by:* all of `test_unconfigured_vault_path_raises`, `test_all_repositories_raise_when_unconfigured`, `test_lint_vault_requires_explicit_vault` (the last passes a scrubbed `env` dict to `subprocess.run`).
+
+- **What-if: the AC-2 scan false-flags a legitimate use** — **Case:** the pattern scan for `expanduser` / `Path.home()` / `/Users/` hits a line that is fine. **Decision:** the scan skips comment lines and docstrings, and after this change the tree has **zero** live matches in either directory (verified: exactly one hit each today, `base.py:21` and `lint_vault.py:50`, and both are deleted by this item). Any future hit is a genuine regression. **Reasoning:** a scan that must maintain an exception list is a scan nobody trusts; zero-match is the only maintainable resting state. *Tested by:* `test_no_implicit_vault_path_defaults`.
+
+**OPEN: None.**
+
+## Implementation Plan
+
+Tasks 1–3 are strictly ordered (each depends on the previous). Tasks 4–5 (the `lint_vault.py` leg) are independent of 1–3 and may be done in parallel with them. Tasks 6–7 depend on nothing but are cheapest last. **Verify commands assume cwd is the repo root**; the floor command is absolute and cwd-independent either way.
+
+Floor command, referenced throughout:
+
+```bash
+/Users/davewascha/Workspaces/obsidian-schemas/.venv/bin/python -m pytest \
+    /Users/davewascha/Workspaces/obsidian-schemas/tests -q
+```
+
+Baseline before this work: **563 passed, exit 0**. After it: 563 + the new cases, exit 0. A run that lands *fewer* than 563 pre-existing cases means a test file was lost — stop and investigate rather than proceeding.
+
+- [ ] **Task 1 — Add the exception, the message constant, and the resolution helpers to `base.py`.** Modify `obsidian_schemas/repositories/base.py`: delete `DEFAULT_VAULT_PATH` and its comment (`:20-21`); add `VaultPathNotConfiguredError`, `UNCONFIGURED_VAULT_MESSAGE`, `_is_unconfigured`, and `_resolve_vault_path` exactly as given in Design > Data model and Design > Flow; leave `ENV_VAULT_PATH` in place. Do not yet wire `__init__`.
+  *Verify:* `/Users/davewascha/Workspaces/obsidian-schemas/.venv/bin/python -m pytest /Users/davewascha/Workspaces/obsidian-schemas/tests -q` still reports **563 passed** (nothing consumed the constant, so deleting it changes no behaviour yet), and `grep -n 'DEFAULT_VAULT_PATH' obsidian_schemas/repositories/base.py` returns nothing.
+
+- [ ] **Task 2 — Wire the guard into `BaseRepository.__init__` and correct its docstring.** Replace `base.py:55-58` with `self.vault_path = _resolve_vault_path(vault_path)`. Update the `vault_path:` docstring line (`:50-51`) — it currently promises "Falls back to `OBSIDIAN_VAULT_PATH` env var, then default"; it must now say the argument is required unless `OBSIDIAN_VAULT_PATH` is set, and that a blank or current-directory value counts as unconfigured.
+  *Verify:* floor command still **563 passed** (every existing test passes an explicit `tmp_path`), and this one-liner raises rather than returning a repository:
+  ```bash
+  env -u OBSIDIAN_VAULT_PATH /Users/davewascha/Workspaces/obsidian-schemas/.venv/bin/python -c \
+    "import sys; sys.path.insert(0,'.'); from obsidian_schemas import PersonRepository; PersonRepository()"
+  ```
+  Expect a non-zero exit with `VaultPathNotConfiguredError` and both `vault_path` and `OBSIDIAN_VAULT_PATH` in the message.
+
+- [ ] **Task 3 — Export `VaultPathNotConfiguredError` from both `__init__` files.** Add it to the `from .base import ...` line and `__all__` in `obsidian_schemas/repositories/__init__.py` (`:8`, `:14-20`), and re-export it from `obsidian_schemas/__init__.py` following the `BodyTruncationError` pattern at `:44` / `:108`.
+  *Verify:*
+  ```bash
+  /Users/davewascha/Workspaces/obsidian-schemas/.venv/bin/python -c \
+    "import sys; sys.path.insert(0,'.'); import obsidian_schemas as o; \
+     assert issubclass(o.VaultPathNotConfiguredError, ValueError); print('ok')"
+  ```
+
+- [ ] **Task 4 — Demote `lint_vault.py`'s implicit vault default.** In `scripts/lint_vault.py`: replace `:48-51` with `DEFAULT_VAULT = os.environ.get("OBSIDIAN_VAULT_PATH", "")`; add the blank guard in `main()` **before** `Path(args.vault)` at `:1173` and change that line to `Path(args.vault.strip())`, exactly as given in Design > Integration points; update the module usage docstring (`:7`) so `python scripts/lint_vault.py` is no longer shown without `--vault`. Leave `argparse`'s `default=DEFAULT_VAULT` at `:1146` alone.
+  *Verify:*
+  ```bash
+  env -u OBSIDIAN_VAULT_PATH /Users/davewascha/Workspaces/obsidian-schemas/.venv/bin/python \
+      scripts/lint_vault.py; echo "exit=$?"
+  ```
+  Expect `exit=1` and a stderr message naming both `--vault` and `OBSIDIAN_VAULT_PATH`. Then confirm the happy path still works: `.venv/bin/python scripts/lint_vault.py --vault /tmp -q` runs the linter against an empty directory without error.
+
+- [ ] **Task 5 — Write `tests/test_vault_path_required.py` with the four behavioural tests.** New file. `test_unconfigured_vault_path_raises` (AC-1) — parametrised over `[None-sentinel, "", "   ", Path(""), Path("   "), ".", Path(".")]` with `monkeypatch.delenv("OBSIDIAN_VAULT_PATH", raising=False)`, plus the env-blank cases (`monkeypatch.setenv("OBSIDIAN_VAULT_PATH", "")` and `"   "`) with no argument; asserts `VaultPathNotConfiguredError`, that it is caught by `pytest.raises(ValueError)`, and that `str(exc.value)` contains both `"vault_path"` and `"OBSIDIAN_VAULT_PATH"`. `test_all_repositories_raise_when_unconfigured` (AC-3) — the cross-product of `[PersonRepository, CompanyRepository, MeetingRepository, BookRepository]` × every argument shape above, env deleted; also asserts the raise happens before filesystem access by monkeypatching `pathlib.Path.glob` to a function that fails the test if called. `test_lint_vault_requires_explicit_vault` (AC-4) — `subprocess.run([sys.executable, "scripts/lint_vault.py"], env={k: v for k, v in os.environ.items() if k != "OBSIDIAN_VAULT_PATH"}, cwd=<repo root>, capture_output=True, text=True)`; asserts `returncode != 0`, and that `--vault` and `OBSIDIAN_VAULT_PATH` both appear in `stderr`. Add a fourth case in the same test for `--vault ""` asserting the same refusal (the cwd-binding door). Derive the repo root from `Path(__file__).parent.parent`, never from cwd.
+  *Verify:* floor command reports **563 + new** passed, exit 0. Then run it from a foreign cwd to confirm hermeticity: `cd /tmp && /Users/davewascha/Workspaces/obsidian-schemas/.venv/bin/python -m pytest /Users/davewascha/Workspaces/obsidian-schemas/tests -q`. Then run it once with the variable deliberately set — `OBSIDIAN_VAULT_PATH=/tmp <floor command>` — and confirm the same pass count; a difference means a test is reading ambient environment (P5).
+
+- [ ] **Task 6 — Add the two scan tests to `tests/test_vault_path_required.py`.** `test_no_implicit_vault_path_defaults` (AC-2) — walk every `*.py` under `obsidian_schemas/` and `scripts/`, skip blank/comment lines and lines inside triple-quoted blocks (track a simple in-docstring toggle on `"""` / `'''`), and assert **zero** lines contain `expanduser`, `Path.home()`, or the literal `/Users/`; additionally assert `not hasattr(obsidian_schemas.repositories.base, "DEFAULT_VAULT_PATH")`. `test_docs_do_not_advertise_no_arg_construction` (AC-5) — walk every tracked `*.md` **excluding `docs/**` and `state/**`** (those are pipeline records that quote the antipattern as evidence, not documentation that advertises it — see the AC-5 refinement note) and assert the regex `\w+Repository\(\s*\)` has zero matches. Resolve the repo root from `Path(__file__).parent.parent`.
+  *Verify:* floor command green. Deliberately break each once to confirm the test discriminates — temporarily add `x = os.path.expanduser("~")` to a scanned file and confirm `test_no_implicit_vault_path_defaults` fails; temporarily add `repo = PersonRepository()` to `README.md` and confirm `test_docs_do_not_advertise_no_arg_construction` fails. **Revert both before finishing** (and note `README.md` is outside the write authority, so any accidental edit is reverted by the cage anyway).
+
+- [ ] **Task 7 — Add the consumer-audit shape test.** `test_consumer_audit_artifact_is_complete` (AC-6) in the same file. Read `docs/wi-024-consumer-audit.md`. For each of `HAL9000`, `Exocortex`, `orchestrator`, locate the `## <repo>` section and assert three things within it: a line beginning `Command:` followed by a fenced block containing a non-empty command; an `Output` field that is either a fenced verbatim block or an explicit no-matches marker (the literal string `no matches`) — an *absent* Output field fails; and a `HEAD:` line whose value matches `^[0-9a-f]{40}$`. Then assert a `remediation_confirmed` record exists containing the literal `zsh -c 'echo $OBSIDIAN_VAULT_PATH'` and a non-empty output value. The test **does not re-run any scan** and must make no subprocess or network call.
+  *Verify:* floor command green. If `remediation_confirmed` is absent the test fails — that is correct and is P3 doing its job; **do not add the record yourself**, and do not weaken the assertion. Report the failure and stop: the conductor must amend and commit the artifact.
+
+## Write Targets
+
+```writes
+path: obsidian_schemas/repositories/base.py
+why: Tasks 1-2 — delete DEFAULT_VAULT_PATH, add VaultPathNotConfiguredError + the resolution helpers, wire the guard into __init__.
+```
+
+```writes
+path: obsidian_schemas/repositories/__init__.py
+why: Task 3 — re-export VaultPathNotConfiguredError.
+```
+
+```writes
+path: obsidian_schemas/__init__.py
+why: Task 3 — top-level re-export, following the BodyTruncationError/IdentifierError pattern.
+```
+
+```writes
+path: scripts/lint_vault.py
+why: Task 4 — demote the implicit vault default and guard before Path(args.vault).
+```
+
+```writes
+path: tests/test_vault_path_required.py
+why: Tasks 5-7 — the six AC tests (new file).
+```
+
+```writes
+kind: precondition
+path: docs/wi-024-consumer-audit.md
+why: P3 / Task 7 — the conductor performs and records the three-repo audit AND the remediation_confirmed entry; the caged builder cannot reach HAL9000/Exocortex/orchestrator and must not assert anything about Dave's shell environment, so it is design-forbidden from authoring this file.
+```
+
+```writes
+kind: precondition
+path: CLAUDE.md
+why: AC-5 / Task 6 — CLAUDE.md:18 (`repo = PersonRepository()`) is the one live doc site and must become an explicit path, but the project root is outside this repo's write_authority (pipeline-runners.yaml:32-38), so a caged write is reverted; the conductor commits it before the build.
+```
+
+```writes
+kind: precondition
+path: README.md
+why: AC-5 — README.md:227's comment ("or uses OBSIDIAN_VAULT_PATH env var") must read as required-one-of-two rather than optional; same root-path write_authority exclusion as CLAUDE.md, so the conductor commits it. (README.md:228 already passes an explicit path and 408-409 already show the env-var route — no code sample changes.)
+```
+
+**Why three preconditions rather than declaring the paths and hoping.** `pipeline-runners.yaml:34-38` declares this project's write authority as `obsidian_schemas/**`, `tests/**`, `scripts/**`, `docs/**`, with the comment at `:32-33` stating the root is absent on purpose ("CLAUDE.md / README.md / SESSION_LOG.md / pyproject.toml are conductor-owned session-end work outside the cage"). Declaring `CLAUDE.md` as `kind: file` would be blocked by D7b at `→ ready`; writing it anyway inside the cage would be reverted after the spawn. `docs/wi-024-consumer-audit.md` *is* inside the write authority, but is declared `precondition` for a different reason — it is evidence about three repos the builder cannot see, and a builder-authored version of it would be fabrication. That distinction is the point of the fence kind.
+
+## Verification
+
+**Happy path (smoke test).** With a real vault path supplied, everything behaves exactly as before:
+
+```bash
+mkdir -p /tmp/wi024-vault
+/Users/davewascha/Workspaces/obsidian-schemas/.venv/bin/python -c \
+  "import sys; sys.path.insert(0,'.'); from obsidian_schemas import PersonRepository; \
+   r = PersonRepository('/tmp/wi024-vault'); print(r.vault_path, len(r))"
+```
+Expect `/tmp/wi024-vault 0` — construction succeeds, load runs, no error. Then the env-var route:
+```bash
+OBSIDIAN_VAULT_PATH=/tmp/wi024-vault /Users/davewascha/Workspaces/obsidian-schemas/.venv/bin/python -c \
+  "import sys; sys.path.insert(0,'.'); from obsidian_schemas import PersonRepository; \
+   print(PersonRepository().vault_path)"
+```
+Expect `/tmp/wi024-vault`.
+
+**Failure modes — each must fail *gracefully*, i.e. a named exception or a non-zero exit with a message, never a traceback from pathlib and never a silent bind:**
+
+| Scenario | Expected observable |
+|---|---|
+| `PersonRepository()` with env unset | `VaultPathNotConfiguredError`, message contains `vault_path` and `OBSIDIAN_VAULT_PATH` |
+| `PersonRepository("")` / `PersonRepository("   ")` | same |
+| `PersonRepository(Path(""))` / `PersonRepository(Path("   "))` | same — **this is the door the naive guard leaves open; check it explicitly** |
+| `PersonRepository(".")` / `PersonRepository(Path("."))` | same |
+| `OBSIDIAN_VAULT_PATH=""` + no argument | same |
+| `python scripts/lint_vault.py` with env unset | exit 1, stderr names both routes, **no `TypeError`** |
+| `python scripts/lint_vault.py --vault ""` | exit 1, same message — must not lint the current directory |
+
+**Integration — downstream consumers, named.** All three install this library with `pip install -e`. Per `docs/wi-024-consumer-audit.md`: HAL9000 (HEAD `8ee5bf2a…`) and Exocortex (HEAD `75763aa9…`) have **zero** no-arg construction sites and are unaffected. orchestrator (HEAD `114b258c…`) has **16 live sites** which survive the flip **iff** `OBSIDIAN_VAULT_PATH` is exported — P3. After the export is live, confirm the highest-traffic sites still work:
+
+```bash
+zsh -c 'echo $OBSIDIAN_VAULT_PATH'        # must print a non-empty path — this IS the merge gate
+zsh -c 'cd /Users/davewascha/Workspaces/orchestrator && .venv/bin/python -m pytest tests -q'
+```
+
+The orchestrator suite is the integration check; `src/invariants.py` (×4), `src/queue_writer.py:784`, and `src/contact_normalizer.py:510` are the live library-facing sites it covers. `bin/identity-parity-replay.py:66` self-documents as `# default/env vault, read-only` — after the flip it raises like the rest unless the env var is set; that is expected behaviour, not a regression, and is worth a line in the remediation record.
+
+**Regression.** The floor command must report **563 pre-existing cases still passing**, exit 0, from a foreign cwd — the count is the tripwire for a silently lost test file. `tests/test_repositories.py` is the file most likely to be disturbed (every test there constructs repositories with an explicit `tmp_path`/`tempfile` path, so every one exercises the new happy path).
+
+## Verified Diagnosis
+
+Three load-bearing diagnostic claims. If any were false, the work would be invalid or wrongly shaped.
+
+**Claim 1 — the fallback is reached by omission and is write-capable, so a forgetful caller silently binds to the live vault.** Artifact: `base.py:55-56` reads `if vault_path is None: vault_path = os.environ.get(ENV_VAULT_PATH, DEFAULT_VAULT_PATH)`, with `DEFAULT_VAULT_PATH = "/Users/davewascha/Documents/Obsidian/DaveRemoteVault"` at `base.py:21`. The predicate is the argument's absence — not the machine, the user, or the environment. Write capability: `save()` builds `file_path = self.vault_path / filename` at `base.py:202` and calls `write_markdown_file`, which creates missing parents. Nothing observes the mistake: `load()` on a non-existent vault logs a WARNING and returns 0 (`base.py:96-99`), so the repository presents as a legitimately empty vault.
+
+**Claim 2 — a `Path`-typed blank argument reaches a cwd binding, and a blank-*string* guard does not stop it.** Artifacts: (a) the signature accepts it — `vault_path: Optional[str | Path] = None` at `base.py:43`; (b) the library really passes a `Path` into its own constructor — `person.py:1150` is `CompanyRepository(self.vault_path)`, and `self.vault_path` is a `Path` by `base.py:58`; (c) the normalisation is pathlib's, not this code's — runnable: `python -c "from pathlib import Path; print(repr(str(Path(''))), bool(str(Path('')).strip()))"` prints `'.' True`, which is the falsifiable proof that `str(x).strip()` alone does **not** catch `Path("")`. This claim is what forces the second guard clause in Design, and it is a correction to the Approach's own stated mechanism.
+
+**Claim 3 — the flip breaks 16 live orchestrator call sites unless the environment is remediated first.** Artifact: `docs/wi-024-consumer-audit.md`, which records the literal scan command, its verbatim 18-line stdout, and HEAD `114b258cd900075f5505b942835be230e9a2fb39` for orchestrator; 16 of the 18 are live code and 2 are test-file strings (`:67-68`). The same artifact records that `OBSIDIAN_VAULT_PATH` was set nowhere at scan time (`:70-71`).
+  **Sub-claim demoted — `[hypothesis — needs verification]`:** *"`OBSIDIAN_VAULT_PATH` is set nowhere on Dave's machine."* This is an assertion about a machine, not about any file in this repo, and no gate has been able to run `zsh -c 'echo $OBSIDIAN_VAULT_PATH'`, read `~/.zshenv`, or list launchd jobs. It is recorded as the audit's finding, not as verified fact, and it is dated 2026-07-19 — it can rot. It is **not load-bearing for the design**: the guard is correct whether or not the variable is set. It is load-bearing only for the *merge*, which is exactly why P3 converts it into a checkable artifact property (`remediation_confirmed`) that AC-6 tests, rather than leaving it as a prose bullet at `docs/wi-024-consumer-audit.md:76-77` that nothing observes.
+
+**Explicitly not diagnosed here** (asserted by neither this spec nor its ACs): that a "configured but wrong" path silently degrades (`base.py:96-99`), and that `person.py:1147-1160`'s bare `except Exception` is too broad. Both are real, both are routed to WI-020, and neither is load-bearing for this item.
+
+## Scope Boundary
+
+**What we're NOT doing:**
+
+- **Validating that a configured path exists or looks like a vault.** A typo'd `OBSIDIAN_VAULT_PATH` still binds silently; `load()` warns and returns 0. That is accident of *commission*, a different predicate, and the same class as WI-020's silent-degrade boundaries. **Route to WI-020.** (Rejected as approach A5 during exploration, deliberately.)
+- **Narrowing `person.py:1147-1160`'s bare `except Exception`.** Its predicate cannot fire today. **WI-020.**
+- **Fixing `lint_vault.py`'s import-time `os.environ` read** at `:48` — a var mutated after import is ignored. Latent, real, **WI-026**.
+- **Any other `lint_vault.py` safety work** — `--fix` and `--quarantine` hardening is **WI-026**. This item touches only the vault-selection lines.
+- **A deprecation period, a warning, or an opt-in flag.** A4 and A3 were rejected during exploration; Dave signed off on the break on 2026-07-05. Do not soften the raise into a warning, and do not add `use_default=True`.
+- **Fixing the stale `_obsidian_schemas.pth` editable install.** Load-bearing as-is (P6). Leave it.
+- **Adding a `conftest.py`.** The suite has none and its absence is part of the hermeticity property (P5). Use `monkeypatch` per-test.
+- **Changing any consumer repo's code.** The remediation is an environment export, not a code change, and the three consumer repos are outside this project's scope entirely.
+
+**Unchanged files — do not touch:**
+
+- `obsidian_schemas/repositories/person.py`, `company.py`, `meeting.py`, `book.py` — all four already forward `vault_path` verbatim and inherit the guard. Adding a per-subclass check would violate the one-place constraint.
+- `obsidian_schemas/writer.py`, `parser.py`, `models.py`, `identifier.py`, `name_validation.py`, `name_cleaning.py`, `body_sections.py` — untouched by this item.
+- `scripts/migrate_person_to_discuss.py` — it is the *model* being followed, not a target.
+- `tests/test_repositories.py` and every other existing test file — the new tests go in a new file; existing tests already pass explicit paths and must keep passing unmodified.
+- `pipeline-runners.yaml`, `pyproject.toml`, `state/**`, `SESSION_LOG.md` — conductor-owned or pipeline-owned; `pipeline-runners.yaml` and `state/**` are cage-denied outright.
+- `CLAUDE.md`, `README.md`, `docs/wi-024-consumer-audit.md` — conductor preconditions (see Write Targets). The builder reads them; it does not write them.
+
+## Risk Analysis
+
+This touches a library three repos install, so it qualifies as core-workflow work.
+
+| # | What could go wrong | Likelihood | Impact | Mitigation |
+|---|---|---|---|---|
+| R1 | orchestrator breaks on merge because the env var was never exported — 16 live sites raise on construction, and `bin/` scripts Dave runs by hand start failing. | **High if unmitigated** — the audit found the var set nowhere on 2026-07-19. | High but **loud and immediate**: a `VaultPathNotConfiguredError` at construction, not silent corruption. | P3: `~/.zshenv` export, *confirmed* via `zsh -c 'echo $OBSIDIAN_VAULT_PATH'` and recorded as `remediation_confirmed` in the audit artifact, which AC-6 tests. This converts the merge gate from a remembered prose bullet into a machine-checked artifact property — the WI-115 shape the architect gate flagged. |
+| R2 | The builder implements a blank-*string* guard, the suite goes green, and `Repository(Path(""))` still binds to cwd. | **Moderate** — it is the natural minimal implementation and it survived two AC drafts. | High: the item ships believing it closed a door it left open, and cwd binding is write-capable. | The Design section leads with the correction and the runnable proof; AC-1/AC-3 name `Path("")`/`Path("   ")` as required inputs; the branch table enumerates them; Verification lists the row explicitly. |
+| R3 | A new test reads ambient `OBSIDIAN_VAULT_PATH` and passes on a clean machine but fails (or passes for the wrong reason) on Dave's — which, post-P3, has the var set. | **Moderate** | Moderate: an unreliable floor is worse than a missing test. | P5 + Task 5's verify step runs the floor command a second time with `OBSIDIAN_VAULT_PATH=/tmp` and requires an identical pass count. |
+| R4 | A future non-shell context — a new launchd job, an IDE test runner — invokes orchestrator code without the env var. | Low | Low, and **by design**: it loud-fails at construction. | Accepted, and recorded as residual risk in the audit artifact (`:78-80`). This is WI-024 working, not regressing. |
+| R5 | The AC-5 doc scan is written against `CLAUDE.md`/`README.md` line numbers and goes stale. | Low | Low | AC-5 mandates a general pattern scan (AC-2's model), not a line-targeted check; the plan and the AC both say so. |
+
+**Rollback.** `git revert` of the build commit. The change is a deletion plus a guard in one `__init__` plus one script guard — there is no migration to unwind, no data written, and no persisted state. The `~/.zshenv` export is independently harmless and can stay after a revert (it simply becomes redundant).
+
+**Migration path.** Environment-first, code-never: export the variable (P3) → confirm and record it → merge the flip. The 16 orchestrator sites are already written in the no-arg + env-var idiom, so supplying the variable makes them *correct*, not merely working. No shadow mode and no feature flag — A4 was rejected on the grounds that a warning is the silent degrade wearing a hat, and the loud failure at construction is the whole product.
+
 ## Acceptance Criteria
 
 Draft — originated cold-start (no Dave in the loop this session) and red-teamed as recorded above. **Not yet frozen:** `ac-signoff` still requires Dave's signature via `bin/review-spec-helper.py originate --wi-id WI-024 --project <path>`.
@@ -181,7 +615,7 @@ why: this is the higher-blast-radius door — `--fix` rewrites bodies and `--qua
 
 ```criteria
 id: AC-5
-desc: No in-repo documentation advertises no-arg repository construction. Implemented as a general pattern scan over this repo's tracked .md files (AC-2's model), NOT a literal check against named lines. The one live site at time of writing is CLAUDE.md:18 (`repo = PersonRepository()`); a repo-wide grep for `\w+Repository\(\s*\)` returns that single hit — README.md:228 already passes an explicit path and README.md:408-409 already shows the env-var route, so neither needs changing. README.md:227's comment ("or uses OBSIDIAN_VAULT_PATH env var") should read as required-one-of-two rather than optional. Scoped to this repo's own tracked .md files; says nothing about the consumer repos (see AC-6).
+desc: No in-repo documentation advertises no-arg repository construction. Implemented as a general pattern scan over this repo's tracked .md files (AC-2's model), NOT a literal check against named lines. Scan scope excludes docs/** and state/**, which are work-item pipeline RECORDS that quote the antipattern as evidence (this doc, the audit artifact, and the spec-review artifact all contain it deliberately) — quoting a defect as evidence is not advertising it. The one live site at time of writing is CLAUDE.md:18 (`repo = PersonRepository()`); a repo-wide grep for `\w+Repository\(\s*\)` returns that single hit — README.md:228 already passes an explicit path and README.md:408-409 already shows the env-var route, so neither needs changing. README.md:227's comment ("or uses OBSIDIAN_VAULT_PATH env var") should read as required-one-of-two rather than optional. Scoped to this repo's own tracked .md files; says nothing about the consumer repos (see AC-6).
 kind: test
 check: test_docs_do_not_advertise_no_arg_construction
 ```
@@ -190,12 +624,12 @@ why: the Quick Start is the most-copied line in the repo — leaving `PersonRepo
 
 ```criteria
 id: AC-6
-desc: docs/wi-024-consumer-audit.md exists and carries, for EACH of HAL9000, Exocortex, and orchestrator, three fields — the literal scan command run, that command's verbatim stdout (empty output recorded as an explicit "no matches" marker, not an absent field), and the 40-char git HEAD SHA of the repo as scanned. The test asserts this shape per repo and fails on a missing repo, a missing field, or a SHA that is not 40 hex chars. It does NOT re-run the scan.
+desc: docs/wi-024-consumer-audit.md exists and carries, for EACH of HAL9000, Exocortex, and orchestrator, three fields — the literal scan command run, that command's verbatim stdout (empty output recorded as an explicit "no matches" marker, not an absent field), and the 40-char git HEAD SHA of the repo as scanned. It ALSO carries a remediation_confirmed record: the literal `zsh -c 'echo $OBSIDIAN_VAULT_PATH'` command and its verbatim NON-EMPTY output, proving the export the 16 live orchestrator sites depend on is actually live and not merely planned. The test asserts this shape and fails on a missing repo, a missing field, a SHA that is not 40 hex chars, or an absent/empty remediation_confirmed. It does NOT re-run the scan and makes no subprocess or network call.
 kind: test
 check: test_consumer_audit_artifact_is_complete
 ```
 
-why: the audit's teeth are the precondition fence, not this test — this pins the artifact's SHAPE so an audit recorded as one hand-waved prose sentence fails, and the per-repo commit SHA makes the claim re-checkable by anyone with the three repos on disk (which this hermetic suite, by design, is not).
+why: the audit's teeth are the precondition fence, not this test — this pins the artifact's SHAPE so an audit recorded as one hand-waved prose sentence fails, and the per-repo commit SHA makes the claim re-checkable by anyone with the three repos on disk (which this hermetic suite, by design, is not); the remediation_confirmed field extends that same reasoning one step, because an audit that measures a blast radius but leaves the fix to a remembered prose bullet has proved the danger without proving the safety.
 
 ### Examples of done
 
@@ -204,6 +638,22 @@ why: the audit's teeth are the precondition fence, not this test — this pins t
 **Given** a `.env` that sets `OBSIDIAN_VAULT_PATH=` with nothing after the `=`, **when** any of the three consumers constructs a repository, **then** it raises the same error — rather than binding to the current working directory and creating `@Someone.md` files wherever the process happened to start.
 
 **Given** a cron job that runs `python scripts/lint_vault.py --quarantine` and whose environment lost the env var, **when** it fires, **then** it exits non-zero having read nothing and moved nothing — rather than renaming notes in whichever vault the default guessed.
+
+### AC refinement log — spec-writer, 2026-07-19
+
+Two frozen criteria were edited in place. Both are **strengthenings**, recorded here so the spec-reviewer can classify the diff against the drift taxonomy (Check 12) without reconstructing intent. **Neither weakens a promise, swaps an actor, narrows scope, swaps an oracle, nor carves an exception into an original.** Note that touching a signed section invalidates `ac_hash` / `ac_hash_AC-5` / `ac_hash_AC-6` per D4b — a re-sign via `bin/review-spec-helper.py` is expected and is the cheap half of the asymmetry.
+
+1. **AC-6 gained a required field** (`remediation_confirmed`). Directed by the architect gate's blocking-strength note: the audit's remediation had a merge gate living only as a prose bullet at `docs/wi-024-consumer-audit.md:76-77`, with nothing observing it — the WI-115 shape (a mechanically-checkable value left to remembered compliance). The frozen AC-6 already promised "the audit artifact has audit shape"; requiring the artifact to also record that the remediation *happened* extends that promise in its own direction. It makes the criterion **harder** to satisfy, never easier. The check name is unchanged and the mechanism (a shape assertion over an artifact the hermetic suite can read) is unchanged.
+
+2. **AC-5 gained an explicit scan-scope exclusion** (`docs/**`, `state/**`). This is a clarification forced by implementability, not a narrowing of the promise. The frozen desc says "scoped to this repo's own tracked .md files"; taken literally, the scan would fail on *this very document*, on `docs/wi-024-consumer-audit.md`, and on `docs/spec-reviews/WI-024-dave-review-2026-07-19.md` — all of which quote `PersonRepository()` as the defect under discussion. The promise being kept is "no doc **advertises** no-arg construction"; a red-team transcript citing the antipattern as evidence is the opposite of advertising it. Verified against the tree: excluding `docs/**` and `state/**` leaves the check still catching the one real site, `CLAUDE.md:18`, and it remains a general pattern scan rather than a line-targeted edit list. If a reviewer judges this a scope-narrowing anyway, the escalation is cheap and I would rather be told.
+
+### Self-review dry run
+
+Three questions a cold-start builder would plausibly ask, and where the spec answers them:
+
+1. *"`str(vault_path).strip()` is what the Approach says to write — why doesn't that catch `Path("")`?"* — Design opens with exactly this correction and a runnable one-liner proving `str(Path(""))` is `'.'`. The second guard clause (`Path(text) == Path(".")`) is the answer.
+2. *"AC-6 wants a `remediation_confirmed` record that isn't in the audit file. Do I add it?"* — **No.** Task 7's verify step and P3 both say so explicitly: report the failure and stop; the conductor amends and commits. The builder must not assert anything about Dave's shell environment.
+3. *"AC-5 says fix the docs, but my write to `CLAUDE.md` keeps disappearing."* — Write Targets explains it: the project root is outside this repo's `write_authority` (`pipeline-runners.yaml:32-38`), so `CLAUDE.md` and `README.md` are conductor preconditions, not builder work. If they are unfixed when the build runs, `test_docs_do_not_advertise_no_arg_construction` fails — again, report and stop.
 
 ## Relationship to other work
 
@@ -322,4 +772,105 @@ ac_hash_AC-4: f981c6f66257
 ac_hash_AC-5: f6ec5002fe0d
 ac_hash_AC-6: b1674c34084d
 artifact: docs/spec-reviews/WI-024-dave-review-2026-07-19.md
+```
+
+## Architectural Review — 2026-07-19
+
+**Recommendation: PROMOTE to architected**
+
+Cold-start. Code claims below re-derived from the current tree, not carried from prior gates: `base.py:20-22,41-58,86-99` read in full; all four subclass `__init__`s re-grepped (`person.py:173-174`, `company.py:58-59`, `meeting.py:34-35`, `book.py:34-35`) — each forwards `vault_path` verbatim, positionally, to `super().__init__`; `lint_vault.py:1143-1176`; `migrate_person_to_discuss.py:153-179`; AC-2's pattern scan re-run over `obsidian_schemas/` (exactly one hit, `base.py:21`); repo-wide `\w+Repository\(\s*\)` scan (one live doc site, `CLAUDE.md:18`). `LESSONS.html` #5 (loud-fail) and #21 (a gate validates within its premise) consulted.
+
+### Trigger check
+
+Fires on: *replaces or significantly extends an existing core system* (the default binding of a library three repos install) and *cross-system integration* (breaking change with a measured blast radius in a sibling repo). Not a skip pattern — this is a semantic break, not a config tweak.
+
+### Review
+
+**Fit:** Harmonizes. The target shape already exists in-tree at `migrate_person_to_discuss.py:160,171-174` — env-var default of `''`, explicit guard, message naming both routes — and the exploration correctly adopts it rather than inventing one. Named boundary exceptions match the repo's convention (`writer.py:46`, `name_validation.py:134,160`, `identifier.py:67`), and subclassing `ValueError` is the right call: a consumer's existing `except ValueError` still catches, so the break degrades to a message change rather than an uncaught escape.
+
+**Duplication:** None introduced, and the item correctly refuses to create some. The predicate lives at exactly one line (`base.py:55-56`) and all four subclasses forward through it — the "one place to change" constraint is verified, not assumed. The REMOVE-audit's decision to classify `lint_vault.py:48-51` as a *separate mechanism* (DEMOTE, "implicit vault + mutating `--fix`/`--quarantine`") rather than "the same duplication" is the architecturally correct read: `expanduser("~")` resolves against the running user, so B is already fail-closed everywhere except Dave's laptop while A is fail-open everywhere. Recording that distinction for WI-026 is right.
+
+**Boundaries:** Clean. Ownership of "what vault am I bound to" moves from the library to the caller/environment — which is where machine-specific configuration belongs. A machine-specific absolute path baked into a shared library is the boundary violation; removing it restores the library's machine-agnosticism. The three rerouted findings (WI-020's configured-but-wrong path and bare-except, WI-026's import-time env read) keep this item at accident-of-omission and do not leak scope.
+
+**Determinism boundary:** Correct on the code path — the guard is a mechanical property check in code, no judgment involved, and A2 (lazy raise at first I/O) was rightly rejected for splitting one predicate across three doors. One violation off the code path, in the merge gate; see Blocking-strength note below.
+
+**Reversibility:** High. The change is a deletion plus a guard in one `__init__`; back-out is a revert. Independently, the runtime failure mode is a loud raise at construction, not silent corruption — a wrong call is visible in seconds, not discovered months later. A4 (warn instead of raise) was correctly rejected: `load()` already warns at `base.py:96-99` and that warning has never stopped anything.
+
+**Generalization:** Right-sized. The guard is stated as a property of the *normalised* path rather than an enumeration of literal inputs — which is what makes it survive the `Path("")` door that `person.py:1150` (`CompanyRepository(self.vault_path)`, passing a `Path`) actually exercises. A3 (opt-in `use_default=True`) was correctly rejected as a second door. No hypothetical futures built.
+
+**Cost & maintenance:** Low and decreasing. Net deletion of a constant plus ~5 lines of guard, one test file, one doc line. The maintenance burden it removes — a live-vault path that every consumer silently inherits — is larger than the one it adds.
+
+**Build vs extend vs integrate:** Extend, correctly. No new module, no dependency, no abstraction. Alternatives A2–A5 are each ruled out on stated grounds that hold under inspection.
+
+**Prior art (outside view):** The approach *subtracts* a default rather than building machinery around a constraint, so the blocking conditions of this dimension do not apply. For completeness: fail-fast-on-unconfigured is the standard answer across the ecosystem — Django's `ImproperlyConfigured` on unset settings, `pydantic-settings` raising `ValidationError` on missing required fields, 12-factor's config-in-environment. Nothing here diverges from how the world solves this; the current code is the divergence.
+
+### Blocking-strength note for the spec-writer (does not block promotion — the Approach stands verbatim)
+
+The consumer audit landed and it changes one factual premise the exploration text still carries. `docs/wi-024-consumer-audit.md` records **18 hits in orchestrator, 16 of them live code** (`src/invariants.py` ×4, `src/queue_writer.py:784`, `src/contact_normalizer.py:510`, plus 10 in `bin/`), and records that `OBSIDIAN_VAULT_PATH` was set **nowhere** at scan time. So the REMOVE-audit's line "Load-bearing? No — verified, not assumed… nothing depends on it" is true *of this tree* and false *of production*: today those 16 sites resolve through `DEFAULT_VAULT_PATH`. The Approach does not change — this is the blast radius the audit existed to measure, and it was measured — but the doc's prose should be reconciled so no downstream reader inherits "nothing depends on it" as a global claim.
+
+The architectural gap that follows is one of **enforcement, not design**. The audit's remediation — export the var in `~/.zshenv` — is sound and correctly relocates machine config to the machine. But its merge gate ("confirm the export is live via `zsh -c 'echo $OBSIDIAN_VAULT_PATH'` before merging") exists **only as a prose bullet at `docs/wi-024-consumer-audit.md:76-77`**. Nothing observes it. The `kind: precondition` fence proves the audit *exists*; it does not prove the remediation *happened*. And the hermetic floor suite cannot notice, by construction — AC-1's `monkeypatch`-everything property is precisely what makes it blind to the ambient variable whose absence would break 16 live sites. The item's own correctness guarantee is what hides the breakage it causes.
+
+That is the WI-115 shape recurring: a mechanically-checkable value (is the var exported?) left to remembered compliance at merge time, with no detecting check at all — weaker even than the detecting-check-after-the-fact that scar already condemned. It is also LESSONS #21 in miniature — every gate so far validated within a frame where the consumer audit was still open, so none could see this.
+
+**Concrete resolution, and why it is spec-writer work rather than re-exploration:** AC-6 already pins the audit artifact's *shape*. Extend that shape by one required field — a `remediation_confirmed` entry carrying the literal `zsh -c 'echo $OBSIDIAN_VAULT_PATH'` command and its verbatim non-empty output — and the merge gate becomes an artifact property the existing `test_consumer_audit_artifact_is_complete` check already reaches, using the mechanism already in place. No word of the Approach changes; one AC `desc` gains a field. That is a speccing adjustment, not a redesign, which is why this is PROMOTE-with-notes and not REVISE.
+
+### Notes (non-blocking)
+
+- `identity-parity-replay.py:66` self-documents as `# default/env vault, read-only`. After the flip it raises like the rest — expected, but it is the one site whose comment asserts the removed behaviour, worth a line in the remediation record.
+- AC-4's guard-before-`Path(args.vault)` ordering requirement is real and not tautological: `lint_vault.py:1173` constructs the `Path` before any vault guard exists today, so a `default=None` alone yields `TypeError`, not a message. Verified in the tree.
+- The DEMOTE reasoning for `lint_vault.py:48` should travel with WI-026 as written — the change is about implicit-vault-plus-mutation, not about a hardcoded Dave path. Inheriting the wrong story there would misdirect that item's `--fix` safety work.
+
+```verdict
+gate: architect
+verdict: PROMOTE
+date: 2026-07-19
+model: claude-opus-4-8
+note: Approach is architecturally sound and minimal — one predicate, one place, in-tree precedent, fail-fast matches ecosystem norm; the consumer audit has landed and its 16 live orchestrator sites are a measured blast radius, but its merge gate lives only in prose, so the spec-writer must fold the remediation confirmation into AC-6's artifact shape.
+```
+
+## Data Audit — 2026-07-19
+
+**Recommendation: PROMOTE to specced**
+
+Cold-start. Every predicate below was re-run by me against the current tree; none is carried from a prior gate's citation.
+
+### Trigger check
+
+**Class 2 — rule-effect-against-existing-corpus.** The spec introduces a guard whose correctness depends on its effect against everything that exists today: a fail-open default becomes a raise, so the load-bearing premise is "nothing currently reaches that default." Class 1 also fires on the quantified corpus claims the AC set rests on (AC-2's "exactly one hit", AC-5's "one live doc site", the hermeticity claim "zero tests reference the env var"). Not Class 0 — these are existence and count claims about real code, and each one is an AC's discriminating power.
+
+### Premises
+
+1. `\w+Repository\(\s*\)` has exactly one live site in this repo's docs (`CLAUDE.md:18`), and none in code — AC-5's whole claim.
+2. AC-2's pattern scan (`expanduser` / `Path.home()` / literal `/Users/`) has exactly one hit in `obsidian_schemas/` and one in `scripts/` — so the check discriminates rather than flagging legitimate uses.
+3. `base.py:55-56` is the single predicate site; all four subclasses forward `vault_path` verbatim — AC-3's "one place, four doors."
+4. `person.py:1150` passes a `Path`, making the `Path("")` door real rather than hypothetical — the premise behind AC-1's property wording.
+5. No test depends on ambient `OBSIDIAN_VAULT_PATH`; no `conftest.py` exists — the hermeticity property the invariant test must preserve.
+6. The consumer-audit artifact exists with the shape AC-6 pins.
+
+### Predicate + result (run 2026-07-19)
+
+| # | Predicate | Result |
+|---|---|---|
+| 1 | `grep -rnE '\w+Repository\(\s*\)'` over tree | **1 live doc site: `CLAUDE.md:18`.** Other hits are self-referential only — this doc, `docs/spec-reviews/WI-024-dave-review-2026-07-19.md`, the audit artifact's quoted output, and `state/*`. Zero in `obsidian_schemas/`, `scripts/`, `tests/`. |
+| 2 | `grep -rnE 'expanduser\|Path\.home\(\)\|/Users/'` over `obsidian_schemas/` then `scripts/` | **Exactly one each: `base.py:21` and `lint_vault.py:50`.** No third match anywhere, so no false-flag surface. |
+| 3 | subclass `__init__` scan | **All four forward verbatim, positionally:** `person.py:173-174`, `company.py:58-59`, `meeting.py:34-35`, `book.py:34-35` — each `super().__init__(vault_path, **kwargs)`. Base signature `Optional[str \| Path] = None` at `base.py:43`; fallback still live at `:55-56`; `Path(vault_path)` at `:58`. |
+| 4 | `CompanyRepository(` call sites | **`person.py:1150`: `CompanyRepository(self.vault_path)`** — `self.vault_path` is a `Path` per `base.py:58`. Confirmed: the library passes a `Path` into its own constructor. |
+| 5 | `grep -rn 'OBSIDIAN_VAULT_PATH\|DEFAULT_VAULT_PATH'` + `glob **/conftest.py` | **Zero hits under `tests/`. No `conftest.py` in the repo.** In-code hits are only `base.py:21,22,51,56`, `lint_vault.py:49`, `migrate_person_to_discuss.py:18,160-161,173`. |
+| 6 | read `docs/wi-024-consumer-audit.md` | Present; three repos, each with literal command, verbatim stdout, 40-hex SHA. HAL9000 and Exocortex clean; **orchestrator 18 hits, 16 live code.** |
+
+### Conclusion
+
+Every premise the AC set rests on holds against the tree as it stands today. None of AC-1/2/3/4 passes on unmodified state (the fallback at `base.py:55-56` is still live, `DEFAULT_VAULT_PATH` still exists), so no criterion is satisfiable with zero implementation. The Class-2 question — what does the new rule do against the corpus that exists? — is answered rather than reasoned about: the flip breaks nothing in *this* tree (no no-arg construction anywhere in code), and breaks 16 live sites in orchestrator unless `OBSIDIAN_VAULT_PATH` is exported, which is exactly what the committed audit measured and what its remediation addresses. That is a known, sized, and routed blast radius, not an ungrounded assumption.
+
+**Two carry-forward flags for the spec-writer — neither blocks promotion:**
+
+- **Prose to reconcile (the architect flagged this; I confirm the data).** The REMOVE-audit's "Load-bearing? No — verified, not assumed… nothing depends on it" (line ~59) is true of this tree and false of production. Predicate 1 confirms zero in-tree dependents; predicate 6 confirms 16 live orchestrator dependents. Scope the sentence to this tree so no downstream reader inherits it as a global claim.
+- **One premise is outside this cage's reach and therefore outside this audit's warrant.** The audit artifact's "`OBSIDIAN_VAULT_PATH` set nowhere — shell profile, both launchd plists, crontab checked" (lines 70-71) is an assertion about Dave's machine, not about any file in this repo. I could not run `zsh -c 'echo $OBSIDIAN_VAULT_PATH'`, read `~/.zshenv`, or list launchd jobs. I am not restating it as grounded; I am recording that it is the one load-bearing premise this gate did not verify, and that it is the exact premise the architect's AC-6 `remediation_confirmed` field exists to convert from prose into a checkable artifact property. That fold is the right mechanism — it is what makes this premise re-groundable at build-start when the audit's 2026-07-19 date is what tells you whether it has rotted.
+
+```verdict
+gate: data-premise
+verdict: PROMOTE
+date: 2026-07-19
+model: claude-opus-4-8
+note: All six empirical premises re-run against the tree and confirmed exactly as stated (1 doc site, 1+1 pattern hits, 4 subclasses forwarding, the Path-typed call at person.py:1150, zero ambient-env tests and no conftest, audit artifact well-shaped); Class-2 blast radius is measured not assumed, with the one unverifiable premise (env var unset on Dave's machine) flagged as the reason AC-6's remediation_confirmed fold matters.
 ```
