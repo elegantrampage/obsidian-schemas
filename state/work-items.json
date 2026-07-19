@@ -1,7 +1,7 @@
 {
   "project": "obsidian-schemas",
   "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
-  "last_scanned": "2026-07-08T17:17:03Z",
+  "last_scanned": "2026-07-19T11:34:59Z",
   "next_id": 28,
   "items": [
     {
@@ -109,11 +109,11 @@
     {
       "id": "WI-024",
       "title": "Remove the hardcoded live-vault default path (loud-fail when unconfigured)",
-      "stage": "idea",
+      "stage": "exploring",
       "file": "docs/default-vault-path.md",
       "created": "2026-07-05",
-      "last_touched": "2026-07-05",
-      "stage_changed": "2026-07-05",
+      "last_touched": "2026-07-19",
+      "stage_changed": "2026-07-19",
       "tags": [
         "loud-fail",
         "configuration",
@@ -123,10 +123,85 @@
       "children": [],
       "depends_on": [],
       "blocked": false,
-      "transitions": [],
-      "latest_verdicts": {},
-      "verdicts": [],
-      "acceptance_criteria": [],
+      "transitions": [
+        {
+          "from": "idea",
+          "to": "exploring",
+          "at": "2026-07-19",
+          "by": "session",
+          "forced": false
+        }
+      ],
+      "latest_verdicts": {
+        "ac-red-team": {
+          "gate": "ac-red-team",
+          "verdict": "PROMOTE",
+          "date": "2026-07-19",
+          "model": "claude-sonnet-5",
+          "note": "Third pass - both prior folds (Path-typed blank door on AC-1/AC-3; stale AC-5 citation) independently re-verified against current tree; no new material finding after attacking AC-6's shape-only audit check and AC-4's lint_vault whitespace edge, both of which dissolve on inspection."
+        }
+      },
+      "verdicts": [
+        {
+          "gate": "ac-red-team",
+          "verdict": "REVISE",
+          "date": "2026-07-19",
+          "model": "claude-sonnet-5",
+          "note": "AC-5 folds the 3-repo consumer-audit build prerequisite into a check that can only scan this repo's own docs \u2014 the breaking-change safety gate is satisfiable by a fabricated audit sentence and is never actually verified."
+        },
+        {
+          "gate": "ac-red-team",
+          "verdict": "REVISE",
+          "date": "2026-07-19",
+          "model": "claude-sonnet-5",
+          "note": "Prior CRITICAL (AC-5 unauditable audit claim) fold verified and holds; new MATERIAL finding - AC-1/AC-3 enumerate only string-typed blank doors, leaving a Path(\"\")/Path(\"   \") door of the identical accident-of-omission shape uncovered (person.py:1150 shows Path-typed args are a real call shape)."
+        },
+        {
+          "gate": "ac-red-team",
+          "verdict": "PROMOTE",
+          "date": "2026-07-19",
+          "model": "claude-sonnet-5",
+          "note": "Third pass - both prior folds (Path-typed blank door on AC-1/AC-3; stale AC-5 citation) independently re-verified against current tree; no new material finding after attacking AC-6's shape-only audit check and AC-4's lint_vault whitespace edge, both of which dissolve on inspection."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "AC-1",
+          "desc": "BaseRepository.__init__ raises VaultPathNotConfiguredError (a ValueError subclass) whenever the effective vault path is unconfigured \u2014 i.e. the vault_path argument is absent, or reduces to an empty/whitespace string REGARDLESS OF WHETHER IT ARRIVES AS str OR Path (base.py:43 accepts str | Path; Path(\"\") is already Path(\".\") before __init__ sees it) \u2014 AND OBSIDIAN_VAULT_PATH is unset or blank. The message names both routes (\"vault_path\" and \"OBSIDIAN_VAULT_PATH\"). The guard is a property check on the normalised path, not an isinstance(str)-gated one. Test inputs must include at minimum: no arg, \"\", \"   \", Path(\"\"), Path(\"   \"), and env set to \"\" or whitespace. Never resolves to Path(\".\").",
+          "kind": "test",
+          "check": "test_unconfigured_vault_path_raises"
+        },
+        {
+          "id": "AC-2",
+          "desc": "No caller-independent filesystem path survives as a default in obsidian_schemas/ or scripts/ \u2014 no os.path.expanduser, Path.home(), or literal \"/Users/\" resolved into a default vault binding outside docstrings. DEFAULT_VAULT_PATH no longer exists.",
+          "kind": "test",
+          "check": "test_no_implicit_vault_path_defaults"
+        },
+        {
+          "id": "AC-3",
+          "desc": "All four repositories (Person, Company, Meeting, Book) raise VaultPathNotConfiguredError, with no env var set, for EACH unconfigured argument shape AC-1 defines \u2014 no arg, \"\", \"   \", Path(\"\"), Path(\"   \") \u2014 not the no-arg case alone. The raise happens at construction, before any glob or read of the filesystem.",
+          "kind": "test",
+          "check": "test_all_repositories_raise_when_unconfigured"
+        },
+        {
+          "id": "AC-4",
+          "desc": "scripts/lint_vault.py run with neither --vault nor OBSIDIAN_VAULT_PATH exits non-zero with a message naming both routes, and the guard executes BEFORE Path(args.vault) at line 1173 (no TypeError crash path). Mirrors the existing scripts/migrate_person_to_discuss.py:171-174 shape.",
+          "kind": "test",
+          "check": "test_lint_vault_requires_explicit_vault"
+        },
+        {
+          "id": "AC-5",
+          "desc": "No in-repo documentation advertises no-arg repository construction. Implemented as a general pattern scan over this repo's tracked .md files (AC-2's model), NOT a literal check against named lines. The one live site at time of writing is CLAUDE.md:18 (`repo = PersonRepository()`); a repo-wide grep for `\\w+Repository\\(\\s*\\)` returns that single hit \u2014 README.md:228 already passes an explicit path and README.md:408-409 already shows the env-var route, so neither needs changing. README.md:227's comment (\"or uses OBSIDIAN_VAULT_PATH env var\") should read as required-one-of-two rather than optional. Scoped to this repo's own tracked .md files; says nothing about the consumer repos (see AC-6).",
+          "kind": "test",
+          "check": "test_docs_do_not_advertise_no_arg_construction"
+        },
+        {
+          "id": "AC-6",
+          "desc": "docs/wi-024-consumer-audit.md exists and carries, for EACH of HAL9000, Exocortex, and orchestrator, three fields \u2014 the literal scan command run, that command's verbatim stdout (empty output recorded as an explicit \"no matches\" marker, not an absent field), and the 40-char git HEAD SHA of the repo as scanned. The test asserts this shape per repo and fails on a missing repo, a missing field, or a SHA that is not 40 hex chars. It does NOT re-run the scan.",
+          "kind": "test",
+          "check": "test_consumer_audit_artifact_is_complete"
+        }
+      ],
       "summary": "`DEFAULT_VAULT_PATH = \"/Users/davewascha/Documents/Obsidian/DaveRemoteVault\"` (base.py:21) is the fallback whenever a repository is constructed with no path and `OBSIDIAN_VAULT_PATH` is unset \u2014 a mach"
     },
     {
