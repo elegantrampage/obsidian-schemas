@@ -762,16 +762,16 @@ verdict: PROMOTE
 date: 2026-07-19
 reviewer: dave
 channel: conversational
-signed_at: 2026-07-19T11:46:12+01:00
-ac_hash: 7a5468f98ac9
+signed_at: 2026-07-19T12:25:18+01:00
+ac_hash: bcc5e03b3564
 intent_hash: da32901f3c7f
 ac_hash_AC-1: b051e2f15439
 ac_hash_AC-2: eb365b438852
 ac_hash_AC-3: 7854f12b9b4d
 ac_hash_AC-4: f981c6f66257
-ac_hash_AC-5: f6ec5002fe0d
-ac_hash_AC-6: b1674c34084d
-artifact: docs/spec-reviews/WI-024-dave-review-2026-07-19.md
+ac_hash_AC-5: c095a1c179d5
+ac_hash_AC-6: 9878e458ac13
+artifact: docs/spec-reviews/WI-024-dave-review-2026-07-19-2.md
 ```
 
 ## Architectural Review — 2026-07-19
