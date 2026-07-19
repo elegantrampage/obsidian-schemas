@@ -1,0 +1,38 @@
+# Conductor pre-drive artifact — deliberately NOT builder-writable (workshop WI-148/WI-080).
+# This file lives at the project root, matched by no gate profile's allowed_changes, so a caged
+# write to it is reverted by design. Loader: workshop src/work_item_linter.py
+# load_command_registry; validated at the consuming boundary by cage.validate_write_authority /
+# cage.validate_seed_deps.
+
+# The AC battery runs under the cage with this project's interpreter (the floor command is
+# `.venv/bin/python -m pytest`), so the venv must be seeded into the worktree.
+#
+# NOTE for whoever debugs a cage import failure: this .venv's editable install is STALE — its
+# `_obsidian_schemas.pth` points at /Users/davewascha/Documents/Code/obsidian-schemas, which no
+# longer exists. `import obsidian_schemas` therefore FAILS under a bare interpreter. The floor
+# command works anyway because pytest prepends its rootdir (the repo/worktree root) to sys.path,
+# via tests/__init__.py + [tool.pytest.ini_options]. This is load-bearing and, for caging,
+# actually correct: the suite imports the WORKTREE's obsidian_schemas, not the live checkout, so
+# a caged build tests the code it just wrote. Do not "fix" the .pth to an absolute live path —
+# that would silently point every caged run at the live tree.
+seed_deps:
+  - .venv
+
+# WI-148: obsidian-schemas' declared writable source layout. Layout is a conventional Python
+# package: obsidian_schemas/ (the library), tests/, scripts/, docs/.
+#
+# scripts/** is INCLUDED, on evidence rather than as a catch-all: WI-026 ("lint_vault.py --fix
+# safety", live in queue_order) targets scripts/lint_vault.py directly — 1,198 LOC, zero tests,
+# the largest untested file in the repo and a known C2-corruption path. A driven WI-026 that
+# cannot write scripts/ would cap at build exactly the way review-doc's 2026-07-12 drives did.
+#
+# state/** is absent on purpose — it is pipeline-tooling-owned, and deny wins over a declaration
+# downstream in classify_change regardless.
+#
+# The project root is absent on purpose: CLAUDE.md / README.md / SESSION_LOG.md / pyproject.toml
+# are conductor-owned session-end work outside the cage.
+write_authority:
+  - obsidian_schemas/**
+  - tests/**
+  - scripts/**
+  - docs/**

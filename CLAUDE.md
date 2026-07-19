@@ -49,10 +49,20 @@ pip install -e /Users/davewascha/Workspaces/obsidian-schemas
 
 ## Running Tests
 
+**Floor command** (the pipeline's test floor — one command, absolute, cwd-independent, exit 0/1):
+
 ```bash
-cd /Users/davewascha/Workspaces/obsidian-schemas
-.venv/bin/python -m pytest -q  # hermetic, ~1s; run this for the current count (system python has no pytest)
+/Users/davewascha/Workspaces/obsidian-schemas/.venv/bin/python -m pytest \
+    /Users/davewascha/Workspaces/obsidian-schemas/tests -q
 ```
+
+Hermetic, ~1s. Baseline **563 passed, exit 0** (verified 2026-07-19 from a foreign cwd). A drive
+that lands fewer cases than the baseline without explanation has silently lost a test file.
+
+System python has no pytest — always use the `.venv` interpreter. Note that this `.venv`'s editable
+install is stale (`_obsidian_schemas.pth` points at a path that no longer exists), so a bare
+`import obsidian_schemas` fails; the suite works because pytest prepends its rootdir to `sys.path`.
+See `pipeline-runners.yaml` for why that is load-bearing and must not be "fixed".
 
 ## What's Next
 

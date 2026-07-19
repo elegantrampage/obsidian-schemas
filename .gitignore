@@ -25,6 +25,9 @@ wheels/
 .installed.cfg
 *.egg
 
+# Work-item pipeline tooling (transient lock, workshop src/work_items_lock.py)
+state/.work-items.lock
+
 # Testing
 .pytest_cache/
 .coverage
