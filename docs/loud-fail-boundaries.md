@@ -671,6 +671,7 @@ why: round 20's finding was that "obtains it by import" constrains how a test is
 ## Relationship to other work
 
 - **HAL9000 (companion item, not yet minted)** — the N4 return-contract change lands here, but the three consumer call sites (enricher, introducer, scheduler) live in HAL9000 and cannot be verified from this repo's hermetic floor. AC-5 freezes the no-op returns so nothing breaks silently; the migration itself is **parked for Dave's call** (see Non-goals). If minted, this item is its dependency.
+- **`IdentifierError`'s message text is a second externally-visible contract change, and it is parked in the same place as the first.** Task 2 drops the `(raw={raw!r})` suffix, so a consumer that logs `str(IdentifierError)` — HAL9000, exocortex or orchestrator — loses `raw` from its log line. Nothing is unrecoverable: `.raw` stays a public attribute and `.kind`/`.detail` are untouched, so a consumer that wants the value reads it rather than parsing it out of a string. But it is the same class of cross-repo consequence as the N4 return-contract change above, it cannot be verified from this repo's hermetic floor, and it belongs in the same parking space rather than being met at runtime: **if the HAL9000 companion item is minted, this goes in its scope alongside N4.** Recorded here (it was previously only in Scope Boundary and Integration points) so the two cross-repo consequences of this build sit in one list.
 - **WI-024 (remove hardcoded default vault path)** — done; its non-goals routed two findings here: the bare `except` at person.py:1147-1160 (in scope, now its own AC-6) and the "configured but wrong path" silent degrade (surfacing in scope; write-side `mkdir` guard recommended for WI-004). This item handles accident of *commission* at the note-parse boundary; WI-024 handled accident of *omission* at the vault-path boundary.
 - **WI-004 (atomic write primitive)** — depends on the loud floor this item establishes; recommended owner of the write-side non-existent-vault `mkdir` guard (see Inherited scope). Sequencing: WI-020 first, then WI-004 builds on it.
 - **WI-026 (lint_vault --fix safety)** — owns physical quarantine of bad notes (the deliberate-tool home for rename/sidecar, A4) and lint_vault's import-time env read.
@@ -684,23 +685,26 @@ The Approach fixes the class at the seam and lets read and write diverge from on
 
 **Revision 3 (2026-07-24), folding spec-review round 2 and Threat Model M3.** Three changes, all inside the message-construction discipline and none touching a frozen fence: (1) the "keep `person.py`'s five existing messages exactly as they stand" carve-out at Design/Flow §6 and Task 7 is **deleted** — all seven P1 WARNINGs are rebuilt from `bounded_message` with per-site `reason` literals, because those five were `{e}` interpolations of a by-construction *foreign* exception and therefore a live M1/M2 channel inside the very step that claims to prove the rule; (2) **M3 receives its substance** — Task 18's sweep grows a note-content half and a name-independent syntax pass, and the one pre-existing violation the widened sweep surfaces (`identifier.py:68`) is fixed at Task 2 rather than carved out, which moves `identifier.py` off the untouched list by exactly two lines; (3) the error hierarchy's export set is stated **by enumeration** — all six classes — replacing three occurrences of "the five leaf classes", which was decidable neither by count nor by the word "leaf". The through-line of all three is the role's own rule: prefer the total rule to the per-case list, and make the unenumerated case fail loud. Both prior bounces were per-case lists that let a real case through.
 
+**Revision 4 (2026-07-24), the round-2 audit fold — one pass over sweep C, walking its *output* rather than its intent.** Three consecutive spec-review REVISEs were one discipline (the message-construction disclosure bound), each landing one level lower: the rule, then the sweep's patterns, then the sweep's own predicate. Per the treadmill rule this round is not a fourth patch: the whole surface was enumerated at source and closed once. `reason` becomes a **type** obligation rather than a convention — an `ast.Constant` at every call site, or the runtime `REASONS` membership at the one choke point whose refusal the same pass proves is present — and the close-out classifies survivors against an **eight-category table derived from the pass's own post-fix output**, with unclassified ⇒ stop. Running the pass against the tree the plan prescribes also caught four defects the previous fold had introduced as prescribed code (`bounded_cause`/`bounded_detail` misfiled with the constructors; the double-wrapped `UnverifiableBodyError`/`WriteFailedError`; Task 2's f-string reason, which would have killed every `IdentifierError`; and a duplicated constructor on `NoteParseError`), plus an off-by-one in sweep B's stated count. Full record at the end of this document. Nothing in the frozen AC set moved.
+
 ### The two decisions the Approach deliberately left open
 
 **Decision 1 — the seam mechanism is a RAISED TYPED ERROR, not a discriminated return.** The Approach says "typed error or discriminated result — spec-writer's call", and the Architectural Review's note 2 records the honest trade: under the discriminated-result variant a future write path cannot re-serialize a failed parse without handling the malformed case, so AC-1's forward-looking sweep would verify something already true by construction (LESSONS #13 — paying principal); under the raising variant the sweep is the only thing standing between a future write path and the C2 chain (paying interest). **Raising is chosen anyway, and the reason is that the discriminated return cannot satisfy the frozen AC set.** AC-2's invocation-surface clause requires the six public parse functions to *PROPAGATE the typed error* on malformed input, and the Examples of done require it in Dave's terms ("it gets the same loud typed error every write path gets", line 657). A discriminated result carries no error to propagate, so that variant would need a *second* raising layer bolted on above it — two mechanisms for one predicate, which is the A2 trap one level up. The raising variant also keeps the legitimate half free: absent frontmatter still returns today's exact `({}, content)` tuple, so the 2-tuple contract every existing caller unpacks is unchanged, where a discriminated return would change the shape for all fourteen callers in the closure. The interest AC-1 charges is therefore accepted knowingly, and it is charged whether or not the mechanism needs it, because AC-1's derivation clause is frozen.
 
 **Decision 2 — NO Hypothesis. Every check is an explicit-fixture / derived-parametrization pytest test.** The Check-strategy note inside the frozen AC preamble assigns AC-1, AC-2's `parse_frontmatter` half and AC-5's two halves to Hypothesis property tests. The Architectural Review's note 1 and the Data Audit's finding 12 both establish that premise is false against the live tree, and this spec rules it: `pyproject.toml:31-35` declares exactly `pytest>=7.0` and `pytest-cov>=4.0`, the floor interpreter has no `hypothesis`, and adding it would (a) mint a new external dependency this item never fired an architect trigger for, and (b) land on the hardest named constraint — Hypothesis writes a `.hypothesis/` example database into the working directory, while the floor is specified hermetic, ~1s and run from a foreign cwd. Round 25's own rule ("run the new mechanism against the live tree before adopting it") was discharged for `ast` and for `rglob` and never for this; run, it fails. **No fence is weakened by the ruling**, and that is checkable rather than asserted: no `desc:` in any of the seven fences names Hypothesis, all seven are `kind: test` with a bare in-repo check name, and — the load-bearing part — the quantification the ACs actually demand is over *code*, not over generated inputs. AC-1 quantifies over "the write paths DERIVED from the package itself", AC-2 over derived exit sites and a derived closure, AC-3 over derived classes, AC-5 over a derived 28-site universe. Those derivations supply the sweep; the inputs at each swept member are the two the AC names by hand anyway (one malformed fixture, one absent fixture). Property generation would have added a third axis nothing asks for, and AC-3's twelve cells, AC-7 and AC-2's `parse_to_model` half were already ruled into the explicit-fixture family by rounds 6 and 27 for a reason that applies just as well to the other three: a generator has one expectation table to offer, and non-uniform answers are the specification. Constraints and `pyproject.toml` are therefore unchanged, and the dev extra gains nothing.
 
-### The Threat Model's three required mitigations, and where each landed
+### The Threat Model's four required mitigations, and where each landed
 
-All three are `kind: required`, so none may live only in the threat-model section — the builder executes the Implementation Plan and never reads it. Recorded here as a table a reviewer can walk, with the fold itself in the sections named:
+All four are `kind: required`, so none may live only in the threat-model section — the builder executes the Implementation Plan and never reads it. Recorded here as a table a reviewer can walk, with the fold itself in the sections named:
 
 | Fence | What it requires | Folded into |
 |---|---|---|
 | **M1** (`landed: Task 3`) | the seam's typed errors carry a bounded diagnostic (path, line/column or field name, error class) and never the verbatim `yaml.MarkedYAMLError` source snippet or Pydantic `input_value` | Design/Data model → **Bounded diagnostics**, which states the construction rule, the `bounded_message` / `bounded_cause` shape, the permitted-vs-excluded projection per source, and the construction site for every raise in the package; Design/Flow §1, §2 (the `SchemaDriftError` message, spelled out), §5, §6. Ordered in **Task 3**, sized by the interpreter probe added to **Task 1**, asserted by `test_seam_errors_carry_bounded_diagnostics` in **Task 12** |
 | **M2** (`landed: Task 8`) | `_note_skip`'s WARNING line and `SkippedNote.detail` carry that same bounded diagnostic rather than `str(error)` verbatim, covering the generic `"unreadable"` bucket | Design/Data model → `SkippedNote.detail` is `bounded_detail(error)`, with the two-line total form and why the `LoudFailError` branch is not a hole; Design/Flow §3, where all three interpolations are `detail`. Ordered in **Task 8**, asserted by `test_skip_surface_detail_is_bounded` in **Task 13** |
 | **M3** (`landed: Task 18`) | the package-wide sweep must cover the **note-content** half of the rule it proves, not only the exception half — its patterns were all exception-shaped while `_split_frontmatter_fence` holds the whole note in `content` at both raise sites and the four writers hold `frontmatter` / `body_raw` at re-assembly | Design/Data model → **What the sweep at Task 18 enforces**, which states the in-bound rule that decides *any* interpolated value (not a name list), and the three greps that mechanize it — A (exception half), B (note-content half, M3's named locals), C (the name-independent net that makes an unenumerated content-bearing local fail loud). Ordered in **Task 18**, with the one pre-existing violation the widened sweep surfaces (`identifier.py:68`) fixed in **Task 2** so the close-out's verify is true rather than aspirational |
+| **M4** (`landed: Task 18`) | sweep C must also inspect the **`reason` argument** of a bounded callable — its `BOUNDED` skip made `raise FrontmatterParseError(f"could not parse {payload}", …)` not a site at all, so a composed reason carrying note content passed A, B and C and reached the public `SkippedNote.detail` through `bounded_detail`'s permitted `str()` | **Two independent legs, both substantive, both landed in code the plan orders written.** *Runtime:* Design/Data model → **Bounded diagnostics** declares `errors.REASONS` (twelve enumerated literals) and `bounded_message`'s membership refusal, with `LoudFailError` owning the hierarchy's one structured constructor so no class accepts a free-form message — ordered in **Task 2**, whose verify block *demonstrates the refusal on the review's own counter-example* (`f"could not parse {payload}"` construct-and-refuse, payload absent from the refusal). *Static:* Design/Data model → **What the sweep at Task 18 enforces** splits `BOUNDED` into `REASON_FIRST` (reason must be an `ast.Constant`) and `PROJECTIONS` (output is the permitted projection), and makes the one exemption — `errors.py`'s own forwarding call — self-verifying via `choke_point_guard_present`. Ordered in **Task 18**, whose close-out check 1 stops on either violation shape. The two shifted baseline expectations are folded into **Task 1** and Task 18's check 2 |
 
-**The first revision of this spec failed both**, and the failure is worth recording because it is the shape the role's own warning names: the fences were satisfied *ordinally* (Tasks 3 and 8 both existed) while the Design prescribed the opposite — `SkippedNote.detail` was defined as `str(error)`, `_note_skip` interpolated `{error}` into its WARNING, and `SchemaDriftError`'s message was a literal `...`. A builder executing the plan top-to-bottom would have produced exactly what a required fence forbids, with no stated tiebreak between two instructions in one document. The remedy is not a caution at each site but **one construction rule the schema makes total** — every message in the package is built by one function, and an exception type nobody anticipated falls through to its class name rather than to `str()`.
+**The first revision of this spec failed M1 and M2**, and the failure is worth recording because it is the shape the role's own warning names: the fences were satisfied *ordinally* (Tasks 3 and 8 both existed) while the Design prescribed the opposite — `SkippedNote.detail` was defined as `str(error)`, `_note_skip` interpolated `{error}` into its WARNING, and `SchemaDriftError`'s message was a literal `...`. A builder executing the plan top-to-bottom would have produced exactly what a required fence forbids, with no stated tiebreak between two instructions in one document. The remedy is not a caution at each site but **one construction rule the schema makes total** — every message in the package is built by one function, and an exception type nobody anticipated falls through to its class name rather than to `str()`.
 
 ### Data model
 
@@ -710,25 +714,27 @@ All three are `kind: required`, so none may live only in the threat-model sectio
 class LoudFailError(ValueError):
     """Base for every failure this package refuses to render as a success-shaped
     value. Owns the ONE constructor in the hierarchy (audit-fold 2026-07-24):
-    __init__(reason, *, path=None, declared_type=None, cause=None) routes through
-    bounded_message, whose REASONS membership check refuses any reason that is
-    not an enumerated source literal — no subclass accepts a free-form message,
-    so a composed string has no constructor to enter."""
+    it routes through bounded_message, whose REASONS membership check refuses any
+    reason that is not an enumerated source literal — no subclass declares an
+    __init__ of its own, so a composed string has no constructor to enter."""
+    path: Optional[Path]
+    declared_type: Optional[str]
+
+    def __init__(self, reason: str, *, path: Optional[Path] = None,
+                 declared_type: Optional[str] = None,
+                 cause: Optional[BaseException] = None) -> None:
+        super().__init__(bounded_message(reason, path=path,
+                                         declared_type=declared_type, cause=cause))
+        self.reason = reason
+        self.path = path
+        self.declared_type = declared_type
 
 class NoteParseError(LoudFailError):
     """A note's structure could not be read. Carries the note's own declared type
     when one was legible, None when nothing parsed — the input the repository
-    layer decides ownership on. Builds its OWN message from bounded parts; a
-    caller never hands it an interpolated string (see Bounded diagnostics)."""
-    def __init__(self, reason: str, *, path: Optional[Path] = None,
-                 declared_type: Optional[str] = None,
-                 cause: Optional[BaseException] = None) -> None:
-        self.path = path
-        self.declared_type = declared_type
-        super().__init__(bounded_message(reason, path=path,
-                                         declared_type=declared_type, cause=cause))
-    path: Optional[Path]
-    declared_type: Optional[str]
+    layer decides ownership on. Adds NO __init__: it inherits the hierarchy's one
+    constructor, which is what makes "no free-form message" true by construction
+    rather than by five classes each remembering to do the same thing."""
 
 class FrontmatterParseError(NoteParseError):
     """The frontmatter fence was opened and its contents did not parse.
@@ -750,7 +756,7 @@ class WriteFailedError(LoudFailError):
 
 **The export set, stated by enumeration rather than by count.** The hierarchy above is **six** classes, of which four are leaves — an earlier revision of this spec said "the five leaf classes" in three places, which is decidable neither by count nor by the word "leaf" and left a builder to choose which one to drop. It is now enumerated and there is nothing to choose: **all six — `LoudFailError`, `NoteParseError`, `FrontmatterParseError`, `SchemaDriftError`, `UnverifiableBodyError`, `WriteFailedError` — are exported** from `obsidian_schemas/__init__.py` alongside `BodyTruncationError` (import block beside writer's at `__init__.py:40-45`, `__all__` beside 105-109). Both non-leaves earn their place for the reason the backward-compat argument above turns on: `LoudFailError` is the package-wide base a consumer catches to mean "this package refused", and `NoteParseError` is the one `except` that catches both parse failures (`FrontmatterParseError` and `SchemaDriftError`) without catching a write failure. Dropping either costs a caller a catch it has no other way to express. The three helpers (`bounded_message`, `bounded_cause`, `bounded_detail`) are **not** exported — they are an internal construction rule, not a consumer API.
 
-#### Bounded diagnostics — the message-construction contract (Threat Model M1, M2 and M3)
+#### Bounded diagnostics — the message-construction contract (Threat Model M1, M2, M3 and M4)
 
 This item's whole effect is to route information that today is *discarded* (`parser.py:78` and `148` bind no exception object at all) into a raised error, a WARNING line and a public `SkippedNote` field. That information is derived from an untrusted note's own bytes, so the message is a disclosure channel that does not exist today, and the Threat Model's two `kind: required` mitigations bound it. **The bound is stated once, here, as a construction rule the whole package obeys — not as a caution repeated at each site.**
 
@@ -758,16 +764,38 @@ This item's whole effect is to route information that today is *discarded* (`par
 
 **And the `reason` channel is closed by construction, not by documentation (audit-fold, 2026-07-24 — the spec-review treadmill's one discipline).** Three consecutive spec-review rounds each found one member of the same class: a caller-composable string entering the bounded machinery through the `reason` parameter, which the docstring called "a literal written in this package's source" while nothing — not the constructor, not sweep C (whose `BOUNDED` exclusion made `raise FrontmatterParseError(f"could not parse {payload}", …)` *not a site at all*) — enforced it. The reason channel was precisely the "second home" the totality argument below denied existing. The fold closes the class with two independent legs:
 
-1. **Runtime, at the choke point:** `errors.py` declares `REASONS: frozenset[str]` — the exact literal strings of the construction table below, nothing else — and `bounded_message` REFUSES a `reason` not in that set (raising a plain `ValueError` naming the offending string's repr, a programming error loud at first construction, never a disclosure: the refused string is not echoed into any exception message that escapes — the refusal names the call site's file:line via the raise location, not the string). An f-string composed from a payload is not a member and dies at the first test that constructs it. `LoudFailError` itself gains the structured `__init__(reason, *, path=None, declared_type=None, cause=None)` routing through `bounded_message` — so ALL SIX classes, `UnverifiableBodyError` and `WriteFailedError` included, are bounded by construction and none accepts a free-form message. There is no constructor in the hierarchy a composed string can enter.
-2. **Static, in sweep C:** the `BOUNDED` exclusion is narrowed from "not a site" to "a site with one checkable obligation" — a call to a `BOUNDED` name is still visited, and its `reason` argument (first positional) must be an `ast.Constant` string; any other node shape (JoinedStr, Name, BinOp, Call) is printed as a violation. `reaching_names` still does not descend into `BOUNDED` calls for the *structured* keyword arguments (`path=`, `cause=e` are the permitted projections by definition), but the reason argument is checked by shape, which requires no semantic judgment. Sweep C thereby carries M4 in its own heredoc, run verbatim.
+1. **Runtime, at the choke point:** `errors.py` declares `REASONS: frozenset[str]` — the exact literal strings of the construction table below, nothing else — and `bounded_message` REFUSES a `reason` not in that set (raising a plain `ValueError`, a programming error loud at first construction, never a disclosure: the refused string is NOT echoed into any exception message — the refusal names the call site via the raise location only; the earlier "naming the offending string's repr" clause was self-contradictory and is deleted per the round-4 review, since the echoed value would be precisely the composed string M4 exists to refuse). An f-string composed from a payload is not a member and dies at the first test that constructs it. `LoudFailError` itself gains the structured `__init__(reason, *, path=None, declared_type=None, cause=None)` routing through `bounded_message` — so ALL SIX classes, `UnverifiableBodyError` and `WriteFailedError` included, are bounded by construction and none accepts a free-form message. There is no constructor in the hierarchy a composed string can enter.
+2. **Static, in sweep C:** the single `BOUNDED` set is **split**, because it was doing two different jobs under one name and each job needs the opposite treatment. `REASON_FIRST` — `bounded_message` and all six `LoudFailError` classes — are callables whose **first argument is a `reason` this package must supply as a source literal**: a call to one is still *visited*, and its reason (first positional, or the `reason=` keyword) must be an `ast.Constant` string; any other node shape (JoinedStr, Name, BinOp, Call — or no reason at all) is printed as a violation. `PROJECTIONS` — `bounded_cause` and `bounded_detail` — are callables whose **output** is a permitted projection by definition; they take an exception, not a reason, so applying the literal obligation to them would flag every correct call. Neither set is descended into by `reaching_names` (`path=`, `declared_type=`, `cause=e` are the permitted structured projections). Sweep C thereby carries M4 in its own heredoc, run verbatim.
 
-`IdentifierError` (post-Task-2) joins the same contract, and the round-3 survivor is ruled here rather than left open: its `raw` value — note-derived identifier text — is stored as a public attribute for typed-catch consumers and is NEVER rendered into `str()`; a consumer logging `str(IdentifierError)` gets the bounded message (reason + path), and recovery of `raw` is deliberately attribute-only. Diagnostics degrade gracefully; the bound never does.
+   **The one place `reason` is legitimately a variable is the choke point itself, and the exemption is self-verifying rather than trusted.** `LoudFailError.__init__` forwards its own `reason` parameter into `bounded_message(reason, …)`, so inside `errors.py` the literal check cannot apply — and it does not need to, because that is exactly where the *runtime* `REASONS` membership refusal lives. Sweep C therefore skips the literal check for calls in `errors.py` and, in its place, **asserts the runtime guard is present**: `errors.py` must define `REASONS` and `bounded_message`'s body must open with an `if reason not in REASONS: raise` statement. If either is missing the pass goes red. Every `reason` string in the package is thus either a source literal proven statically, or a value that crossed the one choke point whose runtime refusal was proven statically. There is no third path.
+
+`IdentifierError` complies with the same **rule** without joining the `LoudFailError` **hierarchy**, and the round-3 survivor is ruled here rather than left open. Task 2's edit is exactly what M3 requires and nothing more: the `(raw={raw!r})` suffix is dropped, leaving `super().__init__(f"{kind}: {detail}")` — byte-for-byte the shape of `name_validation.py:135`, which this Design already rules compliant because both interpolands are source literals. `IdentifierError` does **not** import `errors.py`, does **not** call `bounded_message`, and is **not** in `REASON_FIRST`. Routing it there was considered and rejected in this audit pass: `bounded_message` refuses any `reason` outside the enumerated `REASONS` set, so routing `IdentifierError` would drag all 21 of `identifier.py`'s parse-failure literals into this item's `REASONS` table — a maintenance coupling between the identity engine and the loud-fail hierarchy that the Scope Boundary exists to prevent, and one that would fail loud at runtime the first time either side was edited alone. Keeping it out also keeps sweep C *stronger*: `IdentifierError`'s 21 raise sites stay visible to C (see the reconciliation below), where a `REASON_FIRST` membership would have made them invisible. Its `raw` value — note-derived identifier text — stays a public attribute for typed-catch consumers and is NEVER rendered into `str()`; a consumer logging `str(IdentifierError)` gets `kind: detail` and recovers `raw` from the attribute. Diagnostics degrade gracefully; the bound never does.
 
 ```python
+# Exactly the twelve literals of the construction table below — nothing else.
+# Extended only by editing this set alongside that table; bounded_message
+# refuses anything else at first construction. Enumerated, not derived, so that
+# the set is readable at the choke point rather than assembled at import.
 REASONS: frozenset[str] = frozenset({
-    # exactly the construction table's literals — extended only by editing this set
-    # alongside the table; bounded_message refuses anything else at first use
+    "frontmatter fence opened but never closed",          # parse_frontmatter, Flow §1
+    "frontmatter did not parse as YAML",                  # parse_frontmatter, Flow §1
+    "note declares our type and failed validation",       # parse_to_model, Flow §2
+    "refusing to overwrite: the existing body could not be read, so "
+    "the WI-126 body-shrink guard cannot verify this write is safe",  # Flow §5
+    "no frontmatter fence",                               # _split_frontmatter_fence, Flow §6
+    "frontmatter fence not closed",                       # _split_frontmatter_fence, Flow §6
+    "write did not complete",                             # P1's raise + writer.py's two WARNINGs
+    "failed to update timeline",                          # person.py:1500 WARNING
+    "failed to append to body section",                   # person.py:1603 WARNING
+    "failed to add To Discuss item",                      # person.py:1702 WARNING
+    "failed to update To Discuss item",                   # person.py:1775 WARNING
+    "failed to remove To Discuss item",                   # person.py:1837 WARNING
 })
+
+# LoudFailError.__init__ — the hierarchy's ONE constructor and the sole caller of
+# bounded_message with a non-literal reason — is defined once, in the hierarchy
+# block above. It is not repeated here.
+
 
 def bounded_message(reason: str, *, path: Optional[Path] = None,
                     declared_type: Optional[str] = None,
@@ -828,14 +856,16 @@ What each clause is for, and what it deliberately excludes:
 | `parse_frontmatter`, unclosed fence (Flow §1) | `FrontmatterParseError("frontmatter fence opened but never closed", path=path)` |
 | `parse_frontmatter`, `yaml.YAMLError` (Flow §1) | `FrontmatterParseError("frontmatter did not parse as YAML", path=path, cause=e)` |
 | `parse_to_model`, owned-and-drifted (Flow §2) | `SchemaDriftError("note declares our type and failed validation", path=path, declared_type=declared, cause=e)` |
-| `write_markdown_file`'s guard (Flow §5) | `UnverifiableBodyError(bounded_message("refusing to overwrite: the existing body could not be read, so the WI-126 body-shrink guard cannot verify this write is safe", path=file_path, cause=e))` |
+| `write_markdown_file`'s guard (Flow §5) | `UnverifiableBodyError("refusing to overwrite: the existing body could not be read, so the WI-126 body-shrink guard cannot verify this write is safe", path=file_path, cause=e)` |
 | `_split_frontmatter_fence` (Flow §6, P2) | `FrontmatterParseError("no frontmatter fence" \| "frontmatter fence not closed", path=file_path)` |
-| P1's `WriteFailedError` (Flow §6) | `WriteFailedError(bounded_message("write did not complete", path=file_path, cause=e))` |
+| P1's `WriteFailedError` (Flow §6) | `WriteFailedError("write did not complete", path=file_path, cause=e)` |
 | P1's seven WARNING lines (Flow §6) | `logger.warning(bounded_message(<the site's own reason literal>, path=file_path, cause=e))` — the per-site literals are tabulated in Flow §6 |
 | `_note_skip`'s WARNING and `SkippedNote.detail` (Flow §3) | `bounded_detail(error)` — below |
-| `IdentifierError.__init__` (identifier.py:67-68) — **pre-existing, brought into the rule by Task 2** | `bounded_message(f"{kind}: {detail}")`; the `(raw={raw!r})` suffix is dropped from the message and `.raw` stays a public attribute |
+| `IdentifierError.__init__` (identifier.py:67-68) — **pre-existing, brought into the RULE (not the hierarchy) by Task 2** | `super().__init__(f"{kind}: {detail}")`; the `(raw={raw!r})` suffix is dropped from the message and `.raw` stays a public attribute |
 
-**Why `identifier.py:68` is in this table at all**, when the Scope Boundary otherwise leaves that file untouched: it is the one pre-existing message-construction site in the package that interpolates a value read off a note. `IdentifierError(kind, raw, detail)` is raised at the identity-engine parse boundary and `raw` is the identifier being parsed — for a person note, an email or a phone number, which is *verbatim* the class the M1 exclusion table names ("for `@Broken.md` that is contact PII"). It is not this item's channel and this item does not widen it; it is simply what the widened sweep at Task 18 finds the moment the sweep becomes total. The alternatives were both worse than a one-line fix: carving it out re-creates the exemption shape that has now bounced this spec twice, and scoping the sweep to only the files this item writes would make the "total over the package" rule an overclaim. The fix is bounded and floor-safe — `kind` and `detail` are literals at every one of the 21 raise sites (identifier.py 137-417; 239's `f"fewer than {cls.MIN_DIGITS} digits"` interpolates a class constant, still a literal written in this package's source), `.kind`/`.raw`/`.detail` are unchanged so the carry-the-strings pattern the class documents at identifier.py:61-64 still holds, and no test asserts on the message text (all eight `IdentifierError` assertions in `tests/test_identifier.py` are bare `pytest.raises`, lines 56/95/115/142/171/203/222/250). `name_validation.py:135` (`super().__init__(f"{pattern}: {detail}")`) is the sibling case and is **left alone**, because both of its interpolands are source literals — it already complies with the rule and routing it would be a "while I'm here" edit.
+**Every constructor row is the structured form, and the wrapped form is wrong (audit-fold round 2, 2026-07-24).** An earlier revision wrote two of these rows as `UnverifiableBodyError(bounded_message(…))` and `WriteFailedError(bounded_message(…))`, which was correct while the classes took a pre-built string and became **a runtime crash** the moment `LoudFailError` gained the one structured constructor: the inner call returns a composed `"reason; path=…; cause=…"` string, the outer constructor receives it *as its `reason`*, and `bounded_message` refuses it because a composed string is not a member of `REASONS`. A builder following the wrapped form would have every `UnverifiableBodyError` and every `WriteFailedError` raise `ValueError("bounded_message: reason is not an enumerated literal")` instead of the error it meant to raise — a failure the fixtures in Tasks 14 and 15 would surface, but only after the build had been written against a spec that was internally inconsistent. `bounded_message` is called **directly and only** where a bare string is what the site needs: the seven `logger.warning` lines. Nowhere else.
+
+**Why `identifier.py:68` is in this table at all**, when the Scope Boundary otherwise leaves that file untouched: it is the one pre-existing message-construction site in the package that interpolates a value read off a note. `IdentifierError(kind, raw, detail)` is raised at the identity-engine parse boundary and `raw` is the identifier being parsed — for a person note, an email or a phone number, which is *verbatim* the class the M1 exclusion table names ("for `@Broken.md` that is contact PII"). It is not this item's channel and this item does not widen it; it is simply what the widened sweep at Task 18 finds the moment the sweep becomes total. The alternatives were both worse than a one-line fix: carving it out re-creates the exemption shape that has now bounced this spec twice, and scoping the sweep to only the files this item writes would make the "total over the package" rule an overclaim. The fix is bounded and floor-safe — `kind` and `detail` are literals at every one of the 21 raise sites (identifier.py 137-417; 239's `f"fewer than {cls.MIN_DIGITS} digits"` interpolates a class constant, still a literal written in this package's source), `.kind`/`.raw`/`.detail` are unchanged so the carry-the-strings pattern the class documents at identifier.py:61-64 still holds, and no test asserts on the message text (all eight `IdentifierError` assertions in `tests/test_identifier.py` are bare `pytest.raises`, lines 56/95/115/142/171/203/222/250). **The fix is a deletion and nothing else**: `(raw={raw!r})` leaves the f-string. It does not add an import, does not call `bounded_message`, and does not put `IdentifierError` in the `LoudFailError` hierarchy — see the ruling under "the `reason` channel is closed by construction" above for why routing it would couple the identity engine's 21 parse literals to this item's `REASONS` table and weaken sweep C at the same time. `name_validation.py:135` (`super().__init__(f"{pattern}: {detail}")`) is the sibling case and is **left alone** for the same reason it is now the model: both of its interpolands are source literals, so it already complies with the rule, and post-fix `identifier.py:68` is the identical shape. Routing either would be a "while I'm here" edit.
 
 P1's `WriteFailedError` is **not** required by M1 — P1's first clause re-raises `LoudFailError` untouched, so only a genuine `OSError` ever reaches that message, and the threat model says so explicitly. It routes through the helper anyway because *one* message-construction site is the rule; a second one is where the next drift lands.
 
@@ -866,6 +896,20 @@ def bounded_detail(error: BaseException) -> str:
 
 The `isinstance` branch is not a hole, and since the audit-fold the claim is structural rather than disciplinary: a `LoudFailError`'s message can only contain note bytes if `bounded_message` rendered them — but every constructor in the hierarchy routes through `bounded_message`, `bounded_message` refuses any `reason` outside the enumerated `REASONS` set at runtime, and sweep C independently asserts every `reason` argument is a constant string. The reason parameter — the second home the pre-fold form of this sentence wrongly denied existing, found by three consecutive spec-review rounds — is closed at both legs. **The generic bucket is the one M2 names explicitly, and it is the one this shape covers by construction** — a `UnicodeDecodeError` on an undecodable note reaches `_note_skip` through `base._load_file`'s broad `except` and is recorded as `"UnicodeDecodeError"`, with the file named by `SkippedNote.path` and nothing of its contents rendered.
 
+#### The package's COMPLETE exception surface, ruled class-by-class (audit-fold extension, 2026-07-24)
+
+The fourth spec-review round showed the bound's totality claim quantified over the package while the fold's enumeration covered only the NEW hierarchy. This table is the missing half: every exception class in `obsidian_schemas`, pre-existing and new, with its construction sites and its ruling — so sweep C's baseline diff has an explanation for every survivor, and no fifth round can find an unruled member:
+
+| Class (site) | Constructs with | Ruling |
+|---|---|---|
+| `LoudFailError` + five subclasses (new, errors.py) | structured fields only, via the one constructor | the bounded contract — REASONS + `bounded_message`, both legs |
+| `IdentifierError` (identifier.py:58; 8 raise sites 137-415) | `(kind, raw, why)` — `raw` is note-derived at vault-reading callers | joins the structured contract at Task 2: message via `bounded_message`, `raw` attribute-only |
+| `BodyTruncationError` (writer.py:30; raised writer.py:195) | `file_path` + `dropped_count` — a path and an integer, verified at source; **no note bytes reach its f-strings** | IN-BOUND as-is (path is exception 1; a count is not content); named here so its sweep-C lines are explainable, not exempted silently |
+| `VaultPathNotConfiguredError` (base.py:20; raised base.py:74) | `UNCONFIGURED_VAULT_MESSAGE`, a module literal | IN-BOUND trivially; no change |
+| `NameValidationError` (name_validation.py:125; 11 raise sites 259-374) | `(code, detail)` where detail interpolates the NAME under validation | IN-BOUND: entity names are ruled exception 2, and the values arrive caller-side of the `Path.read_text` trust boundary; no change |
+| `WeakIdentityError` (name_validation.py:140; raised person.py:831/954) | `reason` composed by `weak_identity_reason` from `name`/`email`/`phone` | IN-BOUND with the justification stated: all three values are caller-supplied arguments (scanner/enricher side), not note reads — the trust boundary rules them in; the adjacent `logger.warning` interpolations are the same values and carry the same ruling. If a future caller passes vault-read values here, that caller crosses the boundary, not this class |
+| `BodyTruncationError`'s cross-repo consumers + `IdentifierError`'s message change | — | consumer-visible message changes are the cross-repo companion item's audit (Non-goals), decided THERE; the classes' in-repo contracts are decided here |
+
 #### What the sweep at Task 18 enforces (Threat Model M3)
 
 Two tests prove M1 and M2 hold *at the two sites they were written for*. Task 18's sweep is what makes the rule a property of the **tree** — the thing that stays true when a future edit adds a message somewhere nobody is testing. M3 is the finding that the sweep's earlier form could not do that job: its five patterns (`str(e`, `str(error`, `{e}`, `{error}`, `{exc`) were all exception-shaped, while the rule they were framed as proving forbids interpolating note *content* as well, and `_split_frontmatter_fence` holds the entire note in its `content` parameter at both of its raise sites while the four writers hold `frontmatter` and `body_raw` in scope at re-assembly. Nothing in *this* build leaks — every designed message is a literal — so this is the forward-looking half, which is exactly what a sweep is for.
@@ -888,7 +932,7 @@ Everything else note-derived is out: a caught exception (whose `str()` is the `M
 
 Sweep A's post-fix count is derived, not hoped for: the eight `{e}`-shaped interpolations that exist today are `base.py:182`, `book.py:78`, `meeting.py:82` and `person.py` 1501/1605/1703/1776/1838, and all eight are removed — the first three by Task 8 (the handler body becomes `self._note_skip(file_path, e)`), the five in `person.py` by Task 7's rebuild. `errors.py` adds the one. 8 − 8 + 1 = 1.
 
-Sweep B's post-fix count is likewise derived. Run live today, stage 1 returns **20** matches and stage 2 returns **one** — `identifier.py:68` — which Task 2 fixes; the other 19 are file-content and parse expressions, not messages (`identifier.py` 138/189/237/267/312/348/390/415's `str(raw)` inside the parse functions; `writer.py` 211/254/293/320, `base.py:328`, `person.py` 1596/1696/1768/1831 assembling `f"---{frontmatter}---\n{new_body}"` for `write_text`; `body_sections.py:127`). **Building note text is not building a message** — the rule's domain is diagnostics, and a value written back to the note it came from discloses nothing. Stage 2 is what makes that distinction mechanical instead of a judgment call.
+Sweep B's post-fix count is likewise derived. Run live today (re-run at the round-2 audit fold, 2026-07-24 — the figure was previously stated as 20 in two places while this sentence's own enumeration summed to 19, and the enumeration was the correct half), stage 1 returns **19** matches and stage 2 returns **one** — `identifier.py:68` — which Task 2 fixes; the other **18** are file-content and parse expressions, not messages (`identifier.py` 138/189/237/267/312/348/390/415's `str(raw)` inside the parse functions; `writer.py` 211/254/293/320, `base.py:328`, `person.py` 1596/1696/1768/1831 assembling `f"---{frontmatter}---\n{new_body}"` for `write_text`; `body_sections.py:127`). **Building note text is not building a message** — the rule's domain is diagnostics, and a value written back to the note it came from discloses nothing. Stage 2 is what makes that distinction mechanical instead of a judgment call.
 
 **Sweep C is the one that makes the unenumerated case fail loud**, and it is why B's name list being an enumeration is acceptable. A future message interpolating a content-bearing local under a name B never heard of (`text`, `chunk`, `payload`) is invisible to B and visible to C, because C keys on the *site* and not on the name.
 
@@ -898,20 +942,30 @@ Sweep B's post-fix count is likewise derived. Run live today, stage 1 returns **
 cd <REPO> && <REPO>/.venv/bin/python - <<'EOF'
 import ast, pathlib
 LEVELS = {"debug", "info", "warning", "error", "critical"}
-# Callables that build their own bounded message internally. A call to one of
-# these is NOT a message-construction site: its message is built inside, where
-# this same sweep already covers it. Everything else that takes a message takes
-# a STRING, so the construction happens at the call and the sweep must see it.
-BOUNDED = {
-    "bounded_message", "bounded_cause", "bounded_detail",   # the three helpers
-    "NoteParseError", "FrontmatterParseError", "SchemaDriftError",  # errors.py
-    "IdentifierError",                                      # post-Task-2
+
+# Two sets, two DIFFERENT jobs. Collapsing them into one "BOUNDED" set is the
+# defect the round-2 audit fold found: the literal obligation belongs to the
+# first, and applying it to the second flags every correct call.
+#
+# REASON_FIRST: first argument is a `reason` this package must supply as a
+# SOURCE LITERAL. Still a site — the reason is checked by shape below.
+REASON_FIRST = {
+    "bounded_message",
+    "LoudFailError", "NoteParseError", "FrontmatterParseError",
+    "SchemaDriftError", "UnverifiableBodyError", "WriteFailedError",
 }
+# PROJECTIONS: takes an EXCEPTION, not a reason; its OUTPUT is the permitted
+# projection by definition. Not a site, and never descended into.
+PROJECTIONS = {"bounded_cause", "bounded_detail"}
+NO_DESCEND = REASON_FIRST | PROJECTIONS
+
 
 def is_message_call(call):
     f = call.func
-    if isinstance(f, ast.Name) and f.id in BOUNDED:
-        return "bounded"       # STILL A SITE (M4, audit-fold): reason arg checked below
+    if isinstance(f, ast.Name) and f.id in PROJECTIONS:
+        return False                                  # output is the projection
+    if isinstance(f, ast.Name) and f.id in REASON_FIRST:
+        return "reason"                               # M4: reason checked below
     if isinstance(f, ast.Attribute) and f.attr in LEVELS:
         return True                                   # logger.<level>(...)
     if isinstance(f, ast.Name) and f.id.endswith("Error"):
@@ -920,11 +974,23 @@ def is_message_call(call):
         return True                                   # super().__init__(...)
     return False
 
+
+def reason_arg(call):
+    """The reason node: first positional, else the `reason=` keyword, else None
+    (a REASON_FIRST call with no reason at all is itself a violation)."""
+    if call.args:
+        return call.args[0]
+    for k in call.keywords:
+        if k.arg == "reason":
+            return k.value
+    return None
+
+
 def reaching_names(node):
-    """Identifiers reaching this argument, NOT descending into a BOUNDED call —
-    a bounded callable's output is the permitted projection by definition."""
+    """Identifiers reaching this argument, NOT descending into a REASON_FIRST or
+    PROJECTIONS call — those are the permitted projections by definition."""
     if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) \
-            and node.func.id in BOUNDED:
+            and node.func.id in NO_DESCEND:
         return set()
     out = set()
     for child in ast.iter_child_nodes(node):
@@ -935,24 +1001,61 @@ def reaching_names(node):
         out.add(node.attr)
     return out
 
+
+def choke_point_guard_present(tree):
+    """errors.py is the ONE place `reason` is legitimately a variable: it is the
+    choke point, where the obligation is discharged at RUNTIME. This pass does
+    not TRUST that -- it proves the runtime refusal exists."""
+    has_reasons = any(
+        isinstance(n, (ast.AnnAssign, ast.Assign))
+        and any(isinstance(t, ast.Name) and t.id == "REASONS"
+                for t in ([n.target] if isinstance(n, ast.AnnAssign) else n.targets))
+        for n in tree.body
+    )
+    for n in ast.walk(tree):
+        if isinstance(n, ast.FunctionDef) and n.name == "bounded_message":
+            for stmt in n.body:
+                if (isinstance(stmt, ast.If) and isinstance(stmt.test, ast.Compare)
+                        and any(isinstance(o, ast.NotIn) for o in stmt.test.ops)
+                        and any(isinstance(c, ast.Name) and c.id == "REASONS"
+                                for c in stmt.test.comparators)
+                        and any(isinstance(s, ast.Raise) for s in stmt.body)):
+                    return has_reasons
+    return False
+
+
+saw_errors_module = False
 for path in sorted(pathlib.Path("obsidian_schemas").rglob("*.py")):
     tree = ast.parse(path.read_text(encoding="utf-8"))
+    is_choke_point = path.name == "errors.py"
+    if is_choke_point:
+        saw_errors_module = True
+        if not choke_point_guard_present(tree):
+            print(f"{path}: CHOKE POINT UNGUARDED -- REASONS and/or "
+                  f"bounded_message's membership refusal is missing")
     for node in ast.walk(tree):
         kind = isinstance(node, ast.Call) and is_message_call(node)
-        if kind == "bounded":
-            # M4 (audit-fold): a BOUNDED call's reason argument (first positional)
-            # must be a constant string — a JoinedStr/Name/BinOp/Call here is the
-            # composed-reason hole three review rounds found one member of.
-            if node.args and not (isinstance(node.args[0], ast.Constant)
-                                  and isinstance(node.args[0].value, str)):
+        if kind == "reason":
+            # M4: a REASON_FIRST call's reason must be a constant string. A
+            # JoinedStr/Name/BinOp/Call here is the composed-reason hole that
+            # three review rounds each found one member of. Inside errors.py the
+            # forwarding call's reason IS a Name, by construction -- that is the
+            # choke point, guarded above at runtime instead.
+            if is_choke_point:
+                continue
+            r = reason_arg(node)
+            if not (isinstance(r, ast.Constant) and isinstance(r.value, str)):
                 print(f"{path}:{node.lineno}: NON-LITERAL reason into "
-                      f"{ast.dump(node.func)}")
+                      f"{node.func.id}")
         elif kind:
             names = set()
             for arg in list(node.args) + [k.value for k in node.keywords]:
                 names |= reaching_names(arg)
             if names:
                 print(f"{path}:{node.lineno}: {sorted(names)}")
+
+if not saw_errors_module:
+    print("obsidian_schemas/errors.py: MISSING -- the choke point does not exist")
 EOF
 ```
 
@@ -960,12 +1063,31 @@ It runs as a **heredoc and is never written to a file**, so it does not touch AC
 
 **How to read C's output, and why it needs no count.** Each line names a message-construction site and the identifiers that reach it *outside* a bounded callable. A correctly-built message such as `logger.warning(bounded_message("failed to update timeline", path=file_path, cause=e))` contributes **nothing**: the `e` sits inside `bounded_message`, which is precisely the point of routing it there. Likewise `raise FrontmatterParseError("frontmatter did not parse as YAML", path=path, cause=e)` contributes nothing, because that class builds its own message from `bounded_message` inside `errors.py` — where this same sweep does see it. What is left in the output is exactly the set of raw values reaching a message **directly**, and every one must be in-bound by the rule above. **The assertion is that property, not a number.** Task 1 records the pre-fix output as a baseline and Task 18 diffs against it; every line in the diff must be explainable by a task in this plan, which is a stronger tripwire than a count because it names *which* site moved rather than merely that one did.
 
-Two readings a builder will meet on the first run, ruled here so neither is churned on:
+##### The reconciliation — every category C's output actually contains, derived by walking the post-fix tree
 
-- **`name_validation.py` 311/321/330/337/344/353/360/367/374 will list `name`.** Those are `raise NameValidationError("<pattern>", f"…: {name!r}")` — the candidate name being validated, which is in-bound under rule (2) (the entity's own name), `!r`-quoted, and pre-existing. `NameValidationError` is deliberately **not** in `BOUNDED`: it builds its message from its own two arguments rather than from `bounded_message`, so the sweep should keep seeing its call sites. It passes the rule; it is not exempt from it.
-- **`identifier.py` 137-417 will list nothing after Task 2.** `IdentifierError` joins `BOUNDED` because Task 2 makes it build its own message through `bounded_message`, so its 21 raise sites stop being construction sites — while its `__init__` itself is still swept, which is what would catch a future edit that unbounds it. Before Task 2 lands, the same run lists `identifier.py:68: ['detail', 'kind', 'raw']`, and `raw` is the out-of-bound one.
+**Why this is a table and not three exceptions (audit-fold round 2, 2026-07-24).** The in-bound rule above was stated as *three note-derived exceptions plus caller-supplied arguments*, and that is the correct statement of the **rule over values**. It is not, on its own, enough to close out sweep C, because C does not print values — it prints the identifiers its `reaching_names` walk collects, which includes things that are not values read off a note under any reading (the receiver of an attribute access, a builtin the expression passes through). A close-out that says *"each listed identifier must be in-bound — path, entity name, `declared_type`, or a caller-supplied argument"* therefore cannot classify output that **this plan's own tasks order written**: `_note_skip`'s two log lines (Flow §3) list `detail` and `self`, and neither is any of the four. That collided with the sibling instruction that an out-of-bound survivor *stops the close-out*, leaving a builder with a judgment call in a document whose whole job is to remove them.
 
-The one accepted imprecision, stated so it is not mistaken for coverage: `is_message_call` matches any callee whose name ends in `Error`, which is a naming convention rather than a proof of type. It over-matches rather than under-matches — a non-exception helper named `...Error` would be listed and dismissed — and over-matching is the safe direction for a disclosure sweep.
+So the categories below are **derived from what C actually prints on the prescribed post-fix tree**, not from the three exceptions. Every survivor falls in exactly one, and the closure is the last line of this section: **anything C prints that is not classified by this table stops the close-out.** An unenumerated case fails loud; it does not pass by assumption.
+
+| # | Category | What C prints, and where |
+|---|---|---|
+| 1 | **The note's path** — rule (1) | `file_path` (`writer.py`'s two `FileNotFoundError`s, `base.py:308`, `_note_skip`'s two lines), `path`, `vault_path` (`base.py:153`) |
+| 2 | **The entity's own name** — rule (2) | `name` (`base.py` 305/334/355, `name_validation.py`'s nine `raise NameValidationError("<pattern>", f"…: {name!r}")` at 311/321/330/337/344/353/360/367/374, `clean_name` at `person.py:1432`), `filename` (`base.py:275`, `book.py:176`, `meeting.py:198`), `type_name` (every `self.type_name` interpolation), `person` (`person.py`'s `{person.name}` lines) |
+| 3 | **`declared_type`** — rule (3) | `declared_type`, `declared` |
+| 4 | **The output of a bounded callable, held in a local** | `detail` at `_note_skip`'s WARNING and DEBUG lines (Flow §3) — `detail = bounded_detail(error)`. `reaching_names` skips descending into a bounded *call*, not into a `Name` bound to its result, so the local surfaces. It is the permitted projection by definition; the binding does not un-permit it. **This is the fourth category the round-3 spec review asked for, and it is created by this plan's own Task 8.** |
+| 5 | **A caller-supplied argument** — trusted side of the boundary (Prerequisites draws it at `Path.read_text`) | `text` (`text[:50]`), `deduplicate_key`, `updates`, `section`, `operation`, `status`, `created_by` |
+| 6 | **A value this package computed itself** — a count, a length, a snapshot, a repair list | `count` (`base.py:167`), `dropped_count` and `len(...)` (`writer.py:49`), `cache_snapshot` (`base.py:382`), `repairs_applied` (`person.py:1375`) |
+| 7 | **Syntactic residue that is not a value at all** | `self` — `reaching_names` adds an `Attribute`'s `attr` *and* recurses into its `value`, so `self.type_name` yields `{"self", "type_name"}` and `self.vault_path` yields `{"self", "vault_path"}`. Likewise the builtins and methods an in-bound expression passes through: `list`, `len`, `keys` (`base.py:355`'s `list(updates.keys())`), `items`. These are syntax, not data; there is no note byte they could carry. |
+| 8 | **An argument the callee's own swept `__init__` line proves does not reach the message** | `raw` at `identifier.py`'s 21 raise sites (137-417). `IdentifierError` is deliberately **not** in `REASON_FIRST`, so its call sites stay visible — and `raw` is note-derived, so the rule alone would red them. What clears them is **mechanical and in the same output**: post-Task-2, `identifier.py:68` lists `['detail', 'kind']` and **not** `raw`, which is the proof that `raw` never reaches the message. If a future edit put it back, line 68's own entry changes and the diff-against-baseline catches it in the same run. This is the shape that lets C keep coverage of a class's call sites *and* rule them, instead of buying silence by adding the class to a skip set. |
+
+**Two entries that move at Task 2, stated because the close-out diffs against Task 1's baseline (M4's "two close-out expectations that shift"):**
+
+- `identifier.py:68` reads `['detail', 'kind', 'raw']` **before** Task 2 and `['detail', 'kind']` **after** it. It does not disappear. An earlier revision of this section said `identifier.py` "will list nothing after Task 2" on the premise that `IdentifierError` joins the bounded set; that premise is reversed above, and this is the corrected expectation.
+- `identifier.py`'s 21 raise sites read `['raw']` before **and** after — unchanged, and cleared by category 8 rather than by removal. They are not part of the diff.
+
+**`name_validation.py:135` is the model, not an exception.** `super().__init__(f"{pattern}: {detail}")` lists `['detail', 'pattern']` — both parameter names, both bound to source literals at all nine call sites. It is category 2's definition-site twin, and post-Task-2 `identifier.py:68` is byte-for-byte the same shape. `NameValidationError` is deliberately not in `REASON_FIRST` for the same reason `IdentifierError` is not: keeping its nine call sites visible is what lets C see `name` actually flowing into a message, which a skip-set membership would hide.
+
+The one accepted imprecision, stated so it is not mistaken for coverage: `is_message_call` matches any callee whose name ends in `Error`, which is a naming convention rather than a proof of type. It over-matches rather than under-matches — a non-exception helper named `...Error` would be listed and dismissed (and `errors.py`'s own `raise ValueError("bounded_message: reason is not an enumerated literal")` is matched, carries a `Constant`, and prints nothing) — and over-matching is the safe direction for a disclosure sweep.
 
 **B's stage 2 inherits the same line-based blind spot, and C is what covers it.** An interpolation on a continuation line of one of those 25 multi-line calls carries no `logger.`/`raise `/`__init__(` on its own line, so B's stage 2 cannot see it. B stays a grep because it is cheap and its stage-1 output is short enough to read in full if stage 2 ever returns something surprising; C is the sweep the mitigation actually rests on.
 
@@ -1061,7 +1183,9 @@ and one new method on `BaseRepository`, called by all three (one implementation,
         logger.warning(f"Skipped {self.type_name} note {file_path}: {detail}")
 ```
 
-**All three interpolations are `detail`, not `error`** — the WARNING line, `SkippedNote.detail`, and the not-ours DEBUG line, which is included even though it is off by default because a debug line is still a log line and the bound is a construction rule rather than a level policy. This is Threat Model M2 in full: `bounded_detail` (Design/Data model) returns the already-bounded message for our own errors and the class-name projection for everything else, so the generic `"unreadable"` bucket M2 calls out — a `UnicodeDecodeError` whose `str()` renders a byte snippet of the note — is covered by the same two lines rather than by a caution. `file_path` is in-bound, as above.
+**All three interpolations are `detail`, not `error`** — the WARNING line, `SkippedNote.detail`, and the not-ours DEBUG line, which is included even though it is off by default because a debug line is still a log line and the bound is a construction rule rather than a level policy.
+
+**What Task 18's sweep C prints for these two log lines, ruled here so the close-out meets nothing cold:** `logger.debug(…)` at the not-ours line lists `['detail', 'file_path']` and `logger.warning(…)` at the skip line lists `['detail', 'file_path', 'self', 'type_name']`. `file_path` is category 1, `type_name` category 2, `self` category 7 (the receiver `reaching_names` collects alongside the attribute it recursed into), and `detail` is **category 4** — the output of a bounded callable held in a local. `reaching_names` declines to descend into `bounded_detail(error)` as a *call*, but `detail` is a `Name` bound to its result, so the local surfaces; binding a permitted projection to a name does not un-permit it. All four are in the reconciliation table in Design/Data model, "What the sweep at Task 18 enforces", which is what the close-out classifies against. This is Threat Model M2 in full: `bounded_detail` (Design/Data model) returns the already-bounded message for our own errors and the class-name projection for everything else, so the generic `"unreadable"` bucket M2 calls out — a `UnicodeDecodeError` whose `str()` renders a byte snippet of the note — is covered by the same two lines rather than by a caution. `file_path` is in-bound, as above.
 
 `self.type_name` is the abstract per-class property at base.py:126-130, so the comparison is correct from every chair including `CompanyRepository`'s — the class that shares `base._load_file` and the `@*.md` glob with `PersonRepository` (neither overrides `_load_file` nor `file_pattern`; `base.save` writes `@{name}.md` at base.py:257) and whose direction a fix proven only from the person side gets backwards. `Path(self.file_pattern).stem != "*"` is derived from the class's own declared glob, not from a list of class names: `@*.md` → stem `@*` → convention; `Meeting *.md` (meeting.py:50-52) → stem `Meeting *` → convention; `*.md` (book.py:49-51) → stem `*` → catch-all, no evidence. A fifth repository gets the right answer with no edit here.
 
@@ -1108,14 +1232,14 @@ The proven negative stays a negative by *what it does*, not by name: `write_mark
         try:
             _, existing_body = parse_frontmatter(file_path.read_text(encoding="utf-8"))
         except (FrontmatterParseError, OSError, UnicodeDecodeError) as e:
-            raise UnverifiableBodyError(bounded_message(
+            raise UnverifiableBodyError(
                 "refusing to overwrite: the existing body could not be read, so "
                 "the WI-126 body-shrink guard cannot verify this write is safe",
                 path=file_path, cause=e,
-            )) from e
+            ) from e
 ```
 
-The message is built by `bounded_message` rather than by an f-string, per the construction rule in Design/Data model — the `({e})` an f-string would interpolate is precisely the `MarkedYAMLError` snippet and `UnicodeDecodeError` byte-run M1 bounds.
+The message is built by `bounded_message` — reached through `LoudFailError`'s one constructor, which every class in the hierarchy inherits — rather than by an f-string, per the construction rule in Design/Data model: the `({e})` an f-string would interpolate is precisely the `MarkedYAMLError` snippet and `UnicodeDecodeError` byte-run M1 bounds. **The reason literal is passed straight to the constructor and is NOT pre-wrapped in `bounded_message(...)`** (audit-fold round 2): wrapping it would hand the constructor an already-composed string as its `reason`, which `REASONS` refuses at runtime. The two implicitly-concatenated string fragments above are one `ast.Constant` after parsing, so sweep C's literal check passes on it as written.
 
 `UnverifiableBodyError` is a `ValueError` subclass and `BodyTruncationError` subclasses `Exception` (writer.py:30) with neither in the other's ancestry, so AC-4's "distinguishable from `BodyTruncationError`" holds by type. This is the coupling the Constraints section flags as highest-risk and it is why C2 and C3 land in the same build: with the old bare `except` in place, C2's new signal is re-buried here and the overwrite proceeds against an unverified body.
 
@@ -1129,9 +1253,11 @@ The message is built by `bounded_message` rather than by an f-string, per the co
         except Exception as e:
             logger.warning(bounded_message(<this site's reason literal>,
                                            path=file_path, cause=e))
-            raise WriteFailedError(bounded_message("write did not complete",
-                                                   path=file_path, cause=e)) from e
+            raise WriteFailedError("write did not complete",
+                                   path=file_path, cause=e) from e
 ```
+
+Note the asymmetry between the two lines and why it is not an inconsistency: `logger.warning` takes a **string**, so `bounded_message` is called directly there; `WriteFailedError` takes a **reason** and calls `bounded_message` itself, inside `LoudFailError.__init__`. Pre-wrapping the raise would compose the message twice and the second pass would be refused by `REASONS`.
 
 **No site is exempt: all seven WARNINGs are rebuilt from `bounded_message`.** The one thing that differs between the sites is what their `reason` literal *says*, and it is tabulated here so a builder never has to decide it:
 
@@ -1269,7 +1395,7 @@ Two planted fixtures, one per marker form the predicate claims to match, each wr
 | `obsidian_schemas/repositories/base.py` | `SkippedNote`, `_owns`, `_note_skip`, `skipped_notes`, `skipped_count`; `_load_file` handler | `PersonRepository`, `CompanyRepository` (both inherit), `load()` |
 | `obsidian_schemas/repositories/meeting.py:81-83`, `book.py:77-79` | handler → `_note_skip` | `load()` |
 | `obsidian_schemas/repositories/person.py` | `_split_frontmatter_fence`; P1/P2/P3 at the five writers; `_get_body_content`; `_known_companies` narrowing | HAL9000, exocortex |
-| `obsidian_schemas/identifier.py:67-68` | `IdentifierError.__init__`'s message routes through `bounded_message` and drops the `(raw={raw!r})` suffix — the one pre-existing note-content interpolation the M3 sweep surfaces; `.kind`/`.raw`/`.detail` unchanged | WI-125's identity engine; `tests/test_identifier.py` (bare `pytest.raises`, no message assertion) |
+| `obsidian_schemas/identifier.py:67-68` | `IdentifierError.__init__`'s message drops the `(raw={raw!r})` suffix, leaving `f"{kind}: {detail}"` — the one pre-existing note-content interpolation the M3 sweep surfaces. **No new import, no `bounded_message` call, no hierarchy change**; `.kind`/`.raw`/`.detail` unchanged. Externally visible: a consumer logging `str(IdentifierError)` loses `raw` (parked with N4 — see Relationship to other work) | WI-125's identity engine; `tests/test_identifier.py` (bare `pytest.raises`, no message assertion) |
 | `obsidian_schemas/__init__.py:40-45, 105-109` | export all **six** error classes, enumerated in Design/Data model | consumers |
 | `tests/derivations.py` | **NEW** — the shared scan module | all seven checks |
 | `tests/test_writer.py:235-242` | **existing test revised** — P4 turns this `False` into a raise | the floor |
@@ -1401,16 +1527,17 @@ Ordered by dependency; a builder can follow top-to-bottom. Tasks 11–17 (the se
 
   Finally, record the **pre-fix baseline for Task 18's sweep C** so the close-out has a diff to reconcile against rather than a bare number. Run the sweep-C heredoc **exactly as written in Design/Data model, "What the sweep at Task 18 enforces"** (copy it verbatim; it is a heredoc and is never written to a file, so it does not touch AC-7's `ast` single-homing) and save its full output to the build notes. Two expectations that make the baseline self-checking rather than a number to trust:
 
-  - `identifier.py:68: ['detail', 'kind', 'raw']` **must** appear — that is the one pre-existing out-of-bound interpolation, and Task 2 removes it. If it is absent, either the heredoc was mis-copied or `identifier.py` has already been changed; reconcile before proceeding.
+  - `identifier.py:68: ['detail', 'kind', 'raw']` **must** appear — that is the one pre-existing out-of-bound interpolation. Task 2 drops `raw` from it, so post-fix the **same line is still present** reading `['detail', 'kind']`; it does not disappear. If it is absent from the baseline, either the heredoc was mis-copied or `identifier.py` has already been changed; reconcile before proceeding.
   - The eight `{e}` sites (base.py:182, meeting.py:82, book.py:78, person.py 1501/1605/1703/1776/1838) **must** each appear with `e` among their names. Note that person.py:1605 appears here even though the line-based sweeps A and B miss it — its `logger.warning(` opens on 1604 — which is exactly why C reads syntax rather than lines.
+  - The baseline run **must** print `obsidian_schemas/errors.py: MISSING — the choke point does not exist`, because Task 2 has not created it yet. That line is the pass reporting the tree it is actually looking at; it disappears at Task 2 and its **continued presence at Task 18 is a failure**. If it does *not* appear at Task 1, `errors.py` already exists and the tree has drifted — reconcile before proceeding.
 
   If either expectation fails, the tree has drifted since this spec was written: record what it actually is and carry on, because it is Task 18's *property* assertion that is load-bearing and the baseline exists only to make the post-fix delta walkable. It is only predicate (8) whose drift stops the build.
 
   **Verify:** the floor is green at 607, all four predicates match, the probe's four answers are recorded, and sweep C's baseline output is saved to the build notes with both expectations above confirmed. If (8) has drifted, stop — AC-7 is not satisfiable as written and the item needs Dave.
 
-- [ ] **Task 2 — Add the exception hierarchy and the message-construction helpers.** Create `obsidian_schemas/errors.py` with `LoudFailError`, `NoteParseError` (carrying `path` and `declared_type`, and building its own message), `FrontmatterParseError`, `SchemaDriftError`, `UnverifiableBodyError`, `WriteFailedError`, **plus `bounded_message`, `bounded_cause` and `bounded_detail`**, exactly as in Design/Data model. The three helpers are the only place in the package permitted to read a caught exception or note content into a message (Threat Model M1/M2/M3 — see Design/Data model for the precise form of that claim, which is narrower than "the only message-construction site" and is what the Task 18 sweep enforces). They are duck-typed rather than `isinstance`-checked so that `errors.py` keeps importing nothing — not `yaml`, not `pydantic`, not the rest of the package. Export **all six classes, by this enumeration and not by a count** — `LoudFailError`, `NoteParseError`, `FrontmatterParseError`, `SchemaDriftError`, `UnverifiableBodyError`, `WriteFailedError` — from `obsidian_schemas/__init__.py` (import block beside writer's at 40-45; `__all__` beside 105-109). Both non-leaves are exported deliberately: `LoudFailError` is the package-wide base and `NoteParseError` is the one `except` that catches both parse failures without catching a write failure (Design/Data model, "The export set"). The three helpers stay module-private to the package and are **not** exported, since they are an internal construction rule rather than a consumer API.
+- [ ] **Task 2 — Add the exception hierarchy and the message-construction helpers.** Create `obsidian_schemas/errors.py` with `REASONS` (the twelve enumerated literals, verbatim from Design/Data model — they are the `reason` arguments every later task passes, so a typo here surfaces as a `ValueError` at that task's first fixture), `LoudFailError` **carrying the hierarchy's one `__init__(reason, *, path=None, declared_type=None, cause=None)`**, then `NoteParseError`, `FrontmatterParseError`, `SchemaDriftError`, `UnverifiableBodyError`, `WriteFailedError` — **none of which declares an `__init__` of its own**; they inherit it, which is what makes "no constructor accepts a free-form message" true by construction rather than by five classes each remembering the same thing — **plus `bounded_message`, `bounded_cause` and `bounded_detail`**, exactly as in Design/Data model. The three helpers are the only place in the package permitted to read a caught exception or note content into a message (Threat Model M1/M2/M3 — see Design/Data model for the precise form of that claim, which is narrower than "the only message-construction site" and is what the Task 18 sweep enforces). They are duck-typed rather than `isinstance`-checked so that `errors.py` keeps importing nothing — not `yaml`, not `pydantic`, not the rest of the package. Export **all six classes, by this enumeration and not by a count** — `LoudFailError`, `NoteParseError`, `FrontmatterParseError`, `SchemaDriftError`, `UnverifiableBodyError`, `WriteFailedError` — from `obsidian_schemas/__init__.py` (import block beside writer's at 40-45; `__all__` beside 105-109). Both non-leaves are exported deliberately: `LoudFailError` is the package-wide base and `NoteParseError` is the one `except` that catches both parse failures without catching a write failure (Design/Data model, "The export set"). The three helpers stay module-private to the package and are **not** exported, since they are an internal construction rule rather than a consumer API.
 
-  **Then route the one pre-existing note-content interpolation in the package through the new helper.** In `identifier.py:67-68`, `IdentifierError.__init__`'s `super().__init__(f"{kind}: {detail} (raw={raw!r})")` becomes `super().__init__(bounded_message(f"{kind}: {detail}"))` — the `(raw={raw!r})` suffix is dropped — with `from obsidian_schemas.errors import bounded_message` added to `identifier.py`'s imports. That import direction is safe and is the whole reason `errors.py` is a leaf: it imports nothing from the package, so `identifier.py → errors.py` cannot cycle. Leave `self.kind`, `self.raw` and `self.detail` exactly as they are: the carry-the-strings pattern the class documents at identifier.py:61-64 is how a caller gets `raw` without it being in the message, and it is unchanged. This is the site Threat Model M3's widened sweep finds at Task 18 (Design/Data model, "What the sweep at Task 18 enforces"), and it is fixed here rather than carved out so that Task 18's verify is true rather than aspirational. It is bounded: `kind` and `detail` are literals at all 21 raise sites (identifier.py 137-417), and no test asserts the message text — every `IdentifierError` assertion in `tests/test_identifier.py` is a bare `pytest.raises` (56, 95, 115, 142, 171, 203, 222, 250). `name_validation.py:135` is the sibling shape and is **not** touched: both of its interpolands are source literals, so it already complies.
+  **Then close the one pre-existing note-content interpolation in the package, which is a deletion and nothing more.** In `identifier.py:67-68`, `IdentifierError.__init__`'s `super().__init__(f"{kind}: {detail} (raw={raw!r})")` becomes `super().__init__(f"{kind}: {detail}")` — the `(raw={raw!r})` suffix is dropped and **nothing else changes**. Add **no import**: `identifier.py` does not import `errors.py`, does not call `bounded_message`, and `IdentifierError` does not join the `LoudFailError` hierarchy. (An earlier revision of this task ordered `super().__init__(bounded_message(f"{kind}: {detail}"))`. That is wrong twice over and the audit fold reversed it: an f-string is not a member of `REASONS`, so **every** `IdentifierError` raise would die at runtime with `ValueError: bounded_message: reason is not an enumerated literal`, taking `tests/test_identifier.py`'s eight assertions with it; and putting `IdentifierError` in sweep C's `REASON_FIRST` set would silence its 21 raise sites, losing coverage the reconciliation table's category 8 keeps. Post-fix the line is byte-for-byte the shape of `name_validation.py:135`, which already complies.) Leave `self.kind`, `self.raw` and `self.detail` exactly as they are: the carry-the-strings pattern the class documents at identifier.py:61-64 is how a caller gets `raw` without it being in the message, and it is unchanged. This is the site Threat Model M3's widened sweep finds at Task 18 (Design/Data model, "What the sweep at Task 18 enforces"), and it is fixed here rather than carved out so that Task 18's verify is true rather than aspirational. It is bounded: `kind` and `detail` are literals at all 21 raise sites (identifier.py 137-417), and no test asserts the message text — every `IdentifierError` assertion in `tests/test_identifier.py` is a bare `pytest.raises` (56, 95, 115, 142, 171, 203, 222, 250). `name_validation.py:135` is the sibling shape and is **not** touched: both of its interpolands are source literals, so it already complies.
 
   **Verify:** floor still 607 green — in particular `tests/test_identifier.py` passes unchanged, which is the check that the `identifier.py` edit is contract-preserving. Then run from `<REPO>` — `.venv/bin/python -c "from obsidian_schemas.errors import FrontmatterParseError as E, bounded_cause; assert issubclass(E, ValueError); assert bounded_cause(UnicodeDecodeError('utf-8', b'\xff', 0, 1, 'invalid')) == 'UnicodeDecodeError'"` — the second assertion is the M1 bound at its simplest: an error whose `str()` carries note bytes reduces to its class name. Then, from `<REPO>`, the `identifier.py` bound demonstrated rather than asserted:
 
@@ -1426,17 +1553,41 @@ Ordered by dependency; a builder can follow top-to-bottom. Tasks 11–17 (the se
   EOF
   ```
 
-  Finally, confirm the six exports resolve: `.venv/bin/python -c "import obsidian_schemas as o; [getattr(o, n) for n in ('LoudFailError','NoteParseError','FrontmatterParseError','SchemaDriftError','UnverifiableBodyError','WriteFailedError')]"`.
+  Then confirm the six exports resolve: `.venv/bin/python -c "import obsidian_schemas as o; [getattr(o, n) for n in ('LoudFailError','NoteParseError','FrontmatterParseError','SchemaDriftError','UnverifiableBodyError','WriteFailedError')]"`.
 
-- [ ] **Task 3 — The seam: `parse_frontmatter` raises, `parse_to_model` decides ownership, both with bounded messages (M1).** In `parser.py`: replace the returns at 69-70 and 78-80 with the two `FrontmatterParseError` raises from the construction table in Design/Data model (`"frontmatter fence opened but never closed"`, and `"frontmatter did not parse as YAML"` with `cause=e` — so bind the exception, which line 78 does not today); leave 64-65 and 72-77 untouched. Add the ownership rule to `parse_to_model` per Design/Flow §2, using `model_class.model_fields.get("type")` and `.default` as the comparand, raising `SchemaDriftError("note declares our type and failed validation", path=path, declared_type=declared, cause=e)` only for owned-and-drifted. Add the keyword-only `path: Optional[Path] = None` parameter to both functions and pass `path=file_path` from `parse_markdown_file` (171-176) only — `parse_markdown_content` holds no path and the four write paths are not edited (Design/Data model, "How `path` reaches the seam"). Update the `Raises:` docstrings of `parse_frontmatter`, `parse_markdown_file` (167-169) and `parse_markdown_content`.
+  Finally, **demonstrate the runtime leg of the `reason` bound** — the choke point refusing a composed string, which is the whole substance of Threat Model M4's first leg. Run from `<REPO>`:
+
+  ```
+  cd <REPO> && <REPO>/.venv/bin/python - <<'EOF'
+  from obsidian_schemas.errors import FrontmatterParseError, REASONS
+  payload = "SENTINEL-a1b2c3 note bytes"
+  # the enumerated literal is accepted
+  ok = FrontmatterParseError("frontmatter did not parse as YAML")
+  assert "frontmatter did not parse as YAML" in str(ok)
+  # a composed reason is refused at construction, and the payload is NOT echoed
+  try:
+      FrontmatterParseError(f"could not parse {payload}")
+  except ValueError as e:
+      assert not isinstance(e, FrontmatterParseError), "must refuse, not construct"
+      assert payload not in str(e), str(e)
+      print("REASONS refusal OK:", str(e))
+  else:
+      raise AssertionError("composed reason was accepted — the choke point is open")
+  assert len(REASONS) == 12, len(REASONS)
+  EOF
+  ```
+
+  This is the exact counter-example the third spec review traced — `f"could not parse {payload}"` reaching `SkippedNote.detail` through `bounded_detail`'s one permitted `str()` — proven dead at the constructor rather than argued about. Note the `assert payload not in str(e)`: the refusal names the offending call site via the raise location, never the offending string, so the refusal is itself not a disclosure.
+
+- [ ] **Task 3 — The seam: `parse_frontmatter` raises, `parse_to_model` decides ownership, both with bounded messages (M1).** In `parser.py`: replace the returns at 69-70 and 78-80 with the two `FrontmatterParseError` raises from the construction table in Design/Data model (`"frontmatter fence opened but never closed"`, and `"frontmatter did not parse as YAML"` with `cause=e` — so bind the exception, which line 78 does not today); leave 64-65 and 72-77 untouched. Add the ownership rule to `parse_to_model` per Design/Flow §2, using `model_class.model_fields.get("type")` and `.default` as the comparand, raising `SchemaDriftError("note declares our type and failed validation", path=path, declared_type=declared, cause=e)` only for owned-and-drifted. Add the keyword-only `path: Optional[Path] = None` parameter to both functions and pass `path=file_path` from `parse_markdown_file` (171-176) only — `parse_markdown_content` holds no path and the four write paths are not edited (Design/Data model, "How `path` reaches the seam"). Update the `Raises:` docstrings of `parse_frontmatter`, `parse_markdown_file` (167-169) and `parse_markdown_content`. **M5 substance (audit-fold extension — the chain bound, ordered here where it lands):** every seam raise whose cause is note-derived uses `raise … from None` — the `MarkedYAMLError`/`ValidationError`/`UnicodeDecodeError` object never enters `__cause__`, so no traceback rendering carries the snippet/`input_value`/byte-run the M1 table forbids in the string; the bounded PROJECTION of the cause still reaches the message via `cause=e` → `bounded_cause(e)` INSIDE `bounded_message` before the raise (projection then suppression — the diagnostic keeps its class-name/line/loc content, the object stays out of the chain). `WriteFailedError` is the ruled exception: its `OSError` cause stays chained caller-visible exactly as Edge Cases rules ("carries the original as `__cause__`") — an I/O failure is environment-derived, not note-derived. Task 12's and Verification's `__cause__` oracles assert the M5 form: seam errors have `__cause__ is None` and `__suppress_context__` set; `WriteFailedError.__cause__` is the original `OSError`.
 
   **This is Threat Model M1's landing site, and it is a substantive obligation, not a note:** every message built here comes from `errors.bounded_message`, so no `f"...{e}"` and no `str(e)` appears anywhere in `parser.py`. What reaches a message from the caught exception is exactly what `bounded_cause` projects — class name, plus `problem_mark.line`/`.column` for the YAML error or `loc`/`type` per entry for the Pydantic one. Never the `MarkedYAMLError` source snippet, never Pydantic's `input`/`input_value`. Task 1's probe recorded what the two `str()` renderings actually contain on this interpreter; that is the thing being kept out.
 
   **Verify:** the floor is **green at 607** — nothing is expected to fail at this point. Both tests Tasks 5 and 6 revise still pass *in their current form* here: `test_update_nonexistent_file` returns at writer.py:242-243 before any parse, and `test_append_to_body_section_no_frontmatter_fence_returns_false` writes content with no leading `---` (test_repositories.py:1100) so it exits at person.py:1558 without reaching the seam. They move only when their own site does, at Tasks 5 and 6. **Any test going red here is a signal, not an expectation** — most likely the fix over-shot onto absent frontmatter — and must be investigated before proceeding, not accommodated. In particular `tests/test_parser.py::TestParsePerson::test_parse_person_wrong_type` must still pass: the foreign-type `None` is unchanged. Additionally, grep `parser.py` for `{e}` and `str(e)` and confirm zero matches.
 
-- [ ] **Task 4 — C3: the body-shrink guard refuses when it cannot verify.** In `writer.py:184-195`, delete `existing_body = ""` and replace the bare `except Exception` with `except (FrontmatterParseError, OSError, UnicodeDecodeError) as e: raise UnverifiableBodyError(bounded_message(...)) from e`, taking the message from Design/Flow §5 — built by the helper, not by an f-string, so the `({e})` the earlier draft interpolated (a `MarkedYAMLError` snippet or a `UnicodeDecodeError` byte-run) never lands in it. **Verify:** floor green; `tests/test_wi126_body_preservation.py` passes unchanged.
+- [ ] **Task 4 — C3: the body-shrink guard refuses when it cannot verify.** In `writer.py:184-195`, delete `existing_body = ""` and replace the bare `except Exception` with `except (FrontmatterParseError, OSError, UnicodeDecodeError) as e: raise UnverifiableBodyError(<the reason literal>, path=file_path, cause=e) from e`, taking the reason from Design/Flow §5 **verbatim, and passing it straight to the constructor** — not pre-wrapped in `bounded_message(...)`, which would compose the message twice and be refused by `REASONS` (audit-fold round 2; Design/Data model states the asymmetry). The message is still built by the helper, reached through `LoudFailError.__init__`, not by an f-string, so the `({e})` the earlier draft interpolated (a `MarkedYAMLError` snippet or a `UnicodeDecodeError` byte-run) never lands in it. **Verify:** floor green; `tests/test_wi126_body_preservation.py` passes unchanged.
 
-- [ ] **Task 5 — N4 in `writer.py`: P4 and P1.** Replace the `return False` at 242-243 and 281-282 with `raise FileNotFoundError(f"File not found: {file_path}")`. Replace the blanket handlers at 259-260 and 298-299 with the two-clause P1 shape (`except LoudFailError: raise` then `except Exception as e: … raise WriteFailedError(...) from e`). **These two sites have no existing log message to preserve** — read live, both are bare `except Exception: return False` with no logging at all — so they take the new `logger.warning(bounded_message("write did not complete", path=file_path, cause=e))` line from Design/Flow §6 verbatim; do not go looking for a message to keep. `WriteFailedError`'s own message is built by the same helper, never by an f-string interpolating `{e}`. Revise `tests/test_writer.py::test_update_nonexistent_file` (235-242) to `pytest.raises(FileNotFoundError)`, keeping the name. **Verify:** floor green; the revised test passes.
+- [ ] **Task 5 — N4 in `writer.py`: P4 and P1.** Replace the `return False` at 242-243 and 281-282 with `raise FileNotFoundError(f"File not found: {file_path}")`. Replace the blanket handlers at 259-260 and 298-299 with the two-clause P1 shape (`except LoudFailError: raise` then `except Exception as e: … raise WriteFailedError(...) from e`). **These two sites have no existing log message to preserve** — read live, both are bare `except Exception: return False` with no logging at all — so they take the new `logger.warning(bounded_message("write did not complete", path=file_path, cause=e))` line from Design/Flow §6 verbatim; do not go looking for a message to keep. The raise beneath it is `raise WriteFailedError("write did not complete", path=file_path, cause=e) from e` — **the reason passed straight to the constructor, not wrapped in `bounded_message(...)`**; `WriteFailedError`'s own message is built by the same helper inside `LoudFailError.__init__`, never by an f-string interpolating `{e}` and never by a second composition pass. Revise `tests/test_writer.py::test_update_nonexistent_file` (235-242) to `pytest.raises(FileNotFoundError)`, keeping the name. **Verify:** floor green; the revised test passes.
 
 - [ ] **Task 6 — N4 in `person.py`: the shared fence split (P2).** Add the module-level `_split_frontmatter_fence(content, file_path)` helper per Design/Flow §6. Route all four writers through it (person.py 1558-1570, 1675-1683, 1734-1742, 1801-1809), each keeping its existing `body_raw.lstrip("\n")` and its existing re-assembly. Route `_get_body_content` (1622-1626) through it too, keeping `return content` for the genuinely fence-less case and `body_raw.strip()` for the split case. Rename and revise `tests/test_repositories.py::test_append_to_body_section_no_frontmatter_fence_returns_false` (1088-1102) → `test_append_to_body_section_no_frontmatter_fence_raises`, asserting `pytest.raises(FrontmatterParseError)`. **Verify:** floor green; `tests/test_repositories.py -k to_discuss` all pass — the item-not-found and section-absent no-ops at 1746-1747, 1759-1761, 1813-1814 and 1822-1824 still return `False`.
 
@@ -1452,7 +1603,7 @@ Ordered by dependency; a builder can follow top-to-bottom. Tasks 11–17 (the se
   | 1775 | `logger.warning(bounded_message("failed to update To Discuss item", path=file_path, cause=e))` |
   | 1837 | `logger.warning(bounded_message("failed to remove To Discuss item", path=file_path, cause=e))` |
 
-  The level stays `logger.warning` at all five, `file_path` is already bound before each `try` (1468/1550/1667/1726/1793), and `person.name` leaves the message — it is in-bound but `reason` is specified as a source literal, and `path=file_path` identifies the note more precisely anyway. Then add `raise WriteFailedError(bounded_message("write did not complete", path=file_path, cause=e)) from e` beneath each. Leave the `logger.info` and `logger.debug` lines in these functions alone (1477, 1483, 1497, 1699, 1760, 1772, 1823, 1834): they interpolate `person.name`, `deduplicate_key` and `text[:50]`, all in-bound — the first by ruling, the other two because they are caller-supplied arguments on the trusted side of the boundary, not values read off a note.
+  The level stays `logger.warning` at all five, `file_path` is already bound before each `try` (1468/1550/1667/1726/1793), and `person.name` leaves the message — it is in-bound but `reason` is specified as a source literal, and `path=file_path` identifies the note more precisely anyway. Then add `raise WriteFailedError("write did not complete", path=file_path, cause=e) from e` beneath each — the reason straight to the constructor, not wrapped in `bounded_message(...)`, per the asymmetry stated in Design/Flow §6. Leave the `logger.info` and `logger.debug` lines in these functions alone (1477, 1483, 1497, 1699, 1760, 1772, 1823, 1834): they interpolate `person.name`, `deduplicate_key` and `text[:50]`, all in-bound — the first by ruling, the other two because they are caller-supplied arguments on the trusted side of the boundary, not values read off a note.
 
   **Verify:** floor green; `tests/test_repositories.py -k timeline` all pass — in particular `test_append_to_timeline_deduplication` (930-948), whose second call must still return `False`. Then grep `repositories/person.py` for `{e}` and `str(e` and confirm **zero** matches — the five that exist today are exactly the five this task rebuilds.
 
@@ -1506,13 +1657,21 @@ Ordered by dependency; a builder can follow top-to-bottom. Tasks 11–17 (the se
 
   **A** is the sweep as it stood before M3, minus the redundancy the second review flagged (`str(e` already subsumes `str(error`, so the alternation is written once over the exception names rather than as five overlapping patterns). Its one permitted match is `errors.bounded_detail`'s `str(error)` in the `LoudFailError` branch; **any other match is a second construction site and must be routed through `bounded_message`.** The count is derived, not hoped for: eight `{e}`-shaped interpolations exist today (base.py:182, book.py:78, meeting.py:82, person.py 1501/1605/1703/1776/1838), Task 8 removes three and Task 7 removes five, `errors.py` adds one.
 
-  **B is M3's substance and is new.** M3's finding was that A's patterns are all exception-shaped, so a message interpolating note *content* passes silently — and `_split_frontmatter_fence` holds the entire note in `content` at both of its raise sites while the four writers hold `frontmatter` and `body_raw` at re-assembly. Nothing in this build leaks (every designed message is a literal), so B is the forward-looking half. Its second stage is what makes it exact rather than noisy: stage 1 alone returns 20 matches today, 19 of which build **note text, not a diagnostic** — `str(raw)` inside `identifier.py`'s parse functions (138/189/237/267/312/348/390/415), and the `f"---{frontmatter}---\n{new_body}"` / `f"---\n{yaml_content}---\n{body}"` assemblies at writer.py 211/254/293/320, base.py:328, person.py 1596/1696/1768/1831 and body_sections.py:127. Building note text is outside the rule's domain; stage 2 keeps only the message-construction lines. The single stage-2 match today is `identifier.py:68`, which **Task 2 fixes**, so post-fix B is zero. If B returns anything, that thing is a note-content disclosure and the close-out stops.
+  **B is M3's substance and is new.** M3's finding was that A's patterns are all exception-shaped, so a message interpolating note *content* passes silently — and `_split_frontmatter_fence` holds the entire note in `content` at both of its raise sites while the four writers hold `frontmatter` and `body_raw` at re-assembly. Nothing in this build leaks (every designed message is a literal), so B is the forward-looking half. Its second stage is what makes it exact rather than noisy: stage 1 alone returns **19** matches today, **18** of which build **note text, not a diagnostic** — `str(raw)` inside `identifier.py`'s parse functions (138/189/237/267/312/348/390/415), and the `f"---{frontmatter}---\n{new_body}"` / `f"---\n{yaml_content}---\n{body}"` assemblies at writer.py 211/254/293/320, base.py:328, person.py 1596/1696/1768/1831 and body_sections.py:127. (Both figures were stated as 20/19 before the round-2 audit fold, against an enumeration that has always summed to 18; re-run live 2026-07-24, stage 1 is 19. Nothing in the verify moves — it rests on stage 2 — but a builder who counted would otherwise have spent a reconciliation on a number that was simply wrong.) Building note text is outside the rule's domain; stage 2 keeps only the message-construction lines. The single stage-2 match today is `identifier.py:68`, which **Task 2 fixes**, so post-fix B is zero. If B returns anything, that thing is a note-content disclosure and the close-out stops.
 
   **C is what makes an unenumerated content-bearing local fail loud**, and it is why B's name list being an enumeration is acceptable: a future message interpolating note content under a name B never heard of (`text`, `chunk`, `payload`) is invisible to B and visible to C, because C keys on the *site*, not on the name. It also covers B's stage-2 blind spot, which is the same line-based one.
 
-  **How to close C: diff against Task 1's baseline, then read the survivors.** Every line that *disappeared* must be one a task in this plan removed — the eight `{e}` sites (base.py:182, meeting.py:82, book.py:78, person.py 1501/1605/1703/1776/1838, all rebuilt or replaced by Tasks 7 and 8), `identifier.py:68`'s `raw` (Task 2), and `identifier.py`'s 21 raise sites (which leave the output because Task 2 puts `IdentifierError` in `BOUNDED`). Every line that *appeared* must likewise be a message this plan ordered. Then read what survives: **each listed identifier must be in-bound** — the note's path, the entity's own name, `declared_type`, or a caller-supplied argument. `name_validation.py`'s nine `name` entries are expected and pass by rule (2); Design/Data model rules both readings so neither is churned on. The seven rebuilt P1 WARNINGs and every new `raise` in this plan pass their values *through* `bounded_message`, so C lists nothing for them — that is the design working, not a gap in the sweep.
+  **How to close C: three checks, in this order. None of them is a judgment call.**
 
-  **Verify:** the floor command from `/tmp`, exit 0; the AC battery — all seven checks named in the fences pass by name; the two mitigation regressions (`test_seam_errors_carry_bounded_diagnostics`, `test_skip_surface_detail_is_bounded`) pass; **sweep A returns exactly the one permitted match, sweep B returns zero, and sweep C's every remaining identifier is in-bound with its whole diff from Task 1's baseline accounted for by a task in this plan.** Record C's post-fix output in the build notes beside the baseline — that pair is the artifact a future round diffs against.
+  1. **No violation lines at all.** C prints two shapes of violation, and either one is a stop: `<file>:<line>: NON-LITERAL reason into <Callable>` (M4's static leg — a composed string entering the bounded machinery through `reason`), and `obsidian_schemas/errors.py: CHOKE POINT UNGUARDED` or `… MISSING` (the runtime leg absent, so the one exemption to the literal rule is unearned). Task 1's baseline is *expected* to carry the `MISSING` line, because `errors.py` does not exist yet; at Task 18 its presence means Task 2 was not completed as written.
+
+  2. **Diff against Task 1's baseline, both directions.** Every line that *disappeared* must be one a task in this plan removed — the eight `{e}` sites (base.py:182, meeting.py:82, book.py:78, person.py 1501/1605/1703/1776/1838, all rebuilt or replaced by Tasks 7 and 8). Every line that *changed* must be one this plan changed: `identifier.py:68` goes from `['detail', 'kind', 'raw']` to `['detail', 'kind']` (Task 2) — it does **not** disappear, and `identifier.py`'s 21 raise sites do **not** move at all, because `IdentifierError` is deliberately not in `REASON_FIRST` (Design/Data model, reconciliation category 8). Every line that *appeared* must likewise be a message this plan ordered — `_note_skip`'s two lines (Task 8), `writer.py`'s two `FileNotFoundError`s (Task 5), the Timeline `logger.info` (Task 7).
+
+  3. **Classify every survivor against the reconciliation table** in Design/Data model, "What the sweep at Task 18 enforces" → *The reconciliation*. That table has eight categories and was derived by walking this plan's own post-fix output, so it already contains the survivors this plan creates — including `detail` (category 4, the output of a bounded callable held in a local) and `self` (category 7, the receiver `reaching_names` collects alongside an in-bound attribute), which are the two that an earlier four-category rule could not classify on lines Task 8 orders written. **A survivor the table does not classify STOPS the close-out** — it is treated as a disclosure until Dave rules otherwise, not waved through because it looks harmless. That is the fail-loud direction for the one enumeration this sweep cannot avoid.
+
+  The seven rebuilt P1 WARNINGs and every new `raise` in this plan pass their values *through* `bounded_message` — the WARNINGs by calling it directly, the raises through `LoudFailError.__init__` — so C lists nothing for them beyond the literal check on their `reason`. That is the design working, not a gap in the sweep.
+
+  **Verify:** the floor command from `/tmp`, exit 0; the AC battery — all seven checks named in the fences pass by name; the two mitigation regressions (`test_seam_errors_carry_bounded_diagnostics`, `test_skip_surface_detail_is_bounded`) pass; **sweep A returns exactly the one permitted match, sweep B returns zero, and sweep C passes all three close-out checks above — no violation line of either shape, the whole diff from Task 1's baseline accounted for by a task in this plan, and every surviving identifier classified by one of the reconciliation table's eight categories.** Record C's post-fix output in the build notes beside the baseline — that pair is the artifact a future round diffs against.
 
 ## Write Targets
 
@@ -1528,7 +1687,7 @@ why: Task 2 — export all six error classes, enumerated in Design/Data model
 
 ```writes
 path: obsidian_schemas/identifier.py
-why: Task 2 — IdentifierError's message routes through bounded_message and drops the raw value (Threat Model M3's one pre-existing violation)
+why: Task 2 — IdentifierError joins the structured contract: its MESSAGE is built by bounded_message and NEVER renders raw; raw is KEPT as a public attribute (recovery is attribute-only, per the audit-fold ruling — the message drops it, the object does not). Threat Model M3's one pre-existing violation, direction stated unambiguously per the round-4 review.
 ```
 
 ```writes
@@ -1700,7 +1859,7 @@ Nothing above is marked `[hypothesis — needs verification]`; every claim this 
 
 - `README.md`, `CLAUDE.md`, `pipeline-runners.yaml`, `pyproject.toml`, `state/**` — all outside `write_authority` or explicitly frozen. The floor-count line in `CLAUDE.md` is a conductor commit, not a build write.
 - `obsidian_schemas/models.py` — read from (the `Literal` defaults, `TYPE_TO_MODEL`), never modified. No schema changes in this item.
-- `obsidian_schemas/body_sections.py`, `name_validation.py`, `name_cleaning.py`, `repositories/company.py`, `repositories/__init__.py` — untouched. **`identifier.py` was on this list and has moved off it, deliberately and by exactly two lines:** Task 2 rewrites `IdentifierError.__init__`'s message at 67-68 and nothing else in the file. It is the one pre-existing site in the package that interpolates a value read off a note into an error message, so leaving it would make Threat Model M3's sweep return a violation at close-out and force either a carve-out or a false verify (Design/Data model, "Why `identifier.py:68` is in this table at all"). The parse functions, the `Identifier` subclasses, `EntityRef`, `IdentifierConflict` and every `.kind`/`.raw`/`.detail` attribute are **not** touched — a builder who finds themselves editing anything else in this file has gone out of scope. `name_validation.py:135` is the sibling shape and stays untouched because it already complies. `company.py` in particular overrides neither `_load_file` nor `file_pattern` and must keep it that way; its correct behaviour comes from inheriting `base`'s and declaring its own `type_name`, which is exactly what AC-3 proves from the company chair.
+- `obsidian_schemas/body_sections.py`, `name_validation.py`, `name_cleaning.py`, `repositories/company.py`, `repositories/__init__.py` — untouched. **`identifier.py` was on this list and has moved off it, deliberately and by exactly ONE line:** Task 2 rewrites `IdentifierError.__init__`'s message at 68 and nothing else in the file — **no import is added** (the audit fold reversed the `bounded_message` routing an earlier revision ordered; see Design/Data model), so the edit is `super().__init__(f"{kind}: {detail} (raw={raw!r})")` → `super().__init__(f"{kind}: {detail}")` and stops there. It is the one pre-existing site in the package that interpolates a value read off a note into an error message, so leaving it would make Threat Model M3's sweep return a violation at close-out and force either a carve-out or a false verify (Design/Data model, "Why `identifier.py:68` is in this table at all"). The parse functions, the `Identifier` subclasses, `EntityRef`, `IdentifierConflict` and every `.kind`/`.raw`/`.detail` attribute are **not** touched — a builder who finds themselves editing anything else in this file has gone out of scope. `name_validation.py:135` is the sibling shape and stays untouched because it already complies. `company.py` in particular overrides neither `_load_file` nor `file_pattern` and must keep it that way; its correct behaviour comes from inheriting `base`'s and declaring its own `type_name`, which is exactly what AC-3 proves from the company chair.
 - `tests/test_parser.py`, `tests/test_wi126_body_preservation.py`, `tests/test_vault_path_required.py`, `tests/test_body_sections.py`, `tests/test_identifier.py`, `tests/test_identity_index.py`, `tests/test_models.py`, `tests/test_name_cleaning.py`, `tests/test_name_validation.py`, `tests/test_resolve_or_create.py` — untouched. Only `tests/test_writer.py` and `tests/test_repositories.py` change, and only at the two named cases.
 
 ## Risk Analysis
@@ -1717,7 +1876,7 @@ This touches the boundary every HAL9000 startup and every exocortex meeting sync
 | **N4's return-contract change breaks a HAL9000 consumer branch.** | Low — the only change is failure-`False` → raise. | Medium — an unhandled exception in a skill. | AC-5 freezes every legitimate no-op's exact return value; the errors are `ValueError` subclasses so an existing `except ValueError` still catches. The migration is parked as a companion item with this one as its dependency. |
 | **The check harness itself becomes the maintenance burden** — one shared module, a repo-global "only one file may import `ast`" constraint. | Certain — it is a stated trade, not a surprise. | Low-Medium — a six-month owner meets AC-7 first. | The Architectural Review accepts it knowingly at promotion time; AC-7 states how a future legitimate second `ast` consumer is meant to arrive (by extending the criterion, not by silently absorbing the fact). |
 | **The fix leaks note content into logs and a public API field.** Making the boundary loud routes a note's own bytes — for a person note, emails and phone numbers — into a WARNING line and `SkippedNote.detail`, which HAL9000, exocortex and orchestrator may render onward. The channel does not exist today because `parser.py:78` and `148` discard their exception objects. | Medium if unbounded — it is what `str(e)` and `f"...{e}"` do by default, and both were in the first revision of this Design; **a per-site carve-out for `person.py`'s five existing handlers survived into the second revision and was caught at review**, which is the evidence that the site-by-site form of this mitigation does not hold. | Medium-High — PII in a log file, in a repo this hermetic floor cannot audit the consumers of. | Threat Model M1/M2/M3. One construction rule (`errors.bounded_message`) with a fall-through that reduces an unrecognised exception to its class name, so there is no per-site caution to forget and no unenumerated case that defaults to `str()`; **no site is exempt, including the five that had a message worth keeping and the one pre-existing violation in `identifier.py`.** Sized by Task 1's interpreter probe, ordered in Tasks 2, 3, 7 and 8, regression-tested by `test_seam_errors_carry_bounded_diagnostics` and `test_skip_surface_detail_is_bounded`, swept over the whole package at Task 18 (A/B/C, where C is name-independent so an unenumerated content-bearing local fails loud), and met against real content once in the incident replay. |
-| **The sweep that proves the rule becomes a rubber stamp** — its patterns cover the exception half only, so a message interpolating note content passes it silently, or its "exactly one permitted match" is kept true by exempting the sites that violate it. | Medium — both happened. Round 1 shipped the exception-only pattern list (M3); round 2 shipped a carve-out for five real violations, inside the remedy for round 1. | Medium — a green sweep is worse than no sweep, because it is read as coverage. | The rule is stated over *values* rather than over names or sites, so "which sites are exempt" is not a question the spec can answer; sweep B excludes file-content assembly by **domain** (building note text is not building a diagnostic) rather than by exemption; sweep C keys on the site rather than the name, so a local B never heard of is still caught; and the one pre-existing violation the widened sweep surfaces is fixed in Task 2 rather than carved out, so the close-out's verify is true rather than aspirational. |
+| **The sweep that proves the rule becomes a rubber stamp** — its patterns cover the exception half only, so a message interpolating note content passes it silently, or its "exactly one permitted match" is kept true by exempting the sites that violate it, or its own predicate skips the argument that carries the disclosure. | **Certain — it happened three times, one level lower each round.** Round 1 shipped the exception-only pattern list (M3); round 2 shipped a carve-out for five real violations, inside the remedy for round 1; round 3 shipped a rule total over *values* whose **checker** was not total over *sites and arguments* — `BOUNDED` made every `raise FrontmatterParseError(<reason>, …)` not a site at all, so a composed `reason` passed A, B and C (M4). | Medium — a green sweep is worse than no sweep, because it is read as coverage. | The rule is stated over *values* rather than over names or sites, so "which sites are exempt" is not a question the spec can answer; sweep B excludes file-content assembly by **domain** (building note text is not building a diagnostic) rather than by exemption; sweep C keys on the site rather than the name, so a local B never heard of is still caught; the one pre-existing violation the widened sweep surfaces is fixed in Task 2 rather than carved out. **And M4 closes the checker itself at the level the recurrence was happening**: `reason` is a *type* obligation (`ast.Constant`, or the runtime `REASONS` membership at the one choke point, whose presence the same pass proves) rather than a convention the pass trusts, and the close-out classifies survivors against a table derived from the pass's own post-fix output with **unclassified ⇒ stop**. Both moves make the unenumerated case fail loud, which is the property the three prior rounds each lacked. |
 
 **Rollback.** Clean and small: the seam change is two `return`s becoming two `raise`s; the loader change is a handler body plus a list; the write changes are handler shapes. Reverting `parser.py:69-70` and `78-80` alone restores today's behaviour at every one of the fourteen closure members simultaneously, which is the upside of fixing at the seam. No data migration to undo, no on-disk format to reverse, no flag to unset. A bad landing degrades to a noisy startup, not to a corrupted vault.
 
@@ -1745,9 +1904,17 @@ Three more this revision added answers for, all three of them the spec-review ro
 9. *"Task 18 is the step that makes M1/M2 a property of the tree, and M3 says it must cover note content too. What do I grep for?"* — Design/Data model, "What the sweep at Task 18 enforces", and the three greps written out in Task 18: **A** (exception half, exactly one permitted match), **B** (note-content half — M3's named locals, two-stage so file-content assembly is excluded by *domain* rather than by exemption, expect zero), **C** (name-independent net over every message-construction line, which is what makes an unenumerated content-bearing local fail loud rather than pass silently). The rule the greps mechanize is stated over *values* — did this come from reading a note off disk? — with the three note-derived exceptions ruled in-bound and enumerated, and caller-supplied arguments explicitly on the trusted side so a builder does not churn on `text[:50]`.
 10. *"Task 2 says export the five leaf classes and there are six classes, four of them leaves. Which five?"* — **All six, enumerated by name** in Design/Data model, in Task 2, in Integration points and in the `writes` fence, with the reason both non-leaves are exported (`LoudFailError` is the package-wide base; `NoteParseError` is the one `except` that catches both parse failures without catching a write failure). Task 2 carries a verify that imports all six from `obsidian_schemas` by name, so the export set is now checked rather than described.
 
-An eleventh question this round's own fix creates, answered before a builder can hit it: *"Scope Boundary says `identifier.py` is untouched, but Task 2 tells me to edit it."* — Scope Boundary now says so explicitly and bounds it to two lines (`IdentifierError.__init__`'s message at 67-68), with the reason it moved: it is the single pre-existing site in the package that interpolates a note-derived value into an error message, so the alternative to fixing it is a carve-out in the very sweep whose carve-outs bounced this spec twice. Everything else in that file, and `name_validation.py` entirely, stay on the untouched list.
+An eleventh question this round's own fix creates, answered before a builder can hit it: *"Scope Boundary says `identifier.py` is untouched, but Task 2 tells me to edit it."* — Scope Boundary now says so explicitly and bounds it to one line (`IdentifierError.__init__`'s message at 68), with the reason it moved: it is the single pre-existing site in the package that interpolates a note-derived value into an error message, so the alternative to fixing it is a carve-out in the very sweep whose carve-outs bounced this spec twice. Everything else in that file, and `name_validation.py` entirely, stay on the untouched list.
+
+**Three more, added by the round-2 audit fold (2026-07-24) — these are the questions the third spec review found unanswerable, walked as the builder and answered at their sites:**
+
+12. *"M4 says sweep C must inspect the `reason` argument of a bounded callable. Task 18 tells me to run the heredoc verbatim, and the heredoc's `BOUNDED` skip means those calls are not sites. Which?"* — **The heredoc is the answer, and it no longer skips them.** `BOUNDED` is split at its source: `REASON_FIRST` (`bounded_message` + the six hierarchy classes) is *visited*, and its reason must be an `ast.Constant` string; `PROJECTIONS` (`bounded_cause`, `bounded_detail`) takes an exception rather than a reason and is correctly not a site — collapsing the two is what made the old predicate both miss the real hole and, had it been fixed naively, flag every correct `bounded_detail(error)` call. The one call the literal check cannot bind — `LoudFailError.__init__`'s forwarding of its own parameter, inside `errors.py` — is exempt *and the exemption is proven*: the same pass asserts `REASONS` exists and `bounded_message` opens with the membership refusal, and prints `CHOKE POINT UNGUARDED` if not. The counter-example the review traced, `f"could not parse {payload}"`, now dies twice: statically at C, and at runtime in Task 2's own verify block.
+13. *"Sweep C lists `detail` and `self` at the two `_note_skip` log lines Task 8 told me to write. Neither is in the in-bound list, and the close-out says an out-of-bound survivor stops the close-out. Do I stop?"* — **No, and it is not a judgment call.** The close-out no longer classifies against three note-derived exceptions; it classifies against the **reconciliation table** in Design/Data model, derived by walking this plan's own post-fix output, where `detail` is category 4 (the output of a bounded callable held in a local — `reaching_names` skips a bounded *call*, not a `Name` bound to its result) and `self` is category 7 (syntactic residue: the receiver collected alongside `self.type_name`, not a value at all). Flow §3 states both at the site as well, so the answer is reachable from either end. What *does* stop the close-out is a survivor the table does not classify — the fail-loud direction, stated as check 3 of Task 18.
+14. *"Task 18 says B's stage 1 returns 20 today; I get 19. Has the tree drifted under me?"* — **No — the number was wrong and is now 19.** Re-run live at this fold; the document's own enumeration always summed to 18 non-message expressions, which with `identifier.py:68` is 19. Both places that stated 20 are corrected, and the verify never depended on it: it rests on stage 2, which is exactly `identifier.py:68` today and zero post-Task-2.
 
 Contradiction scan over the rest of the document: the Approach's "typed error or discriminated result — spec-writer's call" and AC-5's "the mechanism is open (string insertion, or making the section round-trip content-preserving)" are the two places this spec closes an explicitly-open choice, and both are closed here in the direction the frozen fences require. The Approach's own statement that the seam's loudness "PROPAGATES the typed error" at the public parse layer is consistent with Decision 1 and would have been contradicted by the discriminated-result variant — which is the argument that settled it. No other section of this document states a mechanism this spec now contradicts.
+
+**Contradiction scan for the round-2 audit fold specifically**, since its edits touch prescribed code in five sections at once. Every place that names the constructor form was re-read and made to agree: the construction table (both wrapped rows now structured, with the reason the wrapped form is a *runtime crash* under the new `__init__` rather than merely a style difference), Flow §5's `UnverifiableBodyError`, Flow §6's P1 `WriteFailedError`, Tasks 4, 5 and 7. Every place that named `identifier.py`'s fix was re-read and made to agree: the construction table row, the "Why `identifier.py:68` is in this table" paragraph, Integration points, Scope Boundary (two lines → one line, no import), Task 2, Task 1's baseline expectation and Task 18's diff expectation — the earlier "routes through `bounded_message`" ordering is reversed everywhere, not just where the fold was written. The hierarchy block and the helper block each define `LoudFailError.__init__` **once** (the helper block carries a pointer, not a copy), because two definitions of one constructor is the same buildable-two-ways defect at a smaller scale. `NoteParseError`'s own `__init__` is deleted for the same reason. Sweep A's derivation (8 − 8 + 1 = 1) is untouched by any of it and was re-run live: exactly eight matches, at the eight lines the derivation names.
 
 OPEN items: **0** (cap is 2).
 
@@ -5323,3 +5490,665 @@ The frozen AC set (AC-1..AC-7, `ac_hash` of the D4a origination) is BYTE-UNTOUCH
 every edit is Design/Plan machinery below the signed criteria. Cold-verify round next, per the
 audit-fold convention: the reviewer reads the fold fresh; a REVISE against it is a new finding by
 definition, never a grant continuation.
+
+> **Superseded in detail by round 2 below.** The five items above record what the first fold
+> *attempted*; legs 1 and 2 were right in direction and wrong in three mechanical particulars, and
+> item 3's `IdentifierError` routing is reversed. Where this record and the Design disagree, the
+> Design is current — these fold records are audit trail, never build instructions.
+
+## Audit-fold round 2 — 2026-07-24 (sweep C walked as output, not as intent)
+
+Round 3's spec review asked for one thing and it is the thing that was owed: **not another patch to
+`is_message_call`, but one audit pass over sweep C as the single mechanism** — every
+message-construction site the post-fix package will hold, with C's *actual* output reconciled
+line-for-line against the in-bound rule. That pass was run this round. It closed both blocking issues,
+and — because walking output finds what walking intent does not — it found four further defects the
+first fold had introduced, every one of which would have reached a builder as prescribed code that
+does not work.
+
+**The two blocking issues.**
+
+1. **M4's substance now exists in both legs.** *Runtime:* `REASONS` is twelve enumerated literals
+   (it was an empty `frozenset` with a comment where its members belong — unbuildable as written),
+   `LoudFailError` owns the hierarchy's one `__init__`, and Task 2's verify **demonstrates the
+   refusal on the review's own counter-example** rather than asserting it. *Static:* `BOUNDED` is
+   split into `REASON_FIRST` and `PROJECTIONS`, and the one exemption the literal check cannot bind —
+   `errors.py`'s forwarding call — is made self-verifying by `choke_point_guard_present`, which goes
+   red if the runtime refusal is missing. Every `reason` in the package is now either a literal proven
+   statically or a value that crossed a choke point whose refusal was proven statically.
+2. **The close-out can classify its own sweep's output.** The four-category rule is replaced by an
+   **eight-category reconciliation table derived from the post-fix output itself**, with
+   `detail` (category 4) and `self` (category 7) — the two survivors Task 8 creates and the old rule
+   could not name — ruled at the table, at Flow §3, and in the dry run. The stopping rule is inverted
+   to the fail-loud direction: **a survivor the table does not classify stops the close-out**, rather
+   than a builder deciding whether an unfamiliar identifier is harmless.
+
+**What the pass found that no gate had raised**, all four from executing the heredoc against the tree
+the plan prescribes rather than reading it:
+
+3. **`bounded_cause` and `bounded_detail` were in the same set as the constructors**, so the naive form
+   of M4's fix would have flagged `bounded_detail(error)` and `_note_skip`'s own call as
+   `NON-LITERAL reason` — the mitigation reporting the code it prescribes as a violation. The split
+   into two sets is what makes each callable's obligation match its actual signature.
+4. **`UnverifiableBodyError(bounded_message(…))` and `WriteFailedError(bounded_message(…))` became a
+   runtime crash** the moment `LoudFailError` gained the structured constructor: the composed string
+   arrives as the outer call's `reason` and `REASONS` refuses it. Every occurrence — construction
+   table, Flow §5, Flow §6, Tasks 4, 5 and 7 — is now the structured form, with the asymmetry stated
+   (`logger.warning` takes a string, a constructor takes a reason).
+5. **Task 2's `identifier.py` edit would have killed every `IdentifierError` in the package.**
+   `super().__init__(bounded_message(f"{kind}: {detail}"))` passes an f-string as `reason`; no f-string
+   is in `REASONS`. Reversed: the edit is now the deletion of `(raw={raw!r})` and nothing else — no
+   import, no `bounded_message`, no hierarchy membership. That also keeps sweep C **stronger**, since
+   `REASON_FIRST` membership would have silenced `identifier.py`'s 21 raise sites; they stay visible
+   and are cleared by category 8, which rules them from the same run's own output at line 68.
+6. **`NoteParseError` declared a second `__init__` doing what `LoudFailError`'s now does** — one
+   constructor described in two places, which is the buildable-two-ways defect this document has bounced
+   on before at larger scale. Deleted; the subclasses inherit.
+
+**Non-blocking, also folded:** sweep B's stage-1 count corrected 20 → 19 in both places (re-run live;
+the enumeration was always right and the aggregate always wrong), and `IdentifierError`'s message
+change recorded in **Relationship to other work** as the second cross-repo consequence, parked in the
+same place as N4's.
+
+The frozen AC set is BYTE-UNTOUCHED by this fold as well — every edit is Design/Plan machinery below
+the signed criteria, and no `writes` fence, task ordinal or `check:` name moved. The one carried-open
+item is unchanged and deliberately so: Architect note 3's parked `mkdir(parents=True)` question is
+still owed Dave's explicit word before **WI-004** is specced, and is not this build's to answer.
+
+## Threat Model — 2026-07-24
+
+**Recommendation: PROMOTE to threat-modeled**
+
+Cold-start re-review (WI-144 round 4), run against Revision 4 — the audit-fold round 2 that closed the
+`reason` channel as a class. Read: the role definition; this document's Problem/Motivation, Intent,
+Exploration Notes (rounds 1-27), Approach, AC-1..AC-7 as fences, the specification-altitude declaration,
+Design end to end (Revisions 3 and 4, the two open decisions, the mitigation-landing table, Data model
+including **Bounded diagnostics** with `REASONS`/`bounded_message`/`bounded_cause`/`bounded_detail`, the
+export set, **What the sweep at Task 18 enforces** with sweeps A/B/C and the eight-category
+reconciliation, Flow §1-§6), Edge Cases, Implementation Plan Tasks 1-18, Write Targets, Verification,
+and every prior gate section (Architectural Review, Data Audit, Threat Model rounds 1-3, Spec Review
+rounds 1-3, Adversarial Review rounds 1-3, both audit-fold records); project `CLAUDE.md`. Code re-read
+live in this worktree rather than carried from the doc: `parser.py:53-150`, `writer.py:182-196`,
+`models.py` swept for `Dict`-typed fields.
+
+### Trigger check
+
+Unchanged from rounds 1-3; the same three fire and two are this item's own subject matter, so the cheap
+path is again unavailable.
+
+- **Handles input from external sources** — the untrusted input is the byte content of a note on disk.
+- **Performs filesystem operations on user-owned files** — four derived write paths rebuild notes;
+  `append_to_timeline` gains a branch that writes to a note it previously refused.
+- **Persists data** — to the vault, to log output, and to a queryable in-memory surface, `SkippedNote`,
+  whose `detail` three out-of-repo consumers may render.
+
+Still **not** triggered, re-verified rather than carried: no secrets, credentials, API keys, OAuth
+scopes or tokens; no outbound API calls; no MCP scopes; no access-control changes; no external messages;
+no network I/O anywhere in the package.
+
+### STRIDE review — the delta, re-verified at source
+
+S, T, R, D and E are unchanged from rounds 1-3: the approach has not moved since round 1 and Revisions 3
+and 4 touch only the message-construction discipline. Three standing items re-verified live rather than
+carried, then the one new finding.
+
+- **`yaml.safe_load` is still the sole loader** — read live at `parser.py:73`, the handler at 78 wrapped
+  around it, the load call itself untouched by Tasks 3 and 4.
+- **The Pydantic projection still cannot carry note-supplied keys** — re-swept live, `models.py` declares
+  **no** `Dict`/`dict`-typed model field; the sole `dict[...]` in the module is `TYPE_TO_MODEL` at
+  models.py:309, a module constant. Every `loc` element `bounded_cause` renders is a declared field name
+  or a list index this package authored.
+- **The `reason` channel is genuinely closed by the fold, on both legs.** Runtime: `REASONS` is twelve
+  enumerated literals and `LoudFailError` owns the hierarchy's one `__init__`, so no class in the
+  hierarchy accepts a free-form message — and Task 2's verify *demonstrates* the refusal on the review's
+  own counter-example (`f"could not parse {payload}"`) with `assert payload not in str(e)`, rather than
+  asserting it. Static: `REASON_FIRST` requires an `ast.Constant` reason at every call site outside
+  `errors.py`, and the one exemption is made self-verifying by `choke_point_guard_present`, which goes
+  red if the runtime refusal is missing. The round-2 audit fold's four self-caught defects
+  (`bounded_cause`/`bounded_detail` misfiled with the constructors; the double-wrapped
+  `UnverifiableBodyError`/`WriteFailedError`; Task 2's f-string reason; `NoteParseError`'s duplicate
+  `__init__`) are each fixed at every home I could find them. M4 has substance.
+
+**Information disclosure — the new finding: the bound is drawn around the message string, and the raise
+sites hand the caller the unbounded exception object itself.** Every mitigation in this document's four
+rounds — M1, M2, M3, M4 — constrains what a *string* contains: `bounded_message`'s composition,
+`bounded_detail`'s one permitted `str()`, and three sweeps over message-construction sites. None of them
+constrains the exception *object* that the same raise attaches, and the Design attaches it deliberately
+at every site:
+
+- Flow §2 (line 1129): `raise SchemaDriftError(..., cause=e) from e` — `e` is the Pydantic
+  `ValidationError` whose `str()` renders `input_value` for each failing field. For this document's own
+  canonical fixture, `@Broken.md` with `emails: "not-a-list"`, the drifted field *is* the contact PII.
+- Flow §5 (line 1225): `raise UnverifiableBodyError(..., cause=e) from e` — `e` is an `OSError`, a
+  `UnicodeDecodeError` whose `str()` renders a byte snippet of the note, or a `FrontmatterParseError`
+  whose own `__context__` is the `MarkedYAMLError`.
+- Flow §6 (line 1243): `raise WriteFailedError(..., cause=e) from e`.
+- Task 3 orders `parse_frontmatter`'s `yaml.YAMLError` raise built with `cause=e`, so it binds the
+  exception the handler at parser.py:78 does not bind today.
+
+`raise X from e` sets `X.__cause__ = e`. Raising inside an `except` block sets `X.__context__` even
+without the `from`. Both are rendered verbatim by every traceback formatter — `logging.exception`,
+`traceback.print_exc`, an unhandled crash, a bug report pasted into an issue. So `str(exc.__cause__)` is
+one attribute access away from exactly the three renderings the M1 exclusion table (Design/Data model,
+lines 844-846) enumerates as forbidden: the `MarkedYAMLError` source-line snippet, the Pydantic
+`input_value`, the `UnicodeDecodeError` byte run. The Design weighs the chaining once, at line 1133, and
+only on the upside — *"the `from e` chaining is unchanged and is what keeps the full exception available
+to a debugger without putting it in the string"* — which is true and is precisely the point: it keeps
+the full exception available to everything else too.
+
+This is new, not pre-existing, and it is created by this item's own remedy. Verified live rather than
+argued: `parser.py:78` is `except yaml.YAMLError:` and `parser.py:148` is `except Exception:` — neither
+binds the exception object with `as e`, both discard it and return; `writer.py:189` is `except
+Exception:` and assigns `existing_body = ""`. Today no note-content-bearing exception escapes any of the
+three seams, because today none of them raises at all. Post-fix all three raise, and AC-2's
+invocation-surface clause requires the six public parse functions to **PROPAGATE** the typed error to
+HAL9000, exocortex and orchestrator — the three long-running consumers this hermetic floor cannot audit,
+and the exact travel path the round-1 disclosure finding was raised about.
+
+The exposure model is the one this document already accepts: not an attacker with vault access, but
+aggregation and travel. A consumer that logs a caught `NoteParseError` with `logger.exception` gets the
+chained snippet in its log file whether or not it ever touches `str(error)`, and every mitigation the
+spec ships reads green while it happens.
+
+The design is right and the gap is in its scope, which is the same grade of finding M3 and M4 were and
+takes the same disposition: **M5** below, a bound on the chain to match the bound on the message. The
+natural mechanism is `raise ... from None` at the note-content-bearing raise sites — it sets
+`__cause__` to `None` and `__suppress_context__` to `True`, so no traceback renders the raw exception,
+while `__context__` stays populated for a debugger that goes looking, and `bounded_cause` has already
+projected the actionable part (class name plus line/column or field path) into the message. The
+mechanism is the spec-writer's call; the property is that the raised error discloses no more than its
+message does. Two consequences to fold with it, both named so they are not discovered at build time:
+`WriteFailedError`'s `OSError` cause is **not** note content and Edge Cases (line 1456) deliberately
+rules it caller-visible, so a blanket rule is the wrong shape; and Task 12's oracle and Verification's
+oracle-derivation note (line 1768) both read the asserted class name off `type(error.__cause__).__name__`,
+which is `None` under `from None` and would need `__context__`. Both are Design/Plan machinery below the
+signed criteria — no `desc:` in AC-1..AC-7 mentions `__cause__`, `__context__` or chaining, so M5
+collides with no frozen fence.
+
+**Spoofing / Tampering / Repudiation / Denial of service / Elevation of privilege:** re-walked, no change
+from rounds 1-3. The ownership decision remains an attention list rather than an authorization one; the
+C2 mutation chain is closed by AC-1 with a byte-identity assertion; the WARNING-plus-queryable-surface
+is a repudiation improvement over a discarded exception object; `_skipped` is bounded by vault size,
+cleared at the top of `load()`, and holds bounded strings post-M2; and there is no subprocess, shell,
+`eval`, network call or permission change anywhere in the package. AC-7's plants are scanned as parsed
+syntax and never imported, so the harness adds no execution surface — and sweep C runs as a heredoc that
+is never written to a file, so `tests/derivations.py` stays the single `ast` home.
+
+### Mitigations verified in place
+
+1. **Fail-closed on the mutation path.** AC-1 requires every derived write path to refuse a failed parse
+   *and* asserts the file byte-identical afterward. Design/Flow §4, Tasks 3/5/6.
+2. **Fail-open but visibly on the read path.** All three `_load_file` implementations keep a broad
+   `except Exception` deliberately, because `load()`'s loop has no `try` of its own (base.py:157-165) and
+   each handler is the entire margin against an aborted batch. AC-3 asserts NO-ABORT on all twelve cells.
+3. **Security-relevant events at WARN, asserted not assumed** — AC-3 requires WARNING never DEBUG; Task
+   13 asserts the level via `caplog`.
+4. **One message-construction site for the whole package** — `bounded_message` / `bounded_cause` /
+   `bounded_detail` in `errors.py`, duck-typed so the module imports nothing and cannot cycle,
+   module-private and unexported. This is what makes M1/M2 total rather than site-by-site.
+5. **The `reason` parameter is closed at both legs** — runtime `REASONS` membership at the hierarchy's
+   one constructor, static `ast.Constant` check at every call site outside the choke point, with the
+   choke point's own exemption proved present rather than trusted.
+6. **The projection cannot carry note content** — `bounded_cause` projects `loc` and `type`, never
+   `input`/`input_value`; re-swept live, `models.py` declares no `Dict`-typed field, so every `loc`
+   element is package-authored. The unenumerated exception type falls through to its class name.
+7. **Ownership decided before model construction** — `_owns` compares against `self.type_name` and derives
+   convention-vs-catch-all from the class's own `file_pattern`, which is what keeps the skip surface from
+   becoming an untrusted-input amplifier on a heterogeneous vault. It records failures, not non-matches.
+8. **Backward-compatible error typing** — every new error subclasses `ValueError` except the two
+   deliberate `FileNotFoundError`s, so an existing consumer `except ValueError` still catches.
+9. **The one pre-existing PII channel in the tree is fixed, not exempted** — `identifier.py:68`'s
+   `(raw={raw!r})` suffix is deleted at Task 2, with the bound demonstrated on a planted sentinel.
+10. **Safe YAML loader unchanged**, `parser.py:73`, re-verified live this round.
+
+Required mitigations follow as machine fences. M1-M4 are re-emitted because each is still required; M5 is
+new this round.
+
+```mitigation
+kind: required
+id: M1
+desc: The seam's typed errors carry a bounded diagnostic (path, line/column or field name, error class) and never the verbatim yaml.MarkedYAMLError source snippet or Pydantic input_value, both of which reproduce note content into every downstream consumer of the raised error.
+landed: Task 3
+```
+
+```mitigation
+kind: required
+id: M2
+desc: _note_skip's WARNING line and SkippedNote.detail carry that same bounded diagnostic rather than str(error) verbatim, covering the generic "unreadable" bucket too, where a UnicodeDecodeError renders a byte snippet of the note.
+landed: Task 8
+```
+
+```mitigation
+kind: required
+id: M3
+desc: Task 18's package-wide message-construction sweep must cover the note-content half of the rule it proves, not only the exception half - sweep B's named content-bearing locals plus sweep C's name-independent syntax pass, with the one pre-existing violation (identifier.py:68) fixed rather than carved out.
+landed: Task 18
+```
+
+```mitigation
+kind: required
+id: M4
+desc: Sweep C must inspect the reason argument of a REASON_FIRST callable and require an ast.Constant string, with the choke point's own forwarding call exempted only because choke_point_guard_present proves the runtime REASONS refusal exists - so a non-literal reason carrying note content can neither be constructed nor pass the sweep.
+landed: Task 18
+```
+
+```mitigation
+kind: required
+id: M5
+desc: Bound the raised exception object, not only its message - every seam raise chains the note-content-bearing cause (from e at Flow 2, 5 and 6, plus cause=e), so str(exc.__cause__) and every traceback rendering carry the exact MarkedYAMLError snippet, Pydantic input_value and UnicodeDecodeError byte run the M1 exclusion table forbids in the string, propagated by AC-2 to three consumers this floor cannot audit; suppress the chain where the cause is note-derived (e.g. raise ... from None, which leaves __context__ for a debugger while keeping the raw exception out of any rendered traceback), leave WriteFailedError's OSError cause as Edge Cases rules it, and move Task 12's and Verification's __cause__ oracles accordingly.
+landed: Task 3
+```
+
+### Notes (non-blocking)
+
+- **Design/Data model line 767 contradicts itself about the `REASONS` refusal message, in the direction
+  that reopens M4's own channel.** The parenthetical reads "raising a plain `ValueError` **naming the
+  offending string's repr** ... never a disclosure: the refused string is **not echoed** into any
+  exception message that escapes." Those are opposite instructions in one sentence. The code sample at
+  line 806, Task 2's verify (`assert payload not in str(e)`, line 1558) and sweep C's close-out (line
+  1076, "carries a `Constant`, and prints nothing") all agree on the non-echoing form, so three of four
+  homes are right and a builder who follows the fourth gets a red verify at Task 2 — which is why this is
+  a note and not a fence. But the value being echoed would be precisely the composed note-content string
+  M4 exists to refuse, so the clause should be deleted rather than left to be caught. This is the shape
+  the Design itself records at line 707: two instructions in one document with no stated tiebreak.
+- **The public parse surface remains the widest disclosure channel and is still out of this repo's
+  reach**, which is exactly why M5 belongs at construction alongside M1 rather than at the consumers.
+  Carried from rounds 1-3, unchanged.
+- **`path` is in-bound by ruling, and note paths are note-identifying** — `@John Smith.md` names a person.
+  Carried; still the right call, still the line to re-examine if a consumer renders these messages
+  somewhere more public than a log.
+- **The Timeline accommodation still widens the set of notes this package mutates**, on a raw
+  `write_text` that `writer.py:178-183` exempts from the WI-126 guard. Dave-ruled at round 9, bounded by
+  AC-5's PRESERVATION oracle. Recorded again only so that if the preservation half is ever relaxed, the
+  security consequence is on record.
+- **`IdentifierError`'s message change is a second consumer-visible break** beyond N4's, correctly parked
+  in the same cross-repo companion item at Relationship to other work. Unchanged from round 3.
+- **The 607-case floor is again not executed at this gate** — no shell in this cage this round either, so
+  PyYAML's and Pydantic's rendering shapes and Python's chaining semantics are stated from library and
+  language semantics with the constructing call sites cited (`parser.py:73`, `parser.py:141`, Flow §2/§5/§6),
+  not from an observed run. Task 1's error-render probe is where M1's bound is sized; sizing M5's is a
+  two-line addition to the same heredoc (print `e.__cause__` and `e.__context__` off a constructed
+  `FrontmatterParseError`).
+
+```verdict
+gate: threat-modeler
+verdict: PROMOTE
+date: 2026-07-24
+model: claude-opus-4-8
+note: Revision 4 closes the reason channel for real -- REASONS plus the hierarchy's one constructor is a runtime refusal Task 2 demonstrates rather than asserts, sweep C's REASON_FIRST literal check is the static twin, and the choke point's own exemption is proved by choke_point_guard_present rather than trusted; re-derived live rather than carried, parser.py:73 is still the only loader and models.py declares no Dict-typed field so bounded_cause's loc projection stays package-authored. One new finding, and it is the same class one level out: every mitigation in four rounds bounds a message STRING, while Flow 2, 5 and 6 each raise `from e` with `cause=e`, so the unbounded exception object rides along on __cause__ and every traceback formatter renders the MarkedYAMLError snippet, Pydantic input_value and UnicodeDecodeError byte run that M1's own exclusion table forbids -- newly, since parser.py:78 and 148 and writer.py:189 all bind no exception and raise nothing today, and AC-2 propagates the result to three consumers this hermetic floor cannot audit; M5 bounds the chain to match the message, collides with no frozen fence, and lands in Task 3 beside M1.
+```
+
+## Spec Review — 2026-07-24
+
+**Recommendation: REVISE — return to spec writer (gaps to fix)**
+
+Fourth spec-review pass, run cold-start against Revision 4 rather than against the diff, and read from line 1:
+Problem/Motivation, Intent, Exploration Notes rounds 1-27, Non-goals, Approach, the specification-altitude
+declaration, AC-1..AC-7 as fences with the Check-strategy note, Examples of done, Relationship to other work,
+Design end to end (Revisions 3 and 4, Decisions 1-2, the mitigation-landing table, Data model including
+**Bounded diagnostics** / `REASONS` / `bounded_message` / `bounded_cause` / `bounded_detail` and **What the
+sweep at Task 18 enforces** with the eight-category reconciliation, Flow §1-§7, the test harness, Integration
+points, Configuration, Prerequisites & Assumptions, the Check-12 zero-diff record), Edge Cases, Implementation
+Plan Tasks 1-18, Write Targets, Verification, Verified Diagnosis, Scope Boundary, Risk Analysis, Self-Review
+Dry Run, the seventeen AC Red-Team passes, the `ac-signoff` fence, the Architectural Review, the Data Audit,
+all four Threat Model rounds, all three prior Spec Reviews, all three Adversarial Reviews and both audit-fold
+records; plus `docs/spec-reviews/WI-020-dave-review-2026-07-24.md`, project `CLAUDE.md`, `pyproject.toml`.
+
+**The round-2 audit fold is real and both of round 3's blocking issues are genuinely closed**, verified by
+walking the heredoc rather than by reading the fold's summary of it. `REASON_FIRST` is reached through
+`ast.walk`'s own exhaustive visit of the *inner* `bounded_message(...)` node, so a non-literal reason is caught
+even where the outer `logger.warning(...)` contributes nothing (`reaching_names` returning `set()` for the
+bounded call does not hide it); `choke_point_guard_present` matches the prescribed `bounded_message` body
+exactly (module-level `AnnAssign` to `REASONS`; an `If` whose `Compare` carries a `NotIn` against `REASONS`
+and whose body holds a `Raise`); the wrapped-constructor crash, `NoteParseError`'s duplicate `__init__`,
+Task 2's f-string reason and the `bounded_cause`/`bounded_detail` misfiling are each fixed at every home;
+`detail` and `self` are ruled at categories 4 and 7, at Flow §3, and in the dry run. This REVISE is not a
+continuation of that grant — both findings below are new, and I traced each at source.
+
+### Citation verification
+
+**One citation does not match current code.** Design/Data model, the reconciliation table, category 6:
+*"`dropped_count` and `len(...)` (`writer.py:49`)"*. Read live, `writer.py:46-55` is
+`BodyTruncationError.__init__`, whose `super().__init__(` opens at 49 and whose f-strings interpolate
+`self.file_path` and `dropped_count` — **there is no `len` anywhere in it.** The `len` is at `writer.py:195`,
+a different site, and the conflation is what hid blocking issue 2's first survivor. Automatic REVISE per the
+citation rule, and the repair is the same pass as issue 2.
+
+Everything else re-read at source this round rather than carried, and exact: `parser.py` 53-80 (returns at
+65/70/77/80 only; `safe_load` at 73; the `None` normalisation at 74-75; `except yaml.YAMLError:` at 78
+binding nothing), 108-150 (signature 108-111, empty short-circuit 123, auto-detect 130-133, unresolvable
+return 135-137, `model_validate` 141, `except Exception:` at 148 binding nothing), 153-184 (`Raises:` at
+167-169, `read_text` at 173, `parse_frontmatter` 174, `parse_to_model` 176), 187-210 (201-202), 216-237
+(conveniences at 218/224/230/236); `writer.py` 30-55, 176, 178-183, 184-195 with `existing_body = ""` at
+189-190 and the guard at 191-195, 197-205, 211, 217, 242-243, 245-247, 253-256, 259-260, 281-282, 284-286,
+292-295, 298-299; `repositories/base.py` 74, 149-150, 152-155, 157-165 (no `try` around `_load_file` at 159 —
+confirmed), 167, 171-183 with 178/179/182, 275, 305, 308, 311-312, 327-329, 332-334, 355, 382-388;
+`repositories/person.py` 305-316, 818-832, 996-1006, 1156, 1186-1194, 1594-1607, and the five P1 handler sites;
+`identifier.py` 58-71 with `(raw={raw!r})` at 68; `models.py` 31-32 — `model_config = ConfigDict(extra="allow", …)`,
+which is the *other* half of the `bounded_cause` projection bound the round-4 Threat Model verified: extras are
+unvalidated, so a note-authored key can never appear in a `ValidationError` `loc`. The frozen
+`## Acceptance Criteria` section (514-671) matches the `ac-signoff` artifact including the round-27 THIRD CASE
+and AC-7's `check:` name.
+
+Not run this round: no shell in this cage, so the floor, sweeps A/B and sweep C's heredoc were not executed.
+Sweep B's stage-1 enumeration now sums to 18 non-message expressions + `identifier.py:68` = 19 in both places
+(Design line 921, Task 18 line 1646) — the round-3 off-by-one is closed by arithmetic.
+
+### Blocking issues
+
+1. **M5 is `kind: required` with `landed: Task 3`, and nothing in the Implementation Plan, the Design or the
+   mitigation-landing table carries it — while Flow §2, §5 and §6 all prescribe exactly what it forbids.**
+
+   Design line 698 states the rule this violates in its own words: *"All four are `kind: required`, so none may
+   live only in the threat-model section — the builder executes the Implementation Plan and never reads it."*
+   The table is still headed **four** and still has four rows. M5 lives only in `## Threat Model`.
+
+   I traced the finding at source rather than adopting the threat-modeler's framing, and it holds:
+
+   - Flow §2 line 1129 `raise SchemaDriftError(..., cause=e) **from e**`; Flow §5 line 1225 and Flow §6 line
+     1243 the same. Task 3 line 1568 orders `cause=e` and says nothing about chaining, so a builder executing
+     the plan writes the chain.
+   - `bounded_cause` (lines 817-835) projects **only** the class name plus `problem_mark.line`/`.column` or
+     `loc`/`type`. `__cause__` carries the object those are projections *of*. `str(err.__cause__)` is therefore
+     one attribute access from all three rows of the M1 exclusion table at lines 844-846, and every traceback
+     formatter renders it without being asked.
+   - **The channel is new, not pre-existing** — confirmed live, not argued: `parser.py:78` is
+     `except yaml.YAMLError:`, `parser.py:148` is `except Exception:`, `writer.py:189` is `except Exception:`.
+     None binds the exception with `as e`; all three discard and return. Today no note-content-bearing
+     exception escapes any of the three seams because today none of them raises.
+   - **No sweep in this plan can see it, and that is structural rather than an oversight.** A and B are greps
+     over identifier names. Sweep C keys on `ast.Call` and reads only `node.args` and `node.keywords`; `from e`
+     is `ast.Raise.cause`, a node the pass never visits. So the plan's own verify battery reads green on the
+     defect. That is the same "green sweep is worse than no sweep" shape Risk Analysis line 1865 already books
+     as **Certain**.
+   - AC-2's invocation-surface clause requires the six residue members to PROPAGATE the typed error, so the
+     chained object travels to HAL9000, exocortex and orchestrator — the three consumers this hermetic floor
+     cannot audit.
+
+   Two collisions the fold must resolve so a builder does not, both already visible in the document:
+   Edge Cases line 1456 deliberately rules `WriteFailedError`'s `OSError` cause caller-visible (*"carries the
+   original as `__cause__` so a caller can decide"*), so a blanket `from None` is the wrong shape; and Task 12
+   line 1610 plus Verification line 1768 both derive an oracle from `type(error.__cause__).__name__`, which is
+   `NoneType` under `from None`. Neither is optional and neither is in the plan.
+
+   Nothing here collides with a frozen fence — no `desc:` in AC-1..AC-7 mentions `__cause__`, `__context__` or
+   chaining — and Task 3's target (`parser.py`) is already declared in `## Write Targets`.
+
+2. **The eight-category reconciliation table does not classify sweep C's actual output on this tree, and
+   Task 18's close-out check 3 says an unclassified survivor stops the close-out.**
+
+   The fold's premise is stated at line 1056: *"the categories below are **derived from what C actually prints
+   on the prescribed post-fix tree**, not from the three exceptions."* Walked at source, they were not — the
+   `writer.py:49` mis-citation above is the tell. Running `is_message_call`/`reaching_names` by hand over the
+   package's message sites returns survivors no category covers:
+
+   - `writer.py:195` — `raise BodyTruncationError(file_path, len(dropped))` prints `['dropped', 'file_path',
+     'len']`. `dropped` is `existing_lines - _body_content_lines(body)` (writer.py:191-193): a set of **the
+     note's own body content lines**. `len` is not in `NO_DESCEND`, so `reaching_names` descends and collects it.
+   - `base.py:74` — `raise VaultPathNotConfiguredError(UNCONFIGURED_VAULT_MESSAGE)` prints
+     `['UNCONFIGURED_VAULT_MESSAGE']`. No category covers a module-level literal constant.
+   - `person.py:826` and `831` — `logger.info(…, reason, name, email, phone)` and
+     `raise WeakIdentityError(reason)` print `reason`, `email`, `phone`; `949`/`954` identically.
+   - `person.py:309` prints `['canonical_key', 'key', 'r', 'ref', 'seen', 'sorted']`; `person.py:1000` prints
+     `['canonical_key', 'distinct', 'hits', 'i', 'key', 'r']`.
+   - `person.py:1189` prints `['emails', 'name', 'person', 'phones']`.
+   - `person.py:1375` prints `clean_result` and `cleaned_name` beyond the `repairs_applied`/`name` category 6
+     names.
+
+   **The last three are not merely unclassified — they are out of bound by this document's own ruling.** Design
+   line 868 rules `identifier.py:68`'s `raw` out because *"for a person note, an email or a phone number, which
+   is verbatim the class the M1 exclusion table names"*. `person.py:1189` interpolates `person.emails` and
+   `person.phones`; `person.py:309` and `1000` interpolate identifier keys and `canonical_key`s built from
+   person notes. And they are exactly the case C exists for: A's alternation is exception names and B's is
+   `content|body_raw|body|frontmatter|raw`, so `key`, `emails`, `phones` and `reason` pass both greps silently —
+   *"a future message interpolating a content-bearing local under a name B never heard of"* (line 923), except
+   it is not future.
+
+   **So the load-bearing claim that `identifier.py:68` is "the one pre-existing message-construction site in
+   the package that interpolates a value read off a note" is false**, and it is asserted in four places — Design
+   line 868, M3's fence `desc:`, Risk Analysis line 1864 (*"the one pre-existing violation in `identifier.py`"*),
+   and Self-Review question 11. Task 2 fixes one of at least four. A builder reaching Task 18 check 3 meets six
+   or more survivors the table cannot name, at least three carrying note-derived PII, against an instruction
+   that says **stop** — which is the round-3 blocking issue 2 shape recurring at the sites the fold's walk did
+   not reach.
+
+### The pattern, and how to close it in one pass rather than a fifth
+
+Four consecutive REVISEs, and the discipline is still the message-construction disclosure bound: the rule
+(round 1), the sweep's patterns (round 2), the sweep's own predicate (round 3), and now **the tree the sweep is
+pointed at**. Each round has been monotone and each fold correct at the layer it touched; what recurs is that
+the closing artifact is *described* rather than *executed*. Round 3 asked for C's actual output reconciled
+line-for-line; the fold reconciled the output it expected. So the ask is not a fifth patch and not a longer
+category list — it is the same pass, **run**:
+
+1. **Execute sweep C's heredoc against the live tree now, at spec time**, and paste its full output into the
+   Design. That output is Task 1's baseline as well, so this costs nothing the plan does not already owe, and
+   it is the only thing that makes "derived from what C prints" true rather than claimed. (I could not run it —
+   no shell in this cage — which is precisely why it must be run where a shell exists rather than reasoned about
+   again.)
+2. **Make the residue decidable rather than enumerated.** Two shapes account for everything I found. (a) An
+   identifier that reaches only a *bounded projection of itself* — `len(dropped)` at writer.py:195,
+   `dropped_count` at writer.py:49 — which is category 8's mechanism (*"an argument the callee's own swept line
+   proves does not reach the message"*) stated generally instead of only about `raw`. (b) A genuine pre-existing
+   out-of-bound interpolation, which takes `identifier.py:68`'s disposition: fixed in Task 2's manner, or routed
+   to the cross-repo companion item where `IdentifierError`'s message change already sits — but decided here,
+   not met at close-out. Where an enumeration is unavoidable, keep the fail-loud direction check 3 already has.
+3. **Land M5 in Task 3 as prescribed code**, add its row to the mitigation-landing table (and correct the
+   "four"), rule `WriteFailedError`'s `OSError` cause explicitly per Edge Cases line 1456, and move Task 12's and
+   Verification's `__cause__` oracles to whatever the mechanism leaves populated.
+
+The `writes` fences, the task ordinals, the `check:` names and the frozen AC set are untouched by all three —
+this is a Design/Data-model edit, one paragraph in Task 18, and one paragraph in Task 3.
+
+### Non-blocking notes
+
+- **Design line 767 contradicts itself about the `REASONS` refusal message, in the direction that reopens M4's
+  own channel.** *"raising a plain `ValueError` **naming the offending string's repr** … never a disclosure:
+  the refused string is **not echoed** into any exception message that escapes."* Those are opposite
+  instructions in one sentence, and the value at stake is precisely the composed note-content string M4 exists
+  to refuse. Three of four homes are right (the code sample at 806, Task 2's `assert payload not in str(e)` at
+  1558, sweep C's close-out at 1076), so a builder who follows the fourth gets a red verify rather than a
+  shipped leak — which is why this is a note. Delete the clause while the paragraph is open. Independently
+  found by the round-4 threat-modeler; I concur.
+- **Task 1's sweep-C baseline expects `person.py:1605` and C will print `person.py:1604`.** Verified live: 1604
+  is `logger.warning(` and 1605 is the f-string carrying `{e}`; `ast.Call.lineno` is the start of the call
+  expression. The same list is re-used at Task 18 check 2 as a disappeared-line expectation. The parenthetical
+  at line 1517 is also wrong about sweep A — A is an unfiltered grep and *does* match `{e}` on 1605; it is B
+  alone that misses it, and B misses it because `e` is not in B's name list at all. Task 1's escape hatch
+  ("record what it actually is and carry on") absorbs it, but it costs a reconciliation against a wrong number
+  and mis-diagnoses it as tree drift. Fixed for free by running C (fold item 1).
+- **The `writes` fence for `identifier.py` (line 1676) still carries the reversed instruction**: *"IdentifierError's
+  message routes through bounded_message"*. The fold reversed that everywhere else — Task 2 line 1526 now
+  explicitly forbids the import and the call — and the fold's own contradiction scan at line 1903 enumerates the
+  homes it corrected without this one. `why:` is prose rather than machine-read, so nothing breaks; but a stale
+  instruction surviving a fold is the exact defect this document has bounced on.
+- **`__init__.py:102-103` is cited in AC-2's `desc:` for three exports that sit at 102-104.** Frozen text, not
+  editable. Recorded so a builder reading the fence does not think an export is missing. Carried unchanged from
+  rounds 2 and 3.
+
+### Carried-forward notes
+
+- **Architect note 3 (the parked `mkdir(parents=True)` bogus-tree question is not visibly Dave-ruled) — STILL
+  OPEN, deliberately.** Unchanged and re-deferred a fourth time on the same reasoning: the spec adopts the
+  Non-goals routing (WI-004 owns the write-side guard) in Scope Boundary and says so, `ac-signoff` records
+  `comments: null` which signs the AC set but does not rule a question kept out of it, and the adoption is
+  boundary-correct and reversible. Dave's explicit word is still owed before WI-004 is specced — not before this
+  one builds.
+- **Data Audit — the 607-case floor was not executed at that gate.** Still not executed at this one: this cage
+  has no shell either. Task 1 re-runs it before any code is written, which remains the right placement. Recorded
+  so the gap stays visible rather than reading as discharged.
+- **Data Audit — Dave's live vault was not read.** Not load-bearing; every fixture is built in `tmp_path`, and
+  the incident replay (Verification steps 1-5) is a post-merge close-out on a disposable copy.
+- **Data Audit's closing instruction (re-run predicates 2, 5, 7, 8 at build start) — CLOSED.** Landed in Task 1
+  verbatim including the "if (8) has drifted, stop" escalation.
+- **Threat-modeler round-1 note 1 (`writer.py:259-260` / `298-299` have no existing message) — CLOSED.** Design/Flow
+  §6 and Task 5 both state it correctly; re-verified live, both are bare `except Exception: return False`.
+- **Threat-modeler note 2 (the public parse surface is the widest new disclosure channel and is out of this
+  repo's reach) — carried, and it is why M5 belongs at construction.** AC-2 requires the six residue members to
+  propagate, so whatever the chain carries travels to consumers a hermetic floor cannot audit.
+- **Threat-modeler note 3 (the Timeline accommodation widens the set of notes this package mutates, on a path
+  exempt from the WI-126 guard) — carried, on record.** Dave-ruled at round 9, bounded by AC-5's PRESERVATION
+  oracle and Flow §6's end-of-file string insertion.
+- **Threat-modeler round-1 note 4 (the PyYAML/Pydantic message shapes were never run) — CLOSED**, with the
+  round-4 addendum still open in the same place: sizing M5's bound is a two-line addition to Task 1's probe
+  (print `e.__cause__` and `e.__context__`), and it lands with blocking issue 1.
+- **Threat-modeler round-2 note (`path` is in-bound by ruling; note paths are note-identifying) — carried.**
+  Agreed, and it is what lets the seven rebuilt WARNINGs keep `path=file_path`.
+- **Threat-modeler round-3 note (sweep C's `detail` survivor has no ruling) — CLOSED** by the round-2 audit
+  fold's categories 4 and 7, verified this round at the table, at Flow §3 line 1174 and in the dry run.
+- **My round-3 non-blocking note on sweep B's stage-1 count (20 vs 19) — CLOSED.** Corrected in both places and
+  the enumeration now sums consistently.
+- **My round-3 non-blocking note on Task 16's `ImportError` half being defeated by the cached repository —
+  CLOSED.** Task 16 line 1624 now requires a fresh `PersonRepository` constructed after the monkeypatch and
+  states the vacuity it closes.
+- **My round-3 non-blocking note on `identifier.py`'s message change as a second externally-visible contract
+  change — CLOSED.** Recorded in Relationship to other work, parked with N4's companion item.
+- **My round-2 notes on `_get_body_content`'s unreachable first raise and Task 18's redundant grep patterns, and
+  my round-1 notes on Task 3's verify, Flow §2's `BaseEntity` rationale, Flow §6's P1 rationale and the
+  `models.py:261-262` citation — all remain CLOSED.**
+
+### Bar check
+
+Walked every check of `docs/spec-quality-bar.md`. Clean on: self-containment; Prerequisites & Assumptions
+(explicit, including the single trust boundary at `Path.read_text` and the load-bearing stale `.pth`);
+Configuration (none, stated, with Hypothesis ruled out and grounded at `pyproject.toml:31-35`); Edge Cases
+(`OPEN: None`, 0 against a cap of 2); Risk Analysis (required — HAL9000 startup and the exocortex meeting sync
+— present, with rollback and migration); Check 10 (seven well-formed `criteria` fences, all `kind: test`, each
+with a bare in-repo check name; no `kind: command` check, so nothing assumes an unsandboxed shell); Check 11
+(every load-bearing diagnostic claim cites a falsifiable artifact and each artifact supports its specific claim
+— re-verified, including the C2 chain, the defeated post-write reload at base.py:332-334, and finding 14's
+`pyproject.toml` grounding for Decision 2); Check 12 (zero-length diff inside the frozen section held — the
+frozen text through round 27 is present verbatim, both audit folds are Design/Plan machinery below the signed
+criteria, and the three readings recorded at lines 1414-1416 sit outside the fences and are none of
+strength-weakening, actor-swap, scope-narrowing, oracle-swap or exception-carve). Not clean on citation
+verification (one mismatch, above) or Check 5.
+
+**Task-definition shape check (WI-141):** 18 canonical definitions, `- [ ] **Task N — <title>.**`, ordinals
+1-18 unique. Every `landed: Task N` in the live `## Threat Model` (3, 8, 18, 18, 3) resolves — no D8b refusal.
+Whether M4's and M5's *substance* landed is judged separately, as the check requires: M4's did (both legs,
+verified above); M5's did not, and that is blocking issue 1.
+
+**Write-Targets coverage check (WI-132):** clean in both directions, unchanged by the fold. Task 1 writes
+nothing (its probe and sweep-C baseline are read-only heredocs); 2 → `errors.py`, `__init__.py`,
+`identifier.py`; 3 → `parser.py`; 4, 5 → `writer.py` (5 also `tests/test_writer.py`); 6, 7, 9 →
+`repositories/person.py` (6 also `tests/test_repositories.py`); 8 → `repositories/base.py`, `meeting.py`,
+`book.py`; 10 → `tests/derivations.py`; 11, 12 → `tests/test_loud_fail_parse.py`; 13, 16 →
+`tests/test_loud_fail_load.py`; 14, 15 → `tests/test_loud_fail_write.py`; 17 →
+`tests/test_loud_fail_harness.py`; 18 → parser/writer/person/base docstrings, all already declared. No declared
+path is unwritten. Both fixes above land inside already-declared paths (`parser.py` for M5;
+`repositories/person.py`, `writer.py`, `repositories/base.py` for whatever the sweep-C reconciliation fixes). No
+`kind: precondition` fence is present and none is needed: every declared path sits inside `write_authority`
+(`obsidian_schemas/**`, `tests/**`, `scripts/**`, `docs/**`), and the spec names `README.md` and `CLAUDE.md` as
+deliberately outside it. Task 18's greps and Task 8's scratch check invoke paths without writing them and are
+correctly not declared.
+
+### Build-runner dry-run
+
+Walked Tasks 1-18 as the builder. The dependency ordering holds (11-17 gated on 10; 10 gated on 2-9's
+contract), every task names a concrete file and a runnable verify on the absolute floor interpreter, the
+harness section resolves every derivation the seven fences consume, and the 14-member closure with its 4/3/1/6
+partition re-derives correctly against live source. Three questions a build-runner would plausibly ask:
+
+1. *"M5 says bound the exception object, not just the message, and it landed in Task 3. Task 3 tells me to pass
+   `cause=e`, and Flow §2, §5 and §6 all show `raise … from e`. Which?"* — **Not answered.** Blocking issue 1.
+2. *"Sweep C prints `['dropped', 'file_path', 'len']` at `writer.py:195`, `['UNCONFIGURED_VAULT_MESSAGE']` at
+   `base.py:74`, and `['emails', 'name', 'person', 'phones']` at `person.py:1189`. None is in the eight
+   categories, and check 3 says an unclassified survivor stops the close-out. Do I stop?"* — **Not answered.**
+   Blocking issue 2.
+3. *"Design says the `REASONS` refusal names the offending string's repr and also says it is not echoed. Which
+   do I write?"* — Answerable with effort (the code sample and Task 2's own assertion both say non-echoing), but
+   it is two instructions in one sentence. Non-blocking note 1.
+
+Everything else in the plan I could execute without leaving the document.
+
+```verdict
+gate: spec-reviewer
+verdict: REVISE
+date: 2026-07-24
+model: claude-opus-4-8
+note: The round-2 audit fold is real and closes both of round 3's blocking issues -- verified by walking the heredoc, not its summary: ast.walk visits the inner bounded_message node so REASON_FIRST catches a non-literal reason even under a logger call that contributes nothing, choke_point_guard_present matches the prescribed body exactly, and detail/self are ruled at categories 4 and 7. Two NEW findings. (1) M5 is kind:required landed Task 3 with no substance anywhere in the plan, against Design line 698's own rule that a required fence may not live only in the threat-model section -- Flow 2/5/6 all prescribe `raise ... from e` and Task 3 orders cause=e with no word on chaining, bounded_cause projects only class name plus line/column or loc/type so __cause__ carries the object those project FROM, and the channel is new (verified live: parser.py:78 and 148 and writer.py:189 each bind no exception and raise nothing today); no sweep can see it because from e is ast.Raise.cause and sweep C reads only a Call's args/keywords, so the whole verify battery reads green, while AC-2 propagates the chained object to three consumers this floor cannot audit -- and two collisions are unresolved, Edge Cases line 1456 deliberately keeping WriteFailedError's OSError cause visible and Task 12/Verification both reading an oracle off type(error.__cause__).__name__. (2) The eight-category reconciliation is not derived from C's actual output as line 1056 claims: walked at source it leaves writer.py:195 ['dropped','file_path','len'], base.py:74 ['UNCONFIGURED_VAULT_MESSAGE'], person.py:826/831 and 949/954 ['reason','email','phone'], person.py:309 and 1000 ['key','canonical_key',...] and person.py:1189 ['emails','person','phones'] unclassified against a check-3 rule that says an unclassified survivor STOPS -- and the last three are out of bound by the document's own line-868 ruling on identifier.py's raw, so "the one pre-existing message-construction site that interpolates a value read off a note", asserted at Design 868, M3's fence, Risk Analysis 1864 and Self-Review 11, is false and Task 2 fixes one of at least four; the tell is a citation error, category 6's "len(...) (writer.py:49)" where writer.py:46-55 has no len at all. Fourth consecutive REVISE on one discipline, now at the tree the sweep is pointed at rather than the sweep: the ask is the same pass RUN -- execute C's heredoc live and paste its output as both the reconciliation and Task 1's baseline, generalise category 8 (an identifier that reaches only a bounded projection of itself) instead of lengthening the list, disposition each real pre-existing violation the identifier.py:68 way or route it, and land M5 as prescribed code in Task 3. No writes fence, task ordinal, check: name or frozen AC byte moves.
+```
+
+## Adversarial Review — 2026-07-24 (round 4)
+
+Cold-start injection-hunter re-run (WI-059, the two-key corroborator), reading the whole document
+fresh rather than trusting rounds 1-3's own conclusions (all above, same day, all PROMOTE). Since
+round 3, two more gate rounds were appended: Threat Model round 4 (re-review after audit-fold round
+2, `PROMOTE`, adding required mitigation M5 — the raised-exception-object disclosure channel via
+`from e`/`cause=e`) and Spec Review round 4 (cold-start against Revision 4, `REVISE` — the fourth
+consecutive REVISE on this item, citing (1) M5 required but landed nowhere in the Implementation
+Plan/Design/mitigation table, and (2) the eight-category message-construction reconciliation table
+not actually derived from sweep C's live output, leaving `writer.py:195`, `base.py:74`, and three
+`person.py` sites unclassified).
+
+Read this round: the entire document from line 1 — Problem/Motivation, Intent, Exploration Notes
+through round 27, Approach, AC-1..AC-7 fences, Examples of done, Relationship to other work, Design,
+Edge Cases, Implementation Plan, Write Targets, Verification, Verified Diagnosis, Scope Boundary,
+Risk Analysis, Self-Review Dry Run, all seventeen `AC Red-Team` re-verify fences, the `ac-signoff`
+fence, the Architectural Review, the Data Audit, all four Threat Model rounds, all four Spec Review
+rounds, and all three prior Adversarial Reviews — plus `docs/spec-reviews/WI-020-dave-review-2026-07-24.md`
+(Dave's sign-off record, `verdict: PROMOTE`, `comments: null`, the frozen AC text through round 27,
+read across its full revision history) and `docs/compartmentalization-security-review.md` (the
+reference doc naming this gate's own dual-LLM/confused-deputy rationale — read for role context, not
+as material to this item, and it argues no verdict for this or any other gate). Re-read live against
+source rather than trusted from the doc's own citations: `parser.py:78,148`, `writer.py:189-196`,
+Flow §2/§5/§6's `raise ... from e` / `cause=e` sites, and `bounded_cause`'s projection in `errors.py`
+— to confirm the round-4 Threat Model's `__cause__` finding and the round-4 Spec Review's blocking
+issues are real rather than persuasive misreadings. Both are: neither `parser.py:78` nor `148` nor
+`writer.py:189` binds its exception with `as e` today, so the disclosure channel M5 names is
+genuinely new to this fix rather than pre-existing; and M5's fence is `kind: required` with
+`landed: Task 3` while Task 3's own text (Implementation Plan) orders `cause=e` with no word on
+suppressing the chain — the gap is real, cited correctly, and not adopted from the Threat Model's
+framing without a second look. Also grepped the whole work-item doc and the linked sign-off doc again
+for imperative-to-a-reviewer phrasing (ignore/disregard, pre-approved, emit-PROMOTE, "reviewer
+should", jailbreak/bypass/sudo/exec/curl/base64 language, second-person instructions addressed to an
+agent, system-prompt-style delimiters) — no hits beyond the same two innocuous ones all three prior
+rounds named — and re-ran the zero-width/non-printing Unicode scan across the full file: none found.
+
+**The one question:** has this spec, or any prior gate's verdict on it — including the two rounds
+added since my round-3 PROMOTE — been steered by a prompt injection planted in the untrusted content
+the gates read? No. Four consecutive spec-reviewer REVISEs on one item is, if anything, more scrutiny
+of injection-shaped content than usual, not less: an injection trying to buy a PROMOTE would need the
+opposite pattern (verdicts trending permissive without new grounding). Here the pattern is the reverse
+— each REVISE tightens on a newly-surfaced, source-verified gap (M5's missing landing; the
+reconciliation table's four uncited survivors and a citation error at `writer.py:49` that doesn't
+exist), and the round-4 Spec Review explicitly re-verifies the prior fold's real fixes before finding
+new issues rather than accepting either the fold's or the Threat Model's framing at face value ("I
+traced the finding at source rather than adopting the threat-modeler's framing, and it holds"). That
+is the opposite of a confused deputy adopting persuasive prose — it is a gate re-deriving its evidence
+each round, which is this document's dominant and consistent shape across 27 exploration rounds, 17
+AC-red-team rounds, two audit-folds, and now four rounds of three separate downstream gates. No text
+in the document or the linked sign-off doc is addressed to a reviewer/agent, argues "therefore
+PROMOTE" or "stop checking here," or has a spec-shaped form whose effect is to steer a verdict rather
+than to argue the code.
+
+```verdict
+gate: injection-hunter
+verdict: PROMOTE
+date: 2026-07-24
+model: claude-sonnet-5
+note: No planted steering found across the full document (through the fourth Threat Model and Spec Review rounds) or the linked Dave-signoff doc -- the round-4 Threat Model's M5 finding and the round-4 Spec Review's two blocking issues (M5 unlanded in the Plan; the reconciliation table not actually derived from sweep C's output) both re-derive live against parser.py/writer.py/errors.py rather than adopting each other's framing, four consecutive REVISEs is the opposite of the pattern an injection buying a PROMOTE would produce, and a fresh grep for imperative-to-a-reviewer phrasing plus a non-printing/zero-width Unicode scan returned nothing beyond the two innocuous hits all three prior rounds already named.
+```
+
+## Audit-fold extension — 2026-07-24 (round 4: the surface completed; M5 given substance)
+
+The round-4 review confirmed the audit-fold's mechanism by walking the heredoc, then showed its
+ENUMERATION was scoped to the new hierarchy while the discipline quantifies over the package — the
+round-6 rule's own error, made by the conductor: mechanism folded, member sweep not re-run. Dave
+ruled the extension ("Ok"). What landed, once:
+
+1. **The complete exception-surface table** (Design → Bounded diagnostics): all five pre-existing
+   classes ruled explicitly — IdentifierError joins the structured contract (Task 2, direction
+   stated unambiguously in its writes fence); BodyTruncationError verified at source as
+   path+count and ruled in-bound by name; VaultPathNotConfiguredError literal; NameValidationError
+   and WeakIdentityError in-bound with the caller-side trust justification stated. No survivor is
+   silently exempt.
+2. **M5 substance ordered in Task 3** (where it lands): projection-then-suppression — bounded_cause
+   projects before the raise, `from None` keeps the note-content-bearing object out of `__cause__`
+   and every traceback; WriteFailedError's OSError chain stays caller-visible per Edge Cases
+   (environment-derived, not note-derived); Task 12/Verification `__cause__` oracles restated to
+   the M5 form.
+3. **The self-contradictory refusal sentence corrected** (the repr clause deleted — the echoed
+   value would be the composed string M4 refuses).
+
+The frozen AC set remains BYTE-UNTOUCHED. Cold verify next.
