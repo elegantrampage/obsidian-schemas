@@ -9265,3 +9265,85 @@ date: 2026-07-24
 model: claude-opus-4-8
 note: Applies (new prod paths) and passes all three live checks — new code paths carry tests for happy path plus multiple failure modes with oracles derived from values the tests themselves wrote (never a library rendering), every new failure mode logs WARNING through a REASONS-enumerated bounded message before raising, and Build Log §5 shows a non-discriminating test caught by running its own counter-edit and repaired rather than shipped as a rubber stamp; alerting is N/A (shared library, no new automated system) and invariant registration is N/A (no src/invariants.py exists in this project), both declared rather than dropped. One non-blocking finding: the Verification close-out incident replay — the only M1/M2/M5 check against real vault content — is specified to run outside the cage after merge and remains open.
 ```
+
+## Retrospective — 2026-07-24
+
+### Was the spec accurate?
+Yes, in the sense that matters most: the build validated cleanly against the final frozen ACs and
+against `## Intent` — battery 7/7 unforced, one build attempt, floor 607→617, every transition
+`forced=false`. But "the spec" travelled an unusually long distance to reach that state: 27
+AC-red-team rounds and 6 spec-review rounds, the longest arc the factory has produced. The one
+genuine spec-vs-build drift was small and was investigated rather than accommodated — Task 3's
+outcome table assumed the wrong regex branch handled a canonical empty frontmatter fence (both
+branches returned the identical `({}, content)` pre-fix, so the drift was invisible until the raise
+made it visible); a one-token regex fix (`\n---` → `\n?---`) closed it with a code comment, and the
+two pre-existing tests the frozen AC mandates revising were the only ones touched.
+
+### Edge cases that surprised us
+- **The conductor's own fold was wrong, twice, and the gates caught it both times.** Round 9's
+  "mirror the sibling" accommodation ruling was a name-level argument until round 10's audit-fold
+  actually read the sibling — `append_to_body_section`'s absent-section route is lossy (destroys a
+  heading-less body or a preamble) in exactly the case the accommodation was meant to serve. Spec
+  review's first audit-fold (closing the message-construction disclosure bound) was itself wrong in
+  four separate ways — two would have crashed at runtime (`UnverifiableBodyError(bounded_message(...))`
+  raising inside its own constructor), one would have silently killed every `IdentifierError` in the
+  package — caught only when audit-fold round 2 re-walked the sweep's actual output against the tree
+  instead of trusting the first fold's summary table.
+- **A sufficiency claim was false for one of the six things it claimed to cover.** AC-7's `ast`-based
+  single-homing marker soundly covers five of the six shared derivations but structurally cannot cover
+  the sixth (the file-set walk is pure filesystem enumeration and touches no syntax) — found at
+  re-verify 15, sixteen rounds in.
+- **The document's own size became a defect.** At 887KB the doc blew the flat 1200s cold-start gate
+  timeout on spec-writer (and would have on spec-reviewer, which executes the same doc's heredocs
+  live) — a tooling fault this item caused by existing, not one it encountered in the target code.
+
+### What would have shortened the build?
+- **A declared altitude floor for the AC-red-team from round 1, not round 19.** Rounds ~11-18 were an
+  unbounded regress — each fix to the *checking machinery itself* (derivation sharing, stop-set
+  closure, single-homing) created the next round's attack surface, a shape the item's own round-19
+  fold names outright: "a regress with no natural floor... every fix mints the next finding's
+  surface." The specification-altitude declaration that finally bounded it could plausibly be stated
+  up front by the bar/role instructions — harness-internal composition concerns route to build-exit
+  and intent-check, not to the red-team — rather than discovered eight rounds in.
+- **The spec-side audit-fold needed two passes because the first wasn't self-verified.** Audit-fold
+  round 2 exists only because round 1 patched without re-walking its own output. If "run the sweep,
+  don't just patch it" were the audit-fold's default instruction rather than something round 2 had to
+  re-derive, that is a full round saved.
+- **Gate timeout headroom sized ahead of a long arc, not after it fails.** `GATE_TIMEOUT_OVERRIDES`
+  now covers spec-writer/spec-reviewer at 2400s (workshop `src/pipeline_orchestrator.py:176-184`,
+  Dave-ruled direct fix), but it landed reactively, after the timeout happened mid-arc.
+
+### Did the build serve the original intent, or the spec's drift of it?
+No gap found. `## Intent` ("a malformed or unwritable note is loud at the boundary where it's met:
+loads surface what they skipped, guards refuse rather than assume, writes that fail raise... every
+fix ships its invariant test") is exactly what the signed ACs (`ac-signoff` PROMOTE, `dave`, CLI
+channel) and the shipped code enforce — the read/write asymmetry, the four write-path raises, the
+C4/C5 surfacing, and the malformed-YAML round-trip regression test are all present and independently
+re-verified at code-review and test-observability. The 27-round arc's depth was spent hardening the
+*checking machinery's own completeness*, not drifting the behavioral target — every re-verify that
+found a MATERIAL gap traced it back to Intent/Approach and none proposed relaxing what Intent asked
+for.
+
+### Recommended follow-ups
+- **WI-187 (AC-altitude)** — this arc names itself as the first live specimen ("recorded as the first
+  live specimen for the WI-187 altitude session," round-19 fold): recommend it run next using rounds
+  11–19 here as the worked case for where red-team findings should route once they're about the
+  checking mechanism rather than the checked behavior.
+- **A doc-size / decomposition convention for long-arc items** — every cold-start gate on this item
+  re-read the entire ~9,000-line document from line 1 (stated explicitly at round 7's injection-hunter
+  pass); a convention that compacts a folded-and-confirmed round's full proof-of-work into a short
+  history entry (verdict + one paragraph) once two subsequent rounds have left it unreopened would
+  shrink documents like this one and reduce both read cost and timeout risk. Candidate input to
+  whichever role owns `docs/spec-quality-bar.md` or the AC-red-team role itself.
+- **Name and reuse the "sufficiency ruling" pattern** — two Dave-only closure declarations on this one
+  item (round 19's specification-altitude scope; round 5's fold-and-close family closure) each ended a
+  regress and held on every later gate contact. Worth a short, explicit note in the affected role(s)
+  that a recorded human sufficiency ruling is a scope boundary later gates must respect, not a question
+  to re-litigate — rather than leaving the pattern implicit and ad hoc.
+- **Not a workshop item, but worth flagging to obsidian-schemas:** code-review's Recommended-1 finding
+  (parser.py:94 — the `\n?` empty-fence fix also lets an inline, non-line-start closing fence parse
+  silently, narrower than but structurally the same shape as the class this item just closed) and the
+  still-open Verification incident replay (steps 3–4, real-vault M1/M2/M5 check, specified to run
+  outside the cage after merge) are both carried-forward non-blocking items worth a quick look before
+  they're forgotten.
+
