@@ -65,7 +65,7 @@ class IdentifierError(ValueError):
     """
 
     def __init__(self, kind: str, raw, detail: str):
-        super().__init__(f"{kind}: {detail} (raw={raw!r})")
+        super().__init__(f"{kind}: {detail}")
         self.kind = kind
         self.raw = raw
         self.detail = detail

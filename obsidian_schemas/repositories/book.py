@@ -75,7 +75,9 @@ class BookRepository(BaseRepository[Book]):
             if doc.entity and isinstance(doc.entity, self.entity_type):
                 return doc.entity
         except Exception as e:
-            logger.debug(f"Could not load {file_path}: {e}")
+            # Broad on purpose — load()'s loop has no try, so this clause is the
+            # no-abort guarantee. See BaseRepository._load_file (WI-020).
+            self._note_skip(file_path, e)
         return None
 
     def _index_entity(self, entity: Book, cache_key: str) -> None:

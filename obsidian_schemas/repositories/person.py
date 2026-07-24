@@ -67,9 +67,30 @@ from ..body_sections import (
     parse_to_discuss_items,
     write_to_discuss_items,
 )
+from ..errors import (
+    FrontmatterParseError,
+    LoudFailError,
+    WriteFailedError,
+    bounded_message,
+    chainable_cause,
+)
 from .base import BaseRepository
 
 logger = logging.getLogger(__name__)
+
+
+def _split_frontmatter_fence(content: str, file_path: Path) -> Tuple[str, str]:
+    """Return (raw_frontmatter, raw_body) for a fenced note, or raise.
+
+    Callers apply their own normalisation to the body — the writers lstrip("\\n"),
+    _get_body_content strips — so this returns the raw spans and changes no bytes.
+    """
+    if not content.startswith("---"):
+        raise FrontmatterParseError("no frontmatter fence", path=file_path)
+    parts = content.split("---", 2)
+    if len(parts) < 3:
+        raise FrontmatterParseError("frontmatter fence not closed", path=file_path)
+    return parts[1], parts[2]
 
 
 # WI-121: a TRAILING parenthetical '(X)' is never part of a legal human name
@@ -307,9 +328,8 @@ class PersonRepository(BaseRepository[Person]):
                 seen = self._conflict_sets.setdefault(key, {existing})
                 seen.add(ref)
                 logger.warning(
-                    "identity reconciliation conflict: identifier %r maps to "
-                    "multiple persons: %s (last-wins=%s)",
-                    key,
+                    "identity reconciliation conflict: an identifier maps to "
+                    "multiple persons: %s (last-wins=%s; the key is on .conflicts)",
                     sorted(r.canonical_key for r in seen),
                     ref.canonical_key,
                 )
@@ -998,9 +1018,9 @@ class PersonRepository(BaseRepository[Person]):
             IdentifierConflict(identifier_key=key, entities=tuple(distinct))
         )
         logger.warning(
-            "identity resolution conflict: identifiers %s resolve to multiple "
+            "identity resolution conflict: %d identifiers resolve to multiple "
             "persons %s — returning best-hit %s (no merge, no raise)",
-            [i.key for i, _ in hits],
+            len(hits),
             [r.canonical_key for r in distinct],
             hits[0][1].canonical_key,
         )
@@ -1153,7 +1173,13 @@ class PersonRepository(BaseRepository[Person]):
                 for c in self._company_repo_for_cleaning.get_all()
                 if c.name and c.name.strip()
             }
-        except Exception:
+        except ImportError:
+            # AC-6 (WI-020, rerouted from WI-024): narrowed AT THE CLAUSE, not
+            # merely logged louder. The clause exists for ONE expected-unavailable
+            # case — the `from .company import CompanyRepository` above. A bare
+            # `except Exception` also buried a VaultPathNotConfiguredError raised
+            # by CompanyRepository's own construction, which is a misconfiguration
+            # the caller must be told about, not a degradable optional feature.
             logger.debug(
                 "find_or_create_stub: CompanyRepository unavailable for "
                 "name-cleaning; using person-company set only"
@@ -1187,10 +1213,10 @@ class PersonRepository(BaseRepository[Person]):
             # rewrites only the named frontmatter fields, and preserves the body.
             self.update_fields(person, updates)
             logger.info(
-                "find_or_create_stub: wrote back new identifier(s) to '%s' (emails=%s, phones=%s)",
+                "find_or_create_stub: wrote back new identifier(s) to '%s' (emails=%d, phones=%d)",
                 person.name,
-                person.emails,
-                person.phones,
+                len(person.emails or []),
+                len(person.phones or []),
             )
 
     def get_by_role(self, role: str) -> List[Person]:
@@ -1451,7 +1477,12 @@ class PersonRepository(BaseRepository[Person]):
         Append an entry to a person's Timeline section.
 
         Inserts the entry at the start of the ## Timeline section,
-        preserving existing content.
+        preserving existing content. If the note has no ## Timeline section at
+        all, one is CREATED at end of file and the entry inserted (WI-020 AC-5
+        Predicate 3) — a raw-content check cannot tell "corrupted since
+        creation" from "hand-created in Obsidian and never had one", so the
+        entry lands rather than being dropped. Every pre-existing byte is
+        preserved and the frontmatter stays byte-identical.
 
         Args:
             person: The person whose timeline to update
@@ -1460,10 +1491,13 @@ class PersonRepository(BaseRepository[Person]):
                             If provided and found in existing content, skip the update.
 
         Returns:
-            True if entry was added, False if skipped (duplicate or error)
+            True if the entry was added (including when the section was
+            created). False ONLY for the deliberate whole-file dedup no-op —
+            a failure no longer reports itself as this same False (WI-020 N4).
 
         Raises:
             ValueError: If person not found in repository
+            WriteFailedError: If the write did not complete
         """
         file_path = self.get_file_path(person.name)
         if not file_path or not file_path.exists():
@@ -1479,17 +1513,42 @@ class PersonRepository(BaseRepository[Person]):
 
             # Find the Timeline section
             timeline_marker = "## Timeline"
-            if timeline_marker not in content:
-                logger.warning(f"No Timeline section found in {person.name}")
-                return False
 
             # Ensure entry starts with newline for clean formatting
             formatted_entry = entry if entry.startswith("\n") else f"\n{entry}"
 
-            # Insert after "## Timeline" marker
+            # WI-020 AC-5 Predicate 3 — ACCOMMODATE, with PRESERVATION.
+            #
+            # A missing "## Timeline" used to drop the caller's entry into the
+            # same silent False the dedup no-op returns. A raw-content check
+            # cannot tell "corrupted since creation by this package" from
+            # "legitimately never had one" (hand-created in Obsidian, or
+            # predating the template), so refusing would manufacture a failure
+            # out of a structural variant. The section is created instead,
+            # mirroring append_to_body_section's create_if_missing default.
+            #
+            # The mechanism is STRING INSERTION at end of file, NOT the
+            # sibling's parse_body_sections/write_body_sections round-trip:
+            # that round-trip keeps only `^## `-delimited spans, so it deletes
+            # any preamble above the first heading and destroys a heading-less
+            # body outright — on a raw write_text that writer.py deliberately
+            # exempts from the WI-126 shrink guard. The note least likely to
+            # have `##` headings is exactly the hand-created note this
+            # accommodation exists for. End-of-file placement is the only
+            # placement that preserves content without parsing structure, and
+            # it makes the oracle fall out: new_content.startswith(content).
+            if timeline_marker not in content:
+                suffix = "" if content.endswith("\n") else "\n"
+                new_content = content + suffix + "\n" + timeline_marker + formatted_entry
+                file_path.write_text(new_content, encoding="utf-8")
+                logger.info(f"Created Timeline section for {person.name}")
+                return True
+
+            # Insert after "## Timeline" marker. No split guard: str.split(sep, 1)
+            # on a string containing sep returns exactly two parts, and the marker
+            # was confirmed present above — the old `len(parts) != 2` branch was
+            # structurally unreachable.
             parts = content.split(timeline_marker, 1)
-            if len(parts) != 2:
-                return False
 
             new_content = parts[0] + timeline_marker + formatted_entry + parts[1]
             file_path.write_text(new_content, encoding="utf-8")
@@ -1497,9 +1556,13 @@ class PersonRepository(BaseRepository[Person]):
             logger.info(f"Updated timeline for {person.name}")
             return True
 
+        except LoudFailError:
+            raise                   # our own signal — never re-wrapped, never swallowed
         except Exception as e:
-            logger.warning(f"Failed to update timeline for {person.name}: {e}")
-            return False
+            logger.warning(bounded_message("failed to update timeline",
+                                           path=file_path, cause=e))
+            raise WriteFailedError("write did not complete",
+                                   path=file_path, cause=e) from chainable_cause(e)
 
     def append_to_body_section(
         self,
@@ -1534,12 +1597,17 @@ class PersonRepository(BaseRepository[Person]):
                 True); when False and the section is absent, no-op returns False.
 
         Returns:
-            True if written; False if deduped, skipped (missing section with
-            ``create_if_missing=False``), or the file has no frontmatter fence.
+            True if written; False if deduped or skipped (missing section with
+            ``create_if_missing=False``). A malformed or absent frontmatter
+            fence no longer lands here — it RAISES (WI-020 AC-5 Predicate 2),
+            so a False now means only "nothing to do".
 
         Raises:
             ValueError: if the person file does not exist, or ``operation`` is
                 not "append"/"prepend" (loud-fail — never silently mis-write).
+            FrontmatterParseError: if the note has no frontmatter fence, or an
+                unclosed one — the caller's content is never silently dropped.
+            WriteFailedError: if the write did not complete.
         """
         if operation not in ("append", "prepend"):
             raise ValueError(
@@ -1555,21 +1623,8 @@ class PersonRepository(BaseRepository[Person]):
             content_raw = file_path.read_text(encoding="utf-8")
 
             # Split frontmatter and body (body-safe pattern, mirrors To-Discuss).
-            if not content_raw.startswith("---"):
-                logger.warning(
-                    f"append_to_body_section: {person.name} has no frontmatter "
-                    f"fence — skipping"
-                )
-                return False
-            parts = content_raw.split("---", 2)
-            if len(parts) < 3:
-                logger.warning(
-                    f"append_to_body_section: {person.name} frontmatter malformed "
-                    f"— skipping"
-                )
-                return False
-            frontmatter = parts[1]
-            body = parts[2].lstrip("\n")
+            frontmatter, body_raw = _split_frontmatter_fence(content_raw, file_path)
+            body = body_raw.lstrip("\n")
 
             # None ⇒ section absent; "" / text ⇒ present (possibly empty).
             existing_section = get_section(body, section)
@@ -1600,30 +1655,48 @@ class PersonRepository(BaseRepository[Person]):
             )
             return True
 
+        except LoudFailError:
+            raise                   # our own signal — never re-wrapped, never swallowed
         except Exception as e:
-            logger.warning(
-                f"Failed to append_to_body_section for {person.name}: {e}"
-            )
-            return False
+            logger.warning(bounded_message("failed to append to body section",
+                                           path=file_path, cause=e))
+            raise WriteFailedError("write did not complete",
+                                   path=file_path, cause=e) from chainable_cause(e)
 
     # =========================================================================
     # To Discuss Methods
     # =========================================================================
 
     def _get_body_content(self, person: Person) -> Optional[str]:
-        """Get the body content of a person's markdown file."""
+        """Get the body content of a person's markdown file.
+
+        Returns None when the note does not exist — its only caller converts
+        that to a ValueError (no-op class (d)).
+
+        Raises:
+            FrontmatterParseError: If the note OPENED a frontmatter fence and
+                never closed it. Before WI-020 this returned the whole file,
+                frontmatter included, AS the body — which is how
+                get_to_discuss_items reported a corrupted note as "no items".
+                A legitimately fence-less note still returns its whole content.
+        """
         file_path = self.get_file_path(person.name)
         if not file_path or not file_path.exists():
             return None
 
         content = file_path.read_text(encoding="utf-8")
 
-        # Split frontmatter and body
+        # Split frontmatter and body.
+        #
+        # The outer guard is deliberately redundant with the helper's first
+        # branch and must NOT be "simplified" away: it is what routes the
+        # legitimately fence-less note to `return content` instead of to the
+        # helper's `FrontmatterParseError`. Dropping it turns a no-op into a
+        # raise and breaks AC-5's no-op half.
         if content.startswith("---"):
-            parts = content.split("---", 2)
-            if len(parts) >= 3:
-                return parts[2].strip()
-        return content
+            _, body_raw = _split_frontmatter_fence(content, file_path)
+            return body_raw.strip()
+        return content          # legitimately fence-less: the whole file IS the body
 
     def get_to_discuss_items(self, person: Person) -> List[ToDiscussItem]:
         """
@@ -1659,10 +1732,16 @@ class PersonRepository(BaseRepository[Person]):
             text: The item text
 
         Returns:
-            True if item was added, False on error
+            True if the item was added. A malformed or absent frontmatter
+            fence now RAISES rather than returning False (WI-020).
 
         Raises:
             ValueError: If person not found in repository
+            FrontmatterParseError: If the note has no frontmatter fence, or an
+                unclosed one (WI-020 AC-5 Predicate 2) — the caller's item is
+                never silently dropped into the same False a legitimate
+                "not found" returns.
+            WriteFailedError: If the write did not complete.
         """
         file_path = self.get_file_path(person.name)
         if not file_path or not file_path.exists():
@@ -1672,15 +1751,8 @@ class PersonRepository(BaseRepository[Person]):
             content = file_path.read_text(encoding="utf-8")
 
             # Split frontmatter and body
-            if content.startswith("---"):
-                parts = content.split("---", 2)
-                if len(parts) >= 3:
-                    frontmatter = parts[1]
-                    body = parts[2].lstrip("\n")
-                else:
-                    return False
-            else:
-                return False
+            frontmatter, body_raw = _split_frontmatter_fence(content, file_path)
+            body = body_raw.lstrip("\n")
 
             # Get existing items and add new one
             section_content = get_section(body, "To Discuss")
@@ -1699,9 +1771,13 @@ class PersonRepository(BaseRepository[Person]):
             logger.info(f"Added To Discuss item for {person.name}: {text[:50]}")
             return True
 
+        except LoudFailError:
+            raise                   # our own signal — never re-wrapped, never swallowed
         except Exception as e:
-            logger.warning(f"Failed to add To Discuss item for {person.name}: {e}")
-            return False
+            logger.warning(bounded_message("failed to add To Discuss item",
+                                           path=file_path, cause=e))
+            raise WriteFailedError("write did not complete",
+                                   path=file_path, cause=e) from chainable_cause(e)
 
     def update_to_discuss_item(
         self,
@@ -1718,10 +1794,17 @@ class PersonRepository(BaseRepository[Person]):
             completed: New completion status
 
         Returns:
-            True if item was updated, False if not found or error
+            True if the item was updated; False if the section or the item
+            text was not found. "Not found" is the ONLY remaining False —
+            a malformed fence now RAISES (WI-020).
 
         Raises:
             ValueError: If person not found in repository
+            FrontmatterParseError: If the note has no frontmatter fence, or an
+                unclosed one (WI-020 AC-5 Predicate 2) — the caller's item is
+                never silently dropped into the same False a legitimate
+                "not found" returns.
+            WriteFailedError: If the write did not complete.
         """
         file_path = self.get_file_path(person.name)
         if not file_path or not file_path.exists():
@@ -1731,15 +1814,8 @@ class PersonRepository(BaseRepository[Person]):
             content = file_path.read_text(encoding="utf-8")
 
             # Split frontmatter and body
-            if content.startswith("---"):
-                parts = content.split("---", 2)
-                if len(parts) >= 3:
-                    frontmatter = parts[1]
-                    body = parts[2].lstrip("\n")
-                else:
-                    return False
-            else:
-                return False
+            frontmatter, body_raw = _split_frontmatter_fence(content, file_path)
+            body = body_raw.lstrip("\n")
 
             # Get existing items
             section_content = get_section(body, "To Discuss")
@@ -1772,9 +1848,13 @@ class PersonRepository(BaseRepository[Person]):
             logger.info(f"Marked To Discuss item as {status} for {person.name}: {text[:50]}")
             return True
 
+        except LoudFailError:
+            raise                   # our own signal — never re-wrapped, never swallowed
         except Exception as e:
-            logger.warning(f"Failed to update To Discuss item for {person.name}: {e}")
-            return False
+            logger.warning(bounded_message("failed to update To Discuss item",
+                                           path=file_path, cause=e))
+            raise WriteFailedError("write did not complete",
+                                   path=file_path, cause=e) from chainable_cause(e)
 
     def remove_to_discuss_item(self, person: Person, text: str) -> bool:
         """
@@ -1785,10 +1865,17 @@ class PersonRepository(BaseRepository[Person]):
             text: The item text to match (exact match)
 
         Returns:
-            True if item was removed, False if not found or error
+            True if the item was removed; False if the section or the item
+            text was not found. "Not found" is the ONLY remaining False —
+            a malformed fence now RAISES (WI-020).
 
         Raises:
             ValueError: If person not found in repository
+            FrontmatterParseError: If the note has no frontmatter fence, or an
+                unclosed one (WI-020 AC-5 Predicate 2) — the caller's item is
+                never silently dropped into the same False a legitimate
+                "not found" returns.
+            WriteFailedError: If the write did not complete.
         """
         file_path = self.get_file_path(person.name)
         if not file_path or not file_path.exists():
@@ -1798,15 +1885,8 @@ class PersonRepository(BaseRepository[Person]):
             content = file_path.read_text(encoding="utf-8")
 
             # Split frontmatter and body
-            if content.startswith("---"):
-                parts = content.split("---", 2)
-                if len(parts) >= 3:
-                    frontmatter = parts[1]
-                    body = parts[2].lstrip("\n")
-                else:
-                    return False
-            else:
-                return False
+            frontmatter, body_raw = _split_frontmatter_fence(content, file_path)
+            body = body_raw.lstrip("\n")
 
             # Get existing items
             section_content = get_section(body, "To Discuss")
@@ -1834,6 +1914,10 @@ class PersonRepository(BaseRepository[Person]):
             logger.info(f"Removed To Discuss item for {person.name}: {text[:50]}")
             return True
 
+        except LoudFailError:
+            raise                   # our own signal — never re-wrapped, never swallowed
         except Exception as e:
-            logger.warning(f"Failed to remove To Discuss item for {person.name}: {e}")
-            return False
+            logger.warning(bounded_message("failed to remove To Discuss item",
+                                           path=file_path, cause=e))
+            raise WriteFailedError("write did not complete",
+                                   path=file_path, cause=e) from chainable_cause(e)

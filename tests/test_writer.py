@@ -233,13 +233,19 @@ name: John Smith
             assert "linkedin: https://linkedin.com/in/john" in content
 
     def test_update_nonexistent_file(self):
-        """Test updating non-existent file returns False."""
-        success = update_frontmatter_field(
-            "/nonexistent/file.md",
-            "field",
-            "value",
-        )
-        assert not success
+        """Test updating non-existent file raises FileNotFoundError.
+
+        WI-020 AC-5 Predicate 4: this returned a silent False, which was
+        indistinguishable from a genuine write failure. It now converges on
+        base.update_fields, which already raised FileNotFoundError for this
+        exact condition.
+        """
+        with pytest.raises(FileNotFoundError):
+            update_frontmatter_field(
+                "/nonexistent/file.md",
+                "field",
+                "value",
+            )
 
 
 class TestUpdateFrontmatterFields:

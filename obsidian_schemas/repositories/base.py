@@ -8,14 +8,40 @@ entities from markdown files with YAML frontmatter.
 import logging
 import os
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Generic, TypeVar, Optional, List, Type
 
+from ..errors import FrontmatterParseError, SchemaDriftError, bounded_detail
 from ..models import BaseEntity
 from ..parser import parse_markdown_file, parse_frontmatter
 from ..writer import write_markdown_file, write_frontmatter
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class SkippedNote:
+    """A note this repository OWNS and could not load (WI-020, C4).
+
+    Before this existed, an un-loadable note vanished at DEBUG: invisible to the
+    cache, so resolve() missed it and find_or_create_stub minted a duplicate —
+    the dup-proliferation class WI-119/WI-125 exist to fight.
+    """
+
+    path: Path
+    reason: str      # "malformed-frontmatter" | "schema-drift" | "unreadable"
+    detail: str      # bounded_detail(error) — never the raw rendering (M2)
+
+
+def _skip_reason(error: BaseException) -> str:
+    """Derived from the error TYPE, never passed in."""
+    if isinstance(error, FrontmatterParseError):
+        return "malformed-frontmatter"
+    if isinstance(error, SchemaDriftError):
+        return "schema-drift"
+    return "unreadable"
+
 
 class VaultPathNotConfiguredError(ValueError):
     """Raised when a repository is constructed with no usable vault path.
@@ -115,6 +141,7 @@ class BaseRepository(ABC, Generic[T]):
         self.auto_load = auto_load
         self._cache: dict[str, T] = {}  # lowercase name -> entity
         self._file_map: dict[str, Path] = {}  # lowercase name -> file path
+        self._skipped: List[SkippedNote] = []
         self._loaded = False
 
     @property
@@ -148,6 +175,7 @@ class BaseRepository(ABC, Generic[T]):
         """
         self._cache.clear()
         self._file_map.clear()
+        self._skipped.clear()
 
         if not self.vault_path.exists():
             logger.warning(f"Vault path does not exist: {self.vault_path}")
@@ -168,18 +196,51 @@ class BaseRepository(ABC, Generic[T]):
         self._loaded = True
         return count
 
+    @property
+    def skipped_notes(self) -> List[SkippedNote]:
+        """Notes this repository owns and could NOT load, since the last load()."""
+        return list(self._skipped)
+
+    @property
+    def skipped_count(self) -> int:
+        return len(self._skipped)
+
+    def _owns(self, declared_type: Optional[str]) -> bool:
+        """Can this repository PROVE the file is its own? Decided on the raw
+        declared type, never on whether a model was built."""
+        if declared_type is not None:
+            return declared_type == self.type_name
+        # Nothing legible in the note: the only remaining evidence is the glob,
+        # and only if the glob is a naming convention rather than a catch-all.
+        return Path(self.file_pattern).stem != "*"
+
+    def _note_skip(self, file_path: Path, error: BaseException) -> None:
+        declared = getattr(error, "declared_type", None)
+        detail = bounded_detail(error)          # M2 — never the raw rendering
+        if not self._owns(declared):
+            logger.debug(f"Not ours, not skipped: {file_path}: {detail}")
+            return
+        self._skipped.append(SkippedNote(file_path, _skip_reason(error), detail))
+        logger.warning(f"Skipped {self.type_name} note {file_path}: {detail}")
+
     def _load_file(self, file_path: Path) -> Optional[T]:
         """
         Load a single entity from a file.
 
         Returns None if file doesn't contain expected entity type.
+
+        The `except` stays BROAD deliberately: load()'s loop wraps this in no
+        try of its own, so this clause IS the margin between one bad note and an
+        aborted batch (a HAL9000 startup walks the whole vault). Loudness is
+        delivered by _note_skip's WARNING plus the queryable skip surface, never
+        by propagation.
         """
         try:
             doc = parse_markdown_file(file_path, self.entity_type)
             if doc.entity and isinstance(doc.entity, self.entity_type):
                 return doc.entity
         except Exception as e:
-            logger.debug(f"Could not load {file_path}: {e}")
+            self._note_skip(file_path, e)
         return None
 
     def _get_cache_key(self, entity: T) -> str:

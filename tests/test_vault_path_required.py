@@ -26,6 +26,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -386,11 +387,49 @@ NO_ARG_CONSTRUCTION = re.compile(r"\w+Repository\(\s*\)")
 DOC_SCAN_EXCLUDED = {".git", ".venv", "docs", "state", "node_modules"}
 
 
+def _temp_root_inside_repo():
+    """The temp tree, IF the ambient TMPDIR happens to sit inside the repo.
+
+    This scan's domain is the repo's own DOCUMENTATION; scratch output written
+    by the suite mid-run is not documentation and was never in scope. It only
+    became reachable when TMPDIR points inside the tree — which is exactly the
+    build worktree's configuration (`TMPDIR=<worktree>/tmp`), where both
+    pytest's `tmp_path` factory and `tests/support.temp_dir()` root themselves
+    here and the walk below then descends into live fixture output.
+
+    Derived from `tempfile.gettempdir()` rather than by excluding a directory
+    NAME: the same rule the temp machinery itself uses, so it holds for a TMPDIR
+    called `scratch/` as readily as one called `tmp/`. Returns None when the
+    temp tree is outside the repo (the ordinary case), in which case the walk
+    can never reach it and nothing is skipped.
+
+    WI-020 (2026-07-24) surfaced this: that item added the suite's first `.md`
+    fixture that is deliberately not valid UTF-8, so the unbounded walk stopped
+    being merely over-broad and started raising UnicodeDecodeError.
+    """
+    try:
+        temp_root = Path(tempfile.gettempdir()).resolve()
+    except OSError:
+        return None
+    try:
+        temp_root.relative_to(REPO_ROOT.resolve())
+    except ValueError:
+        return None
+    return temp_root
+
+
 def _scanned_markdown_files():
+    temp_root = _temp_root_inside_repo()
     for md_file in sorted(REPO_ROOT.rglob("*.md")):
         relative = md_file.relative_to(REPO_ROOT)
         if DOC_SCAN_EXCLUDED.intersection(relative.parts):
             continue
+        if temp_root is not None:
+            try:
+                md_file.resolve().relative_to(temp_root)
+                continue
+            except (ValueError, OSError):
+                pass
         yield md_file
 
 
@@ -404,7 +443,13 @@ def test_docs_do_not_advertise_no_arg_construction():
     offenders = []
 
     for md_file in _scanned_markdown_files():
-        for lineno, line in enumerate(md_file.read_text().splitlines(), start=1):
+        # errors="replace", because a walk over the working tree can reach a
+        # `.md` that is not valid UTF-8 (WI-020 added exactly such a fixture),
+        # and a decode crash there grades the walk rather than the docs. This
+        # cannot hide an offender: NO_ARG_CONSTRUCTION is pure ASCII, so
+        # replacement chars land only on bytes that could never have matched.
+        text = md_file.read_text(encoding="utf-8", errors="replace")
+        for lineno, line in enumerate(text.splitlines(), start=1):
             if NO_ARG_CONSTRUCTION.search(line):
                 rel = md_file.relative_to(REPO_ROOT)
                 offenders.append(f"{rel}:{lineno}: {line.strip()}")

@@ -43,6 +43,14 @@ from obsidian_schemas.writer import (
     update_frontmatter_field,
     BodyTruncationError,
 )
+from obsidian_schemas.errors import (
+    LoudFailError,
+    NoteParseError,
+    FrontmatterParseError,
+    SchemaDriftError,
+    UnverifiableBodyError,
+    WriteFailedError,
+)
 from obsidian_schemas.body_sections import (
     parse_body_sections,
     write_body_sections,
@@ -107,6 +115,13 @@ __all__ = [
     "write_markdown_file",
     "update_frontmatter_field",
     "BodyTruncationError",
+    # Loud-fail errors (WI-020)
+    "LoudFailError",
+    "NoteParseError",
+    "FrontmatterParseError",
+    "SchemaDriftError",
+    "UnverifiableBodyError",
+    "WriteFailedError",
     # Body Sections
     "parse_body_sections",
     "write_body_sections",

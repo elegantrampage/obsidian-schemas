@@ -9,6 +9,7 @@ from obsidian_schemas import (
     Person, Company, Book, Meeting
 )
 from obsidian_schemas.name_validation import NameValidationError, WeakIdentityError
+from obsidian_schemas.errors import FrontmatterParseError
 
 
 @pytest.fixture
@@ -1085,10 +1086,14 @@ tags:
         with pytest.raises(ValueError, match="not found"):
             repo.append_to_body_section(fake, "Notes", "- x\n")
 
-    def test_append_to_body_section_no_frontmatter_fence_returns_false(self, temp_vault):
+    def test_append_to_body_section_no_frontmatter_fence_raises(self, temp_vault):
         # Write WITH frontmatter so the note loads into the cache (get_file_path
         # resolves), then externally strip the fence — simulates a note edited
-        # out-of-band between load and write. The fence guard must return False.
+        # out-of-band between load and write.
+        #
+        # WI-020 AC-5 Predicate 2: the fence guard raised a silent False, which
+        # a caller could not tell from "nothing to do". It now refuses loudly —
+        # the caller's payload is never dropped without a signal.
         path = temp_vault / "@Nofence Person.md"
         path.write_text(
             "---\ntype: person\nname: Nofence Person\ntags:\n  - person\n---\n\n## Notes\n",
@@ -1098,8 +1103,8 @@ tags:
         person = repo.get("Nofence Person")
         # Now corrupt the on-disk file: remove the frontmatter fence.
         path.write_text("## Notes\n\n- no frontmatter here\n", encoding="utf-8")
-        ok = repo.append_to_body_section(person, "Notes", "- x\n")
-        assert ok is False
+        with pytest.raises(FrontmatterParseError):
+            repo.append_to_body_section(person, "Notes", "- x\n")
 
     def test_append_to_body_section_invalid_operation_raises(self, temp_vault):
         """Loud-fail: an unknown operation must raise, not silently append."""

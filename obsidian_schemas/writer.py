@@ -9,14 +9,25 @@ This module provides functions to:
 The writer preserves extra fields that aren't in the model.
 """
 
+import logging
 import re
 import yaml
 from pathlib import Path
 from typing import Any, Optional, Union
 from collections import OrderedDict
 
+from obsidian_schemas.errors import (
+    FrontmatterParseError,
+    LoudFailError,
+    UnverifiableBodyError,
+    WriteFailedError,
+    bounded_message,
+    chainable_cause,
+)
 from obsidian_schemas.models import BaseEntity, EntityType
 from obsidian_schemas.parser import parse_frontmatter
+
+logger = logging.getLogger(__name__)
 
 
 # Custom YAML representer for OrderedDict to preserve field order
@@ -186,8 +197,16 @@ def write_markdown_file(
             _, existing_body = parse_frontmatter(
                 file_path.read_text(encoding="utf-8")
             )
-        except Exception:
-            existing_body = ""
+        except (FrontmatterParseError, OSError, UnicodeDecodeError) as e:
+            # C3 (WI-020): the one mechanism protecting against a body wipe must
+            # not disable itself exactly when it cannot verify. Assuming the body
+            # empty here is what let a note whose frontmatter no longer parses be
+            # overwritten with no guard at all.
+            raise UnverifiableBodyError(
+                "refusing to overwrite: the existing body could not be read, so "
+                "the WI-126 body-shrink guard cannot verify this write is safe",
+                path=file_path, cause=e,
+            ) from chainable_cause(e)
         existing_lines = _body_content_lines(existing_body)
         if existing_lines:
             dropped = existing_lines - _body_content_lines(body)
@@ -235,12 +254,20 @@ def update_frontmatter_field(
         field_value: New value for the field
 
     Returns:
-        True if update succeeded, False otherwise
+        True if update succeeded
+
+    Raises:
+        FileNotFoundError: If the file does not exist (WI-020 AC-5 P4 — this
+            returned a silent False until then; base.update_fields already
+            raised FileNotFoundError for the same condition)
+        FrontmatterParseError: If the note's frontmatter did not parse — the
+            file is left byte-identical rather than rebuilt from a failed parse
+        WriteFailedError: If the write itself did not complete
     """
     file_path = Path(file_path)
 
     if not file_path.exists():
-        return False
+        raise FileNotFoundError(f"File not found: {file_path}")
 
     try:
         content = file_path.read_text(encoding="utf-8")
@@ -256,8 +283,13 @@ def update_frontmatter_field(
         file_path.write_text(new_content, encoding="utf-8")
         return True
 
-    except Exception:
-        return False
+    except LoudFailError:
+        raise                       # our own signal — never re-wrapped, never swallowed
+    except Exception as e:
+        logger.warning(bounded_message("write did not complete",
+                                       path=file_path, cause=e))
+        raise WriteFailedError("write did not complete",
+                               path=file_path, cause=e) from chainable_cause(e)
 
 
 def update_frontmatter_fields(
@@ -274,12 +306,18 @@ def update_frontmatter_fields(
         updates: Dictionary of field names to new values
 
     Returns:
-        True if update succeeded, False otherwise
+        True if update succeeded
+
+    Raises:
+        FileNotFoundError: If the file does not exist (WI-020 AC-5 P4)
+        FrontmatterParseError: If the note's frontmatter did not parse — the
+            file is left byte-identical rather than rebuilt from a failed parse
+        WriteFailedError: If the write itself did not complete
     """
     file_path = Path(file_path)
 
     if not file_path.exists():
-        return False
+        raise FileNotFoundError(f"File not found: {file_path}")
 
     try:
         content = file_path.read_text(encoding="utf-8")
@@ -295,8 +333,13 @@ def update_frontmatter_fields(
         file_path.write_text(new_content, encoding="utf-8")
         return True
 
-    except Exception:
-        return False
+    except LoudFailError:
+        raise                       # our own signal — never re-wrapped, never swallowed
+    except Exception as e:
+        logger.warning(bounded_message("write did not complete",
+                                       path=file_path, cause=e))
+        raise WriteFailedError("write did not complete",
+                               path=file_path, cause=e) from chainable_cause(e)
 
 
 def roundtrip_file(file_path: Union[str, Path]) -> str:
