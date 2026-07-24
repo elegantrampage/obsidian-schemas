@@ -2,13 +2,14 @@
 id: WI-020
 title: "Loud-fail hardening: parse, guard, and write-return boundaries"
 project: obsidian-schemas
-stage: idea
+stage: specced
 created: 2026-07-05
 last_touched: 2026-07-24
-stage_changed: 2026-07-05
-touched_by: ideation-partner
+stage_changed: 2026-07-24
+touched_by: spec-writer
 tags: [corruption-class, loud-fail, parser, writer]
 depends_on: []
+transitions: ["idea>exploring@2026-07-24@conductor-session", "exploring>specced@2026-07-24@porter"]
 ---
 
 # Loud-fail hardening: parse, guard, and write-return boundaries
@@ -23,11 +24,13 @@ depends_on: []
 
 Five silent-degrade sites at the package's safety boundaries, found and file:line-verified by the 2026-07-05 campaign review. The first two interact to destroy data:
 
-1. **C2 — malformed YAML silently degrades to "no frontmatter"** (`parser.py:78-80`: `yaml.YAMLError` → `({}, content)`). Every rebuild path trusts it: `base.update_fields` (base.py:255-273) and `writer.update_frontmatter_field(s)` (writer.py:247-295) do `parse_frontmatter → rebuild → write`, so a note whose YAML doesn't parse at update time gets rewritten as `---\n{only the updates}\n---\n{whole original file as body}` — **original frontmatter destroyed and duplicated into the body, silently.**
+1. **C2 — malformed YAML silently degrades to "no frontmatter"** (`parser.py:78-80`: `yaml.YAMLError` → `({}, content)`). Every rebuild path trusts it: `base.update_fields` (base.py:311-329) and `writer.update_frontmatter_field(s)` (writer.py:247-295) do `parse_frontmatter → rebuild → write`, so a note whose YAML doesn't parse at update time gets rewritten as `---\n{only the updates}\n---\n{whole original file as body}` — **original frontmatter destroyed and duplicated into the body, silently.**
 2. **C3 — the WI-126 body-shrink guard disables itself on read error** (`writer.py:189-190`: `except Exception: existing_body = ""`). The one mechanism protecting against body-wipe turns off exactly when it can't verify. Must raise (or refuse the write), never assume-empty.
-3. **C4 — un-loadable notes vanish at DEBUG** (`base.py:125-126`; also `meeting.py:70-83`). A person invisible to the cache → `resolve()` misses → `find_or_create_stub` mints a duplicate — the dup-proliferation class WI-119/WI-125 exist to fight. WARN + surfaced count.
+3. **C4 — un-loadable notes vanish at DEBUG** (`base.py:181-183`; also `meeting.py:81-83`). A person invisible to the cache → `resolve()` misses → `find_or_create_stub` mints a duplicate — the dup-proliferation class WI-119/WI-125 exist to fight. WARN + surfaced count.
 4. **C5 — `parse_to_model` swallows all validation errors** (`parser.py:139-150`: `except Exception → (None, dict)`). Same duplicate-creation consequence; hides schema drift entirely.
 5. **N4 — write paths return silent False** (`writer.py:259-260, 298-299`; five body-section writers `person.py:1500-1839`): "duplicate/not-found" and "disk full / torn write" are the same `False`. Failure must raise or be distinguishable.
+
+> **Three citations in the list above were repointed 2026-07-24** (spec-review round 1 finding). They were carried verbatim from the 2026-07-05 campaign and never re-verified when the Exploration Notes corrected them elsewhere: C2's `update_fields` was cited at base.py:255-273, which is inside **`save()`** (`update_fields` begins at base.py:278; the parse is at 312 and the rebuild at 327-329) — now base.py:311-329, the range the Approach, AC-1 and Verified Diagnosis #2 already used. C4's swallow was cited at base.py:125-126, which is the `@property` decorator on the abstract `type_name` — now base.py:181-183, the range the per-finding subsection below already used. Its meeting-side sibling was cited at meeting.py:70-83 (70 is the `try:`) — now meeting.py:81-83, the handler itself. Nothing downstream was load-bearing on the three, but the Problem statement is what a cold-start reader anchors on, and this document's own rule is derive-then-verify.
 
 **Sharpened by exploration (2026-07-24).** The five are not five bugs — they are **one defect class at five sites**: a failure at a safety boundary is rendered as a *success-shaped value*, so no caller can tell "nothing to do" from "I failed." The shapes are `({}, content)` (C2), `(None, dict)` (C5), `existing_body = ""` (C3), `return None` at DEBUG (C4), and `return False` (N4) — each is the value a *legitimate empty/absent* case would also produce. That collapse is what makes the class corruption-grade rather than untidy: C2's `({}, content)` is indistinguishable from a genuinely frontmatter-less file, so `update_fields`/`update_frontmatter_field(s)` rebuild `---\n{updates}\n---\n{whole original file}` and commit it.
 
@@ -88,6 +91,8 @@ The predicate: *"loading this one file raised."* `None` is returned at DEBUG (in
         return None, frontmatter.copy()
 ```
 The predicate: *"`model_class.model_validate` raised."* But `(None, extra)` is the **same value** returned for a legitimately unknown `type` (parser.py:135-137). So a `type: person` note that fails schema validation (drift) is indistinguishable from a `type: recipe` note we simply don't model. Direction: distinguish "known type, failed validation" (loud — schema drift) from "unknown type" (fine). Same shape as C2, one layer up.
+
+**And "known type" has to name its deciding input, because the branch that reads a `type` at all is not the branch this item's callers use** (round-26 finding, folded at round 27; restated here at the per-finding layer because this is where the mechanism is first stated and a spec-writer reads it before it reads the fence). `parse_to_model(frontmatter, model_class=None)` has two paths, and the auto-detect one the paragraph above describes — read `normalized.get("type")`, resolve via `get_model_for_type`, return `(None, copy)` at parser.py:135-137 when nothing resolves — **never executes for any caller in this item's scope**. Read live: `base._load_file` calls `parse_markdown_file(file_path, self.entity_type)` (base.py:178), and the four typed conveniences call `parse_markdown_content(content, Person/Company/Book/Meeting)` (parser.py:218, 224, 230, 236), so `model_class` is always forced by the caller and bears **no relation to the note's own `type` field**. On that branch, "the note genuinely is a `Person` and a field drifted" and "the note is a `Company` and something merely asked `parse_person` to try it" reach the *identical* `try: model_class.model_validate(...) except Exception: return None, frontmatter.copy()` at parser.py:139-150, with `model_class` the same object either way — round 4's collision (`Literal["person"]` rejecting a foreign `type` vs. a `List[str]` field rejecting a drifted owned note, both raising inside one `model_validate`) reproduced one layer down from the repository loaders round 4 fixed. So the direction is stated with its deciding input: **known-ness is a property of the NOTE — its raw declared `type` compared against the type the forced class itself declares — never of the call.** Raise only on owned-and-drifted; a readable foreign type is an answer and keeps today's `None` (`tests/test_parser.py:265-273`, `test_parse_person_wrong_type`, asserts exactly that today on well-formed `type: company` content and is part of the 607-case floor); an unmodelled type is an answer; an absent or unreadable `type` under a forced class carries no ownership evidence at all and is likewise an answer.
 
 **N4 — write paths collapse failure and no-op into one `False` (writer.py:259-260, 298-299; person.py body-section writers).**
 `update_frontmatter_field` returns `True` on success and `False` from a blanket `except Exception` (writer.py:259-260) — the same `False` a caller would read for "file not found" (writer.py:242-243). Worse in `person.append_to_body_section` (person.py:1504-1607), which returns `False` for **five distinct reasons**: deduped (1584), missing-section-with-`create_if_missing=False` (1579), no frontmatter fence (1563), malformed frontmatter fence (1570), and `except Exception → return False` (1603-1607, catching disk-full / torn write / permission error). A caller cannot tell "I skipped because it was already there" from "the write failed and your data is gone." Direction: genuine I/O failure must **raise**; a legitimate no-op (dedup, absent section) may stay falsy but must be **distinguishable** from a failed write — not the same bare `False`.
@@ -478,7 +483,21 @@ The rule this pass earns, and it is the round-23 rule turned on the *next* remed
 
 ### Decorrelated AC red-team, round 26 → fold 27 (2026-07-24) — what it changed
 
-Round 26 (fence below) confirmed the per-member sufficiency fold and returned, for the first time since round 10, to the item's subject matter: parse_to_model's "known type" was undecided wherever the caller forces a model class — which is every in-scope caller — leaving a compliant implementation free to raise on well-formed foreign-type notes, against today's baseline and the doc's own Example. The fold states the deciding input: known-ness is read off the note's raw declared type against the forced class's type name — AC-3's ownership principle applied one layer down — so raise is reserved for owned-and-drifted, and both foreign and unmodelled types keep today's None exactly. The harness thread is exhausted; the gate is back to behaviour. Dave ruled on a one-line ask; nothing else moved.
+Round 26 (fence below) confirmed the per-member sufficiency fold and returned, for the first time since round 10, to the item's subject matter: parse_to_model's "known type" was undecided wherever the caller forces a model class — which is every in-scope caller — leaving a compliant implementation free to raise on well-formed foreign-type notes, against today's baseline and the doc's own Example. The fold states the deciding input: known-ness is read off the note's raw declared type against the forced class's type name — AC-3's ownership principle applied one layer down — so raise is reserved for owned-and-drifted, and both foreign and unmodelled types keep today's None exactly. The harness thread is exhausted; the gate is back to behaviour. Dave ruled on a one-line ask.
+
+**Completed on re-run, and it is the omission this document has now recorded six folds running.** The first pass wrote the decision rule into AC-2's `desc:`, the revision note and this subsection, and left three layers still carrying the retired framing. Every claim below re-read live.
+
+1. **The Approach and the C5 per-finding direction both still said "distinguish known type, failed validation from unknown type"** — the exact sentence the finding is *about*, and the one a spec-writer reads before it reads a fence. Round 23 named this failure mode in as many words ("a retired mechanism surviving in the Approach is a specification a builder can implement faithfully") and rounds 20, 22, 23 and 25 each recorded the same slip. Both now state the deciding input, the caller-forced call shape that makes it necessary (`base._load_file` at base.py:178, the four conveniences at parser.py:218/224/230/236), and the baseline the wrong reading breaks.
+
+2. **The rule named a comparand it did not derive.** "The forced class's own type name" was stated without saying where it is read from — and the lowest-effort implementation of an unsourced type name is a `"person"` literal, which is the frozen-name move this document has abolished six times, and which round 5 already proved goes wrong for the class nobody exercised. Read live: every model declares `type` as a `Literal` with a matching default (models.py:78, 127, 159, 192, 220, 240, 259, 294), so `model_class.model_fields["type"].default` is the deriving source and the comparand is derived like every other set here.
+
+3. **Stating the rule only for the caller-forced branch would have left the other branch undecided** — the same silence one branch over. Re-derived at source: `TYPE_TO_MODEL` (models.py:309-317) maps each of its eight type strings to the class whose own `Literal` declares that same string, verified entry-by-entry against the eight declarations above, so on the auto-detect path the resolved class's type name equals the note's declared type *by construction*. One rule therefore covers both branches rather than two rules covering one each, and that is a fact about the registry rather than a convention to maintain — if a future entry ever mapped a string to a class declaring a different one, the equality would stop holding automatically and this clause is what would surface it.
+
+4. **A third case existed and was defaulting by accident** — the unclosed-fence lesson, one function down. A note with non-empty frontmatter, **no `type` key**, and a drifted field is neither owned nor foreign: it validates past the `type` `Literal`'s own default and fails on the drifted field alone, so it reaches parser.py:139-150 exactly like the other two. It carries no ownership evidence of either kind — and unlike the loaders, there is no glob at this layer, so the taxonomy's convention-owned row has no analogue and cannot be borrowed. Today it returns `None`; it must keep returning `None`, stated rather than inferred.
+
+5. **The finding's own remedy asked for a fixture pair and the fence did not require one.** The two cases are the same code path with opposite answers, which is precisely round 4's rule — *two fixtures that share a code path but require opposite answers must be two files, asserted in one test* — and this is its fourth application and its first at the parse layer. AC-2 now requires all three inputs asserted in the same test at a caller-forced call site, and the Check-strategy note places them in the explicit-fixture family alongside AC-3's twelve cells rather than the Hypothesis-generated family, because a generator over "inputs that fail `model_validate`" has one expectation table to offer and the whole defect *is* that uniformity. A seventeenth Example of done pins the pair in Dave's terms, including the loud-direction consequence the previous sixteen never named: a script pointing `parse_person` at a folder that also holds companies is a thing it is allowed to do today.
+
+The rule that falls out, and it is the round-23 rule earned once more at the layer that keeps earning it: **a fold lands in every layer that states the mechanism, and "the fence is correct" is not the test — the Approach, the per-finding direction and the strategy note are all specifications a builder can implement faithfully.** Its companion, specific to this finding: **a decision rule is incomplete until its comparand is derived and every branch that can reach it is dispositioned — naming the input without naming where the input is read from re-opens the frozen-list door one level inside the remedy.**
 
 ### Non-goals (named so they are not re-explored or scope-crept)
 
@@ -490,7 +509,7 @@ Round 26 (fence below) confirmed the per-member sufficiency fold and returned, f
 
 ## Approach
 
-Fix the defect class at its seam and let the read/write asymmetry fall out of one distinction. Make `parse_frontmatter` stop conflating "no frontmatter" with "frontmatter that failed to parse": the malformed case becomes a distinct, loud signal (typed error or discriminated result — spec-writer's call). Write/mutate paths then **refuse** rather than rebuild — no file is ever rewritten from a frontmatter dict that did not parse, and the on-disk note is left byte-for-byte untouched (C2, the keystone). That set is *derived*, not named: every caller of `parse_frontmatter` in the package that re-serializes and writes — `update_fields` (base.py:312), `update_frontmatter_field` (writer.py:247), `update_frontmatter_fields` (writer.py:286), **and `roundtrip_file` (writer.py:317), which the campaign's enumeration missed and which has no `try`/`except` at all**. The deriving predicate is **data flow, not adjacency**: a member is a function in which the dict `parse_frontmatter` returned is re-serialized into the bytes that same function writes (base.py:312 → 324 → 327-329; writer.py:247 → 250 → 253-256, 286 → 289 → 292-295, 317 → 319-322). "Parses, then writes" is a *different* predicate and returns a fifth function that must not be swept — `write_markdown_file` (parse at writer.py:186, write at 217) — which discards the parsed frontmatter (`_, existing_body`) and builds what it writes from its own `entity`/`frontmatter` arguments (writer.py:197-205); it is the derivation's **proven negative**, excluded by the predicate rather than by name, and its own malformed-existing-file behaviour belongs to C3/AC-4. Symmetrically, the fix must not break the legitimate half **across that same derived set**: a genuinely fence-less note must still accept frontmatter exactly as today at all four paths — including `update_fields`, on which ordinary field-setting against a freshly-created stub depends, and `roundtrip_file`, whose contract is to preserve content while normalising YAML. Malformed frontmatter is the only thing that becomes loud; absent frontmatter is untouched everywhere. Read/load paths **survive but surface** — WARN, and record the skip in a queryable count/list on the repository so a dropped note cannot silently drive duplicate creation (C4) — swept across the **four concrete `BaseRepository` subclasses**, each independently instantiated — `PersonRepository`, `CompanyRepository`, `MeetingRepository`, `BookRepository` — rather than across the three `_load_file` overrides they share between them (`base.py:181`, inherited verbatim by both `PersonRepository` and `CompanyRepository`, since `company.py` overrides neither `_load_file` nor `file_pattern`; `meeting.py:81`; **`book.py:77`**, likewise missed), for both failure predicates: YAML that will not parse, and YAML that parses but fails validation for a known `type`. That surface is scoped by **ownership evidence, not by the glob** — every repository globs files it does not own and decides ownership downstream of the parse being made loud, so a naive surfacing turns the signal into noise on a healthy vault. A file whose `type` is readable and is not this repository's type is decidably foreign and never enters the skip surface (`base._load_file` checks no `type` at all today, so post-fix every well-formed `@Acme.md` would otherwise report as a skipped *person* — `Person.type` is `Literal["person"]`, models.py:78 — and every person note as a skipped company, since both repositories share the `@*.md` glob). That exposure runs **both ways over one shared implementation**, so the ownership comparison is made against each repository's **own** declared `type_name` (the abstract property at base.py:126-130) and has to be proved from both chairs — `CompanyRepository` instantiated on the same vault as `PersonRepository`, each asserting its own skip-list — because a shared `_owns()` that reads correctly for the class someone tested can be hardcoded, inverted or mis-ordered for the class they did not. Conversely a file whose `type` is readable and **is** this repository's type but which still fails `model_validate` on some other field — `type: person` with `emails: "not-a-list"`, the only other way to fail given `extra="allow"` (models.py:31-32) and no custom validators — is decidably **owned** and drifted, and **must** be listed: that is C5's own duplicate-creation case, the one C4's story is about. Those two are the same code path (`parse_to_model` raising inside `model_validate`) with opposite answers, so **ownership must be decided on the raw `type` value read from the parsed frontmatter, independently of and prior to model construction — never by "did `model_validate` succeed"**, which is exactly the predicate `base._load_file` uses today via `isinstance` (base.py:179) and which would silently drop the owned-and-drifted note. A file whose `type` is unreadable but whose glob is a naming convention (`@*.md`, `Meeting *.md`) **stays** in the surface, because that is precisely the C4 case it exists for. `BookRepository`, whose `file_pattern` is the catch-all `*.md` (book.py:49-51), has neither kind of evidence for a malformed file and must not report it as a skipped book; the mechanism is the spec-writer's call, but each repository's fixture vault is derived from its own `file_pattern` and is heterogeneous, never single-type. That owned-and-drifted case is required from **every** one of the four chairs, derived from each class's own model rather than transposed from a sibling — `type: person` + `emails: "not-a-list"` (models.py:81), `type: company` + `tags: company` (the inherited `BaseEntity.tags`, models.py:40, since `Company`'s own fields are all `str`), `type: meeting` + `attendees: "not-a-list"` (`Meeting`'s own `List[str]`, models.py:261-262), `type: book` + `tags: book` (again the inherited `tags`, `Book` declaring no `List` field of its own, models.py:159-170) — because it is the direction that carries the *new* signal through each class's *own* `_load_file`, and `meeting._load_file` and `book._load_file` are structurally unlike `base`'s: both already read the raw `type` ahead of model construction (meeting.py:72-75, book.py:67-70), so their foreign-type direction is sound today while their own-type-drifted note passes that prefilter and lands, post-fix, in their own bare `except Exception` (meeting.py:81-83, book.py:77-79) that nothing has ever exercised under this failure mode. The four classes do **not** share one expectation table: the malformed-YAML fixture must be listed by `PersonRepository`, `CompanyRepository` and `MeetingRepository` (owned by naming convention) and must **not** be listed by `BookRepository` (no ownership evidence under a catch-all glob), while the owned-and-drifted fixture must be listed by all four, `BookRepository` included — its glob is irrelevant once `type: book` is readable, since ownership is read off the raw `type`. And because `BaseRepository.load()`'s for-loop (base.py:157-165) wraps `_load_file` in no `try`/`except` at all, each class's own `except` clause *is* the no-abort guarantee: whatever narrowing the fix performs there must still catch the new typed validation failure, proven once per class rather than assumed to transfer from the base path. The body-shrink guard (C3) refuses when it cannot read the existing body instead of assuming it empty — and must be designed alongside C2 so it does not re-swallow the new parse signal. `parse_to_model` distinguishes "known type, failed validation" (loud — schema drift) from "unknown type" (fine), the same shape one layer up (C5). Write paths make a genuine I/O failure **raise** (a `ValueError` subclass, per the package convention) while every case that is a *legitimate* no-op today — dedup, absent section with `create_if_missing=False`, To-Discuss item text not found — keeps the exact falsy value it returns today (N4). That sweep is likewise derived rather than named, and by **four** predicates: the blanket `except Exception` in a writer; the guaranteed-section insertion writer (`append_to_timeline`'s marker-absent branch and its structurally-dead split guard, person.py:1482-1484 and 1491-1492 — the caller's entry is today silently dropped into the dedup no-op's `False`; resolved by ACCOMMODATION per the round-9 finding and Dave's ruling: the `## Timeline` section is auto-created and the entry inserted, mirroring the sibling's `create_if_missing=True`, since a raw-content check cannot distinguish corruption from a legitimately Timeline-less note — and, per round 10, that accommodation carries an explicit **preservation** property, because the sibling's absent-section path round-trips the body through `parse_body_sections`/`write_body_sections` (person.py:1586-1593 → body_sections.py:74-97, 100-134), which keeps only `^## `-delimited spans and therefore deletes any preamble above the first heading and destroys a heading-less body outright, on a raw `write_text` (person.py:1495, 1597) that writer.py:178-183 explicitly exempts from the WI-126 body-shrink guard: the auto-create must leave every pre-existing body byte present and the frontmatter byte-identical, proved on a heading-less body and a preamble body, which are exactly the hand-created-in-Obsidian notes the accommodation exists for; the mechanism — string insertion, or making the section round-trip lossless, which would repair the sibling's identical latent wipe at the same time — is the spec-writer's call. Dedup stays whole-file and frozen (person.py:1476, deliberate per person.py:1521-1524), so the honest claim is that *structural* absence can no longer drop the entry, not that a drop is impossible); the existence pre-check returning falsy where every sibling writer raises (writer.py:242-243, 281-282 vs. person.py's five `ValueError` raises and base.update_fields' `FileNotFoundError`); and the frontmatter-fence split (`content.startswith("---")` → `split("---", 2)`), which is copy-pasted across four writers — `append_to_body_section`, `add_to_discuss_item`, `update_to_discuss_item`, `remove_to_discuss_item` — so "no fence" and "malformed fence" stop being a `False` in all four, not just the one earlier rounds cited. Running that second predicate also exposed a fifth member nothing had seen: `_get_body_content` (person.py:1622-1626) answers an unsplittable fence by returning the whole file, frontmatter and all, as body — a read, so it surfaces rather than raises, but it must stop letting `get_to_discuss_items` report a broken note as "no items." And because a predicate list is itself a sample until its universe is enumerated, that sweep is **closed rather than merely derived**: the package's complete set of non-completed-write returns across its write paths and shared section-read helpers is 28 sites (writer.py 243/260/282/299 and person.py's 24, `company.py`/`meeting.py`/`book.py` declaring no bool-returning writer at all), every one of which must land in exactly one of the four raise predicates or the four no-op classes — the fourth being `_get_body_content`'s missing-file `None`, already made loud by its only caller's `ValueError` (person.py:1641-1643) — so a site matching none of the eight is a test failure rather than a future red-team finding. Stated that way, the contract change is one-directional and locally provable: no consumer-visible return value changes except where it was reporting a failure as a no-op, so an existing `if not repo.append_to_body_section(...)` branch keeps its current meaning and only a genuine data-loss stops being silent. The cross-repo consumer migration this implies is parked — see Non-goals. And every one of those sweeps is **executed by its test rather than remembered by it**: the write-path set, `parse_frontmatter`'s return sites, the concrete `BaseRepository` subclasses and the 28-site falsy universe are each discovered from the live source at test time and checked against an explicit in-test map, so a member added later arrives as a red test rather than as a twelfth red-team round — and discovery means SOURCE, uniformly across all four sweeps: an AST scan over a file set the test itself walks (every `.py` under `obsidian_schemas/`, recursively), never the import graph and never `inspect`, whose blind spots are the same one (`__subclasses__()` and `inspect.getmembers` both see only modules something imported; today every module in this package is transitively imported — `name_validation.py` only via `repositories/person.py:22` — so an import-based scan reads complete for a reason that has nothing to do with the property), and never a file set named by hand either: scoping a source scan to `repositories/` or to "the swept modules" is the frozen list wearing a path, and a fifth repository or a sixth silent-`False` writer put in a new module beside them is exactly as invisible to it as to the import graph. Each scan must also be shown to *discriminate*, `write_markdown_file` being the write-path scan's required negative, since a scan asserted only against what it returns is indistinguishable from a hardcoded list of those names. And a scan's map is keyed only by what the scan can actually return: `parse_frontmatter` carries five outcome classes on **four** `return` statements (parser.py:65, 70, 77, 80 — the empty-fence case is the `safe_load`-returns-`None` normalisation at 74-75, which has no return of its own and shares site 77 with the valid case), so the map is keyed by return site, a site may carry more than one named outcome class, and every class is separately required to be exercised — otherwise the site/class conflation makes the enumeration red on a correct implementation and green once the unmatched class is dropped. The same rule governs the seam's own **invocation surface**, which is swept too rather than assumed internal: the loudness travels to every function that reaches `parse_frontmatter`/`parse_to_model`, so those callers are derived as a **transitive closure** — the fixpoint of "package functions that reach the seam", not the functions that name it, because `parse_person`/`parse_company`/`parse_book`/`parse_meeting` (parser.py:216-237) reach it only through `parse_markdown_content` and `base._load_file` only through `parse_markdown_file` (base.py:178), and an adjacency scan returns none of them — and the closure stops at any function another criterion has already dispositioned, which is what makes it terminate. That stop set is itself computed rather than listed: it is the three sibling criteria's own live derivations consumed as inputs, each converted into the closure's own domain (a source-stable module + qualified-function identity) rather than assumed to already be in it — AC-1's write set arrives as functions and needs none; AC-3 derives *classes*, so each is resolved through its MRO to the function implementing its `_load_file` and deduplicated, four classes collapsing to three functions today; and AC-4 derives nothing at all, so the guard is taken from the set difference AC-1's own discrimination proof already computes (its loose "parses then writes" predicate minus its data-flow predicate, which is exactly the function AC-1 must reach and reject). The three contributions plus the propagating residue must then partition the closure exactly, each contribution non-empty and inside it, so that a mis-typed or empty contribution fails loudly instead of quietly making everything residue. And those contributions are not merely the same *values* their home criteria compute but the same *code*: the file-set walk, both write-path predicates and their set difference, the subclass scan and its MRO resolution, and the closure computation live in **one shared importable scan module** — imported by every criterion's own test, not only by the one that composes them, since an implementation-identity assertion can only bind to a callable another module can reach, and a scan nested inside its own test function is reachable by nobody. Two independently-written predicates that agree on today's tree diverge on the first future write path, and that divergence *is* the refuse-vs-propagate collision the partition exists to catch, reached with every fence reading satisfied; solve-in-one-place applies to the harness as much as to the package. The floor already permits this with no new machinery: there is no `conftest.py` in this tree and none is needed, because `tests/__init__.py` makes `tests/` an importable package under the same rootdir prepend the suite already runs on. And because a criterion is graded by its own named check and by nothing else, that sharing is **asserted rather than instructed**, in both of the only two forms an assertion can take: each producing test asserts, of the very callables it computes with, that their `__module__` is the shared module's — so a private copy reddens *that* test rather than a sibling's — and one further check proves no second copy can EXIST at all — not by recognising which derivation a copy is, which no detector can do (the loose and the data-flow predicate both reference `parse_frontmatter` and differ only in a semantic property, adjacency versus true data-flow dependency, and three of the six derivations share one AST-walk shape, so per-derivation attribution is unimplementable against a correct, non-duplicated tree), but by detecting the **capability** a copy must exercise — with sufficiency claimed **per member, never as a universal over the six**, because a universal is false for one of them. Five of the six — the loose scan, the data-flow scan, the subclass scan, the MRO resolution, the closure computation — cannot compute anything without traversing syntax they first obtain via the `ast` module, so **use of `ast`** is their marker; the sixth, the **file-set walk**, is pure filesystem enumeration, touches no syntax, names no `ast` symbol, and is dispositioned separately at the end of this paragraph rather than swept under the same sentence. The `ast` marker is asserted **single-homed** over the same derived file set walked one directory wider — every `.py` under `obsidian_schemas/` **and** every `.py` under `tests/`, since a private copy in a test module nobody imports is precisely the target — so a second module that imports or references `ast` *is* the copy, named by module, qualified name and line. It is satisfiable rather than red on arrival, verified live at fold time: nothing in the package or the suite references `ast` today, so the shared scan module becomes the sole home the moment it is written. The marker is read off **parsed syntax, never off source text**, because the check's own module necessarily carries the planted fixture's source as a string literal and a text matcher would match itself — red on a correct implementation, which is the same defect the per-derivation framing was dropped for. Completeness moves to the one identity a scan can decide, **names**: the shared module exports the six derivations as six distinct importable callables, asserted by importing them and checking six names resolve to six different function objects homed there. Capability uniqueness implies uniqueness of every predicate built on it, so nothing semantic is ever shape-detected; and the scan is proven against a **planted** copy rather than only against a clean tree, one plant per marker form, because uniqueness is the one assertion here that a detector matching nothing satisfies. The **sixth derivation gets no marker**, and that is a finding rather than a concession: `.py`-targeted filesystem enumeration is not a derivation signature but a generic operation, and this tree already contains a legitimate second home for it — `tests/test_vault_path_required.py:320` runs `rglob("*.py")` over `obsidian_schemas/` and `scripts/` as WI-024's own forbidden-default scan — so single-homing that marker is red on a compliant tree the day it is written, and no narrowing separates that scan from a walk copy without deciding the semantic question round 22 proved undecidable. The walk's uniqueness is instead carried by three mechanisms the AC states explicitly and claims nothing beyond: a walk that **feeds** one of the five ast-bearing derivations is caught by the copy of that derivation it feeds; a walk one of the sweeping tests **binds** is caught by that test's own `__module__` self-cert; and a walk that feeds neither is not a copy of a shared derivation at all, while a genuine *seventh* shared derivation is forced into the export list by the completeness clause and surfaced by AC-2's partition if it is missing. The residue — a divergent private walk that computes no sweep and that no self-certifying test binds — is **named as undetected**, its blast radius bounded by the same fact that makes it undetectable: it feeds none of the derivations, so no fence's sweep is computed from it. Comparing the shared module against itself proves nothing; proving the copy cannot exist does, and it holds for tests that never make any comparison. Its residue is the **public parse layer** — `parse_markdown_file`, `parse_markdown_content` and the four typed conveniences, none behind a `try`/`except` — which post-fix PROPAGATES the typed error on malformed input while keeping today's exact returns for absent frontmatter and unknown types, so the item's externally-visible surface is an enumerated caller set rather than a claim of internality. Deriving the class list does not soften the round-6 ruling that AC-3's twelve cells stay explicit: the cells are the map, the scan supplies its keys, and an unmapped key fails. Every fix ships its invariant test; the keystone is the malformed-YAML round-trip regression. The two WI-024 reroutes: narrow `_known_companies`' bare `except` at person.py:1147-1160 **at the except clause itself**, so a genuine `VaultPathNotConfiguredError` propagates rather than merely being re-logged (its own AC, since a log-level change would otherwise satisfy the wording); and surface the non-existent-vault load here, but recommend WI-004 owns the write-side `mkdir` guard (flagged for Dave's sign-off, not encoded below).
+Fix the defect class at its seam and let the read/write asymmetry fall out of one distinction. Make `parse_frontmatter` stop conflating "no frontmatter" with "frontmatter that failed to parse": the malformed case becomes a distinct, loud signal (typed error or discriminated result — spec-writer's call). Write/mutate paths then **refuse** rather than rebuild — no file is ever rewritten from a frontmatter dict that did not parse, and the on-disk note is left byte-for-byte untouched (C2, the keystone). That set is *derived*, not named: every caller of `parse_frontmatter` in the package that re-serializes and writes — `update_fields` (base.py:312), `update_frontmatter_field` (writer.py:247), `update_frontmatter_fields` (writer.py:286), **and `roundtrip_file` (writer.py:317), which the campaign's enumeration missed and which has no `try`/`except` at all**. The deriving predicate is **data flow, not adjacency**: a member is a function in which the dict `parse_frontmatter` returned is re-serialized into the bytes that same function writes (base.py:312 → 324 → 327-329; writer.py:247 → 250 → 253-256, 286 → 289 → 292-295, 317 → 319-322). "Parses, then writes" is a *different* predicate and returns a fifth function that must not be swept — `write_markdown_file` (parse at writer.py:186, write at 217) — which discards the parsed frontmatter (`_, existing_body`) and builds what it writes from its own `entity`/`frontmatter` arguments (writer.py:197-205); it is the derivation's **proven negative**, excluded by the predicate rather than by name, and its own malformed-existing-file behaviour belongs to C3/AC-4. Symmetrically, the fix must not break the legitimate half **across that same derived set**: a genuinely fence-less note must still accept frontmatter exactly as today at all four paths — including `update_fields`, on which ordinary field-setting against a freshly-created stub depends, and `roundtrip_file`, whose contract is to preserve content while normalising YAML. Malformed frontmatter is the only thing that becomes loud; absent frontmatter is untouched everywhere. Read/load paths **survive but surface** — WARN, and record the skip in a queryable count/list on the repository so a dropped note cannot silently drive duplicate creation (C4) — swept across the **four concrete `BaseRepository` subclasses**, each independently instantiated — `PersonRepository`, `CompanyRepository`, `MeetingRepository`, `BookRepository` — rather than across the three `_load_file` overrides they share between them (`base.py:181`, inherited verbatim by both `PersonRepository` and `CompanyRepository`, since `company.py` overrides neither `_load_file` nor `file_pattern`; `meeting.py:81`; **`book.py:77`**, likewise missed), for both failure predicates: YAML that will not parse, and YAML that parses but fails validation for a known `type`. That surface is scoped by **ownership evidence, not by the glob** — every repository globs files it does not own and decides ownership downstream of the parse being made loud, so a naive surfacing turns the signal into noise on a healthy vault. A file whose `type` is readable and is not this repository's type is decidably foreign and never enters the skip surface (`base._load_file` checks no `type` at all today, so post-fix every well-formed `@Acme.md` would otherwise report as a skipped *person* — `Person.type` is `Literal["person"]`, models.py:78 — and every person note as a skipped company, since both repositories share the `@*.md` glob). That exposure runs **both ways over one shared implementation**, so the ownership comparison is made against each repository's **own** declared `type_name` (the abstract property at base.py:126-130) and has to be proved from both chairs — `CompanyRepository` instantiated on the same vault as `PersonRepository`, each asserting its own skip-list — because a shared `_owns()` that reads correctly for the class someone tested can be hardcoded, inverted or mis-ordered for the class they did not. Conversely a file whose `type` is readable and **is** this repository's type but which still fails `model_validate` on some other field — `type: person` with `emails: "not-a-list"`, the only other way to fail given `extra="allow"` (models.py:31-32) and no custom validators — is decidably **owned** and drifted, and **must** be listed: that is C5's own duplicate-creation case, the one C4's story is about. Those two are the same code path (`parse_to_model` raising inside `model_validate`) with opposite answers, so **ownership must be decided on the raw `type` value read from the parsed frontmatter, independently of and prior to model construction — never by "did `model_validate` succeed"**, which is exactly the predicate `base._load_file` uses today via `isinstance` (base.py:179) and which would silently drop the owned-and-drifted note. A file whose `type` is unreadable but whose glob is a naming convention (`@*.md`, `Meeting *.md`) **stays** in the surface, because that is precisely the C4 case it exists for. `BookRepository`, whose `file_pattern` is the catch-all `*.md` (book.py:49-51), has neither kind of evidence for a malformed file and must not report it as a skipped book; the mechanism is the spec-writer's call, but each repository's fixture vault is derived from its own `file_pattern` and is heterogeneous, never single-type. That owned-and-drifted case is required from **every** one of the four chairs, derived from each class's own model rather than transposed from a sibling — `type: person` + `emails: "not-a-list"` (models.py:81), `type: company` + `tags: company` (the inherited `BaseEntity.tags`, models.py:40, since `Company`'s own fields are all `str`), `type: meeting` + `attendees: "not-a-list"` (`Meeting`'s own `List[str]`, models.py:261), `type: book` + `tags: book` (again the inherited `tags`, `Book` declaring no `List` field of its own, models.py:159-170) — because it is the direction that carries the *new* signal through each class's *own* `_load_file`, and `meeting._load_file` and `book._load_file` are structurally unlike `base`'s: both already read the raw `type` ahead of model construction (meeting.py:72-75, book.py:67-70), so their foreign-type direction is sound today while their own-type-drifted note passes that prefilter and lands, post-fix, in their own bare `except Exception` (meeting.py:81-83, book.py:77-79) that nothing has ever exercised under this failure mode. The four classes do **not** share one expectation table: the malformed-YAML fixture must be listed by `PersonRepository`, `CompanyRepository` and `MeetingRepository` (owned by naming convention) and must **not** be listed by `BookRepository` (no ownership evidence under a catch-all glob), while the owned-and-drifted fixture must be listed by all four, `BookRepository` included — its glob is irrelevant once `type: book` is readable, since ownership is read off the raw `type`. And because `BaseRepository.load()`'s for-loop (base.py:157-165) wraps `_load_file` in no `try`/`except` at all, each class's own `except` clause *is* the no-abort guarantee: whatever narrowing the fix performs there must still catch the new typed validation failure, proven once per class rather than assumed to transfer from the base path. The body-shrink guard (C3) refuses when it cannot read the existing body instead of assuming it empty — and must be designed alongside C2 so it does not re-swallow the new parse signal. `parse_to_model` distinguishes "known type, failed validation" (loud — schema drift) from "unknown type" (fine), the same shape one layer up (C5) — **and "known" names its deciding input, because every caller in this item's scope forces the model class and none of them reach the branch that reads a `type` at all**: `base._load_file` passes `self.entity_type` (base.py:178) and the four conveniences pass `Person`/`Company`/`Book`/`Meeting` (parser.py:218, 224, 230, 236), so the auto-detect path at parser.py:130-137 never executes for them and `model_class` carries no relation to the note's own `type`. Known-ness is therefore **a property of the note, never of the call**: `parse_to_model` raises **only** where the note's raw declared `type` equals the type the forced class itself declares *and* `model_validate` fails — owned-and-drifted, C5's actual duplicate-creation case. A well-formed note of a different readable type handed to the wrong parser is decidably foreign, an answer rather than a failure, and keeps today's `None` exactly (`test_parse_person_wrong_type`, tests/test_parser.py:265-273, is a live baseline case in the 607-floor and must keep passing untouched, as must the "book where a person was expected" Example of done); a type nothing models keeps today's `None`; and a note whose `type` is absent or unreadable while a class is forced carries **no ownership evidence of either kind** — there is no glob at this layer to own it by convention, so the four-bucket taxonomy's convention-owned row has no analogue here — and likewise keeps today's `None`. This is AC-3's ownership principle applied one layer down, and for the same mechanism-forcing reason: the two cases are the *same* code path (`model_validate` raising inside parser.py:139-150, same `model_class` object) with opposite required answers, so ownership cannot be decided by "did model construction succeed" here any more than it can in `base._load_file`. The type the class declares is read off **the class's own declaration** — every model declares `type` as a `Literal` with a matching default (models.py:78, 127, 159, 192, 220, 240, 259, 294), so `model_class.model_fields["type"].default` is the deriving source and a hardcoded `"person"` literal is the derive-don't-name violation this document has abolished six times. One rule covers both branches rather than two rules covering one each: `TYPE_TO_MODEL` (models.py:309-317) maps each type string to the class whose own `Literal` declares that same string, so whenever `get_model_for_type` resolves on the auto-detect path the resolved class's type name equals the note's declared type *by construction* and the equality holds automatically, while an unresolvable type has no class at all and today's `None` at parser.py:135-137 stands. Write paths make a genuine I/O failure **raise** (a `ValueError` subclass, per the package convention) while every case that is a *legitimate* no-op today — dedup, absent section with `create_if_missing=False`, To-Discuss item text not found — keeps the exact falsy value it returns today (N4). That sweep is likewise derived rather than named, and by **four** predicates: the blanket `except Exception` in a writer; the guaranteed-section insertion writer (`append_to_timeline`'s marker-absent branch and its structurally-dead split guard, person.py:1482-1484 and 1491-1492 — the caller's entry is today silently dropped into the dedup no-op's `False`; resolved by ACCOMMODATION per the round-9 finding and Dave's ruling: the `## Timeline` section is auto-created and the entry inserted, mirroring the sibling's `create_if_missing=True`, since a raw-content check cannot distinguish corruption from a legitimately Timeline-less note — and, per round 10, that accommodation carries an explicit **preservation** property, because the sibling's absent-section path round-trips the body through `parse_body_sections`/`write_body_sections` (person.py:1586-1593 → body_sections.py:74-97, 100-134), which keeps only `^## `-delimited spans and therefore deletes any preamble above the first heading and destroys a heading-less body outright, on a raw `write_text` (person.py:1495, 1597) that writer.py:178-183 explicitly exempts from the WI-126 body-shrink guard: the auto-create must leave every pre-existing body byte present and the frontmatter byte-identical, proved on a heading-less body and a preamble body, which are exactly the hand-created-in-Obsidian notes the accommodation exists for; the mechanism — string insertion, or making the section round-trip lossless, which would repair the sibling's identical latent wipe at the same time — is the spec-writer's call. Dedup stays whole-file and frozen (person.py:1476, deliberate per person.py:1521-1524), so the honest claim is that *structural* absence can no longer drop the entry, not that a drop is impossible); the existence pre-check returning falsy where every sibling writer raises (writer.py:242-243, 281-282 vs. person.py's five `ValueError` raises and base.update_fields' `FileNotFoundError`); and the frontmatter-fence split (`content.startswith("---")` → `split("---", 2)`), which is copy-pasted across four writers — `append_to_body_section`, `add_to_discuss_item`, `update_to_discuss_item`, `remove_to_discuss_item` — so "no fence" and "malformed fence" stop being a `False` in all four, not just the one earlier rounds cited. Running that second predicate also exposed a fifth member nothing had seen: `_get_body_content` (person.py:1622-1626) answers an unsplittable fence by returning the whole file, frontmatter and all, as body — a read, so it surfaces rather than raises, but it must stop letting `get_to_discuss_items` report a broken note as "no items." And because a predicate list is itself a sample until its universe is enumerated, that sweep is **closed rather than merely derived**: the package's complete set of non-completed-write returns across its write paths and shared section-read helpers is 28 sites (writer.py 243/260/282/299 and person.py's 24, `company.py`/`meeting.py`/`book.py` declaring no bool-returning writer at all), every one of which must land in exactly one of the four raise predicates or the four no-op classes — the fourth being `_get_body_content`'s missing-file `None`, already made loud by its only caller's `ValueError` (person.py:1641-1643) — so a site matching none of the eight is a test failure rather than a future red-team finding. Stated that way, the contract change is one-directional and locally provable: no consumer-visible return value changes except where it was reporting a failure as a no-op, so an existing `if not repo.append_to_body_section(...)` branch keeps its current meaning and only a genuine data-loss stops being silent. The cross-repo consumer migration this implies is parked — see Non-goals. And every one of those sweeps is **executed by its test rather than remembered by it**: the write-path set, `parse_frontmatter`'s return sites, the concrete `BaseRepository` subclasses and the 28-site falsy universe are each discovered from the live source at test time and checked against an explicit in-test map, so a member added later arrives as a red test rather than as a twelfth red-team round — and discovery means SOURCE, uniformly across all four sweeps: an AST scan over a file set the test itself walks (every `.py` under `obsidian_schemas/`, recursively), never the import graph and never `inspect`, whose blind spots are the same one (`__subclasses__()` and `inspect.getmembers` both see only modules something imported; today every module in this package is transitively imported — `name_validation.py` only via `repositories/person.py:22` — so an import-based scan reads complete for a reason that has nothing to do with the property), and never a file set named by hand either: scoping a source scan to `repositories/` or to "the swept modules" is the frozen list wearing a path, and a fifth repository or a sixth silent-`False` writer put in a new module beside them is exactly as invisible to it as to the import graph. Each scan must also be shown to *discriminate*, `write_markdown_file` being the write-path scan's required negative, since a scan asserted only against what it returns is indistinguishable from a hardcoded list of those names. And a scan's map is keyed only by what the scan can actually return: `parse_frontmatter` carries five outcome classes on **four** `return` statements (parser.py:65, 70, 77, 80 — the empty-fence case is the `safe_load`-returns-`None` normalisation at 74-75, which has no return of its own and shares site 77 with the valid case), so the map is keyed by return site, a site may carry more than one named outcome class, and every class is separately required to be exercised — otherwise the site/class conflation makes the enumeration red on a correct implementation and green once the unmatched class is dropped. The same rule governs the seam's own **invocation surface**, which is swept too rather than assumed internal: the loudness travels to every function that reaches `parse_frontmatter`/`parse_to_model`, so those callers are derived as a **transitive closure** — the fixpoint of "package functions that reach the seam", not the functions that name it, because `parse_person`/`parse_company`/`parse_book`/`parse_meeting` (parser.py:216-237) reach it only through `parse_markdown_content` and `base._load_file` only through `parse_markdown_file` (base.py:178), and an adjacency scan returns none of them — and the closure stops at any function another criterion has already dispositioned, which is what makes it terminate. That stop set is itself computed rather than listed: it is the three sibling criteria's own live derivations consumed as inputs, each converted into the closure's own domain (a source-stable module + qualified-function identity) rather than assumed to already be in it — AC-1's write set arrives as functions and needs none; AC-3 derives *classes*, so each is resolved through its MRO to the function implementing its `_load_file` and deduplicated, four classes collapsing to three functions today; and AC-4 derives nothing at all, so the guard is taken from the set difference AC-1's own discrimination proof already computes (its loose "parses then writes" predicate minus its data-flow predicate, which is exactly the function AC-1 must reach and reject). The three contributions plus the propagating residue must then partition the closure exactly, each contribution non-empty and inside it, so that a mis-typed or empty contribution fails loudly instead of quietly making everything residue. And those contributions are not merely the same *values* their home criteria compute but the same *code*: the file-set walk, both write-path predicates and their set difference, the subclass scan and its MRO resolution, and the closure computation live in **one shared importable scan module** — imported by every criterion's own test, not only by the one that composes them, since an implementation-identity assertion can only bind to a callable another module can reach, and a scan nested inside its own test function is reachable by nobody. Two independently-written predicates that agree on today's tree diverge on the first future write path, and that divergence *is* the refuse-vs-propagate collision the partition exists to catch, reached with every fence reading satisfied; solve-in-one-place applies to the harness as much as to the package. The floor already permits this with no new machinery: there is no `conftest.py` in this tree and none is needed, because `tests/__init__.py` makes `tests/` an importable package under the same rootdir prepend the suite already runs on. And because a criterion is graded by its own named check and by nothing else, that sharing is **asserted rather than instructed**, in both of the only two forms an assertion can take: each producing test asserts, of the very callables it computes with, that their `__module__` is the shared module's — so a private copy reddens *that* test rather than a sibling's — and one further check proves no second copy can EXIST at all — not by recognising which derivation a copy is, which no detector can do (the loose and the data-flow predicate both reference `parse_frontmatter` and differ only in a semantic property, adjacency versus true data-flow dependency, and three of the six derivations share one AST-walk shape, so per-derivation attribution is unimplementable against a correct, non-duplicated tree), but by detecting the **capability** a copy must exercise — with sufficiency claimed **per member, never as a universal over the six**, because a universal is false for one of them. Five of the six — the loose scan, the data-flow scan, the subclass scan, the MRO resolution, the closure computation — cannot compute anything without traversing syntax they first obtain via the `ast` module, so **use of `ast`** is their marker; the sixth, the **file-set walk**, is pure filesystem enumeration, touches no syntax, names no `ast` symbol, and is dispositioned separately at the end of this paragraph rather than swept under the same sentence. The `ast` marker is asserted **single-homed** over the same derived file set walked one directory wider — every `.py` under `obsidian_schemas/` **and** every `.py` under `tests/`, since a private copy in a test module nobody imports is precisely the target — so a second module that imports or references `ast` *is* the copy, named by module, qualified name and line. It is satisfiable rather than red on arrival, verified live at fold time: nothing in the package or the suite references `ast` today, so the shared scan module becomes the sole home the moment it is written. The marker is read off **parsed syntax, never off source text**, because the check's own module necessarily carries the planted fixture's source as a string literal and a text matcher would match itself — red on a correct implementation, which is the same defect the per-derivation framing was dropped for. Completeness moves to the one identity a scan can decide, **names**: the shared module exports the six derivations as six distinct importable callables, asserted by importing them and checking six names resolve to six different function objects homed there. Capability uniqueness implies uniqueness of every predicate built on it, so nothing semantic is ever shape-detected; and the scan is proven against a **planted** copy rather than only against a clean tree, one plant per marker form, because uniqueness is the one assertion here that a detector matching nothing satisfies. The **sixth derivation gets no marker**, and that is a finding rather than a concession: `.py`-targeted filesystem enumeration is not a derivation signature but a generic operation, and this tree already contains a legitimate second home for it — `tests/test_vault_path_required.py:320` runs `rglob("*.py")` over `obsidian_schemas/` and `scripts/` as WI-024's own forbidden-default scan — so single-homing that marker is red on a compliant tree the day it is written, and no narrowing separates that scan from a walk copy without deciding the semantic question round 22 proved undecidable. The walk's uniqueness is instead carried by three mechanisms the AC states explicitly and claims nothing beyond: a walk that **feeds** one of the five ast-bearing derivations is caught by the copy of that derivation it feeds; a walk one of the sweeping tests **binds** is caught by that test's own `__module__` self-cert; and a walk that feeds neither is not a copy of a shared derivation at all, while a genuine *seventh* shared derivation is forced into the export list by the completeness clause and surfaced by AC-2's partition if it is missing. The residue — a divergent private walk that computes no sweep and that no self-certifying test binds — is **named as undetected**, its blast radius bounded by the same fact that makes it undetectable: it feeds none of the derivations, so no fence's sweep is computed from it. Comparing the shared module against itself proves nothing; proving the copy cannot exist does, and it holds for tests that never make any comparison. Its residue is the **public parse layer** — `parse_markdown_file`, `parse_markdown_content` and the four typed conveniences, none behind a `try`/`except` — which post-fix PROPAGATES the typed error on malformed input while keeping today's exact returns for absent frontmatter and unknown types, so the item's externally-visible surface is an enumerated caller set rather than a claim of internality. Deriving the class list does not soften the round-6 ruling that AC-3's twelve cells stay explicit: the cells are the map, the scan supplies its keys, and an unmapped key fails. Every fix ships its invariant test; the keystone is the malformed-YAML round-trip regression. The two WI-024 reroutes: narrow `_known_companies`' bare `except` at person.py:1147-1160 **at the except clause itself**, so a genuine `VaultPathNotConfiguredError` propagates rather than merely being re-logged (its own AC, since a log-level change would otherwise satisfy the wording); and surface the non-existent-vault load here, but recommend WI-004 owns the write-side `mkdir` guard (flagged for Dave's sign-off, not encoded below).
 
 ## Acceptance Criteria
 
@@ -546,9 +565,9 @@ Draft acceptance criteria — a convergence artifact ("what would prove this wor
 
 **Revised again 2026-07-24 (round 25)** after the twenty-fourth re-verify, Dave-ruled on a one-line ask. The finding: AC-7's sufficiency universal was false for one member — the file-set walk is pure filesystem enumeration and references no ast symbol, so a private copy of exactly that derivation (the least-effort one to reimplement) was invisible to the ast marker, and the `__module__` self-certs only catch a copy a consuming test actually binds. The fold states sufficiency **per member**, and it did so in two passes. The first pass gave the sixth derivation its own capability marker — `.py`-targeted filesystem enumeration, single-homed by the same scan — which is the obvious repair and is **withdrawn on re-run, because running the verification round 23 made mandatory kills it**: `tests/test_vault_path_required.py:320` already runs `rglob("*.py")` over `obsidian_schemas/` and `scripts/` as WI-024's own AC-2 forbidden-default scan, so the marker is red on a compliant, non-duplicated tree the day it is written — the identical red-on-a-correct-implementation defect the per-derivation framing was dropped for, reproduced inside the remedy for the *next* finding. Nor can the pattern be narrowed out of it: both that scan and a walk copy `rglob` `".py"` rooted at `obsidian_schemas/`, and separating them is the semantic question round 22 proved undecidable, while exempting it by name is the frozen list this document has abolished six times — and the exempted test's own docstring rules against exception lists in as many words. So the landed fold claims sufficiency for **five** members via the `ast` marker (re-verified live at this fold: no `.py` file anywhere in this tree references `ast`) and dispositions the sixth by argument: a walk that FEEDS a derivation is caught by the copy of that derivation it feeds; a walk a sweeping test BINDS is caught by that test's `__module__` self-cert; a walk feeding neither is not a derivation copy, and a genuine seventh derivation is forced into the export list by COMPLETENESS and surfaced by AC-2's partition. The residue is **named as undetected** with its blast radius bounded, rather than covered by a sentence. Rules added: **a sufficiency claim over a set is proven member-by-member — one member outside the mechanism's reach is not an approximation, it is the copy that will be written**; and its correction, **when a universal fails for one member, the fix is not automatically a second mechanism — run the new mechanism against the live tree before adopting it, and if the capability it detects is generic rather than a signature, state the member's residue honestly instead of shipping a marker that is red on arrival. An AC that names its edge is stronger than one that stretches a marker until it matches the tree's legitimate code.**
 
-**Revised again 2026-07-24 (round 27)** after the twenty-sixth re-verify, Dave-ruled on a one-line ask — and the first finding since round 10 that is about the ITEM'S BEHAVIOUR rather than the harness: the harness thread is exhausted. The finding: AC-2's parse_to_model clause distinguished "known type whose validation failed" (raise) from "unknown type" (None) without stating how known-ness is decided when the model class is CALLER-FORCED — which it is at every in-scope caller — so a compliant implementation could make parse_person raise on a well-formed book note, breaking the existing test_parse_person_wrong_type baseline and an Example of done. The fold states the decision rule, and it is AC-3's ownership principle one layer down: known-ness is a property of the NOTE (raw declared type equals the forced class's type name), never of the call — raise only on owned-and-drifted; a readable foreign type is an answer (today's None, baselines byte-preserved); an unmodelled type is an answer. Rule added: **a distinction an AC draws must name its deciding input — "known" is ambiguous wherever the caller supplies an expectation, and the note's own declaration, not the caller's hope, is what this document decides ownership on everywhere else.**
+**Revised again 2026-07-24 (round 27)** after the twenty-sixth re-verify, Dave-ruled on a one-line ask — and the first finding since round 10 that is about the ITEM'S BEHAVIOUR rather than the harness: the harness thread is exhausted. The finding: AC-2's parse_to_model clause distinguished "known type whose validation failed" (raise) from "unknown type" (None) without stating how known-ness is decided when the model class is CALLER-FORCED — which it is at every in-scope caller — so a compliant implementation could make parse_person raise on a well-formed book note, breaking the existing test_parse_person_wrong_type baseline and an Example of done. The fold states the decision rule, and it is AC-3's ownership principle one layer down: known-ness is a property of the NOTE (raw declared type equals the forced class's type name), never of the call — raise only on owned-and-drifted; a readable foreign type is an answer (today's None, baselines byte-preserved); an unmodelled type is an answer. Completed on re-run, and it is this document's most-repeated omission for the sixth fold running: the **Approach** and the **C5 per-finding direction** both still carried the retired "known type, failed validation vs. unknown type" framing after the fence was corrected — the exact sentence the finding is about, in the two places a spec-writer reads before it reads a fence — and both now state the deciding input. Three further gaps the re-run found and closed, none of them in the first pass: the rule named a comparand it never derived (now `model_class.model_fields["type"].default`, read off the class's own `Literal`, models.py:78/127/159/192/220/240/259/294, because an unsourced type name is implemented as a hardcoded `"person"`); the rule was stated only for the caller-forced branch, leaving the auto-detect branch undecided, when in fact `TYPE_TO_MODEL` (models.py:309-317) maps each type string to the class declaring that same string, so one rule covers both branches by construction; and a **third case** was defaulting by accident — a note with non-empty frontmatter, no `type` key and a drifted field, which validates past the `type` `Literal`'s default, fails on the drifted field, has no ownership evidence and no glob at this layer to supply any, and must keep today's `None`. Finally the finding's own remedy was taken in full: AC-2 now requires the **fixture pair asserted in one test** at a caller-forced call site (round 4's rule, fourth application, first at the parse layer), the Check-strategy note moves that half out of the Hypothesis family into the explicit-fixture family for the round-6 reason AC-3's matrix is there, and a seventeenth Example of done pins both directions in Dave's terms. Rules added: **a distinction an AC draws must name its deciding input — "known" is ambiguous wherever the caller supplies an expectation, and the note's own declaration, not the caller's hope, is what this document decides ownership on everywhere else**; and **a decision rule is incomplete until its comparand is derived and every branch that reaches it is dispositioned — naming the input without naming where the input is read from re-opens the frozen-list door one level inside the remedy.**
 
-**Check strategy (Dave's 2026-07-23 testing ruling, applied at round 7):** this is a pytest-floor project with Pydantic schemas and a parse/serialize inverse pair, so checks whose properties quantify over *inputs* are implemented as Hypothesis property tests over generated note contents — AC-1 (any generated note with malformed frontmatter: every derived write path raises and the file is byte-identical; any generated note with absent frontmatter: none raises and behaviour matches the captured baseline), AC-2 (generated inputs per return-site class; malformed never returns a legitimate case's value), and AC-5's two halves (generated failure inputs raise; generated legitimate no-ops keep today's exact returns). AC-3's twelve cells stay explicit hand-derived fixtures — the cells have non-uniform, opposite answers and the matrix IS the specification; property generation there would re-introduce the shared-expectation-table error the round-6 rule forbids. Property tests quantify over inputs; they do not substitute for the site/predicate derivations above, which quantify over code. AC-7 is in that second family and is explicitly not a property test: it quantifies over the harness's own use of one capability, and its generated case is the planted duplicate, hand-written per MARKER FORM — an `import ast` statement, and a bare `ast.*` reference under a from-import or aliased import — rather than sampled. There are no derivation shapes left to enumerate: round 23 replaced shape attribution with capability detection precisely because no shape discriminates the six derivations from each other. Two marker forms is the whole generated set — the sixth derivation, the file-set walk, carries no marker of its own (its capability has a legitimate pre-existing home at `tests/test_vault_path_required.py:320`, so a marker for it would be red on arrival), and is dispositioned by argument in AC-7's SUFFICIENCY clause rather than by a planted case there is nothing sound to plant against.
+**Check strategy (Dave's 2026-07-23 testing ruling, applied at round 7):** this is a pytest-floor project with Pydantic schemas and a parse/serialize inverse pair, so checks whose properties quantify over *inputs* are implemented as Hypothesis property tests over generated note contents — AC-1 (any generated note with malformed frontmatter: every derived write path raises and the file is byte-identical; any generated note with absent frontmatter: none raises and behaviour matches the captured baseline), AC-2's `parse_frontmatter` half (generated inputs per return-site class; malformed never returns a legitimate case's value), and AC-5's two halves (generated failure inputs raise; generated legitimate no-ops keep today's exact returns). AC-3's twelve cells stay explicit hand-derived fixtures — the cells have non-uniform, opposite answers and the matrix IS the specification; property generation there would re-introduce the shared-expectation-table error the round-6 rule forbids. **AC-2's `parse_to_model` half is in that same explicit family, for the same reason** (round-27 fold, completed on re-run): owned-and-drifted, well-formed-foreign and absent-type inputs share one code path and carry opposite answers, so they are three named fixtures asserted in one test rather than a generated space — a generator over "inputs that fail `model_validate`" has exactly one expectation table to offer and would assert the uniformity that *is* the defect. Property tests quantify over inputs; they do not substitute for the site/predicate derivations above, which quantify over code. AC-7 is in that second family and is explicitly not a property test: it quantifies over the harness's own use of one capability, and its generated case is the planted duplicate, hand-written per MARKER FORM — an `import ast` statement, and a bare `ast.*` reference under a from-import or aliased import — rather than sampled. There are no derivation shapes left to enumerate: round 23 replaced shape attribution with capability detection precisely because no shape discriminates the six derivations from each other. Two marker forms is the whole generated set — the sixth derivation, the file-set walk, carries no marker of its own (its capability has a legitimate pre-existing home at `tests/test_vault_path_required.py:320`, so a marker for it would be red on arrival), and is dispositioned by argument in AC-7's SUFFICIENCY clause rather than by a planted case there is nothing sound to plant against.
 
 ```criteria
 id: AC-1
@@ -561,12 +580,12 @@ why: this is the keystone — the C2 corruption chain, confirmed live, destroys 
 
 ```criteria
 id: AC-2
-desc: The parse boundaries distinguish failure from a legitimate empty/unknown result, with a case per outcome DERIVED from each function's own branch structure rather than a sampled fixture. For parse_frontmatter that is one case per OUTCOME CLASS, mapped onto the function's actual RETURN SITES — which are NOT in bijection with them and must not be conflated (round-14 finding). Five outcome classes: no leading fence (parser.py:64-65), an opening fence with no closing fence (69-70), a fence present but empty (the safe_load-returns-None normalisation at 74-75), valid frontmatter (77), and YAMLError (78-80). FOUR return sites carry them: parser.py 65, 70, 77 and 80 are the only ast.Return nodes in the function, because the empty-fence class has no return of its own and falls through to site 77, which it SHARES with the valid-frontmatter class. Malformed YAML must never return the same value as a fence-less or empty-fence document, and the legitimate cases must keep returning today's value so existing callers are unchanged. The unclosed-fence case must be classified explicitly as absent or as malformed — not left to default by accident — because append_to_body_section already treats that same input as a distinct malformed-fence case (person.py:1564-1570). For parse_to_model, a known type whose model_validate raised (loud — schema drift) is distinguishable from a legitimately unknown or unmodelled type (returns None as today, parser.py:135-137) — and "KNOWN TYPE" IS A PROPERTY OF THE NOTE, NEVER OF THE CALL (round-26 finding): every in-scope caller forces a model class (parse_person forces Person; base._load_file forces its entity_type), so the decision rule must be stated or a compliant implementation can raise on a well-formed foreign-type note. The rule is AC-3's ownership principle one layer down: parse_to_model raises ONLY when the note's raw declared type equals the forced class's own type name AND model_validate fails — owned-and-drifted, the schema-drift case. A well-formed note of a DIFFERENT readable type handed to the wrong parser is decidably foreign — an answer, not a failure — and keeps today's None exactly (the existing test_parse_person_wrong_type baseline and the "book where a person was expected" Example of done both keep passing unchanged); a type nothing models likewise keeps today's None. An implementation that raises on foreign-type input at any caller-forced site FAILS this criterion. Every distinction is observable by the caller, not only in a log line. The return-site enumeration is PERFORMED BY THE TEST AT TEST TIME against the live POST-FIX source — an AST scan of parse_frontmatter for its ast.Return nodes, found by walking the package's module files on disk (the same derived file set AC-1, AC-3 and AC-5 walk; never an inspect-based scan, never a hand-named module) — checked against an explicit in-test map KEYED BY RETURN SITE, where a site maps to ONE OR MORE named outcome classes. Keying the map by outcome class instead FAILS this criterion and is the round-14 finding: five classes against four sites means an entry keyed at 73-75 matches no site the scan can return, the site-set equality assertion goes red on a CORRECT implementation, and the cheap repair — delete the entry with no matching site — silently drops the empty-fence class, which is in this AC precisely because it is a distinct outcome reached through a shared return. So the test asserts BOTH halves: the discovered site set equals the map's keys exactly, AND every named outcome class in the map is exercised by at least one input, so a site carrying two classes cannot be closed with one case. Neither count is the expected answer — four sites and five classes are today's baselines, and this item's own fix changes both (the malformed case stops returning ({}, content), and the unclosed-fence case may gain its own site once classified). A return site the scan finds with no case mapped to it, or a named class no input exercises, FAILS this criterion rather than passing unnoticed. A five-case list frozen at build time does not satisfy it. Same reason as AC-1 and AC-5: an enumeration that is remembered rather than re-run stops being true the first time the function it describes is edited, and this fix edits it. INVOCATION SURFACE (round-14 finding; its derivation corrected round 16): the seam this item makes loud has callers outside the sweeps above, and they are covered by the same derivation discipline — but the derivation is a TRANSITIVE CLOSURE over the call graph, never a direct-caller list. The test computes, at test time by AST over the package's module files walked on disk (the same derived file set AC-1, AC-3 and AC-5 walk), the FIXPOINT of "package functions that REACH parse_frontmatter or parse_to_model": seed the set with the functions that name either symbol directly, then repeatedly add the callers of everything already in the set until it stops growing. Direct-call ADJACENCY is NOT the predicate and cannot return this class — parse_person, parse_company, parse_book and parse_meeting (parser.py:216-237) name neither seam symbol, reaching it only through parse_markdown_content (218, 224, 230, 236), and base._load_file reaches it only through parse_markdown_file (base.py:178) — so an adjacency scan returns nine functions containing none of those five while this criterion's map names four of them as propagating members and one as an insulated loader, which is red on a correct implementation and whose cheap repair deletes the four conveniences that are the whole reason this clause exists (the round-14 keying error, recurring inside round 14's own remedy). The closure STOPS at any function another criterion has already assigned a disposition to, and the STOP SET IS COMPUTED, NEVER NAMED (round-16 finding): it is the union of THREE contributions, each CONSUMED AS THE LIVE OUTPUT of a derivation another criterion's test already runs — those scans reused as inputs, never re-stated as a list here. A live output is only consumable in the domain the closure is computed in, and two of the three are NOT in that domain as their own AC produces them (round-18 audit-fold), so each contribution carries its own conversion and none may be repaired by naming. (i) REFUSING WRITERS: AC-1's data-flow scan output, taken directly — already a set of functions, no conversion. (ii) INSULATED LOADERS: NOT AC-3's output as AC-3 produces it. AC-3's test-time derivation discovers CLASSES (an AST scan for BaseRepository subclasses, checked against its 4x3 matrix's class keys), and a class is not a member of a closure over functions — so consuming AC-3's output literally contributes NOTHING to the stop set, the closure never stops at base._load_file, and it climbs through load(), get_all() and resolve() into every consumer-facing method, which is the unbounded walk the stop rule exists to prevent. The conversion is REQUIRED and belongs to this criterion: resolve each class AC-3 discovers to the function implementing its _load_file through that class's MRO, then DEDUPLICATE, because the map is many-to-one. Four discovered classes resolve to THREE functions today — PersonRepository (person.py:159) and CompanyRepository (company.py:46) declare no _load_file and both resolve to base.py:171, while meeting.py:64 and book.py:57 are their own — so a check asserting one loader per discovered class is RED on a correct implementation (the round-14 keying error in the shape this document has carried since round 5's class/path asymmetry), and both counts are today's baseline, not the answer. (iii) The C3 GUARD: likewise not consumable from AC-4, which runs NO scan at all — it names write_markdown_file and asserts two fixtures — so "AC-4's live output" does not exist, and the only repair available to a builder reading it that way is to hardcode the name, which is the frozen list this clause abolished reappearing inside the clause itself. It IS computed, from a derivation already required to run: AC-1's discrimination proof evaluates TWO predicates over one traversal — the loose "calls parse_frontmatter and later writes" and the data-flow one — and this contribution is their SET DIFFERENCE (loose MINUS data-flow), which is precisely the function AC-1 must REACH and REJECT, today write_markdown_file alone. AC-4 dispositions that function; AC-1's scan derives it; neither names it into this stop set. IDENTITY DOMAIN: all three contributions, and the closure itself, are normalised to ONE source-stable function identity before any set operation — module path plus qualified function name (the function-level half of AC-5's site identity) — never a line number, and never AST nodes for one set against imported objects or classes for another, because a partition asserted across mixed identity domains is vacuously satisfiable: nothing in one domain ever equals anything in another, so the assertion passes while proving nothing. The function names in this document (update_fields, update_frontmatter_field(s), roundtrip_file; base/meeting/book _load_file; write_markdown_file) are today's baseline listing, not the specification; a check that hardcodes them does not satisfy this criterion, because a fifth writer AC-1's scan auto-discovers would fall outside a frozen stop list and either unbound the closure or leave one function claimed by two ACs with incompatible dispositions (refuse vs. propagate). This is the last named set in the document made derived: every other sweep already forbids a hardcoded list, and the stop set is those sweeps' own outputs composed. That is what makes the closure terminate and what makes "exactly one class" well-defined; without the stop rule it climbs through load(), resolve() and every consumer-facing method in the package. PARTITION: the three computed stop sets plus the propagating residue must partition the computed closure EXACTLY, asserted by computation over the normalised identity above — a closure member landing in no class, or in two (the refuse-vs-propagate collision), FAILS this criterion; the partition assertion is what makes the four ACs' sweeps verify each other's boundaries instead of merely coexisting. Because a partition over an empty or mis-domained contribution degenerates into "everything is residue" while still reading green, each of the three contributions must additionally be asserted NON-EMPTY and asserted to be a SUBSET of the computed closure — that is the assertion that catches a loader contribution left as four class objects, and it is why the conversions above are stated as requirements rather than as implementation notes. ONE IMPLEMENTATION (round-18 gate finding, folded at round 19 — the label, not the clause, was the round-20 gate's MINOR): the derivations this criterion consumes and the derivations their home criteria run are THE SAME CODE, never same-typed reimplementations — the file-set walk, the loose and data-flow write-path scans, the subclass scan and its MRO resolution, and the closure computation live in ONE shared importable scan module, and every consuming test imports it from there. THIS test SELF-CERTIFIES that import inside its own named check, which is the only form of the obligation this fence can grade (round-22 finding): for every derivation callable it invokes, it asserts that callable's __module__ is the shared scan module's, asserted on the SAME binding it computes the closure and the stop set with — so a private copy substituted for the computation turns THIS check red rather than leaving the obligation to a sibling. What this fence must NOT do is assert IMPLEMENTATION IDENTITY by comparing the callables it imported against themselves (round-20 finding): that comparison is vacuously true while a sibling test runs an untouched private copy, and closing it is what round 21 was folded for. Identity is proven instead by DEFINITION-SITE UNIQUENESS — the copy is shown not to be able to EXIST rather than compared against — and that property is carried by AC-7 under ITS OWN check (test_derivations_are_single_sourced), never by a check named only in this fence's prose: a criteria fence carries exactly one check, which is why AC-6 was split out of AC-3, so a check named in a desc and owned by no fence is graded by nothing — the same unenforced-prose failure the round-20 gate found one level up, reproduced by the remedy for it. Uniqueness-by-scan rather than identity-by-comparison is what makes the property hold for tests that never touch this partition check at all. Two independently-written predicates that agree on today's tree can silently diverge on the first future write path, reproducing the exact refuse-vs-propagate collision this composition exists to prevent while every fence reads satisfied — output agreement today is not implementation identity tomorrow; solve-in-one-place applies to the harness. Every member of the closure is classified into exactly ONE of four caller classes: refusing writer (AC-1's data-flow sweep), insulated repository loader (AC-3's per-class except + skip surface), the C3 guard (AC-4's write_markdown_file, which discards the parse), or PROPAGATING PUBLIC PARSE SURFACE — the closure's residue, today exactly six and computed rather than named: parse_markdown_file (parser.py:174-176), parse_markdown_content (201-202) and the four typed conveniences (216-237), none behind a try/except. Six is today's baseline, not the expected answer. The test asserts the computed closure equals the classification map's keys in BOTH directions — a discovered function fitting no class FAILS this criterion, AND a class member the closure does not discover FAILS it too, because the one-directional form is exactly what lets an under-generating scan read as satisfied. For every member of the propagating class: on malformed frontmatter the typed parse error PROPAGATES to the caller — asserted by invoking each DISCOVERED member on the malformed fixture and catching the typed error, never assumed from the call graph — and on absent frontmatter and on a legitimately unknown/unmodelled type each keeps today's return exactly (parse_person on fence-less non-person content returns None today and still does; malformed stops being conflated with either). Export status is stated from source, never from reputation and never from a repository this floor cannot read: __init__ exports parse_frontmatter, parse_markdown_file and ParsedDocument only (__init__.py:35-39, 102-103); parse_markdown_content is README-documented (README.md:160, 176) and exercised by this suite (tests/test_parser.py:13); the four conveniences carry no __init__ export and parse_person is exercised by this suite (tests/test_parser.py:14). Whether any consumer OUTSIDE this repo calls them is NOT asserted here — that audit is cross-repo, unavailable to a hermetic floor, and parked with N4's companion item (Non-goals); claiming it verified would re-import the unverifiable clause the first fold removed. The propagating class is swept regardless, because importable-by-module-path is public.
+desc: The parse boundaries distinguish failure from a legitimate empty/unknown result, with a case per outcome DERIVED from each function's own branch structure rather than a sampled fixture. For parse_frontmatter that is one case per OUTCOME CLASS, mapped onto the function's actual RETURN SITES — which are NOT in bijection with them and must not be conflated (round-14 finding). Five outcome classes: no leading fence (parser.py:64-65), an opening fence with no closing fence (69-70), a fence present but empty (the safe_load-returns-None normalisation at 74-75), valid frontmatter (77), and YAMLError (78-80). FOUR return sites carry them: parser.py 65, 70, 77 and 80 are the only ast.Return nodes in the function, because the empty-fence class has no return of its own and falls through to site 77, which it SHARES with the valid-frontmatter class. Malformed YAML must never return the same value as a fence-less or empty-fence document, and the legitimate cases must keep returning today's value so existing callers are unchanged. The unclosed-fence case must be classified explicitly as absent or as malformed — not left to default by accident — because append_to_body_section already treats that same input as a distinct malformed-fence case (person.py:1564-1570). For parse_to_model, a known type whose model_validate raised (loud — schema drift) is distinguishable from a legitimately unknown or unmodelled type (returns None as today, parser.py:135-137) — and "KNOWN TYPE" IS A PROPERTY OF THE NOTE, NEVER OF THE CALL (round-26 finding): every in-scope caller forces a model class (parse_person forces Person; base._load_file forces its entity_type), so the decision rule must be stated or a compliant implementation can raise on a well-formed foreign-type note. The rule is AC-3's ownership principle one layer down: parse_to_model raises ONLY when the note's raw declared type equals the forced class's own type name AND model_validate fails — owned-and-drifted, the schema-drift case. A well-formed note of a DIFFERENT readable type handed to the wrong parser is decidably foreign — an answer, not a failure — and keeps today's None exactly (the existing test_parse_person_wrong_type baseline and the "book where a person was expected" Example of done both keep passing unchanged); a type nothing models likewise keeps today's None. An implementation that raises on foreign-type input at any caller-forced site FAILS this criterion. The forced class's own type name is READ OFF THAT CLASS'S OWN DECLARATION, never hardcoded and never taken from the calling function's name: every model declares type as a Literal with a matching default (models.py 78, 127, 159, 192, 220, 240, 259, 294), so model_class.model_fields["type"].default is the deriving source, and a comparison against a "person" literal — or against isinstance of the constructed model, which is the defective predicate AC-3 forbids one layer up — does NOT satisfy this criterion. ONE RULE, BOTH BRANCHES, not a caller-forced special case bolted onto the auto-detect one: TYPE_TO_MODEL (models.py:309-317) maps each type string to the class whose own Literal declares that same string, so whenever get_model_for_type resolves on the model_class=None path (parser.py:130-133) the resolved class's type name equals the note's declared type BY CONSTRUCTION and the equality above holds automatically, while an unresolvable type has no class at all and today's None at parser.py:135-137 stands untouched. A rule stated only for the caller-forced branch would leave the auto-detect branch's loudness undecided, which is the same silence this finding is about. THIRD CASE, named so it cannot default by accident (the unclosed-fence lesson, one function down): a note whose type is ABSENT or unreadable while a class is FORCED carries no ownership evidence of either kind — there is no glob at this layer to own it by convention, so the four-bucket ownership taxonomy's convention-owned row has no analogue here — and it keeps today's return exactly and NEVER raises. It is reachable today and is not the empty-frontmatter short-circuit at parser.py:123: a note with non-empty frontmatter, no type key and a drifted field validates past the type Literal's own default and fails on the drifted field alone, so parse_person on it returns None today and must still return None. TWO FIXTURES, ONE TEST — the round-4 rule, of which this is the fourth application and the first at the parse layer: the owned-and-drifted note and the well-formed foreign note travel the IDENTICAL code path (both are model_validate raising inside parser.py:139-150, with model_class the same object either way and nothing left in scope at the point of failure that separates them) and require OPPOSITE answers, so they must be two distinct inputs asserted in the SAME test AT A CALLER-FORCED CALL SITE — parse_person on type person content whose emails field holds a bare string RAISES, and parse_person on well-formed type company content RETURNS None — with a third input for the case above (no type key, drifted field) also returning None. A fixture set containing only the drifted note reads as the whole property and is exactly what an AC-2 fixture set naturally contains, which is what lets the foreign-type regression ship green against a passing check; and because these three cases have non-uniform, opposite answers on one code path, they are EXPLICIT hand-derived fixtures rather than generated inputs, for the round-6 reason AC-3's matrix is. Every distinction is observable by the caller, not only in a log line. The return-site enumeration is PERFORMED BY THE TEST AT TEST TIME against the live POST-FIX source — an AST scan of parse_frontmatter for its ast.Return nodes, found by walking the package's module files on disk (the same derived file set AC-1, AC-3 and AC-5 walk; never an inspect-based scan, never a hand-named module) — checked against an explicit in-test map KEYED BY RETURN SITE, where a site maps to ONE OR MORE named outcome classes. Keying the map by outcome class instead FAILS this criterion and is the round-14 finding: five classes against four sites means an entry keyed at 73-75 matches no site the scan can return, the site-set equality assertion goes red on a CORRECT implementation, and the cheap repair — delete the entry with no matching site — silently drops the empty-fence class, which is in this AC precisely because it is a distinct outcome reached through a shared return. So the test asserts BOTH halves: the discovered site set equals the map's keys exactly, AND every named outcome class in the map is exercised by at least one input, so a site carrying two classes cannot be closed with one case. Neither count is the expected answer — four sites and five classes are today's baselines, and this item's own fix changes both (the malformed case stops returning ({}, content), and the unclosed-fence case may gain its own site once classified). A return site the scan finds with no case mapped to it, or a named class no input exercises, FAILS this criterion rather than passing unnoticed. A five-case list frozen at build time does not satisfy it. Same reason as AC-1 and AC-5: an enumeration that is remembered rather than re-run stops being true the first time the function it describes is edited, and this fix edits it. INVOCATION SURFACE (round-14 finding; its derivation corrected round 16): the seam this item makes loud has callers outside the sweeps above, and they are covered by the same derivation discipline — but the derivation is a TRANSITIVE CLOSURE over the call graph, never a direct-caller list. The test computes, at test time by AST over the package's module files walked on disk (the same derived file set AC-1, AC-3 and AC-5 walk), the FIXPOINT of "package functions that REACH parse_frontmatter or parse_to_model": seed the set with the functions that name either symbol directly, then repeatedly add the callers of everything already in the set until it stops growing. Direct-call ADJACENCY is NOT the predicate and cannot return this class — parse_person, parse_company, parse_book and parse_meeting (parser.py:216-237) name neither seam symbol, reaching it only through parse_markdown_content (218, 224, 230, 236), and base._load_file reaches it only through parse_markdown_file (base.py:178) — so an adjacency scan returns nine functions containing none of those five while this criterion's map names four of them as propagating members and one as an insulated loader, which is red on a correct implementation and whose cheap repair deletes the four conveniences that are the whole reason this clause exists (the round-14 keying error, recurring inside round 14's own remedy). The closure STOPS at any function another criterion has already assigned a disposition to, and the STOP SET IS COMPUTED, NEVER NAMED (round-16 finding): it is the union of THREE contributions, each CONSUMED AS THE LIVE OUTPUT of a derivation another criterion's test already runs — those scans reused as inputs, never re-stated as a list here. A live output is only consumable in the domain the closure is computed in, and two of the three are NOT in that domain as their own AC produces them (round-18 audit-fold), so each contribution carries its own conversion and none may be repaired by naming. (i) REFUSING WRITERS: AC-1's data-flow scan output, taken directly — already a set of functions, no conversion. (ii) INSULATED LOADERS: NOT AC-3's output as AC-3 produces it. AC-3's test-time derivation discovers CLASSES (an AST scan for BaseRepository subclasses, checked against its 4x3 matrix's class keys), and a class is not a member of a closure over functions — so consuming AC-3's output literally contributes NOTHING to the stop set, the closure never stops at base._load_file, and it climbs through load(), get_all() and resolve() into every consumer-facing method, which is the unbounded walk the stop rule exists to prevent. The conversion is REQUIRED and belongs to this criterion: resolve each class AC-3 discovers to the function implementing its _load_file through that class's MRO, then DEDUPLICATE, because the map is many-to-one. Four discovered classes resolve to THREE functions today — PersonRepository (person.py:159) and CompanyRepository (company.py:46) declare no _load_file and both resolve to base.py:171, while meeting.py:64 and book.py:57 are their own — so a check asserting one loader per discovered class is RED on a correct implementation (the round-14 keying error in the shape this document has carried since round 5's class/path asymmetry), and both counts are today's baseline, not the answer. (iii) The C3 GUARD: likewise not consumable from AC-4, which runs NO scan at all — it names write_markdown_file and asserts two fixtures — so "AC-4's live output" does not exist, and the only repair available to a builder reading it that way is to hardcode the name, which is the frozen list this clause abolished reappearing inside the clause itself. It IS computed, from a derivation already required to run: AC-1's discrimination proof evaluates TWO predicates over one traversal — the loose "calls parse_frontmatter and later writes" and the data-flow one — and this contribution is their SET DIFFERENCE (loose MINUS data-flow), which is precisely the function AC-1 must REACH and REJECT, today write_markdown_file alone. AC-4 dispositions that function; AC-1's scan derives it; neither names it into this stop set. IDENTITY DOMAIN: all three contributions, and the closure itself, are normalised to ONE source-stable function identity before any set operation — module path plus qualified function name (the function-level half of AC-5's site identity) — never a line number, and never AST nodes for one set against imported objects or classes for another, because a partition asserted across mixed identity domains is vacuously satisfiable: nothing in one domain ever equals anything in another, so the assertion passes while proving nothing. The function names in this document (update_fields, update_frontmatter_field(s), roundtrip_file; base/meeting/book _load_file; write_markdown_file) are today's baseline listing, not the specification; a check that hardcodes them does not satisfy this criterion, because a fifth writer AC-1's scan auto-discovers would fall outside a frozen stop list and either unbound the closure or leave one function claimed by two ACs with incompatible dispositions (refuse vs. propagate). This is the last named set in the document made derived: every other sweep already forbids a hardcoded list, and the stop set is those sweeps' own outputs composed. That is what makes the closure terminate and what makes "exactly one class" well-defined; without the stop rule it climbs through load(), resolve() and every consumer-facing method in the package. PARTITION: the three computed stop sets plus the propagating residue must partition the computed closure EXACTLY, asserted by computation over the normalised identity above — a closure member landing in no class, or in two (the refuse-vs-propagate collision), FAILS this criterion; the partition assertion is what makes the four ACs' sweeps verify each other's boundaries instead of merely coexisting. Because a partition over an empty or mis-domained contribution degenerates into "everything is residue" while still reading green, each of the three contributions must additionally be asserted NON-EMPTY and asserted to be a SUBSET of the computed closure — that is the assertion that catches a loader contribution left as four class objects, and it is why the conversions above are stated as requirements rather than as implementation notes. ONE IMPLEMENTATION (round-18 gate finding, folded at round 19 — the label, not the clause, was the round-20 gate's MINOR): the derivations this criterion consumes and the derivations their home criteria run are THE SAME CODE, never same-typed reimplementations — the file-set walk, the loose and data-flow write-path scans, the subclass scan and its MRO resolution, and the closure computation live in ONE shared importable scan module, and every consuming test imports it from there. THIS test SELF-CERTIFIES that import inside its own named check, which is the only form of the obligation this fence can grade (round-22 finding): for every derivation callable it invokes, it asserts that callable's __module__ is the shared scan module's, asserted on the SAME binding it computes the closure and the stop set with — so a private copy substituted for the computation turns THIS check red rather than leaving the obligation to a sibling. What this fence must NOT do is assert IMPLEMENTATION IDENTITY by comparing the callables it imported against themselves (round-20 finding): that comparison is vacuously true while a sibling test runs an untouched private copy, and closing it is what round 21 was folded for. Identity is proven instead by DEFINITION-SITE UNIQUENESS — the copy is shown not to be able to EXIST rather than compared against — and that property is carried by AC-7 under ITS OWN check (test_derivations_are_single_sourced), never by a check named only in this fence's prose: a criteria fence carries exactly one check, which is why AC-6 was split out of AC-3, so a check named in a desc and owned by no fence is graded by nothing — the same unenforced-prose failure the round-20 gate found one level up, reproduced by the remedy for it. Uniqueness-by-scan rather than identity-by-comparison is what makes the property hold for tests that never touch this partition check at all. Two independently-written predicates that agree on today's tree can silently diverge on the first future write path, reproducing the exact refuse-vs-propagate collision this composition exists to prevent while every fence reads satisfied — output agreement today is not implementation identity tomorrow; solve-in-one-place applies to the harness. Every member of the closure is classified into exactly ONE of four caller classes: refusing writer (AC-1's data-flow sweep), insulated repository loader (AC-3's per-class except + skip surface), the C3 guard (AC-4's write_markdown_file, which discards the parse), or PROPAGATING PUBLIC PARSE SURFACE — the closure's residue, today exactly six and computed rather than named: parse_markdown_file (parser.py:174-176), parse_markdown_content (201-202) and the four typed conveniences (216-237), none behind a try/except. Six is today's baseline, not the expected answer. The test asserts the computed closure equals the classification map's keys in BOTH directions — a discovered function fitting no class FAILS this criterion, AND a class member the closure does not discover FAILS it too, because the one-directional form is exactly what lets an under-generating scan read as satisfied. For every member of the propagating class: on malformed frontmatter the typed parse error PROPAGATES to the caller — asserted by invoking each DISCOVERED member on the malformed fixture and catching the typed error, never assumed from the call graph — and on absent frontmatter and on a legitimately unknown/unmodelled type each keeps today's return exactly (parse_person on fence-less non-person content returns None today and still does; malformed stops being conflated with either). Export status is stated from source, never from reputation and never from a repository this floor cannot read: __init__ exports parse_frontmatter, parse_markdown_file and ParsedDocument only (__init__.py:35-39, 102-103); parse_markdown_content is README-documented (README.md:160, 176) and exercised by this suite (tests/test_parser.py:13); the four conveniences carry no __init__ export and parse_person is exercised by this suite (tests/test_parser.py:14). Whether any consumer OUTSIDE this repo calls them is NOT asserted here — that audit is cross-repo, unavailable to a hermetic floor, and parked with N4's companion item (Non-goals); claiming it verified would re-import the unverifiable clause the first fold removed. The propagating class is swept regardless, because importable-by-module-path is public.
 kind: test
 check: test_parse_boundaries_distinguish_failure_from_empty
 ```
 
-why: C2 and C5 are the same defect one layer apart — a parse failure rendered as the success-shaped value a legitimate empty/unknown case also produces; enumerating the return sites is what makes the property total over the class instead of true for the one fixture someone picked, and it is what surfaced the unclosed-fence case two parts of this package already disagree about. Separating the return sites from the outcome classes is what makes that enumeration runnable rather than merely stated: the function has four `return` statements and five outcomes, so an AC that calls all five "return sites" is red against a faithful scan and green the moment the builder deletes the outcome that has no site of its own — which is the empty-fence case, the one that only exists in the list because it is reached through a shared return. Keying the map by what the scan can return, letting a site carry several classes, and requiring each class its own input is the only shape that keeps both halves honest. And walking the package's files on disk rather than its imported modules is what stops the whole clause resting on a coincidence: every module here is transitively imported today, so an `inspect`-based scan would look complete while proving nothing about the next module nobody wires up. The invocation-surface clause is the round-14 finding folded under totality: the seam's loudness travels to every caller, and the other sweeps each cover a class of caller — writers that refuse (AC-1), loaders that insulate (AC-3), a guard that must not re-swallow (AC-4) — so the remaining class, the public parse functions that neither refuse nor insulate, had to be named and asserted as PROPAGATING, or the item ships a README-documented entry point whose behaviour under the new failure mode nobody specified. Classifying every discovered caller into exactly one class is what makes the coverage claim checkable: a future caller lands in a class or turns the suite red, instead of waiting for a fifteenth red-team round to notice it. And making that sweep a transitive CLOSURE rather than a list of direct callers is what makes it return the members it was written for at all: four of the six propagating functions never name the seam — `parse_person` and its three siblings reach it through `parse_markdown_content`, one call away — so an adjacency scan discovers neither them nor `base._load_file`, leaves four map entries matching nothing, goes red on a faithful implementation, and is repaired by deleting exactly the README-shaped entry points round 14 was raised about. A closure with a stated stop rule (another criterion has already dispositioned this function) terminates, covers them, and keeps "exactly one class" meaningful; asserting the equality in both directions is what stops an under-generating scan from reading as satisfied, which is the same lesson as AC-1's proven negative seen from the other side — a scan has to be shown both to reach what it must classify and to reject what it must not. And spelling out how each stop contribution is *obtained* is what makes "consume the sibling's derivation" executable rather than aspirational: two of the three siblings cannot hand this closure a set of functions as they stand — AC-3 derives classes, and AC-4 derives nothing at all — so a builder reading round 17's clause literally gets an empty stop set from AC-3 (the closure then eats `load()`, `resolve()` and the whole public repository surface) and, from AC-4, nothing to call but the hardcoded name the clause exists to forbid. Naming the MRO resolution and the many-to-one collapse for the loaders, and sourcing the guard from the set difference AC-1's discrimination proof already computes, is what turns the composition into an operation instead of a cross-reference; requiring each contribution to be non-empty and inside the closure is what stops a mis-typed contribution from degrading the partition into a tautology that passes.
+why: C2 and C5 are the same defect one layer apart — a parse failure rendered as the success-shaped value a legitimate empty/unknown case also produces; enumerating the return sites is what makes the property total over the class instead of true for the one fixture someone picked, and it is what surfaced the unclosed-fence case two parts of this package already disagree about. Separating the return sites from the outcome classes is what makes that enumeration runnable rather than merely stated: the function has four `return` statements and five outcomes, so an AC that calls all five "return sites" is red against a faithful scan and green the moment the builder deletes the outcome that has no site of its own — which is the empty-fence case, the one that only exists in the list because it is reached through a shared return. Keying the map by what the scan can return, letting a site carry several classes, and requiring each class its own input is the only shape that keeps both halves honest. And walking the package's files on disk rather than its imported modules is what stops the whole clause resting on a coincidence: every module here is transitively imported today, so an `inspect`-based scan would look complete while proving nothing about the next module nobody wires up. The invocation-surface clause is the round-14 finding folded under totality: the seam's loudness travels to every caller, and the other sweeps each cover a class of caller — writers that refuse (AC-1), loaders that insulate (AC-3), a guard that must not re-swallow (AC-4) — so the remaining class, the public parse functions that neither refuse nor insulate, had to be named and asserted as PROPAGATING, or the item ships a README-documented entry point whose behaviour under the new failure mode nobody specified. Classifying every discovered caller into exactly one class is what makes the coverage claim checkable: a future caller lands in a class or turns the suite red, instead of waiting for a fifteenth red-team round to notice it. And making that sweep a transitive CLOSURE rather than a list of direct callers is what makes it return the members it was written for at all: four of the six propagating functions never name the seam — `parse_person` and its three siblings reach it through `parse_markdown_content`, one call away — so an adjacency scan discovers neither them nor `base._load_file`, leaves four map entries matching nothing, goes red on a faithful implementation, and is repaired by deleting exactly the README-shaped entry points round 14 was raised about. A closure with a stated stop rule (another criterion has already dispositioned this function) terminates, covers them, and keeps "exactly one class" meaningful; asserting the equality in both directions is what stops an under-generating scan from reading as satisfied, which is the same lesson as AC-1's proven negative seen from the other side — a scan has to be shown both to reach what it must classify and to reject what it must not. And spelling out how each stop contribution is *obtained* is what makes "consume the sibling's derivation" executable rather than aspirational: two of the three siblings cannot hand this closure a set of functions as they stand — AC-3 derives classes, and AC-4 derives nothing at all — so a builder reading round 17's clause literally gets an empty stop set from AC-3 (the closure then eats `load()`, `resolve()` and the whole public repository surface) and, from AC-4, nothing to call but the hardcoded name the clause exists to forbid. Naming the MRO resolution and the many-to-one collapse for the loaders, and sourcing the guard from the set difference AC-1's discrimination proof already computes, is what turns the composition into an operation instead of a cross-reference; requiring each contribution to be non-empty and inside the closure is what stops a mis-typed contribution from degrading the partition into a tautology that passes. And naming the deciding input for "known type" is what keeps this criterion's `parse_to_model` half from being satisfiable in the direction that breaks the tree: the branch this document's own prose describes — read the `type`, resolve a model, return `None` when nothing resolves — is the branch **no caller in scope reaches**, since `base._load_file` and all four conveniences force the class, so "known" read as "a model class was supplied" is the most direct reading available to a builder once the auto-detect path is out of the picture, and it makes `parse_person` raise on a well-formed company note. That is not a hypothetical: `test_parse_person_wrong_type` (tests/test_parser.py:265-273) asserts the `None` today, it is one of the 607 baseline cases this item may not touch, and the "book where a person was expected" Example of done requires it in Dave's own terms. Deciding known-ness on the note's raw declared `type` against the type the class itself declares is round 4's remedy — ownership read before and independently of `model_validate` — applied one layer below the loaders it was written for, and pinning the two fixtures in one test is the only shape that proves both halves, because the drifted note alone looks exactly like the property while the foreign note is the one that regresses.
 
 ```criteria
 id: AC-3
@@ -639,6 +658,8 @@ why: round 20's finding was that "obtains it by import" constrains how a test is
 
 **Given** a script of Dave's that never touches a Repository — it reads a note it downloaded into a string and calls `parse_markdown_content` on it, the way the README says to, or `parse_person` the way the tests do — **when** that string's frontmatter is malformed YAML, **then** it gets the same loud typed error every write path gets, rather than a document claiming the note has no frontmatter and a body that is quietly the entire file. **And when** the string simply has no frontmatter fence, or is a book where a person was expected, **then** it gets back exactly what it gets today — `None`, an empty frontmatter dict, the whole string as body — because absent and wrong-type were never failures. The parse functions are a supported way in; they do not get a quieter version of the truth than the repositories do.
 
+**And given** two notes handed to the *same* wrong-looking call — `parse_person(@Acme Corp.md)`, a perfectly good company note, and `parse_person(@Broken.md)`, Dave's own contact with `emails:` hand-typed as a bare string instead of a list — **when** each one comes back, **then** the company note comes back `None`, exactly as it does today and as `test_parse_person_wrong_type` has asserted all along, and the broken contact raises. Underneath they are the same event: `Person` refused to be built. What tells them apart is what the note *says it is* — one says `type: company` and was never a person, the other says `type: person` and has a typo in it — and that is read off the note before anything tries to build a model from it, never from whether the build worked. Getting this backwards in the *quiet* direction is C5, the duplicate. Getting it backwards in the *loud* direction is a script of Dave's blowing up the first time it points `parse_person` at a folder that also has companies in it, which is a thing it is allowed to do today. **And given** a note that never says what it is at all — no `type:` line, and a drifted field besides — **then** it too comes back `None`, because nothing about it claims to be Dave's contact and there is no folder name here to claim it on its behalf.
+
 **Given** someone six months from now — not Dave, not anyone who has read this document — who adds a fifth repository class, or copy-pastes a sixth To-Discuss-style writer into `person.py`, or adds a branch to `parse_frontmatter`, **when** they run the suite, **then** it goes red and names the thing they added and did not classify: a repository with no answers for the three fixtures, a write path in no bucket, a return site with no case. **And given** that they did the ordinary thing and put it in a new file of its own — `repositories/recipe.py`, or a `timeline_writer.py` next to `writer.py` — wiring it into no `__init__.py` and importing it from nothing, **then** the suite still goes red, because the sweeps walk the package's files on disk rather than the modules that happen to be imported or the folder someone expected the code to land in. **And given** they added a branch that reuses an existing `return` rather than writing a new one — the shape the empty-fence case already has — **then** the suite still names it, because a return site is allowed to carry more than one outcome and each outcome has to be exercised on its own. **And given** a new function that reads a note's frontmatter and then writes the file but does not write that frontmatter back — the shape `write_markdown_file` already has — **then** the suite stays green, because the sweep excluded it on what it does, not on its name. **And given** they wrap one of the parse functions in a friendlier helper of their own rather than calling the parser seam directly — the shape `parse_person` already has, one call away from anything that mentions `parse_frontmatter` — **then** the suite still names it, because the caller sweep follows what *reaches* the seam rather than what mentions it. Every finding in this document was caught by a person re-reading the source by hand, twelve times running. The thirteenth should be caught by the tests.
 
 **And given** that same person adds `merge_frontmatter_field` — a fifth function that reads a note's frontmatter, changes a field and writes it back — **when** they run the suite, **then** the two tests that have to agree about it *do* agree: the write-path test names it as a path that must refuse a malformed note, and the caller-classification test stops counting it among the parse functions that simply pass the error through, because both tests asked the **same piece of code** which functions write the frontmatter back. **And given** that those two tests had instead each been written with its own private copy of that question — one spotting a call written one way, one spotting it written another — **then** the suite goes red on the two copies not being the same code, rather than shipping green with one test saying the new function refuses and the other saying it passes the error along. That contradiction is not an untidy test suite; it is a note getting quietly rewritten, because whichever of the two answers the implementation followed, the other one was the guarantee this document spent nineteen rounds writing down. Two answers that agree today are not one answer.
@@ -654,6 +675,1081 @@ why: round 20's finding was that "obtains it by import" constrains how a test is
 - **WI-004 (atomic write primitive)** — depends on the loud floor this item establishes; recommended owner of the write-side non-existent-vault `mkdir` guard (see Inherited scope). Sequencing: WI-020 first, then WI-004 builds on it.
 - **WI-026 (lint_vault --fix safety)** — owns physical quarantine of bad notes (the deliberate-tool home for rename/sidecar, A4) and lint_vault's import-time env read.
 - **Campaign** — Phase 1, first in queue (`docs/backlog-campaign-2026-07-05.md`); the 2026-07-05 code-health review is this item's exploration input.
+
+## Design
+
+Written cold-start 2026-07-24 by `spec-writer`, after reading this document in full (Problem/Motivation → Intent → Exploration Notes through round 27 → Non-goals → Approach → AC-1..AC-7 → Examples of done → Relationship to other work → the `ac-signoff` fence → the Architectural Review and its three notes → the Data Audit), `docs/spec-reviews/WI-020-dave-review-2026-07-24.md` (verdict PROMOTE, `comments: null` — no review comments to fold), the project `CLAUDE.md`, `pipeline-runners.yaml`, and the code cited below re-read live rather than trusted from the doc.
+
+The Approach fixes the class at the seam and lets read and write diverge from one distinction. Everything below is the delta from what is in the tree today. Nothing here redesigns the AC set: the seven fences are frozen by the `ac-signoff` above and this spec is written to satisfy them exactly as written.
+
+**Revision 3 (2026-07-24), folding spec-review round 2 and Threat Model M3.** Three changes, all inside the message-construction discipline and none touching a frozen fence: (1) the "keep `person.py`'s five existing messages exactly as they stand" carve-out at Design/Flow §6 and Task 7 is **deleted** — all seven P1 WARNINGs are rebuilt from `bounded_message` with per-site `reason` literals, because those five were `{e}` interpolations of a by-construction *foreign* exception and therefore a live M1/M2 channel inside the very step that claims to prove the rule; (2) **M3 receives its substance** — Task 18's sweep grows a note-content half and a name-independent syntax pass, and the one pre-existing violation the widened sweep surfaces (`identifier.py:68`) is fixed at Task 2 rather than carved out, which moves `identifier.py` off the untouched list by exactly two lines; (3) the error hierarchy's export set is stated **by enumeration** — all six classes — replacing three occurrences of "the five leaf classes", which was decidable neither by count nor by the word "leaf". The through-line of all three is the role's own rule: prefer the total rule to the per-case list, and make the unenumerated case fail loud. Both prior bounces were per-case lists that let a real case through.
+
+### The two decisions the Approach deliberately left open
+
+**Decision 1 — the seam mechanism is a RAISED TYPED ERROR, not a discriminated return.** The Approach says "typed error or discriminated result — spec-writer's call", and the Architectural Review's note 2 records the honest trade: under the discriminated-result variant a future write path cannot re-serialize a failed parse without handling the malformed case, so AC-1's forward-looking sweep would verify something already true by construction (LESSONS #13 — paying principal); under the raising variant the sweep is the only thing standing between a future write path and the C2 chain (paying interest). **Raising is chosen anyway, and the reason is that the discriminated return cannot satisfy the frozen AC set.** AC-2's invocation-surface clause requires the six public parse functions to *PROPAGATE the typed error* on malformed input, and the Examples of done require it in Dave's terms ("it gets the same loud typed error every write path gets", line 657). A discriminated result carries no error to propagate, so that variant would need a *second* raising layer bolted on above it — two mechanisms for one predicate, which is the A2 trap one level up. The raising variant also keeps the legitimate half free: absent frontmatter still returns today's exact `({}, content)` tuple, so the 2-tuple contract every existing caller unpacks is unchanged, where a discriminated return would change the shape for all fourteen callers in the closure. The interest AC-1 charges is therefore accepted knowingly, and it is charged whether or not the mechanism needs it, because AC-1's derivation clause is frozen.
+
+**Decision 2 — NO Hypothesis. Every check is an explicit-fixture / derived-parametrization pytest test.** The Check-strategy note inside the frozen AC preamble assigns AC-1, AC-2's `parse_frontmatter` half and AC-5's two halves to Hypothesis property tests. The Architectural Review's note 1 and the Data Audit's finding 12 both establish that premise is false against the live tree, and this spec rules it: `pyproject.toml:31-35` declares exactly `pytest>=7.0` and `pytest-cov>=4.0`, the floor interpreter has no `hypothesis`, and adding it would (a) mint a new external dependency this item never fired an architect trigger for, and (b) land on the hardest named constraint — Hypothesis writes a `.hypothesis/` example database into the working directory, while the floor is specified hermetic, ~1s and run from a foreign cwd. Round 25's own rule ("run the new mechanism against the live tree before adopting it") was discharged for `ast` and for `rglob` and never for this; run, it fails. **No fence is weakened by the ruling**, and that is checkable rather than asserted: no `desc:` in any of the seven fences names Hypothesis, all seven are `kind: test` with a bare in-repo check name, and — the load-bearing part — the quantification the ACs actually demand is over *code*, not over generated inputs. AC-1 quantifies over "the write paths DERIVED from the package itself", AC-2 over derived exit sites and a derived closure, AC-3 over derived classes, AC-5 over a derived 28-site universe. Those derivations supply the sweep; the inputs at each swept member are the two the AC names by hand anyway (one malformed fixture, one absent fixture). Property generation would have added a third axis nothing asks for, and AC-3's twelve cells, AC-7 and AC-2's `parse_to_model` half were already ruled into the explicit-fixture family by rounds 6 and 27 for a reason that applies just as well to the other three: a generator has one expectation table to offer, and non-uniform answers are the specification. Constraints and `pyproject.toml` are therefore unchanged, and the dev extra gains nothing.
+
+### The Threat Model's three required mitigations, and where each landed
+
+All three are `kind: required`, so none may live only in the threat-model section — the builder executes the Implementation Plan and never reads it. Recorded here as a table a reviewer can walk, with the fold itself in the sections named:
+
+| Fence | What it requires | Folded into |
+|---|---|---|
+| **M1** (`landed: Task 3`) | the seam's typed errors carry a bounded diagnostic (path, line/column or field name, error class) and never the verbatim `yaml.MarkedYAMLError` source snippet or Pydantic `input_value` | Design/Data model → **Bounded diagnostics**, which states the construction rule, the `bounded_message` / `bounded_cause` shape, the permitted-vs-excluded projection per source, and the construction site for every raise in the package; Design/Flow §1, §2 (the `SchemaDriftError` message, spelled out), §5, §6. Ordered in **Task 3**, sized by the interpreter probe added to **Task 1**, asserted by `test_seam_errors_carry_bounded_diagnostics` in **Task 12** |
+| **M2** (`landed: Task 8`) | `_note_skip`'s WARNING line and `SkippedNote.detail` carry that same bounded diagnostic rather than `str(error)` verbatim, covering the generic `"unreadable"` bucket | Design/Data model → `SkippedNote.detail` is `bounded_detail(error)`, with the two-line total form and why the `LoudFailError` branch is not a hole; Design/Flow §3, where all three interpolations are `detail`. Ordered in **Task 8**, asserted by `test_skip_surface_detail_is_bounded` in **Task 13** |
+| **M3** (`landed: Task 18`) | the package-wide sweep must cover the **note-content** half of the rule it proves, not only the exception half — its patterns were all exception-shaped while `_split_frontmatter_fence` holds the whole note in `content` at both raise sites and the four writers hold `frontmatter` / `body_raw` at re-assembly | Design/Data model → **What the sweep at Task 18 enforces**, which states the in-bound rule that decides *any* interpolated value (not a name list), and the three greps that mechanize it — A (exception half), B (note-content half, M3's named locals), C (the name-independent net that makes an unenumerated content-bearing local fail loud). Ordered in **Task 18**, with the one pre-existing violation the widened sweep surfaces (`identifier.py:68`) fixed in **Task 2** so the close-out's verify is true rather than aspirational |
+
+**The first revision of this spec failed both**, and the failure is worth recording because it is the shape the role's own warning names: the fences were satisfied *ordinally* (Tasks 3 and 8 both existed) while the Design prescribed the opposite — `SkippedNote.detail` was defined as `str(error)`, `_note_skip` interpolated `{error}` into its WARNING, and `SchemaDriftError`'s message was a literal `...`. A builder executing the plan top-to-bottom would have produced exactly what a required fence forbids, with no stated tiebreak between two instructions in one document. The remedy is not a caution at each site but **one construction rule the schema makes total** — every message in the package is built by one function, and an exception type nobody anticipated falls through to its class name rather than to `str()`.
+
+### Data model
+
+**New module `obsidian_schemas/errors.py`** — the exception hierarchy, imported by `parser.py`, `writer.py` and the repositories. It is a new module rather than a home inside `parser.py` because `writer.py:19` already imports from `parser.py` and `repositories/base.py:15-16` imports from both; a leaf module that imports nothing from the package makes the direction unambiguous and cannot cycle. It follows the package's boundary-error convention exactly — `IdentifierError(ValueError)` (identifier.py:58), `NameValidationError` / `WeakIdentityError` (name_validation.py:125,140), `VaultPathNotConfiguredError(ValueError)` (base.py:20) — so a consumer's existing `except ValueError` still catches and the break degrades to a message change. `BodyTruncationError(Exception)` (writer.py:30) is the package's lone deviation and is explicitly not followed.
+
+```python
+class LoudFailError(ValueError):
+    """Base for every failure this package refuses to render as a success-shaped
+    value. Owns the ONE constructor in the hierarchy (audit-fold 2026-07-24):
+    __init__(reason, *, path=None, declared_type=None, cause=None) routes through
+    bounded_message, whose REASONS membership check refuses any reason that is
+    not an enumerated source literal — no subclass accepts a free-form message,
+    so a composed string has no constructor to enter."""
+
+class NoteParseError(LoudFailError):
+    """A note's structure could not be read. Carries the note's own declared type
+    when one was legible, None when nothing parsed — the input the repository
+    layer decides ownership on. Builds its OWN message from bounded parts; a
+    caller never hands it an interpolated string (see Bounded diagnostics)."""
+    def __init__(self, reason: str, *, path: Optional[Path] = None,
+                 declared_type: Optional[str] = None,
+                 cause: Optional[BaseException] = None) -> None:
+        self.path = path
+        self.declared_type = declared_type
+        super().__init__(bounded_message(reason, path=path,
+                                         declared_type=declared_type, cause=cause))
+    path: Optional[Path]
+    declared_type: Optional[str]
+
+class FrontmatterParseError(NoteParseError):
+    """The frontmatter fence was opened and its contents did not parse.
+    declared_type is always None — nothing was legible."""
+
+class SchemaDriftError(NoteParseError):
+    """A note that declares itself ours failed model_validate. declared_type is
+    the note's own raw `type` value, equal to the forced class's own type name."""
+
+class UnverifiableBodyError(LoudFailError):
+    """The WI-126 body-shrink guard could not read the existing body, so it
+    refuses the overwrite rather than assuming the body empty (C3)."""
+
+class WriteFailedError(LoudFailError):
+    """A write path did not complete. Wraps the original error as __cause__."""
+```
+
+`declared_type` is the one field that carries information across the seam, and it is what lets ownership be decided on the raw `type` value *independently of and prior to model construction* — the mechanism-forcing property AC-3 and AC-2 both turn on.
+
+**The export set, stated by enumeration rather than by count.** The hierarchy above is **six** classes, of which four are leaves — an earlier revision of this spec said "the five leaf classes" in three places, which is decidable neither by count nor by the word "leaf" and left a builder to choose which one to drop. It is now enumerated and there is nothing to choose: **all six — `LoudFailError`, `NoteParseError`, `FrontmatterParseError`, `SchemaDriftError`, `UnverifiableBodyError`, `WriteFailedError` — are exported** from `obsidian_schemas/__init__.py` alongside `BodyTruncationError` (import block beside writer's at `__init__.py:40-45`, `__all__` beside 105-109). Both non-leaves earn their place for the reason the backward-compat argument above turns on: `LoudFailError` is the package-wide base a consumer catches to mean "this package refused", and `NoteParseError` is the one `except` that catches both parse failures (`FrontmatterParseError` and `SchemaDriftError`) without catching a write failure. Dropping either costs a caller a catch it has no other way to express. The three helpers (`bounded_message`, `bounded_cause`, `bounded_detail`) are **not** exported — they are an internal construction rule, not a consumer API.
+
+#### Bounded diagnostics — the message-construction contract (Threat Model M1, M2 and M3)
+
+This item's whole effect is to route information that today is *discarded* (`parser.py:78` and `148` bind no exception object at all) into a raised error, a WARNING line and a public `SkippedNote` field. That information is derived from an untrusted note's own bytes, so the message is a disclosure channel that does not exist today, and the Threat Model's two `kind: required` mitigations bound it. **The bound is stated once, here, as a construction rule the whole package obeys — not as a caution repeated at each site.**
+
+**The rule, total over the package: no error message in `obsidian_schemas` is ever built by interpolating an exception or note content. Every one is built by `errors.bounded_message`, which is the only function in the package permitted to read anything off a caught exception.**
+
+**And the `reason` channel is closed by construction, not by documentation (audit-fold, 2026-07-24 — the spec-review treadmill's one discipline).** Three consecutive spec-review rounds each found one member of the same class: a caller-composable string entering the bounded machinery through the `reason` parameter, which the docstring called "a literal written in this package's source" while nothing — not the constructor, not sweep C (whose `BOUNDED` exclusion made `raise FrontmatterParseError(f"could not parse {payload}", …)` *not a site at all*) — enforced it. The reason channel was precisely the "second home" the totality argument below denied existing. The fold closes the class with two independent legs:
+
+1. **Runtime, at the choke point:** `errors.py` declares `REASONS: frozenset[str]` — the exact literal strings of the construction table below, nothing else — and `bounded_message` REFUSES a `reason` not in that set (raising a plain `ValueError` naming the offending string's repr, a programming error loud at first construction, never a disclosure: the refused string is not echoed into any exception message that escapes — the refusal names the call site's file:line via the raise location, not the string). An f-string composed from a payload is not a member and dies at the first test that constructs it. `LoudFailError` itself gains the structured `__init__(reason, *, path=None, declared_type=None, cause=None)` routing through `bounded_message` — so ALL SIX classes, `UnverifiableBodyError` and `WriteFailedError` included, are bounded by construction and none accepts a free-form message. There is no constructor in the hierarchy a composed string can enter.
+2. **Static, in sweep C:** the `BOUNDED` exclusion is narrowed from "not a site" to "a site with one checkable obligation" — a call to a `BOUNDED` name is still visited, and its `reason` argument (first positional) must be an `ast.Constant` string; any other node shape (JoinedStr, Name, BinOp, Call) is printed as a violation. `reaching_names` still does not descend into `BOUNDED` calls for the *structured* keyword arguments (`path=`, `cause=e` are the permitted projections by definition), but the reason argument is checked by shape, which requires no semantic judgment. Sweep C thereby carries M4 in its own heredoc, run verbatim.
+
+`IdentifierError` (post-Task-2) joins the same contract, and the round-3 survivor is ruled here rather than left open: its `raw` value — note-derived identifier text — is stored as a public attribute for typed-catch consumers and is NEVER rendered into `str()`; a consumer logging `str(IdentifierError)` gets the bounded message (reason + path), and recovery of `raw` is deliberately attribute-only. Diagnostics degrade gracefully; the bound never does.
+
+```python
+REASONS: frozenset[str] = frozenset({
+    # exactly the construction table's literals — extended only by editing this set
+    # alongside the table; bounded_message refuses anything else at first use
+})
+
+def bounded_message(reason: str, *, path: Optional[Path] = None,
+                    declared_type: Optional[str] = None,
+                    cause: Optional[BaseException] = None) -> str:
+    """Build a diagnostic from bounded parts only. `reason` MUST be a member of
+    REASONS — the enforced form of "a literal written in this package's source"."""
+    if reason not in REASONS:
+        raise ValueError("bounded_message: reason is not an enumerated literal")
+    parts = [reason]
+    if path is not None:
+        parts.append(f"path={path}")
+    if declared_type is not None:
+        parts.append(f"declared_type={declared_type!r}")
+    if cause is not None:
+        parts.append(f"cause={bounded_cause(cause)}")
+    return "; ".join(parts)
+
+
+def bounded_cause(cause: BaseException) -> str:
+    """The permitted projection of a caught exception. Class name always;
+    a location or a field path for the two shapes that carry one; NEVER str()."""
+    name = type(cause).__name__
+    mark = getattr(cause, "problem_mark", None)          # yaml.MarkedYAMLError
+    if mark is not None and getattr(mark, "line", None) is not None:
+        return f"{name} at line {mark.line + 1}, column {mark.column + 1}"
+    errors = getattr(cause, "errors", None)              # pydantic.ValidationError
+    if callable(errors):
+        try:
+            locs = sorted(
+                ".".join(str(p) for p in e.get("loc", ())) + ":" + str(e.get("type"))
+                for e in errors()
+            )
+        except Exception:
+            return name
+        if locs:
+            return f"{name} on {', '.join(locs)}"
+    return name
+```
+
+Both live in `errors.py` and are duck-typed rather than `isinstance`-checked **on purpose**: it is what keeps `errors.py` the leaf module that imports nothing — not `yaml`, not `pydantic`, not the rest of the package — which is the property that makes the import direction unambiguous and uncyclable.
+
+What each clause is for, and what it deliberately excludes:
+
+| Source | Permitted | Excluded, and why |
+|---|---|---|
+| `yaml.MarkedYAMLError` (parser.py:73's `safe_load`) | class name, `problem_mark.line`, `problem_mark.column` (rendered 1-based) | `str(e)`, which renders `problem`, `context` **and a snippet of the offending source line** — the note's own bytes |
+| Pydantic `ValidationError` (parser.py:141's `model_validate`) | class name, each error's `loc` and `type` | `str(e)` and `e["input"]` / `input_value`, which render the failing field's **value** — for `@Broken.md` that is contact PII (an email, a phone number) |
+| anything else — `OSError`, `UnicodeDecodeError`, the `AttributeError` from a non-dict frontmatter | class name only | `str(e)`, which for `UnicodeDecodeError` renders a byte snippet of the note and for `OSError` renders the path twice |
+
+**The unenumerated case fails safe rather than by assumption**, which is why the shape is a fall-through and not a dispatch table: an exception type nobody anticipated matches neither `getattr` and reduces to its class name. The two known shapes are re-verified at build start (Task 1) rather than trusted from library semantics — and if either has drifted on this interpreter, the fall-through already yields the class name, so a shape mismatch degrades the diagnostic's *usefulness* and never its *bound*. That asymmetry is the reason this shape was chosen over parsing either library's `str()` output.
+
+`path` is in-bound and load-bearing: it is note-*identifying*, not note-*content*, it is already what `base.py:182` logs today, and without it neither the WARNING nor `SkippedNote` is actionable. `declared_type` is likewise in-bound — it is a value this package's own `Literal` declarations enumerate (models.py 78, 127, 159, 192, 220, 240, 259, 294) — and is `!r`-quoted so a note declaring something long or newline-bearing cannot forge the message's structure.
+
+**Every site that reads a caught exception or note content routes through it.** That is the precise form of the claim, and the precision matters: the package holds **59** message-construction calls (derived live — 34 with their interpolation on the call's own line, 25 opening the argument list on the next; see "What the sweep at Task 18 enforces" below), and the great majority interpolate an in-bound value — `self.type_name`, `filename`, `count`, `name`, `list(updates.keys())` — and are correctly left alone. What the rule forbids is a *specific class of value* reaching a message, not interpolation as such. There is no second site that reads a caught exception or note content, and the table below is every place the new machinery builds one:
+
+| Site | Construction |
+|---|---|
+| `parse_frontmatter`, unclosed fence (Flow §1) | `FrontmatterParseError("frontmatter fence opened but never closed", path=path)` |
+| `parse_frontmatter`, `yaml.YAMLError` (Flow §1) | `FrontmatterParseError("frontmatter did not parse as YAML", path=path, cause=e)` |
+| `parse_to_model`, owned-and-drifted (Flow §2) | `SchemaDriftError("note declares our type and failed validation", path=path, declared_type=declared, cause=e)` |
+| `write_markdown_file`'s guard (Flow §5) | `UnverifiableBodyError(bounded_message("refusing to overwrite: the existing body could not be read, so the WI-126 body-shrink guard cannot verify this write is safe", path=file_path, cause=e))` |
+| `_split_frontmatter_fence` (Flow §6, P2) | `FrontmatterParseError("no frontmatter fence" \| "frontmatter fence not closed", path=file_path)` |
+| P1's `WriteFailedError` (Flow §6) | `WriteFailedError(bounded_message("write did not complete", path=file_path, cause=e))` |
+| P1's seven WARNING lines (Flow §6) | `logger.warning(bounded_message(<the site's own reason literal>, path=file_path, cause=e))` — the per-site literals are tabulated in Flow §6 |
+| `_note_skip`'s WARNING and `SkippedNote.detail` (Flow §3) | `bounded_detail(error)` — below |
+| `IdentifierError.__init__` (identifier.py:67-68) — **pre-existing, brought into the rule by Task 2** | `bounded_message(f"{kind}: {detail}")`; the `(raw={raw!r})` suffix is dropped from the message and `.raw` stays a public attribute |
+
+**Why `identifier.py:68` is in this table at all**, when the Scope Boundary otherwise leaves that file untouched: it is the one pre-existing message-construction site in the package that interpolates a value read off a note. `IdentifierError(kind, raw, detail)` is raised at the identity-engine parse boundary and `raw` is the identifier being parsed — for a person note, an email or a phone number, which is *verbatim* the class the M1 exclusion table names ("for `@Broken.md` that is contact PII"). It is not this item's channel and this item does not widen it; it is simply what the widened sweep at Task 18 finds the moment the sweep becomes total. The alternatives were both worse than a one-line fix: carving it out re-creates the exemption shape that has now bounced this spec twice, and scoping the sweep to only the files this item writes would make the "total over the package" rule an overclaim. The fix is bounded and floor-safe — `kind` and `detail` are literals at every one of the 21 raise sites (identifier.py 137-417; 239's `f"fewer than {cls.MIN_DIGITS} digits"` interpolates a class constant, still a literal written in this package's source), `.kind`/`.raw`/`.detail` are unchanged so the carry-the-strings pattern the class documents at identifier.py:61-64 still holds, and no test asserts on the message text (all eight `IdentifierError` assertions in `tests/test_identifier.py` are bare `pytest.raises`, lines 56/95/115/142/171/203/222/250). `name_validation.py:135` (`super().__init__(f"{pattern}: {detail}")`) is the sibling case and is **left alone**, because both of its interpolands are source literals — it already complies with the rule and routing it would be a "while I'm here" edit.
+
+P1's `WriteFailedError` is **not** required by M1 — P1's first clause re-raises `LoudFailError` untouched, so only a genuine `OSError` ever reaches that message, and the threat model says so explicitly. It routes through the helper anyway because *one* message-construction site is the rule; a second one is where the next drift lands.
+
+**How `path` reaches the seam, and why only one caller threads it.** `parse_frontmatter(content)` (parser.py:53) and `parse_to_model(frontmatter, model_class)` (parser.py:108-111) take no path today, so both gain one **keyword-only optional** parameter — `*, path: Optional[Path] = None` — which is purely additive: every existing call site passes positionally and is unchanged by the signature. Exactly one caller passes it: `parse_markdown_file`, which already holds `file_path` (parser.py:171-176). It is the one that must, because it is the load path — `base._load_file` catches the error and `_note_skip` records it against a note the caller never named, in a batch of hundreds. `parse_markdown_content` genuinely holds no path (parser.py:201-202) and passes none, so it and the four conveniences raise with `path=None` and the message simply omits that part.
+
+**The four write paths are deliberately NOT edited to thread it**, which is what keeps Flow §4's "no write path is edited" literally true: each of them was handed the file path by its own caller (`roundtrip_file(file_path)`, `update_frontmatter_field(file_path, …)`) or holds the entity that names it (`update_fields`), so the consumer of the propagated error already knows which note refused. Adding a kwarg at four call sites to tell a caller something it just passed in is the "while I'm here" edit the Scope Boundary forbids. Neither derived sweep is affected either way: AC-1's data-flow predicate matches on the call and the re-serialization, AC-2's exit-site scan on `Return`/`Raise` nodes — neither reads a signature.
+
+**New `SkippedNote` record on the repository layer** (`repositories/base.py`, beside `VaultPathNotConfiguredError` at base.py:20):
+
+```python
+@dataclass(frozen=True)
+class SkippedNote:
+    path: Path
+    reason: str      # "malformed-frontmatter" | "schema-drift" | "unreadable"
+    detail: str      # bounded_detail(error) — NEVER str(error) (M2)
+```
+
+`reason` is derived from the error type, not passed in: `FrontmatterParseError` → `"malformed-frontmatter"`, `SchemaDriftError` → `"schema-drift"`, anything else → `"unreadable"`.
+
+`detail` is bounded by the same rule, and the total form is two lines because every exception reaching the repository layer is either ours (already bounded at construction) or foreign (reduced to its class name):
+
+```python
+def bounded_detail(error: BaseException) -> str:
+    if isinstance(error, LoudFailError):
+        return str(error)      # already built by bounded_message — the ONE permitted str()
+    return bounded_cause(error)
+```
+
+The `isinstance` branch is not a hole, and since the audit-fold the claim is structural rather than disciplinary: a `LoudFailError`'s message can only contain note bytes if `bounded_message` rendered them — but every constructor in the hierarchy routes through `bounded_message`, `bounded_message` refuses any `reason` outside the enumerated `REASONS` set at runtime, and sweep C independently asserts every `reason` argument is a constant string. The reason parameter — the second home the pre-fold form of this sentence wrongly denied existing, found by three consecutive spec-review rounds — is closed at both legs. **The generic bucket is the one M2 names explicitly, and it is the one this shape covers by construction** — a `UnicodeDecodeError` on an undecodable note reaches `_note_skip` through `base._load_file`'s broad `except` and is recorded as `"UnicodeDecodeError"`, with the file named by `SkippedNote.path` and nothing of its contents rendered.
+
+#### What the sweep at Task 18 enforces (Threat Model M3)
+
+Two tests prove M1 and M2 hold *at the two sites they were written for*. Task 18's sweep is what makes the rule a property of the **tree** — the thing that stays true when a future edit adds a message somewhere nobody is testing. M3 is the finding that the sweep's earlier form could not do that job: its five patterns (`str(e`, `str(error`, `{e}`, `{error}`, `{exc`) were all exception-shaped, while the rule they were framed as proving forbids interpolating note *content* as well, and `_split_frontmatter_fence` holds the entire note in its `content` parameter at both of its raise sites while the four writers hold `frontmatter` and `body_raw` in scope at re-assembly. Nothing in *this* build leaks — every designed message is a literal — so this is the forward-looking half, which is exactly what a sweep is for.
+
+**The rule the sweep enforces, stated over values rather than over names.** At a **message-construction site** — an argument to `logger.<level>(...)`, to `raise <Error>(...)`, or to an exception's `super().__init__(...)` — a value may be interpolated **iff it did not come from reading a note off disk**, with exactly three note-derived exceptions ruled in-bound and enumerated here:
+
+1. **the note's path** (`file_path`, `path`, `self.vault_path`) — note-*identifying*, not note-content; already logged today at base.py:182; without it neither a WARNING nor a `SkippedNote` is actionable. Ruled in Design/Data model above and concurred in the Threat Model's round-2 note.
+2. **the entity's own name** (`person.name`, `name`, `filename`, `self.type_name`) — the same ruling for the same reason: `@John Smith.md` names a person, it does not disclose the note's contents.
+3. **`declared_type`** — a value this package's own `Literal` declarations enumerate (models.py 78, 127, 159, 192, 220, 240, 259, 294), `!r`-quoted so it cannot forge the message's structure.
+
+Everything else note-derived is out: a caught exception (whose `str()` is the `MarkedYAMLError` snippet, the Pydantic `input_value`, or the `UnicodeDecodeError` byte run), and the note's raw text under any name. Note that **caller-supplied arguments are on the trusted side of the boundary** and are therefore in-bound without needing an exception: `text[:50]` and `deduplicate_key` in `person.py`'s To-Discuss and Timeline logging came from the consumer's call, not from a note, and the trust boundary in Prerequisites & Assumptions is drawn at `Path.read_text`. A builder must not churn on them.
+
+**Three sweeps mechanize it** — two cheap greps and one syntax pass — and the third is what keeps the first two from being a name list that a future local slips past:
+
+| Sweep | How it runs (over `<REPO>/obsidian_schemas/`) | Expected post-fix |
+|---|---|---|
+| **A** — the exception half (M1/M2) | `str\((e\|err\|error\|exc\|exception)\b` and `\{(e\|err\|error\|exc\|exception)\b` | **exactly one** match, package-wide: `errors.bounded_detail`'s `str(error)` in its `LoudFailError` branch |
+| **B** — the note-content half (**M3**) | `str\((content\|body_raw\|body\|frontmatter\|raw)\b` and `\{(content\|body_raw\|body\|frontmatter\|raw)\b`, piped through a second stage keeping only lines that also contain `logger.`, `raise `, or `__init__(` | **zero** matches |
+| **C** — the name-independent net | **not a grep** — a syntax pass (heredoc, below) that lists every message-construction *call* in the package together with the identifiers reaching its arguments, skipping any value that passes through a bounded callable | every identifier listed must be in-bound by the rule above. Baseline recorded at Task 1, diffed at Task 18; the assertion is the property, not a count |
+
+Sweep A's post-fix count is derived, not hoped for: the eight `{e}`-shaped interpolations that exist today are `base.py:182`, `book.py:78`, `meeting.py:82` and `person.py` 1501/1605/1703/1776/1838, and all eight are removed — the first three by Task 8 (the handler body becomes `self._note_skip(file_path, e)`), the five in `person.py` by Task 7's rebuild. `errors.py` adds the one. 8 − 8 + 1 = 1.
+
+Sweep B's post-fix count is likewise derived. Run live today, stage 1 returns **20** matches and stage 2 returns **one** — `identifier.py:68` — which Task 2 fixes; the other 19 are file-content and parse expressions, not messages (`identifier.py` 138/189/237/267/312/348/390/415's `str(raw)` inside the parse functions; `writer.py` 211/254/293/320, `base.py:328`, `person.py` 1596/1696/1768/1831 assembling `f"---{frontmatter}---\n{new_body}"` for `write_text`; `body_sections.py:127`). **Building note text is not building a message** — the rule's domain is diagnostics, and a value written back to the note it came from discloses nothing. Stage 2 is what makes that distinction mechanical instead of a judgment call.
+
+**Sweep C is the one that makes the unenumerated case fail loud**, and it is why B's name list being an enumeration is acceptable. A future message interpolating a content-bearing local under a name B never heard of (`text`, `chunk`, `payload`) is invisible to B and visible to C, because C keys on the *site* and not on the name.
+
+**C is a syntax pass, not a grep, and the reason is measured rather than assumed.** A line-based `grep` for "a message-construction call that also contains `{` on the same line" has a blind spot wherever the call's argument list opens on the next line — and that is not a corner case in this tree. Counted live: **34** message-construction lines carry their interpolation on the call's own line, and a further **25** calls open their argument list on the following line (writer.py:49; person.py 309, 826, 949, 1000, 1157, 1189, 1375, 1405, 1432, 1545, 1559, 1566, 1598, 1604; base.py:382; name_validation.py 311, 321, 330, 337, 344, 353, 360, 367, 374). A sweep that silently misses 25 of 59 sites is the rubber-stamp failure this mitigation exists to prevent, so C reads **parsed syntax** instead:
+
+```
+cd <REPO> && <REPO>/.venv/bin/python - <<'EOF'
+import ast, pathlib
+LEVELS = {"debug", "info", "warning", "error", "critical"}
+# Callables that build their own bounded message internally. A call to one of
+# these is NOT a message-construction site: its message is built inside, where
+# this same sweep already covers it. Everything else that takes a message takes
+# a STRING, so the construction happens at the call and the sweep must see it.
+BOUNDED = {
+    "bounded_message", "bounded_cause", "bounded_detail",   # the three helpers
+    "NoteParseError", "FrontmatterParseError", "SchemaDriftError",  # errors.py
+    "IdentifierError",                                      # post-Task-2
+}
+
+def is_message_call(call):
+    f = call.func
+    if isinstance(f, ast.Name) and f.id in BOUNDED:
+        return "bounded"       # STILL A SITE (M4, audit-fold): reason arg checked below
+    if isinstance(f, ast.Attribute) and f.attr in LEVELS:
+        return True                                   # logger.<level>(...)
+    if isinstance(f, ast.Name) and f.id.endswith("Error"):
+        return True                                   # <X>Error("<message>", ...)
+    if isinstance(f, ast.Attribute) and f.attr == "__init__":
+        return True                                   # super().__init__(...)
+    return False
+
+def reaching_names(node):
+    """Identifiers reaching this argument, NOT descending into a BOUNDED call —
+    a bounded callable's output is the permitted projection by definition."""
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) \
+            and node.func.id in BOUNDED:
+        return set()
+    out = set()
+    for child in ast.iter_child_nodes(node):
+        out |= reaching_names(child)
+    if isinstance(node, ast.Name):
+        out.add(node.id)
+    elif isinstance(node, ast.Attribute):
+        out.add(node.attr)
+    return out
+
+for path in sorted(pathlib.Path("obsidian_schemas").rglob("*.py")):
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        kind = isinstance(node, ast.Call) and is_message_call(node)
+        if kind == "bounded":
+            # M4 (audit-fold): a BOUNDED call's reason argument (first positional)
+            # must be a constant string — a JoinedStr/Name/BinOp/Call here is the
+            # composed-reason hole three review rounds found one member of.
+            if node.args and not (isinstance(node.args[0], ast.Constant)
+                                  and isinstance(node.args[0].value, str)):
+                print(f"{path}:{node.lineno}: NON-LITERAL reason into "
+                      f"{ast.dump(node.func)}")
+        elif kind:
+            names = set()
+            for arg in list(node.args) + [k.value for k in node.keywords]:
+                names |= reaching_names(arg)
+            if names:
+                print(f"{path}:{node.lineno}: {sorted(names)}")
+EOF
+```
+
+It runs as a **heredoc and is never written to a file**, so it does not touch AC-7's `ast` single-homing (whose domain is files under `obsidian_schemas/`, `tests/` and `scripts/`) and does not disturb the Data Audit's predicate 8 — the same arrangement Task 1's error-render probe already uses.
+
+**How to read C's output, and why it needs no count.** Each line names a message-construction site and the identifiers that reach it *outside* a bounded callable. A correctly-built message such as `logger.warning(bounded_message("failed to update timeline", path=file_path, cause=e))` contributes **nothing**: the `e` sits inside `bounded_message`, which is precisely the point of routing it there. Likewise `raise FrontmatterParseError("frontmatter did not parse as YAML", path=path, cause=e)` contributes nothing, because that class builds its own message from `bounded_message` inside `errors.py` — where this same sweep does see it. What is left in the output is exactly the set of raw values reaching a message **directly**, and every one must be in-bound by the rule above. **The assertion is that property, not a number.** Task 1 records the pre-fix output as a baseline and Task 18 diffs against it; every line in the diff must be explainable by a task in this plan, which is a stronger tripwire than a count because it names *which* site moved rather than merely that one did.
+
+Two readings a builder will meet on the first run, ruled here so neither is churned on:
+
+- **`name_validation.py` 311/321/330/337/344/353/360/367/374 will list `name`.** Those are `raise NameValidationError("<pattern>", f"…: {name!r}")` — the candidate name being validated, which is in-bound under rule (2) (the entity's own name), `!r`-quoted, and pre-existing. `NameValidationError` is deliberately **not** in `BOUNDED`: it builds its message from its own two arguments rather than from `bounded_message`, so the sweep should keep seeing its call sites. It passes the rule; it is not exempt from it.
+- **`identifier.py` 137-417 will list nothing after Task 2.** `IdentifierError` joins `BOUNDED` because Task 2 makes it build its own message through `bounded_message`, so its 21 raise sites stop being construction sites — while its `__init__` itself is still swept, which is what would catch a future edit that unbounds it. Before Task 2 lands, the same run lists `identifier.py:68: ['detail', 'kind', 'raw']`, and `raw` is the out-of-bound one.
+
+The one accepted imprecision, stated so it is not mistaken for coverage: `is_message_call` matches any callee whose name ends in `Error`, which is a naming convention rather than a proof of type. It over-matches rather than under-matches — a non-exception helper named `...Error` would be listed and dismissed — and over-matching is the safe direction for a disclosure sweep.
+
+**B's stage 2 inherits the same line-based blind spot, and C is what covers it.** An interpolation on a continuation line of one of those 25 multi-line calls carries no `logger.`/`raise `/`__init__(` on its own line, so B's stage 2 cannot see it. B stays a grep because it is cheap and its stage-1 output is short enough to read in full if stage 2 ever returns something surprising; C is the sweep the mitigation actually rests on.
+
+### Flow
+
+**1. `parse_frontmatter` (parser.py:53-80) — the seam.** Today, three of its four `return` statements hand back the byte-identical `{}, content`:
+
+```python
+    if not content.startswith("---"):
+        return {}, content              # 64-65  genuinely no frontmatter
+    match = re.match(r"^---\n(.*?)\n---\n?(.*)", content, re.DOTALL)
+    if not match:
+        return {}, content              # 69-70  opened a fence, never closed it
+    ...
+    except yaml.YAMLError:
+        return {}, content              # 78-80  the YAML did not parse
+```
+
+Post-fix, exactly two of them change and both become raises:
+
+| Outcome class | Today | Post-fix | Exit site |
+|---|---|---|---|
+| No leading fence (64-65) | `({}, content)` | **unchanged** | `return` |
+| Opening fence, no closing fence (68-70) | `({}, content)` | `raise FrontmatterParseError` | `raise` |
+| Fence present but empty (`safe_load` → `None`, 74-75) | `({}, body)` | **unchanged** | shares the valid `return` |
+| Valid frontmatter (72-77) | `(dict, body)` | **unchanged** | `return` |
+| `yaml.YAMLError` (78-80) | `({}, content)` | `raise FrontmatterParseError` | `raise` |
+
+**The unclosed fence is classified as MALFORMED, and this is the classification AC-2 requires be made rather than defaulted.** Reasoning: the document opens a frontmatter block and never closes it, which is the item's own predicate — an announced structure that did not parse — and it is already the classification the package uses for the identical input elsewhere, at `append_to_body_section`'s "frontmatter malformed — skipping" branch (person.py:1564-1570), which AC-5's Predicate 2 moves to the raise side for all four fence-split writers. Classifying it as *absent* instead would leave one silent-degrade site standing inside the function this item exists to fix, and would put `parse_frontmatter` and `person.py`'s writers back into disagreement about the same bytes. The consequence is named and bounded in Edge Cases (a note whose body legitimately opens with a `---` thematic break, and a CRLF-terminated frontmatter block, both now refuse-and-surface instead of silently degrading — in both cases the note is *already* invisible today, so the change makes an existing loss visible rather than creating a new one).
+
+Note the site/class non-bijection the round-14 finding is about **survives the fix and must**: post-fix there are four exit sites carrying five outcome classes (two `return`, two `raise`, with the empty-fence class still sharing the valid `return`). A map keyed one-per-class is still red against a faithful scan.
+
+**2. `parse_to_model` (parser.py:108-150) — ownership, one layer down.** Today the unresolvable-type return (135-137) and the `except Exception` (148-150) are the same `(None, frontmatter.copy())`. Post-fix, the decision rule frozen in AC-2 by the round-27 fold:
+
+```python
+    declared = normalized.get("type")
+    type_field = model_class.model_fields.get("type")
+    owned = (
+        type_field is not None
+        and declared is not None
+        and declared == type_field.default
+    )
+    try:
+        entity = model_class.model_validate(normalized)
+        model_fields = set(model_class.model_fields.keys())
+        extra_fields = {k: v for k, v in frontmatter.items() if k not in model_fields}
+        return entity, extra_fields
+    except Exception as e:
+        if owned:
+            raise SchemaDriftError(
+                "note declares our type and failed validation",
+                path=path, declared_type=declared, cause=e,
+            ) from e
+        return None, frontmatter.copy()
+```
+
+The message is spelled out rather than left as a `...` because it is the M1 site: `reason` is a literal in this package's source, `declared` is a `Literal`-enumerated value, and the Pydantic `ValidationError` reaches the message only through `bounded_cause`'s `loc`/`type` projection — never `str(e)`, never `input`. The `from e` chaining is unchanged and is what keeps the full exception available to a debugger without putting it in the string.
+
+Four properties this shape is carrying, each frozen in AC-2:
+
+- **Known-ness is read off the NOTE, never off the call.** Every caller in scope forces the class — `base._load_file` passes `self.entity_type` (base.py:178), the four conveniences pass `Person`/`Company`/`Book`/`Meeting` (parser.py:218, 224, 230, 236) — so `model_class` bears no relation to what the note says it is. `declared` is that relation.
+- **The comparand is DERIVED, never hardcoded.** `model_class.model_fields["type"].default` reads the class's own `Literal` declaration: `Person` at models.py:78, `Company` 127, `Book` 159, `Watch` 192, `Explore` 220, `GiftIdea` 240, `Meeting` 259, `Exploration` 294. A `"person"` string literal, or an `isinstance` check on the constructed model, does not satisfy AC-2 — the latter is the defective predicate AC-3 forbids one layer up, and it is what `base._load_file` uses today at base.py:179.
+- **One rule covers both branches.** On the auto-detect path (130-133) `get_model_for_type` resolves through `TYPE_TO_MODEL` (models.py:309-317, read at 331), which maps each type string to the class whose own `Literal` declares that same string — so `declared == type_field.default` holds *by construction* whenever that path resolves, and an unresolvable type never reaches the comparison because 135-137 has already returned. No caller-forced special case.
+- **The rule is TOTAL, and the two ways it can miss are closed rather than assumed away.** `model_fields.get("type")` (not `["type"]`) because a forced class may declare `type` **without a `Literal` default to compare against** — and a builder must not delete the `.get` as unreachable on the reasoning that every model declares one. `BaseEntity` is reachable through the public signature `model_class: Optional[Type[BaseEntity]]` (parser.py:110) and *does* declare `type: str` (models.py:39); what it lacks is a default, so `.get("type")` returns a `FieldInfo` whose `.default` is `PydanticUndefined`, the equality against `declared` simply fails, and the call **fails closed** into the not-owned answer. The `is not None` guard is what covers the remaining case — any future or third-party subclass that omits the field entirely — where `["type"]` would raise a `KeyError`, a new silent-shaped crash at the seam. `declared is not None` because a note with non-empty frontmatter and no `type` key validates past the `Literal`'s own default and may then fail on some other field: that is AC-2's explicitly-named THIRD CASE, it has no ownership evidence of either kind and no glob at this layer to supply any, and it keeps today's `None`. A `declared` that is not a string (a list, a dict) simply fails the equality and lands in the same not-owned answer — total by construction rather than by an `isinstance` guard.
+
+**3. The read half — survive but surface (C4, AC-3).** `BaseRepository.load()`'s loop (base.py:157-165) wraps `_load_file` in **no** `try`/`except`, so each `_load_file`'s own `except` is the entire margin between one bad note and an aborted batch. **All three `_load_file` implementations therefore keep a broad `except Exception`** — the narrowing AC-6 makes this item's house style is applied where the expected-unavailable set is enumerable and the failure is not per-item (`_known_companies`), and deliberately *not* here, where the broad catch **is** the NO-ABORT guarantee AC-3 asserts across all twelve cells. Loudness is delivered by WARNING plus the queryable surface, not by propagation. What changes in each of the three is the handler body:
+
+```python
+        except Exception as e:
+            self._note_skip(file_path, e)
+        return None
+```
+
+and one new method on `BaseRepository`, called by all three (one implementation, three call sites — `PersonRepository` and `CompanyRepository` reach it through the inherited `base._load_file`):
+
+```python
+    def _owns(self, declared_type: Optional[str]) -> bool:
+        """Can this repository PROVE the file is its own? Decided on the raw
+        declared type, never on whether a model was built."""
+        if declared_type is not None:
+            return declared_type == self.type_name
+        # Nothing legible in the note: the only remaining evidence is the glob,
+        # and only if the glob is a naming convention rather than a catch-all.
+        return Path(self.file_pattern).stem != "*"
+
+    def _note_skip(self, file_path: Path, error: BaseException) -> None:
+        declared = getattr(error, "declared_type", None)
+        detail = bounded_detail(error)          # M2 — never str(error)
+        if not self._owns(declared):
+            logger.debug(f"Not ours, not skipped: {file_path}: {detail}")
+            return
+        self._skipped.append(SkippedNote(file_path, _skip_reason(error), detail))
+        logger.warning(f"Skipped {self.type_name} note {file_path}: {detail}")
+```
+
+**All three interpolations are `detail`, not `error`** — the WARNING line, `SkippedNote.detail`, and the not-ours DEBUG line, which is included even though it is off by default because a debug line is still a log line and the bound is a construction rule rather than a level policy. This is Threat Model M2 in full: `bounded_detail` (Design/Data model) returns the already-bounded message for our own errors and the class-name projection for everything else, so the generic `"unreadable"` bucket M2 calls out — a `UnicodeDecodeError` whose `str()` renders a byte snippet of the note — is covered by the same two lines rather than by a caution. `file_path` is in-bound, as above.
+
+`self.type_name` is the abstract per-class property at base.py:126-130, so the comparison is correct from every chair including `CompanyRepository`'s — the class that shares `base._load_file` and the `@*.md` glob with `PersonRepository` (neither overrides `_load_file` nor `file_pattern`; `base.save` writes `@{name}.md` at base.py:257) and whose direction a fix proven only from the person side gets backwards. `Path(self.file_pattern).stem != "*"` is derived from the class's own declared glob, not from a list of class names: `@*.md` → stem `@*` → convention; `Meeting *.md` (meeting.py:50-52) → stem `Meeting *` → convention; `*.md` (book.py:49-51) → stem `*` → catch-all, no evidence. A fifth repository gets the right answer with no edit here.
+
+Repository state, initialised beside the caches at base.py:116-118 and cleared at the top of `load()` beside base.py:149-150:
+
+```python
+        self._skipped: list[SkippedNote] = []
+        ...
+    @property
+    def skipped_notes(self) -> list[SkippedNote]:
+        """Notes this repository owns and could NOT load, since the last load()."""
+        return list(self._skipped)
+
+    @property
+    def skipped_count(self) -> int:
+        return len(self._skipped)
+```
+
+This resolves the twelve cells without a per-class branch anywhere. Walked once, class by class, because AC-3's matrix is explicitly **not uniform**:
+
+| | (a) malformed YAML, matches glob | (b) own type, drifted field | (c) foreign readable type |
+|---|---|---|---|
+| `PersonRepository` (inherits base.py:171-183, `@*.md`) | `parse_frontmatter` raises inside `parse_markdown_file` at 178 → `_note_skip`, declared `None`, glob is a convention → **LISTED** | `parse_to_model` raises `SchemaDriftError(declared="person")` → owns → **LISTED** | no raise at all: `parse_to_model` returns `(None, copy)`, `doc.entity` is None, `_load_file` returns None → **not listed** |
+| `CompanyRepository` (same inherited path and glob, own `type_name`) | same → **LISTED** | `SchemaDriftError(declared="company")` → **LISTED** | **not listed** |
+| `MeetingRepository` (own `_load_file` meeting.py:64-83, `Meeting *.md`) | raises at its own `parse_frontmatter` (meeting.py:72), before the prefilter → **LISTED** | passes the raw-type prefilter (meeting.py:75), raises inside `parse_markdown_file` (78) → **LISTED** | prefilter returns None at 76 → **not listed** |
+| `BookRepository` (own `_load_file` book.py:57-79, catch-all `*.md`) | raises at book.py:67 → declared `None`, glob stem is `*` → **NOT LISTED** | passes the prefilter (book.py:70), raises at 74 → **LISTED** | prefilter returns None at 71 → **not listed** |
+
+Fixture (b) is the direction that carries this item's *new* signal into `meeting.py`'s and `book.py`'s own `except` clauses, which nothing has ever exercised under this failure mode — and it is derived from each class's own model, never transposed: `type: person` + `emails: "not-a-list"` (`Person.emails: List[str]`, models.py:81); `type: company` + `tags: company` (`Company` declares only `str` fields, so the inherited `BaseEntity.tags: List[str]` at models.py:40 is the derivation); `type: meeting` + `attendees: "not-a-list"` (models.py:261); `type: book` + `tags: book` (`Book` likewise declares no `List` field of its own, models.py:159-170 — reached from `Book`'s own field list, not copied from `Company`'s).
+
+**One case the matrix does not name, ruled here because a builder meets it immediately: a note that parses cleanly and simply is not this repository's entity — no `type` key at all, or a foreign type — is NEVER recorded.** The skip surface records **failures, not non-matches**. It is forced rather than chosen: AC-2's THIRD CASE requires `parse_to_model` to keep today's `None` and never raise for an absent/unreadable `type` under a forced class, so no exception ever reaches `_note_skip` for it. The rule is also what keeps the surface actionable — the Examples of done require the list to mean "these are mine and they need attention" (line 643), and a `@Reading List.md` index note with no `type:` is not a broken person.
+
+**4. The write half — refuse (C2, AC-1).** No write path is edited to add a check. The four members refuse because the seam raises *through* them, and each already has (or lacks) exactly the handling that makes that happen:
+
+- `update_fields` (base.py:311-329): parse at 312, no `try` — propagates; the rebuild at 327-329 is never reached, so the file is untouched.
+- `roundtrip_file` (writer.py:316-322): parse at 317, no `try` — propagates; write at 322 never reached.
+- `update_frontmatter_field` (writer.py:245-260) and `update_frontmatter_fields` (writer.py:284-299): parse at 247 / 286 sits inside a blanket `except Exception: return False`, which would swallow the new signal. Both are P1 members of AC-5 anyway, and the P1 handler shape below re-raises our own errors untouched.
+
+The proven negative stays a negative by *what it does*, not by name: `write_markdown_file` binds only `existing_body` from its parse (writer.py:186) and builds what it writes from its own `entity`/`frontmatter` arguments (writer.py:197-205), so it is not a member of AC-1's data-flow predicate and its malformed-existing-file behaviour is AC-4's.
+
+**5. C3 — the guard refuses when it cannot verify (AC-4).** `writer.py:184-195`, the `except Exception: existing_body = ""` at 189-190 is deleted:
+
+```python
+    if file_path.exists() and overwrite and not allow_body_replacement:
+        try:
+            _, existing_body = parse_frontmatter(file_path.read_text(encoding="utf-8"))
+        except (FrontmatterParseError, OSError, UnicodeDecodeError) as e:
+            raise UnverifiableBodyError(bounded_message(
+                "refusing to overwrite: the existing body could not be read, so "
+                "the WI-126 body-shrink guard cannot verify this write is safe",
+                path=file_path, cause=e,
+            )) from e
+```
+
+The message is built by `bounded_message` rather than by an f-string, per the construction rule in Design/Data model — the `({e})` an f-string would interpolate is precisely the `MarkedYAMLError` snippet and `UnicodeDecodeError` byte-run M1 bounds.
+
+`UnverifiableBodyError` is a `ValueError` subclass and `BodyTruncationError` subclasses `Exception` (writer.py:30) with neither in the other's ancestry, so AC-4's "distinguishable from `BodyTruncationError`" holds by type. This is the coupling the Constraints section flags as highest-risk and it is why C2 and C3 land in the same build: with the old bare `except` in place, C2's new signal is re-buried here and the overwrite proceeds against an unverified body.
+
+**6. N4 — failure raises, legitimate no-ops keep their exact return (AC-5).** Four raise predicates and four no-op classes over the 28-site universe the Data Audit re-derived line-for-line (finding 7).
+
+*Predicate 1 — the blanket `except Exception` in a writer* (writer.py:259, 298; person.py:1500, 1603, 1702, 1775, 1837). One shape, seven sites:
+
+```python
+        except LoudFailError:
+            raise                       # our own signal — never re-wrapped, never swallowed
+        except Exception as e:
+            logger.warning(bounded_message(<this site's reason literal>,
+                                           path=file_path, cause=e))
+            raise WriteFailedError(bounded_message("write did not complete",
+                                                   path=file_path, cause=e)) from e
+```
+
+**No site is exempt: all seven WARNINGs are rebuilt from `bounded_message`.** The one thing that differs between the sites is what their `reason` literal *says*, and it is tabulated here so a builder never has to decide it:
+
+| Site | Post-fix WARNING (level unchanged — all seven are `logger.warning`) |
+|---|---|
+| `writer.py:259`, `writer.py:298` | `logger.warning(bounded_message("write did not complete", path=file_path, cause=e))` |
+| `person.py:1500` | `logger.warning(bounded_message("failed to update timeline", path=file_path, cause=e))` |
+| `person.py:1603` | `logger.warning(bounded_message("failed to append to body section", path=file_path, cause=e))` |
+| `person.py:1702` | `logger.warning(bounded_message("failed to add To Discuss item", path=file_path, cause=e))` |
+| `person.py:1775` | `logger.warning(bounded_message("failed to update To Discuss item", path=file_path, cause=e))` |
+| `person.py:1837` | `logger.warning(bounded_message("failed to remove To Discuss item", path=file_path, cause=e))` |
+
+`file_path` is in scope in every one of the seven handlers — verified live: `person.py`'s five bind it at 1468, 1550, 1615/1667, 1726 and 1793, **before** the `try` opens at 1472, 1554, 1671, 1730 and 1797, so it can never be unbound when the handler runs.
+
+**Revised 2026-07-24 after the second spec review, and the revision is a deletion.** The previous revision of this paragraph said five of the seven sites "have an existing log message to keep" and ordered the builder to keep `person.py`'s "exactly as it stands"; Task 7 repeated it in bold. That was wrong on both counts a spec can be wrong on. *Mechanically*: read live, those five messages are `logger.warning(f"Failed to update timeline for {person.name}: {e}")` (person.py:1501) and its siblings at 1605, 1703, 1776 and 1838 — every one an `{e}` interpolation of the caught exception, so the instruction contradicted the total rule in Design/Data model and guaranteed that Task 18's sweep would return six matches where its verify claims one, with no stated tiebreak between two instructions in one document. *Substantively*, which is why this was blocking rather than cosmetic: the two-clause shape's first clause re-raises `LoudFailError`, so the exception reaching those five interpolations is **by construction a foreign one** — an `OSError`, or the `UnicodeDecodeError` that `file_path.read_text(encoding="utf-8")` raises on a non-UTF-8 note at each of the five (person.py 1473, 1555, 1672, 1731, 1798). `str()` of that `UnicodeDecodeError` is precisely the "byte snippet of the note" the M1 exclusion table names by hand. The five preserved lines were therefore a live M1/M2 disclosure channel in a public library, sitting inside the step framed as proving the rule over the tree. The remedy is the sweep as the definition with no site exempt, not five patches — the second round in a row that the message-construction discipline landed a finding is the round to stop patching per-case.
+
+**What those five messages were FOR is preserved, and the loss is only the part M1 forbids.** A reader could tell *which writer* failed and *whose note* it was. The `reason` literal keeps the first; `path=file_path` keeps the second, and keeps it more precisely than `person.name` did, because it names the file rather than a display name. `person.name` is dropped from the message not because it is out of bound — it is note-*identifying* and in-bound by the same ruling that admits `path` (Threat Model round-2 note, and rule (2) in "What the sweep at Task 18 enforces") — but because `bounded_message`'s `reason` is specified as a literal written in this package's source, and `person.name` is a value read off a note. Threading it as a fourth bounded part would buy a redundant identifier at the cost of a hole in the one rule that has now cost this spec two rounds. Interpolating `{e}` beside it was never in bound at all.
+
+**The remaining detail a builder would otherwise discover by reading the source**, and the reason the table above has one row for `writer.py` and five for `person.py`: `writer.py:259-260` and `298-299`, read live, are bare `except Exception: return False` with **no logging at all**, while `person.py`'s five each already log. That asymmetry now changes only what each site's `reason` says — the two `writer.py` sites have no prior wording to carry in, so they take the generic `"write did not complete"`. (This is the threat-modeler's note 1, folded: the earlier annotation `# the existing message, unchanged` was true of five sites and false of two. The correction was right; the carve-out it introduced for the other five was not, and that carve-out is what this revision deletes.) `WriteFailedError`'s own message stays the generic `bounded_message("write did not complete", path=file_path, cause=e)` at all seven sites — the *raise* says the write failed, the *WARNING* says which write.
+
+The two-clause shape is load-bearing, and the reason is the seam's signal, not any particular consumer: without the first clause, a `FrontmatterParseError` raised by P2's helper inside the same `try` would be caught by the second and re-presented as `WriteFailedError` — telling a caller "the disk write failed" when in fact nothing was written and the note itself is malformed, which are the two conditions this whole item exists to keep apart. It is also directly checkable: AC-5's P2 half requires each fence case to raise `FrontmatterParseError`, so a re-wrap turns Task 15's check red. (The earlier rationale here named `_load_file`'s ownership decision as the loser, which is wrong — `_load_file` never calls `person.py`'s writers, and the load path reaches the seam through `parse_markdown_file`. The clause stands on the general reason; only the example was mistaken.)
+
+*Predicate 2 — the frontmatter-fence split.* `content.startswith("---")` followed by `split("---", 2)` is copy-pasted at five sites in `person.py`. Solve-in-one-place: one module-level helper, five call sites.
+
+```python
+def _split_frontmatter_fence(content: str, file_path: Path) -> tuple[str, str]:
+    """Return (raw_frontmatter, raw_body) for a fenced note, or raise.
+
+    Callers apply their own normalisation to the body — the writers lstrip("\\n"),
+    _get_body_content strips — so this returns the raw spans and changes no bytes.
+    """
+    if not content.startswith("---"):
+        raise FrontmatterParseError("no frontmatter fence", path=file_path)
+    parts = content.split("---", 2)
+    if len(parts) < 3:
+        raise FrontmatterParseError("frontmatter fence not closed", path=file_path)
+    return parts[1], parts[2]
+```
+
+The four writers — `append_to_body_section` (person.py:1558-1570), `add_to_discuss_item` (1675-1683), `update_to_discuss_item` (1734-1742), `remove_to_discuss_item` (1801-1809) — each replace their eight-to-twelve-line split block with `frontmatter, body_raw = _split_frontmatter_fence(content, file_path)` followed by their existing `body = body_raw.lstrip("\n")`. Their re-assembly at 1596 / 1696 / 1768 / 1831 (`f"---{frontmatter}---\n{new_body}"`) is unchanged, which is what keeps frontmatter byte-identical through a body write.
+
+The fifth site, `_get_body_content` (person.py:1613-1626), is a **read** and carries two outcome classes on one `return content` — the round-14 lesson recurring at another function, and the reason a builder must not simply route it through the helper:
+
+```python
+        # The outer guard is deliberately redundant with the helper's first
+        # branch and must NOT be "simplified" away: it is what routes the
+        # legitimately fence-less note to `return content` instead of to the
+        # helper's `FrontmatterParseError`. Dropping it turns a no-op into a
+        # raise and breaks AC-5's no-op half.
+        if content.startswith("---"):
+            _, body_raw = _split_frontmatter_fence(content, file_path)
+            return body_raw.strip()
+        return content          # legitimately fence-less: the whole file IS the body
+```
+
+The comment above is part of the prescribed code, not commentary on it. `_split_frontmatter_fence`'s first branch raises on exactly the negation of the outer guard, so **from this one call site that raise is unreachable** — harmless, but the kind of redundancy a later reader removes on sight, and removing it is precisely what converts the fence-less no-op into a raise. The helper keeps the branch because its other four call sites reach it: the writers route *every* content through the helper with no outer guard, and for them "no fence at all" is a failure, not a body.
+
+Today's `return content` at 1626 is *correct* for a fence-less note and *wrong* for an unsplittable one, where it hands the caller the frontmatter as body — which is how `get_to_discuss_items` (1641-1649) reports a corrupted note as having no items. Post-fix the unsplittable case raises a `ValueError` subclass that `get_to_discuss_items` lets through, exactly as it already converts the missing-file `None` into a `ValueError` at 1641-1643; the fence-less case keeps today's return. `_get_body_content` has exactly one caller in the package (person.py:1641), which is what makes no-op class (d) sound.
+
+*Predicate 3 — `append_to_timeline`'s marker-absent branch (person.py:1482-1484). ACCOMMODATE, with PRESERVATION.* Dave's round-9 ruling; the round-10 audit-fold established that mirroring the sibling's implementation would destroy the very notes the accommodation serves, because `append_to_body_section`'s `create_if_missing=True` route (person.py:1586-1593) round-trips the body through `parse_body_sections` (body_sections.py:74-97, which keeps only `^## `-delimited spans and returns an empty `OrderedDict` at 76-78 when there are no headings) and `write_body_sections` (100-134, which rebuilds from that dict alone), on a raw `write_text` (person.py:1495, 1597) that `writer.py:178-183` deliberately exempts from the WI-126 guard. **So the mechanism is string insertion, and the section is appended at the end of the file:**
+
+```python
+            if timeline_marker not in content:
+                suffix = "" if content.endswith("\n") else "\n"
+                new_content = content + suffix + "\n" + timeline_marker + formatted_entry
+                file_path.write_text(new_content, encoding="utf-8")
+                logger.info(f"Created Timeline section for {person.name}")
+                return True
+```
+
+`formatted_entry` is the existing one from person.py:1487 (already newline-prefixed), so the created section reads identically to an insertion into an existing one. End-of-file placement is chosen because it is the only placement that is content-preserving *without parsing structure*, and the accommodation exists precisely for notes that have no structure to place it in. The preservation oracle falls straight out and is derived from a value the test holds: `new_content.startswith(content)` — every pre-existing byte present, in order, frontmatter included and therefore byte-identical.
+
+The structurally-dead split guard at 1491-1492 is **deleted**: `str.split(sep, 1)` on a string containing `sep` returns exactly two parts, and the marker was confirmed present three lines above, so `len(parts) != 2` is unreachable. Deleting it removes the site from the post-fix universe rather than leaving an unclassifiable member. The whole-file dedup at 1476-1478 is untouched and stays a legitimate no-op with its exact current `False` — deliberate per person.py:1521-1524, frozen by AC-5's backward-compat half, and therefore the one remaining falsy path by which an entry does not land, which is why the claim is that *structural* absence can no longer drop an entry rather than that a drop is impossible.
+
+*Predicate 4 — the existence pre-check* (writer.py:242-243, 281-282). Both `return False` become `raise FileNotFoundError(f"File not found: {file_path}")`. **`FileNotFoundError`, not a `ValueError` subclass**, and the reason is convergence on the closest sibling rather than on the count: `base.update_fields` raises `FileNotFoundError` for this exact condition (base.py:307-308), and `write_markdown_file` already raises `FileExistsError` for its mirror-image condition (writer.py:176) — the writer layer's convention for a file-path predicate is the `OSError` family. `person.py`'s five `ValueError` raises (e.g. 1469-1470) are a *different* condition — a repository lookup miss for a named person — and are not the model here. No consumer was catching anything at these two sites (they returned `False`), so the contract change is `False` → raise regardless of type.
+
+*No-op half — every case keeps the exact falsy value it returns today.* (a) dedup-key match: `append_to_timeline` 1476-1478 and `append_to_body_section` 1583-1584. (b) governed absence: `create_if_missing=False` with the section absent, 1578-1579. (c) match-not-found in a match-mutation writer: `update_to_discuss_item` 1746-1747 (section absent) and 1759-1761 (item not found); `remove_to_discuss_item` 1813-1814 and 1822-1824. (d) a helper's falsy return its only caller already makes loud: `_get_body_content`'s missing-file `None` at 1616-1617, converted to `ValueError` at 1641-1643.
+
+**7. AC-6 — `_known_companies` (person.py:1147-1160).** `except Exception:` → `except ImportError:`, message unchanged. The clause exists for one expected-unavailable case, the `from .company import CompanyRepository` at 1149; narrowing to it is what makes a `VaultPathNotConfiguredError` raised anywhere in the block propagate instead of being buried. A `logger.debug` → `logger.warning` change alone does not satisfy AC-6 and must not be substituted for the narrowing.
+
+### The test harness
+
+**One shared importable scan module: `tests/derivations.py`.** Not a test file (`pyproject.toml:42` collects `test_*.py` only, so pytest will not collect it) and importable with no new machinery — `tests/__init__.py` exists, there is no `conftest.py` anywhere in the tree, and pytest prepends its rootdir to `sys.path`, which is the same mechanism the whole suite already depends on (`CLAUDE.md`, `pipeline-runners.yaml`). Its roots are derived from its own location, never from the cwd and never from a path substring: `_REPO_ROOT = Path(__file__).resolve().parent.parent`, `PACKAGE_ROOT = _REPO_ROOT / "obsidian_schemas"`, `TESTS_ROOT = _REPO_ROOT / "tests"`.
+
+It exports the six derivations AC-7's COMPLETENESS clause names, plus the two further scans AC-2 and AC-5 require be defined there:
+
+| Export | AC-7 name | Consumed by |
+|---|---|---|
+| `python_files_under(*roots)` | the file-set walk | AC-1, AC-2, AC-3, AC-5, AC-7 |
+| `functions_parsing_then_writing(files)` | the loose scan | AC-1 (its negative), AC-2 (via the set difference) |
+| `functions_reserializing_parsed_frontmatter(files)` | the data-flow scan | AC-1, AC-2 |
+| `base_repository_subclasses(files)` | the subclass scan | AC-3, AC-2 |
+| `load_file_implementations(classes)` | the MRO resolution | AC-2 |
+| `seam_invocation_closure(files, stop)` | the closure computation | AC-2 |
+| `parse_frontmatter_exit_sites(files)` | — | AC-2 |
+| `non_completed_write_sites(files)` | — | AC-5 |
+| `modules_using_ast(files)` | — | AC-7 |
+
+AC-7 asserts those **six** names resolve to six distinct function objects homed in this module; it sets no upper bound on the module's exports, and the three further scans are covered by the same `ast` single-homing.
+
+`python_files_under` is parameterized rather than package-fixed precisely so that AC-7's plant can be scanned by the same code: the sweeps call `python_files_under(PACKAGE_ROOT)`, AC-7 calls `python_files_under(PACKAGE_ROOT, TESTS_ROOT)` for the live assertion and `python_files_under(tmp_path)` for the planted negatives. One walk, four uses.
+
+**Source-stable site identity**, used by every map key, because this fix shifts every line number in `person.py`: `(module_relpath, qualified_function_name, ordinal_within_that_function)`. Never a line number, never a function name alone (`append_to_timeline` holds sites landing in three different buckets).
+
+**`ast` single-homing and the self-match trap.** Only `tests/derivations.py` may import or reference `ast` across `obsidian_schemas/**` and `tests/**` — satisfiable rather than red on arrival, re-verified by the Data Audit (finding 8: zero matches tree-wide). Two consequences a builder must not discover the hard way:
+
+1. **The checking test may not name `ast` itself.** `test_derivations_are_single_sourced` imports `modules_using_ast` from the shared module and asserts on its *result*. If the test parsed files itself it would be the second home and would fail its own assertion.
+2. **The marker is read off parsed syntax, never off source text.** The check writes its planted fixtures as string literals, so those literals contain the characters `import ast`; a text matcher would match the checking module itself and go red on a correct harness. Read as syntax, a string literal is an `ast.Constant` and is invisible to the marker. The marker is: an `Import` alias whose name is `ast` or begins with `ast.`; an `ImportFrom` whose `module` is `ast`; or an `Attribute` whose value is a `Name` bound by either.
+
+Two planted fixtures, one per marker form the predicate claims to match, each written into `tmp_path` and each asserted **reached, matched and named**: (i) a module containing `import ast` plus an `ast.parse(...)` attribute use; (ii) a module containing `from ast import walk` plus a bare `walk(...)` use. A scan asserted only against the clean tree does not satisfy AC-7 — uniqueness is the one assertion in the set that an under-generating scan satisfies by finding nothing.
+
+**The closure, computed.** `seam_invocation_closure` is the fixpoint of "package functions that REACH `parse_frontmatter` or `parse_to_model`", expanding a member's callers only when that member is **not** in the stop set. On today's tree it returns **14** functions; the three stop contributions and the residue partition them exactly:
+
+- AC-1's data-flow set, arriving as functions and needing no conversion: `update_fields`, `update_frontmatter_field`, `update_frontmatter_fields`, `roundtrip_file` — **4**.
+- AC-3's subclass scan, which produces **classes**, resolved through each class's MRO to the function implementing its `_load_file` and deduplicated: 4 classes → `base._load_file`, `meeting._load_file`, `book._load_file` — **3**.
+- AC-4's guard, which AC-4 derives nothing for and must not: taken as the **set difference** `functions_parsing_then_writing − functions_reserializing_parsed_frontmatter`, which is exactly `{write_markdown_file}` — **1**. Same computation as AC-1's proven negative, one binding.
+- The propagating residue, computed rather than named: `parse_markdown_file`, `parse_markdown_content`, `parse_person`, `parse_company`, `parse_book`, `parse_meeting` — **6**.
+
+4 + 3 + 1 + 6 = 14, each contribution non-empty and a subset of the closure, each member in exactly one class. Termination is what the stop set buys: `base._load_file` stops the walk before `load()`, `get_all()` and `resolve()`. Adjacency alone would return nine functions (the Data Audit's finding 4 re-derived this exactly) and would miss the four conveniences and `base._load_file` entirely.
+
+**Every producing test asserts its own single-sourcing.** AC-1, AC-3 and AC-5 each assert, of the same bindings they compute with, that `callable.__module__` is the shared module's — so a private copy reddens *that* criterion's check rather than a sibling's. AC-7 closes the complementary case (a copy that exists whether or not any test binds it). Neither substitutes for the other.
+
+**Where the checks live.** File placement is free — the conveyor discovers a test by function name — so the seven land in four new modules grouped by seam: `tests/test_loud_fail_parse.py` (AC-1, AC-2), `tests/test_loud_fail_load.py` (AC-3, AC-6), `tests/test_loud_fail_write.py` (AC-4, AC-5), `tests/test_loud_fail_harness.py` (AC-7). None of the four may name `ast`.
+
+### Integration points
+
+| File | What changes | What reads it |
+|---|---|---|
+| `obsidian_schemas/errors.py` | **NEW** — the six exception classes (`LoudFailError`, `NoteParseError`, `FrontmatterParseError`, `SchemaDriftError`, `UnverifiableBodyError`, `WriteFailedError`) **plus `bounded_message` / `bounded_cause` / `bounded_detail`**, the package's only site that reads a caught exception or note content into a message | `parser.py`, `writer.py`, `identifier.py`, `repositories/base.py`, `repositories/person.py`, `__init__.py` (classes only — the helpers are not exported) |
+| `obsidian_schemas/parser.py:53-80` | two returns → raises, messages built by `bounded_message`; additive keyword-only `path=None` | every member of the 14-function closure |
+| `obsidian_schemas/parser.py:139-150` | ownership rule + `SchemaDriftError`; additive keyword-only `path=None` | `parse_markdown_file` (176), `parse_markdown_content` (202) |
+| `obsidian_schemas/parser.py:171-176` | `parse_markdown_file` passes `path=file_path` to both seam calls — the only caller that threads it | the load path, via `base._load_file` (base.py:178) |
+| `obsidian_schemas/writer.py:184-195` | guard raises `UnverifiableBodyError` | `base.save` → `write_markdown_file` |
+| `obsidian_schemas/writer.py:242-243, 259-260, 281-282, 298-299` | P4 + P1 | HAL9000 enricher / introducer / scheduler (out of tree — see Non-goals) |
+| `obsidian_schemas/repositories/base.py` | `SkippedNote`, `_owns`, `_note_skip`, `skipped_notes`, `skipped_count`; `_load_file` handler | `PersonRepository`, `CompanyRepository` (both inherit), `load()` |
+| `obsidian_schemas/repositories/meeting.py:81-83`, `book.py:77-79` | handler → `_note_skip` | `load()` |
+| `obsidian_schemas/repositories/person.py` | `_split_frontmatter_fence`; P1/P2/P3 at the five writers; `_get_body_content`; `_known_companies` narrowing | HAL9000, exocortex |
+| `obsidian_schemas/identifier.py:67-68` | `IdentifierError.__init__`'s message routes through `bounded_message` and drops the `(raw={raw!r})` suffix — the one pre-existing note-content interpolation the M3 sweep surfaces; `.kind`/`.raw`/`.detail` unchanged | WI-125's identity engine; `tests/test_identifier.py` (bare `pytest.raises`, no message assertion) |
+| `obsidian_schemas/__init__.py:40-45, 105-109` | export all **six** error classes, enumerated in Design/Data model | consumers |
+| `tests/derivations.py` | **NEW** — the shared scan module | all seven checks |
+| `tests/test_writer.py:235-242` | **existing test revised** — P4 turns this `False` into a raise | the floor |
+| `tests/test_repositories.py:1088-1102` | **existing test revised** — P2 turns this `False` into a raise | the floor |
+
+**Two existing floor tests assert today's silent behaviour at sites a frozen AC changes, and must be revised in place — not deleted, not skipped.** `test_update_nonexistent_file` (test_writer.py:235-242) asserts `update_frontmatter_field("/nonexistent/file.md", …)` is falsy; AC-5's Predicate 4 moves that site to the raise side, so the test becomes `with pytest.raises(FileNotFoundError):` and keeps its name. `test_append_to_body_section_no_frontmatter_fence_returns_false` (test_repositories.py:1088-1102) asserts the no-fence branch returns `False`; AC-5's Predicate 2 moves it to the raise side, so it becomes `with pytest.raises(FrontmatterParseError):` and is **renamed** `test_append_to_body_section_no_frontmatter_fence_raises` — the only rename in the plan, because the old name would then assert the opposite of what it says. Both are required by a frozen AC, so revising them is compliance, not weakening; the pre-existing case count is unchanged at 607.
+
+### Configuration
+
+None. No new setting, threshold, toggle, env var or feature flag. The skip surface is always on and always populated; no shadow mode is proposed and the Architectural Review records why none is needed (a bad landing degrades to a noisy startup, not to a corrupted vault). `pyproject.toml` is unchanged — the Hypothesis dependency ruled out by Decision 2 is the only candidate this item had.
+
+### Prerequisites & Assumptions
+
+Stated explicitly; none is left implicit.
+
+- **No service must be running.** The package is a library; the whole suite is hermetic and constructs every fixture in `tmp_path`. HAL9000 and exocortex are *consumers*, not prerequisites, and neither is importable from this tree.
+- **No env var must be set.** `OBSIDIAN_VAULT_PATH` is deliberately *not* relied on: every repository in every new test is constructed with an explicit `vault_path=tmp_path`, which is the WI-024 contract (`_resolve_vault_path`, base.py:64-74) and what keeps the floor hermetic and cwd-independent.
+- **No credentials, OAuth scopes or permissions.** The item performs no network I/O and no privileged filesystem operation.
+- **Required state:** none. No prior work item must land first; WI-024 is already done and its two reroutes are folded here (AC-6 and the surfacing half).
+- **Interpreter:** the floor command is absolute and cwd-independent — `/Users/davewascha/Workspaces/obsidian-schemas/.venv/bin/python -m pytest <repo>/tests -q`. Inside a build worktree, use that worktree's own path. System python has no pytest.
+- **The stale editable install is load-bearing and must not be "fixed".** `_obsidian_schemas.pth` points at a dead path so a bare `import obsidian_schemas` fails; the suite works because pytest prepends its rootdir. `tests/derivations.py` is imported *by tests*, under that same prepend, which is why it needs no `conftest.py` and no packaging change.
+- **Trust boundary:** exactly one, and it is the point of the item. Untrusted input is the *content of a note on disk* — arbitrary bytes Dave or any other tool may have written, entering the package at `Path.read_text` in `parse_markdown_file` (parser.py:173), `roundtrip_file` (writer.py:316), `update_fields` (base.py:311), `write_markdown_file`'s guard (writer.py:186-188), and person.py's five writers. Everything downstream of `parse_frontmatter` is trusted-shaped, and the defect class is that today the boundary hands trusted-shaped values back for untrusted-shaped input. There is no escaping or sanitisation obligation — nothing is rendered into HTML, a shell, or a query — only a classification obligation.
+- **Assumed and checked at build start rather than trusted:** the four counts the Data Audit flagged as exposed to rot (predicates 2, 5, 7 and 8 — `parse_frontmatter`'s exit sites, the 4-classes/3-implementations asymmetry, the 28-site falsy universe, the zero-`ast` tree). Task 1 re-runs them before any test is written.
+- **Assumed:** `pytest`'s `caplog`, `monkeypatch` and `tmp_path` fixtures are available. They are built in; the suite already uses `tmp_path` throughout.
+
+### Acceptance Criteria — refined in place, with a zero-length diff (Check 12)
+
+The frozen set carries real bare test-function identifiers in every `check:`, `kind: test` on all seven, and 27 rounds of hardening. There is nothing left for this spec to refine that would not be a rewrite, so **no byte inside `## Acceptance Criteria` is edited and the `ac-signoff` hashes stay valid.** Three readings this spec commits to are recorded here rather than folded into a fence, because each is an implementation consequence and none changes a promise:
+
+1. **AC-2's "return sites", post-fix, means exit sites (`Return` ∪ `Raise`).** The fix converts two of `parse_frontmatter`'s four `return` statements into raises; AC-2 already states five is a baseline rather than the answer and requires the scan run against post-fix source. Keying to `Return` alone would leave two outcome classes with no site — the round-14 defect exactly. The site/class non-bijection the AC exists to protect survives untouched (4 exit sites, 5 classes).
+2. **AC-7's "six exports" is a required subset, not a cardinality bound.** AC-5 and AC-2 separately require two further scans be defined in the same module; AC-7 asserts six named callables resolve to six distinct objects homed there and says a seventh derivation extends the list.
+3. **AC-5's 28-site universe is evaluated against post-fix source.** The AC says so; the fix removes sites (P2's eight collapse into one raising helper, P3's dead guard is deleted) and adds one (P3's accommodation branch), so the post-fix count is neither asserted nor expected to be 28.
+
+None of the three weakens, narrows, actor-swaps, oracle-swaps or exception-carves. The one AC-adjacent judgment that *could* have gone the other way — Decision 2's ruling against Hypothesis — is recorded above with the evidence that no fence rests on it.
+
+## Edge Cases & Open Questions
+
+**Empty / null / malformed input**
+
+- **Case:** frontmatter is absent (no leading `---`). **Decision:** unchanged everywhere — `({}, content)`, every write path still succeeds byte-for-byte as today. **Reasoning:** AC-1 quantifies the absent-must-succeed half over the *same* derived four-path list as its raise half, precisely so a fix cannot over-shoot; `update_fields` on a freshly-created stub and `roundtrip_file` on a frontmatter-less note both depend on it.
+- **Case:** the fence is present but empty (`---\n---\n`). **Decision:** unchanged — `safe_load` returns `None`, normalised to `{}` at parser.py:74-75, falls through the valid return. **Reasoning:** a legitimately empty frontmatter block is not a failure.
+- **Case:** the fence is opened and never closed. **Decision:** malformed → `FrontmatterParseError`. **Reasoning:** in Design/Flow §1 — the package already classifies it that way at person.py:1564-1570, and AC-2 requires the classification be made rather than defaulted.
+- **Case:** a note whose *body* legitimately opens with a `---` thematic break, or whose frontmatter uses CRLF line endings (the regex at parser.py:68 requires `\n`). **Decision:** both are classified malformed; reads surface them, writes refuse. **Reasoning:** and this is why it is safe — both are *already* invisible today. `parse_frontmatter` returns `({}, content)`, `parse_to_model` gets an empty dict and short-circuits at parser.py:123-124, so `_load_file` returns `None` and the note is not in the cache. The change turns an existing silent loss into an actionable one, and stops the write paths corrupting it. Recorded in Risk Analysis as the one user-visible surprise.
+- **Case:** frontmatter parses to a non-dict (`---\n- a\n- b\n---`, a YAML list). **Decision:** not this item's; `parse_to_model` short-circuits at 123-124 on any falsy value and `.get` on a list raises `AttributeError` for a truthy one, which `_load_file`'s broad `except` catches and `_note_skip` records as `"unreadable"`. **Reasoning:** it lands in a defined bucket without a new branch; manufacturing a fifth outcome class for it would violate AC-2's derived site map.
+- **Case:** a note whose frontmatter parses but has no `type` key, or a foreign type. **Decision:** never raises, never enters the skip surface. **Reasoning:** forced by AC-2's THIRD CASE and by the failures-not-non-matches rule; a `@Reading List.md` index note is not a broken person, and a surface that cries wolf fails the same way the unread DEBUG line fails.
+
+**Race conditions / concurrent access**
+
+- **Case:** a note is edited out-of-band between `load()` and a write. **Decision:** unchanged behaviour class — the write re-reads from disk (base.py:311, writer.py:246/285/316, person.py:1473/1555/1672/1731/1798) and now refuses if what it reads is malformed, leaving the file untouched. **Reasoning:** this is the existing `test_append_to_body_section_no_frontmatter_fence_returns_false` scenario (test_repositories.py:1088-1102), whose direction this item reverses from silent-`False` to loud; no locking is introduced and none is in scope. There is no read-modify-write atomicity guarantee here today and this item does not add one — WI-004 (atomic write primitive) owns that and depends on this floor.
+- **Case:** two repositories over one vault both populate a skip surface. **Decision:** each instance owns its own `_skipped` list, cleared per `load()`. **Reasoning:** the surface is per-repository by construction (AC-3 requires `PersonRepository` and `CompanyRepository` be independently instantiated and independently asserted); no shared state, no ordering dependence.
+
+**External dependency failure**
+
+- **Case:** the vault path does not exist. **Decision:** unchanged — `load()` warns and returns 0 (base.py:152-155), skip surface empty. **Reasoning:** the surfacing half of WI-024's reroute #2 is the *skip list*, which this item delivers; the write-side `mkdir(parents=True)` bogus-tree guard is Non-goals, routed to WI-004, and the Architectural Review's note 3 recommends treating that routing as the standing answer. This spec does.
+- **Case:** a note is unreadable (permission denied, `IsADirectoryError`, undecodable bytes). **Decision:** read paths record it as `reason="unreadable"` and continue; `write_markdown_file`'s guard raises `UnverifiableBodyError`; the other write paths raise `WriteFailedError` via P1 or propagate the `OSError`. **Reasoning:** AC-4 requires the guard's fixture (b) explicitly; the loaders' broad `except` is the NO-ABORT guarantee.
+
+**First-run vs subsequent-run**
+
+- **Case:** the first `load()` versus a re-`load()`. **Decision:** `_skipped` is cleared at the top of `load()` beside the cache clears (base.py:149-150), so the list is a snapshot of the most recent load, never cumulative. **Reasoning:** a growing list would make `skipped_count` meaningless after `_ensure_loaded` fires twice.
+- **Case:** `update_fields`' post-write reload (base.py:332) calls `_load_file` outside any `load()`. **Decision:** it may append to `_skipped`, and that is correct — the note genuinely failed to load, and the caller additionally gets the `ValueError` at 334. **Reasoning:** the contract is "every `_load_file` skip is recorded; `load()` resets"; stated so a builder does not add a suppression flag.
+
+**Migration / backfill**
+
+- **Case:** existing vaults. **Decision:** none needed — no on-disk format changes, no schema migration, no backfill. **Reasoning:** the item changes control flow at parse/write boundaries only. The one operational consequence is that a vault containing malformed notes will start logging WARNINGs and populating a skip list on first load after upgrade, which is the intent.
+
+**Idempotency**
+
+- **Case:** re-running any changed path. **Decision:** all are idempotent. A refused write writes nothing, so re-running refuses identically. `append_to_timeline`'s accommodation is explicitly asserted idempotent by AC-5: a second call with the same `deduplicate_key` returns the frozen dedup `False` and the note holds exactly one `## Timeline` section. **Reasoning:** the dedup check at person.py:1476 is whole-file and runs before the marker check, so the created section is seen on the second pass.
+
+**Retry semantics**
+
+- **Case:** transient versus permanent failure. **Decision:** the package does not retry and this item adds none. `WriteFailedError` carries the original as `__cause__` so a caller can decide; `FrontmatterParseError` and `SchemaDriftError` are permanent by nature (the note must be fixed). **Reasoning:** retrying a write whose input did not parse would re-run the corruption attempt.
+
+**Partial failure**
+
+- **Case:** a batch load where note 3 of 400 is bad. **Decision:** the other 399 load, the bad one is WARNed and listed, the batch never aborts — asserted per class across all twelve cells of AC-3, because `load()`'s loop (base.py:157-165) has no `try` of its own and each `_load_file`'s `except` is the entire margin. **Reasoning:** the HAL9000-startup regression is the constraint that killed approach A3-alone.
+- **Case:** a mutation that fails midway. **Decision:** cannot occur in the paths this item touches for the *parse* failure mode — every one of the four write paths parses before it writes, so a refusal happens before any byte is written. A failure *during* `write_text` (disk full, torn write) now raises `WriteFailedError` instead of returning `False`, which is N4's whole point. **Reasoning:** true single-write atomicity is WI-004's, not this item's.
+
+**Error propagation**
+
+- **Case:** what an existing caller sees. **Decision:** every new error is a `ValueError` subclass except the two `FileNotFoundError`s at writer.py:242-243/281-282, so a consumer's existing `except ValueError` still catches and the break degrades to a message change. Every legitimate no-op returns the exact value it returns today, so an existing `if not repo.append_to_body_section(...)` branch keeps its current meaning. **Reasoning:** AC-5's backward-compat half; the net contract change is one-directional — only a silent data-loss becomes loud.
+- **Case:** the public parse surface. **Decision:** the six residue members propagate the typed error on malformed input and keep today's exact returns for absent frontmatter and unknown/foreign types. **Reasoning:** AC-2's invocation-surface clause; `test_parse_person_wrong_type` (tests/test_parser.py:265-273) is a live floor case asserting the foreign-type `None` and must keep passing untouched.
+
+**Trust boundary crossings** — enumerated in Prerequisites & Assumptions. One boundary (note bytes → typed values) and **two** obligations, the second added by this revision after the threat model: classify rather than silently normalise, and **bound what crosses back out in a diagnostic**. There is still no escaping or sanitisation surface — nothing is rendered into HTML, a shell or a query — but there is now a disclosure surface that does not exist today, and it needs its own cases.
+
+- **Case:** a malformed note's own bytes travel out in an error message. **Decision:** they do not. Every message in the package is built by `errors.bounded_message`, which admits the path, the declared type, the exception's class name, and — for the two shapes that carry one — a line/column or a field path. Never `str(cause)`, never Pydantic's `input`. **Reasoning:** Threat Model M1. Today `parser.py:78` and `148` bind no exception object at all, so this channel is created by the fix; the failing values are frontmatter fields, which on a person note are emails and phone numbers. The bound is a construction rule rather than a per-site caution because a caution at seven sites is seven chances to drift.
+- **Case:** an exception type nobody enumerated reaches a message — a `RecursionError`, a C-extension error, something a future PyYAML raises. **Decision:** `bounded_cause` matches neither `getattr` and returns the class name alone. **Reasoning:** the unenumerated case must fail LOUD-but-bounded rather than pass by assumption; a dispatch table would have had a default branch to get wrong, and the fall-through has one answer.
+- **Case:** the diagnostic is too thin to act on — a `SkippedNote` saying `"unreadable; path=…; cause=OSError"`. **Decision:** accepted, deliberately. **Reasoning:** the path is always present, so Dave can open the note; the alternative is rendering the note into a log line that HAL9000 may surface. Round 25's rule applies — an AC that names its edge beats one that stretches a marker; this is the same trade at the message layer.
+- **Case:** a note forges the message's structure — a `type` value containing `; path=/etc/passwd`. **Decision:** `declared_type` is `!r`-quoted, so the injected separator lands inside the quotes and the field is one token. **Reasoning:** the only note-derived value admitted to a message is `declared_type`, and this is the one thing it could do.
+
+**OPEN: None.**
+
+## Implementation Plan
+
+Ordered by dependency; a builder can follow top-to-bottom. Tasks 11–17 (the seven checks) are independent of each other once Task 10 lands and may be done in any order, but not before it. Every verify command below uses the floor interpreter with absolute paths — substitute the build worktree's own root for `<REPO>`:
+
+```
+<REPO>/.venv/bin/python -m pytest <REPO>/tests -q
+```
+
+- [ ] **Task 1 — Baseline and premise re-derivation.** Run the floor and record the count; it must be **607 passed, exit 0**. Fewer without explanation means a test file has silently vanished — stop and investigate. Then re-run the four Data-Audit predicates the fix itself moves or that a later item could quietly invalidate, and record the answers in the build notes: (2) `parse_frontmatter`'s exit sites — expect `return` at parser.py 65, 70, 77, 80; (5) four concrete repositories over three `_load_file` implementations (`base.py:171`, `meeting.py:64`, `book.py:57`) sharing `@*.md` (base.py:132-135); (7) the 28-site falsy universe (writer.py 243/260/282/299 + person.py's 22 `return False` + the two non-`False` members at person.py 1617 and 1626); (8) zero `ast` references anywhere under `obsidian_schemas/`, `tests/` or `scripts/`.
+
+  Then, on the same interpreter, run the **error-render probe** that sizes M1's bound (the threat-modeler's note 4 — no shell existed at that gate, so the two message shapes were stated from library semantics and never observed). Record all four answers in the build notes:
+
+  Run it **from `<REPO>`**, so the repo root is `sys.path[0]` — the editable install is stale by design (CLAUDE.md), which is why this is the one verify in the plan that is not cwd-independent:
+
+  ```
+  cd <REPO> && <REPO>/.venv/bin/python - <<'EOF'
+  import yaml
+  from obsidian_schemas.models import Person
+  try:
+      yaml.safe_load("a: b: c\n")          # the stray unquoted colon, as in the replay
+  except yaml.YAMLError as e:
+      print("YAML class:", type(e).__name__)
+      print("YAML has problem_mark:", hasattr(e, "problem_mark"),
+            getattr(getattr(e, "problem_mark", None), "line", None),
+            getattr(getattr(e, "problem_mark", None), "column", None))
+      print("YAML str() renders:", repr(str(e)))
+  try:
+      Person.model_validate({"type": "person", "name": "X", "emails": "not-a-list"})
+  except Exception as e:
+      print("Pydantic class:", type(e).__name__)
+      print("Pydantic errors():", [{k: d.get(k) for k in ("loc", "type")} for d in e.errors()])
+      print("Pydantic str() renders:", repr(str(e)))
+  EOF
+  ```
+
+  What the probe is *for*: confirming that `bounded_cause` (Design/Data model) has the two attributes it projects — `problem_mark.line`/`.column` on the YAML error, `loc`/`type` per entry from `ValidationError.errors()` — and confirming by eye that the two `str()` renderings are the disclosure M1 bounds (the YAML one echoes the offending source line; the Pydantic one contains `input_value=`). **If either shape has drifted, this is not a blocker and must not be treated as one:** `bounded_cause` falls through to the class name, so the bound holds and only the diagnostic's usefulness degrades. Record what it printed and carry on. It is only predicate (8) whose drift stops the build.
+
+  Finally, record the **pre-fix baseline for Task 18's sweep C** so the close-out has a diff to reconcile against rather than a bare number. Run the sweep-C heredoc **exactly as written in Design/Data model, "What the sweep at Task 18 enforces"** (copy it verbatim; it is a heredoc and is never written to a file, so it does not touch AC-7's `ast` single-homing) and save its full output to the build notes. Two expectations that make the baseline self-checking rather than a number to trust:
+
+  - `identifier.py:68: ['detail', 'kind', 'raw']` **must** appear — that is the one pre-existing out-of-bound interpolation, and Task 2 removes it. If it is absent, either the heredoc was mis-copied or `identifier.py` has already been changed; reconcile before proceeding.
+  - The eight `{e}` sites (base.py:182, meeting.py:82, book.py:78, person.py 1501/1605/1703/1776/1838) **must** each appear with `e` among their names. Note that person.py:1605 appears here even though the line-based sweeps A and B miss it — its `logger.warning(` opens on 1604 — which is exactly why C reads syntax rather than lines.
+
+  If either expectation fails, the tree has drifted since this spec was written: record what it actually is and carry on, because it is Task 18's *property* assertion that is load-bearing and the baseline exists only to make the post-fix delta walkable. It is only predicate (8) whose drift stops the build.
+
+  **Verify:** the floor is green at 607, all four predicates match, the probe's four answers are recorded, and sweep C's baseline output is saved to the build notes with both expectations above confirmed. If (8) has drifted, stop — AC-7 is not satisfiable as written and the item needs Dave.
+
+- [ ] **Task 2 — Add the exception hierarchy and the message-construction helpers.** Create `obsidian_schemas/errors.py` with `LoudFailError`, `NoteParseError` (carrying `path` and `declared_type`, and building its own message), `FrontmatterParseError`, `SchemaDriftError`, `UnverifiableBodyError`, `WriteFailedError`, **plus `bounded_message`, `bounded_cause` and `bounded_detail`**, exactly as in Design/Data model. The three helpers are the only place in the package permitted to read a caught exception or note content into a message (Threat Model M1/M2/M3 — see Design/Data model for the precise form of that claim, which is narrower than "the only message-construction site" and is what the Task 18 sweep enforces). They are duck-typed rather than `isinstance`-checked so that `errors.py` keeps importing nothing — not `yaml`, not `pydantic`, not the rest of the package. Export **all six classes, by this enumeration and not by a count** — `LoudFailError`, `NoteParseError`, `FrontmatterParseError`, `SchemaDriftError`, `UnverifiableBodyError`, `WriteFailedError` — from `obsidian_schemas/__init__.py` (import block beside writer's at 40-45; `__all__` beside 105-109). Both non-leaves are exported deliberately: `LoudFailError` is the package-wide base and `NoteParseError` is the one `except` that catches both parse failures without catching a write failure (Design/Data model, "The export set"). The three helpers stay module-private to the package and are **not** exported, since they are an internal construction rule rather than a consumer API.
+
+  **Then route the one pre-existing note-content interpolation in the package through the new helper.** In `identifier.py:67-68`, `IdentifierError.__init__`'s `super().__init__(f"{kind}: {detail} (raw={raw!r})")` becomes `super().__init__(bounded_message(f"{kind}: {detail}"))` — the `(raw={raw!r})` suffix is dropped — with `from obsidian_schemas.errors import bounded_message` added to `identifier.py`'s imports. That import direction is safe and is the whole reason `errors.py` is a leaf: it imports nothing from the package, so `identifier.py → errors.py` cannot cycle. Leave `self.kind`, `self.raw` and `self.detail` exactly as they are: the carry-the-strings pattern the class documents at identifier.py:61-64 is how a caller gets `raw` without it being in the message, and it is unchanged. This is the site Threat Model M3's widened sweep finds at Task 18 (Design/Data model, "What the sweep at Task 18 enforces"), and it is fixed here rather than carved out so that Task 18's verify is true rather than aspirational. It is bounded: `kind` and `detail` are literals at all 21 raise sites (identifier.py 137-417), and no test asserts the message text — every `IdentifierError` assertion in `tests/test_identifier.py` is a bare `pytest.raises` (56, 95, 115, 142, 171, 203, 222, 250). `name_validation.py:135` is the sibling shape and is **not** touched: both of its interpolands are source literals, so it already complies.
+
+  **Verify:** floor still 607 green — in particular `tests/test_identifier.py` passes unchanged, which is the check that the `identifier.py` edit is contract-preserving. Then run from `<REPO>` — `.venv/bin/python -c "from obsidian_schemas.errors import FrontmatterParseError as E, bounded_cause; assert issubclass(E, ValueError); assert bounded_cause(UnicodeDecodeError('utf-8', b'\xff', 0, 1, 'invalid')) == 'UnicodeDecodeError'"` — the second assertion is the M1 bound at its simplest: an error whose `str()` carries note bytes reduces to its class name. Then, from `<REPO>`, the `identifier.py` bound demonstrated rather than asserted:
+
+  ```
+  cd <REPO> && <REPO>/.venv/bin/python - <<'EOF'
+  from obsidian_schemas.identifier import Email, IdentifierError
+  try:
+      Email.parse("SENTINEL-a1b2c3-not-an-email")     # no '@' → identifier.py:156
+  except IdentifierError as e:
+      assert "SENTINEL" not in str(e), str(e)          # out of the message
+      assert e.raw == "SENTINEL-a1b2c3-not-an-email"   # still on the attribute
+      print("identifier bound OK:", str(e))
+  EOF
+  ```
+
+  Finally, confirm the six exports resolve: `.venv/bin/python -c "import obsidian_schemas as o; [getattr(o, n) for n in ('LoudFailError','NoteParseError','FrontmatterParseError','SchemaDriftError','UnverifiableBodyError','WriteFailedError')]"`.
+
+- [ ] **Task 3 — The seam: `parse_frontmatter` raises, `parse_to_model` decides ownership, both with bounded messages (M1).** In `parser.py`: replace the returns at 69-70 and 78-80 with the two `FrontmatterParseError` raises from the construction table in Design/Data model (`"frontmatter fence opened but never closed"`, and `"frontmatter did not parse as YAML"` with `cause=e` — so bind the exception, which line 78 does not today); leave 64-65 and 72-77 untouched. Add the ownership rule to `parse_to_model` per Design/Flow §2, using `model_class.model_fields.get("type")` and `.default` as the comparand, raising `SchemaDriftError("note declares our type and failed validation", path=path, declared_type=declared, cause=e)` only for owned-and-drifted. Add the keyword-only `path: Optional[Path] = None` parameter to both functions and pass `path=file_path` from `parse_markdown_file` (171-176) only — `parse_markdown_content` holds no path and the four write paths are not edited (Design/Data model, "How `path` reaches the seam"). Update the `Raises:` docstrings of `parse_frontmatter`, `parse_markdown_file` (167-169) and `parse_markdown_content`.
+
+  **This is Threat Model M1's landing site, and it is a substantive obligation, not a note:** every message built here comes from `errors.bounded_message`, so no `f"...{e}"` and no `str(e)` appears anywhere in `parser.py`. What reaches a message from the caught exception is exactly what `bounded_cause` projects — class name, plus `problem_mark.line`/`.column` for the YAML error or `loc`/`type` per entry for the Pydantic one. Never the `MarkedYAMLError` source snippet, never Pydantic's `input`/`input_value`. Task 1's probe recorded what the two `str()` renderings actually contain on this interpreter; that is the thing being kept out.
+
+  **Verify:** the floor is **green at 607** — nothing is expected to fail at this point. Both tests Tasks 5 and 6 revise still pass *in their current form* here: `test_update_nonexistent_file` returns at writer.py:242-243 before any parse, and `test_append_to_body_section_no_frontmatter_fence_returns_false` writes content with no leading `---` (test_repositories.py:1100) so it exits at person.py:1558 without reaching the seam. They move only when their own site does, at Tasks 5 and 6. **Any test going red here is a signal, not an expectation** — most likely the fix over-shot onto absent frontmatter — and must be investigated before proceeding, not accommodated. In particular `tests/test_parser.py::TestParsePerson::test_parse_person_wrong_type` must still pass: the foreign-type `None` is unchanged. Additionally, grep `parser.py` for `{e}` and `str(e)` and confirm zero matches.
+
+- [ ] **Task 4 — C3: the body-shrink guard refuses when it cannot verify.** In `writer.py:184-195`, delete `existing_body = ""` and replace the bare `except Exception` with `except (FrontmatterParseError, OSError, UnicodeDecodeError) as e: raise UnverifiableBodyError(bounded_message(...)) from e`, taking the message from Design/Flow §5 — built by the helper, not by an f-string, so the `({e})` the earlier draft interpolated (a `MarkedYAMLError` snippet or a `UnicodeDecodeError` byte-run) never lands in it. **Verify:** floor green; `tests/test_wi126_body_preservation.py` passes unchanged.
+
+- [ ] **Task 5 — N4 in `writer.py`: P4 and P1.** Replace the `return False` at 242-243 and 281-282 with `raise FileNotFoundError(f"File not found: {file_path}")`. Replace the blanket handlers at 259-260 and 298-299 with the two-clause P1 shape (`except LoudFailError: raise` then `except Exception as e: … raise WriteFailedError(...) from e`). **These two sites have no existing log message to preserve** — read live, both are bare `except Exception: return False` with no logging at all — so they take the new `logger.warning(bounded_message("write did not complete", path=file_path, cause=e))` line from Design/Flow §6 verbatim; do not go looking for a message to keep. `WriteFailedError`'s own message is built by the same helper, never by an f-string interpolating `{e}`. Revise `tests/test_writer.py::test_update_nonexistent_file` (235-242) to `pytest.raises(FileNotFoundError)`, keeping the name. **Verify:** floor green; the revised test passes.
+
+- [ ] **Task 6 — N4 in `person.py`: the shared fence split (P2).** Add the module-level `_split_frontmatter_fence(content, file_path)` helper per Design/Flow §6. Route all four writers through it (person.py 1558-1570, 1675-1683, 1734-1742, 1801-1809), each keeping its existing `body_raw.lstrip("\n")` and its existing re-assembly. Route `_get_body_content` (1622-1626) through it too, keeping `return content` for the genuinely fence-less case and `body_raw.strip()` for the split case. Rename and revise `tests/test_repositories.py::test_append_to_body_section_no_frontmatter_fence_returns_false` (1088-1102) → `test_append_to_body_section_no_frontmatter_fence_raises`, asserting `pytest.raises(FrontmatterParseError)`. **Verify:** floor green; `tests/test_repositories.py -k to_discuss` all pass — the item-not-found and section-absent no-ops at 1746-1747, 1759-1761, 1813-1814 and 1822-1824 still return `False`.
+
+- [ ] **Task 7 — N4 in `person.py`: the Timeline accommodation (P3) and the five P1 handlers.** Replace `append_to_timeline`'s marker-absent `return False` (1482-1484) with the string-insertion accommodation per Design/Flow §6, appending `## Timeline` plus the formatted entry at end of file and returning `True`. Delete the structurally-dead split guard at 1491-1492. Leave the dedup no-op at 1476-1478 exactly as it is. Apply the two-clause P1 shape to the five `except Exception` handlers at 1500, 1603, 1702, 1775, 1837.
+
+  **All five WARNINGs are REBUILT from `bounded_message` — none is kept as it stands.** This reverses what the previous revision of this task ordered, and the reason is in Design/Flow §6: read live, those five are `logger.warning(f"Failed to update timeline for {person.name}: {e}")` (1501) and its siblings at 1605, 1703, 1776, 1838, every one an `{e}` interpolation of the caught exception — and because P1's first clause re-raises `LoudFailError`, the exception that reaches them is always a *foreign* one, including the `UnicodeDecodeError` whose `str()` is a byte snippet of the note. Keeping them would have been a live M1/M2 channel and would have made Task 18's sweep return six matches where its verify claims one. Take each site's `reason` literal from Design/Flow §6's table, verbatim:
+
+  | Site | Post-fix WARNING |
+  |---|---|
+  | 1500 | `logger.warning(bounded_message("failed to update timeline", path=file_path, cause=e))` |
+  | 1603 | `logger.warning(bounded_message("failed to append to body section", path=file_path, cause=e))` |
+  | 1702 | `logger.warning(bounded_message("failed to add To Discuss item", path=file_path, cause=e))` |
+  | 1775 | `logger.warning(bounded_message("failed to update To Discuss item", path=file_path, cause=e))` |
+  | 1837 | `logger.warning(bounded_message("failed to remove To Discuss item", path=file_path, cause=e))` |
+
+  The level stays `logger.warning` at all five, `file_path` is already bound before each `try` (1468/1550/1667/1726/1793), and `person.name` leaves the message — it is in-bound but `reason` is specified as a source literal, and `path=file_path` identifies the note more precisely anyway. Then add `raise WriteFailedError(bounded_message("write did not complete", path=file_path, cause=e)) from e` beneath each. Leave the `logger.info` and `logger.debug` lines in these functions alone (1477, 1483, 1497, 1699, 1760, 1772, 1823, 1834): they interpolate `person.name`, `deduplicate_key` and `text[:50]`, all in-bound — the first by ruling, the other two because they are caller-supplied arguments on the trusted side of the boundary, not values read off a note.
+
+  **Verify:** floor green; `tests/test_repositories.py -k timeline` all pass — in particular `test_append_to_timeline_deduplication` (930-948), whose second call must still return `False`. Then grep `repositories/person.py` for `{e}` and `str(e` and confirm **zero** matches — the five that exist today are exactly the five this task rebuilds.
+
+- [ ] **Task 8 — C4: the repository skip surface, with bounded detail (M2).** In `repositories/base.py`: add `SkippedNote`, `_skip_reason`, `_owns`, `_note_skip`, the `_skipped` list in `__init__` (beside 116-118), its clear in `load()` (beside 149-150), and the `skipped_notes` / `skipped_count` properties. Replace the `logger.debug` handler bodies in all three `_load_file` implementations (base.py:181-183, meeting.py:81-83, book.py:77-79) with `self._note_skip(file_path, e)`, keeping each `except Exception` broad.
+
+  **This is Threat Model M2's landing site.** `_note_skip` computes `detail = bounded_detail(error)` **once** and interpolates `detail` — never `error` — into all three of its outputs: the WARNING line, `SkippedNote.detail`, and the not-ours DEBUG line (Design/Flow §3). `SkippedNote.detail` is a public field on a public dataclass, and the three consumers that read it (HAL9000, exocortex, orchestrator) are outside this repo's hermetic floor and may render it into a user-facing surface, so the bound has to hold at construction rather than at use. The bucket M2 names explicitly is the generic one: a note that is not valid UTF-8 reaches here as a `UnicodeDecodeError` whose `str()` renders a byte snippet of the note, and `bounded_detail` reduces it to `"UnicodeDecodeError"` with the file named by `SkippedNote.path`.
+
+  **Verify:** floor green; a scratch check (run from `<REPO>`) that a vault holding one malformed `@X.md` plus one good `@Y.md` gives `PersonRepository.load() == 1` and `skipped_count == 1`, and that `BookRepository` over the same vault gives `skipped_count == 0`. In the same scratch check, write `@X.md` with a frontmatter value that is a recognisable secret-shaped literal (e.g. `notes: "SENTINEL-a1b2c3: value"` inside a stray-colon fence so the YAML fails) and assert that literal appears in **neither** `skipped_notes[0].detail` nor the captured WARNING — that is M2 demonstrated rather than asserted. Then grep `repositories/base.py` for `{error}` and `str(error)` and confirm the only match is inside `bounded_detail`'s own `LoudFailError` branch in `errors.py`.
+
+- [ ] **Task 9 — AC-6: narrow `_known_companies`.** In `person.py:1156`, `except Exception:` → `except ImportError:`, message unchanged. **Verify:** floor green; `tests/test_name_cleaning.py` and `tests/test_resolve_or_create.py` pass unchanged.
+
+- [ ] **Task 10 — The shared scan module.** Create `tests/derivations.py` with the nine exports in Design/The test harness, roots derived from `Path(__file__).resolve().parent.parent`, source-stable site identity, and `modules_using_ast` reading the marker off parsed syntax. It is the only file under `obsidian_schemas/` or `tests/` permitted to name `ast`. **Verify:** floor green (pytest must not collect it — `pyproject.toml:42` collects `test_*.py`); `.venv/bin/python -c "from tests.derivations import *"` from the repo root; and each of the six AC-7 names resolves to a distinct function object.
+
+- [ ] **Task 11 — AC-1's check.** Write `test_no_mutation_writes_through_failed_parse` in `tests/test_loud_fail_parse.py`. It imports `python_files_under`, `functions_parsing_then_writing`, `functions_reserializing_parsed_frontmatter` and their set difference from `tests.derivations`, asserts each binding's `__module__` is the shared module's, computes the write set over `python_files_under(PACKAGE_ROOT)`, asserts it equals exactly the four members it parametrizes, asserts `write_markdown_file` is **reached by the traversal and rejected by the data-flow predicate** as an explicit negative case, then for each of the four asserts (raise half) that a malformed-YAML note makes the call raise a `ValueError` subclass and leaves the file's bytes identical to what the test wrote, and (absent half, over the same list) that a fence-less note makes none of the four raise and each behaves as documented. **Verify:** the check passes; deleting any one of the four members from the package makes it red.
+
+- [ ] **Task 12 — AC-2's check.** Write `test_parse_boundaries_distinguish_failure_from_empty` in `tests/test_loud_fail_parse.py`. Three parts. (i) `parse_frontmatter`: scan post-fix exit sites via `parse_frontmatter_exit_sites`, check them against an in-test map keyed by source-stable identity where a site may carry more than one outcome class, exercise each of the five classes with its own input, and assert malformed never returns a legitimate case's value. (ii) `parse_to_model`: three named fixtures asserted in one test at a caller-forced call site — owned-and-drifted raises `SchemaDriftError`, well-formed foreign returns `None`, absent-`type`-with-a-drifted-field returns `None`. (iii) the closure: compute `seam_invocation_closure` with the stop set assembled from AC-1's data-flow set (functions), AC-3's subclass scan resolved through the MRO and deduplicated, and AC-4's guard taken as the set difference; assert each contribution non-empty and inside the closure, assert the three plus the residue partition it exactly in both directions, and assert each of the six residue members propagates the typed error on malformed input while keeping today's returns for absent frontmatter and foreign types.
+
+  **Then, in the same module, a second test that is not an AC check but the regression for Threat Model M1: `test_seam_errors_carry_bounded_diagnostics`.** Oracle derivation (WI-149): the test writes the fixtures, so it holds the exact sentinel literals it planted and asserts on those, never on a substring of a library message it did not write. (i) Build a note whose frontmatter is a stray-colon fence containing a unique sentinel value the test generated — e.g. `notes: "SENTINEL-<n>: v"` — call `parse_markdown_file` on it, catch the `FrontmatterParseError`, and assert the sentinel is **not** in `str(error)`, while the note's path **is** and the string contains `"ScannerError"`-or-whatever `type(error.__cause__).__name__` is (read off the caught object, not hardcoded). (ii) Build an owned-and-drifted note whose failing field's *value* is a second sentinel, catch the `SchemaDriftError`, and assert that sentinel is absent from `str(error)` while the failing field's **name** is present. (iii) Assert `bounded_cause(UnicodeDecodeError(...))` is exactly the class name — the fall-through that makes the rule total for exception types nobody enumerated.
+
+  **Verify:** both tests pass; the closure returns 14 and the residue 6; and reverting `parser.py`'s raises to an f-string interpolating `{e}` makes `test_seam_errors_carry_bounded_diagnostics` red on the sentinel.
+
+- [ ] **Task 13 — AC-3's check.** Write `test_batch_load_survives_and_surfaces_only_owned_bad_notes` in `tests/test_loud_fail_load.py`. Derive the class list with `base_repository_subclasses(python_files_under(PACKAGE_ROOT))` (AST over source, never `__subclasses__()`), assert its `__module__` is the shared module's, assert the discovered set equals exactly the keys of the twelve-cell map, build one heterogeneous `tmp_path` vault per class from that class's own `file_pattern`, and assert all twelve cells with their non-uniform answers plus NO-ABORT on every one — the other notes still load and `load()` never propagates. Assert the WARNING level via `caplog`.
+
+  **Then, in the same module, a second test that is not an AC check but the regression for Threat Model M2: `test_skip_surface_detail_is_bounded`.** Same oracle rule — the test plants the sentinels and asserts on those. Build a `tmp_path` vault holding three `@*.md` notes the test wrote: one with a malformed fence carrying sentinel A in a frontmatter value, one `type: person` with a drifted field whose value is sentinel B, and one whose bytes are not valid UTF-8 with sentinel C in the decodable prefix. Load a `PersonRepository` over it, then assert for every entry of `skipped_notes` and every record `caplog` captured that **none** of the three sentinels appears in `detail` or in the log message, while each `SkippedNote.path` is one of the paths the test wrote and the `reason` values are exactly `{"malformed-frontmatter", "schema-drift", "unreadable"}`. The third fixture is the bucket M2 names by hand: `str(UnicodeDecodeError)` renders a byte snippet, and it must arrive as the class name alone.
+
+  **Verify:** both tests pass; adding a fifth `BaseRepository` subclass in a new module under `obsidian_schemas/` with no map entry makes the first red; changing `_note_skip` to interpolate `{error}` instead of `detail` makes the second red on a sentinel.
+
+- [ ] **Task 14 — AC-4's check.** Write `test_body_guard_refuses_when_unverifiable` in `tests/test_loud_fail_write.py`: fixture (a) an existing file whose frontmatter is malformed YAML; fixture (b) an existing file whose read raises, injected with `monkeypatch.setattr(Path, "read_text", ...)` raising `PermissionError` (deterministic and root-safe, unlike `chmod`). Both must raise `UnverifiableBodyError`, neither may reach `existing_body = ""`, and the error must not be a `BodyTruncationError`. **Verify:** the check passes; reverting Task 4 makes it red.
+
+- [ ] **Task 15 — AC-5's check.** Write `test_write_failure_raises_and_noops_keep_their_return` in `tests/test_loud_fail_write.py`. Enumerate the post-fix universe with `non_completed_write_sites(python_files_under(PACKAGE_ROOT))`, assert its `__module__`, check every member against an in-test map keyed by source-stable identity landing in exactly one of P1/P2/P4 (raise), P3 (accommodate) or (a)-(d) (no-op), with an unclassified member failing. Then exercise: a genuine I/O failure at a P1 site raises; each P2 fence case raises; P4's missing file raises; P3's marker-absent call returns `True`, the entry is readable back, `new_content.startswith(original_content)` on both a heading-less fixture and a preamble fixture, frontmatter byte-identical, and a second call with the same dedup key returns `False` with exactly one `## Timeline`; and every (a)-(d) case returns the exact value it returns today. **Verify:** the check passes; routing P3's accommodation through `append_to_section` makes the preservation half red.
+
+- [ ] **Task 16 — AC-6's check.** Write `test_company_set_except_is_narrowed_not_just_logged` in `tests/test_loud_fail_load.py`: monkeypatch `CompanyRepository.get_all` to raise `VaultPathNotConfiguredError` and assert it propagates out of `_known_companies`; then force `ImportError` by monkeypatching `sys.modules["obsidian_schemas.repositories.company"]` to `None` and assert the person-company set is still returned. **The ImportError half runs against a FRESH `PersonRepository` instance constructed after the monkeypatch (audit-fold: `_known_companies` caches — an instance that already resolved the import never re-imports, so the half would vacuously pass against a warm instance regardless of the except clause), and any memoized company-set state on that instance is absent by construction, never cleared by hand.** **Verify:** the check passes; restoring `except Exception` makes the first half red; the ImportError half is red if the fresh-instance requirement is replaced with the test-module-level repository.
+
+- [ ] **Task 17 — AC-7's check.** Write `test_derivations_are_single_sourced` in `tests/test_loud_fail_harness.py`. It must **not** name `ast`: it imports `modules_using_ast` and `python_files_under` and asserts on results. Assert the marker is single-homed over `python_files_under(PACKAGE_ROOT, TESTS_ROOT)` to `tests/derivations.py`; assert the six AC-7 names import and resolve to six distinct function objects homed there; and plant two fixture modules in `tmp_path` — one per marker form (`import ast` + `ast.parse(...)`; `from ast import walk` + bare `walk(...)`) — asserting the scan reaches, matches and **names** each by module, qualified name and line. **Verify:** the check passes; adding `import ast` to any other file under `tests/` makes it red and the failure message names that file.
+
+- [ ] **Task 18 — Full-floor close and docstrings.** Run the floor; it must be green with 607 pre-existing cases plus the new ones, ~1s, from a foreign cwd. Update the docstrings that state a contract this item changed: `parse_frontmatter` (parser.py:54-62), `parse_markdown_file`'s `Raises:` (167-169), `update_frontmatter_field` / `update_frontmatter_fields`' `Returns:` (237-238, 276-277), `append_to_timeline`'s `Returns:` (1462-1466), `append_to_body_section`'s `Returns:`/`Raises:` (1536-1542), and `_load_file`'s (base.py:172-176). Also add the `Raises:` line each newly-raising writer now needs (`update_frontmatter_field`/`update_frontmatter_fields`, the four fence-split writers, `_get_body_content`).
+
+  **Then the message-construction sweep, which is how M1/M2/M3 are checked as a property of the tree rather than of two tests.** The rule it enforces is stated in full in Design/Data model, "What the sweep at Task 18 enforces", and it is a rule about *values*, not about names: at a message-construction site — an argument to `logger.<level>(...)`, to `raise <Error>(...)`, or to `super().__init__(...)` — a value may be interpolated only if it did not come from reading a note off disk, with three note-derived exceptions ruled in-bound (the note's path, the entity's own name, `declared_type`). Caller-supplied arguments (`text[:50]`, `deduplicate_key`) are on the trusted side and are in-bound without needing an exception. Run all three greps from `<REPO>`:
+
+  ```
+  # A — the exception half (M1/M2). Expect EXACTLY ONE match.
+  grep -rnE 'str\((e|err|error|exc|exception)\b|\{(e|err|error|exc|exception)\b' obsidian_schemas/
+
+  # B — the note-content half (M3). Expect ZERO matches.
+  grep -rnE 'str\((content|body_raw|body|frontmatter|raw)\b|\{(content|body_raw|body|frontmatter|raw)\b' \
+      obsidian_schemas/ | grep -E 'logger\.|raise |__init__\('
+
+  ```
+
+  **C is not a grep.** Run the syntax-pass heredoc verbatim from Design/Data model, "What the sweep at Task 18 enforces" — the same one Task 1 baselined. A line-based grep cannot do C's job in this tree and the reason is measured: 34 message-construction lines carry their interpolation on the call's own line, and a further **25 calls open their argument list on the next line** (writer.py:49; person.py 309, 826, 949, 1000, 1157, 1189, 1375, 1405, 1432, 1545, 1559, 1566, 1598, 1604; base.py:382; name_validation.py 311, 321, 330, 337, 344, 353, 360, 367, 374). A sweep blind to 25 of 59 sites is the rubber stamp this mitigation exists to prevent.
+
+  **A** is the sweep as it stood before M3, minus the redundancy the second review flagged (`str(e` already subsumes `str(error`, so the alternation is written once over the exception names rather than as five overlapping patterns). Its one permitted match is `errors.bounded_detail`'s `str(error)` in the `LoudFailError` branch; **any other match is a second construction site and must be routed through `bounded_message`.** The count is derived, not hoped for: eight `{e}`-shaped interpolations exist today (base.py:182, book.py:78, meeting.py:82, person.py 1501/1605/1703/1776/1838), Task 8 removes three and Task 7 removes five, `errors.py` adds one.
+
+  **B is M3's substance and is new.** M3's finding was that A's patterns are all exception-shaped, so a message interpolating note *content* passes silently — and `_split_frontmatter_fence` holds the entire note in `content` at both of its raise sites while the four writers hold `frontmatter` and `body_raw` at re-assembly. Nothing in this build leaks (every designed message is a literal), so B is the forward-looking half. Its second stage is what makes it exact rather than noisy: stage 1 alone returns 20 matches today, 19 of which build **note text, not a diagnostic** — `str(raw)` inside `identifier.py`'s parse functions (138/189/237/267/312/348/390/415), and the `f"---{frontmatter}---\n{new_body}"` / `f"---\n{yaml_content}---\n{body}"` assemblies at writer.py 211/254/293/320, base.py:328, person.py 1596/1696/1768/1831 and body_sections.py:127. Building note text is outside the rule's domain; stage 2 keeps only the message-construction lines. The single stage-2 match today is `identifier.py:68`, which **Task 2 fixes**, so post-fix B is zero. If B returns anything, that thing is a note-content disclosure and the close-out stops.
+
+  **C is what makes an unenumerated content-bearing local fail loud**, and it is why B's name list being an enumeration is acceptable: a future message interpolating note content under a name B never heard of (`text`, `chunk`, `payload`) is invisible to B and visible to C, because C keys on the *site*, not on the name. It also covers B's stage-2 blind spot, which is the same line-based one.
+
+  **How to close C: diff against Task 1's baseline, then read the survivors.** Every line that *disappeared* must be one a task in this plan removed — the eight `{e}` sites (base.py:182, meeting.py:82, book.py:78, person.py 1501/1605/1703/1776/1838, all rebuilt or replaced by Tasks 7 and 8), `identifier.py:68`'s `raw` (Task 2), and `identifier.py`'s 21 raise sites (which leave the output because Task 2 puts `IdentifierError` in `BOUNDED`). Every line that *appeared* must likewise be a message this plan ordered. Then read what survives: **each listed identifier must be in-bound** — the note's path, the entity's own name, `declared_type`, or a caller-supplied argument. `name_validation.py`'s nine `name` entries are expected and pass by rule (2); Design/Data model rules both readings so neither is churned on. The seven rebuilt P1 WARNINGs and every new `raise` in this plan pass their values *through* `bounded_message`, so C lists nothing for them — that is the design working, not a gap in the sweep.
+
+  **Verify:** the floor command from `/tmp`, exit 0; the AC battery — all seven checks named in the fences pass by name; the two mitigation regressions (`test_seam_errors_carry_bounded_diagnostics`, `test_skip_surface_detail_is_bounded`) pass; **sweep A returns exactly the one permitted match, sweep B returns zero, and sweep C's every remaining identifier is in-bound with its whole diff from Task 1's baseline accounted for by a task in this plan.** Record C's post-fix output in the build notes beside the baseline — that pair is the artifact a future round diffs against.
+
+## Write Targets
+
+```writes
+path: obsidian_schemas/errors.py
+why: Task 2 — the new exception hierarchy
+```
+
+```writes
+path: obsidian_schemas/__init__.py
+why: Task 2 — export all six error classes, enumerated in Design/Data model
+```
+
+```writes
+path: obsidian_schemas/identifier.py
+why: Task 2 — IdentifierError's message routes through bounded_message and drops the raw value (Threat Model M3's one pre-existing violation)
+```
+
+```writes
+path: obsidian_schemas/parser.py
+why: Task 3 — the seam raises; parse_to_model's ownership rule
+```
+
+```writes
+path: obsidian_schemas/writer.py
+why: Tasks 4, 5 — the C3 guard, P4 existence pre-checks, P1 handlers
+```
+
+```writes
+path: obsidian_schemas/repositories/base.py
+why: Task 8 — SkippedNote, _owns, _note_skip, the skip surface, _load_file's handler
+```
+
+```writes
+path: obsidian_schemas/repositories/meeting.py
+why: Task 8 — its own _load_file handler routes to _note_skip
+```
+
+```writes
+path: obsidian_schemas/repositories/book.py
+why: Task 8 — its own _load_file handler routes to _note_skip
+```
+
+```writes
+path: obsidian_schemas/repositories/person.py
+why: Tasks 6, 7, 9 — the shared fence split, the Timeline accommodation, P1 handlers, the _known_companies narrowing
+```
+
+```writes
+path: tests/derivations.py
+why: Task 10 — the one shared importable scan module
+```
+
+```writes
+path: tests/test_loud_fail_parse.py
+why: Tasks 11, 12 — AC-1 and AC-2 checks
+```
+
+```writes
+path: tests/test_loud_fail_load.py
+why: Tasks 13, 16 — AC-3 and AC-6 checks
+```
+
+```writes
+path: tests/test_loud_fail_write.py
+why: Tasks 14, 15 — AC-4 and AC-5 checks
+```
+
+```writes
+path: tests/test_loud_fail_harness.py
+why: Task 17 — the AC-7 check
+```
+
+```writes
+path: tests/test_writer.py
+why: Task 5 — test_update_nonexistent_file revised for AC-5's P4 contract change
+```
+
+```writes
+path: tests/test_repositories.py
+why: Task 6 — the no-frontmatter-fence test revised and renamed for AC-5's P2 contract change
+```
+
+Every path above is inside this project's declared `write_authority` (`pipeline-runners.yaml:34-38` — `obsidian_schemas/**`, `tests/**`, `scripts/**`, `docs/**`), so no `kind: precondition` fence is needed and nothing in the plan directs a write the cage would revert. **`README.md` and `CLAUDE.md` are at the repository root, outside that authority, and are therefore NOT written by this build** — the contract changes are carried in package docstrings instead (Task 18), and the CLAUDE.md floor-count line is left for a conductor commit outside the cage. A builder that "helpfully" updates either will have the write reverted at the merge boundary.
+
+## Verification
+
+**Happy path (smoke).** The floor, absolute and cwd-independent:
+
+```
+<REPO>/.venv/bin/python -m pytest <REPO>/tests -q
+```
+
+Green, ~1s, exit 0, with the 607 pre-existing cases plus the new ones. Then the seven acceptance checks by name:
+
+```
+<REPO>/.venv/bin/python -m pytest <REPO>/tests -q -k "test_no_mutation_writes_through_failed_parse or test_parse_boundaries_distinguish_failure_from_empty or test_batch_load_survives_and_surfaces_only_owned_bad_notes or test_body_guard_refuses_when_unverifiable or test_write_failure_raises_and_noops_keep_their_return or test_company_set_except_is_narrowed_not_just_logged or test_derivations_are_single_sourced"
+```
+
+**Oracle derivation (WI-149).** Every assertion in the new tests derives its expected value from something the test itself holds, never from an assumed environmental shape:
+
+- *Byte-identity after a refused write* — the test wrote the fixture, so it holds the exact original string; the oracle is `path.read_text() == original`, not a substring or a length.
+- *The absent-frontmatter half* — the oracle is the closed-form contract, stated from the values the test passed in: the call does not raise; its return value is the documented one (`True`, or the new content string, or the updated entity); the original file text appears verbatim after the closing fence; every key of the `updates` dict the test supplied is present in the new frontmatter. Not a byte-snapshot of pre-fix output, which no post-fix test can obtain.
+- *The Timeline preservation half* — `new_content.startswith(original_content)` plus `new_content.count("## Timeline") == 1`, both computed from the string the test wrote.
+- *The derived sweeps* — the oracle is the in-test classification map, and the assertion is set equality **in both directions** against what the scan returns. A scan asserted only against what it returns is indistinguishable from a hardcoded list.
+- *Repository roots* — `Path(__file__).resolve().parent.parent`, never the cwd and never a path-substring test. The suite runs from a foreign cwd and inside a build worktree whose path is not knowable in advance; a `cage-wt-` style substring proxy is exactly the WI-149 burn.
+- *The AC-7 plants* — the test writes the plant files, so it holds their exact paths and the line numbers it wrote; the oracle is that the scan's report names those.
+- *The bounded-diagnostic tests* — the test generates and plants each sentinel literal, so the oracle is `sentinel not in message` against a string it authored, never "the message looks short enough" and never a substring of a PyYAML or Pydantic rendering the test did not write. The positive half is derived the same way: the path asserted present is the path the test created, and the exception class name asserted present is read off `type(error.__cause__).__name__` on the caught object rather than hardcoded, so a PyYAML that raises a differently-named subclass does not make a correct implementation red.
+
+**Failure modes — what should fail, and what the caller observes.**
+
+| Input | Path | Observable |
+|---|---|---|
+| Malformed YAML frontmatter | any of the four write paths | a `ValueError` subclass raised; file bytes unchanged |
+| Malformed YAML frontmatter | `PersonRepository.load()` | that note skipped, the rest loaded, one WARNING naming it, `skipped_count == 1` |
+| Malformed YAML frontmatter | `write_markdown_file` overwrite | `UnverifiableBodyError`, not `BodyTruncationError`, nothing written |
+| Malformed YAML frontmatter | `parse_markdown_content`, `parse_person` | the typed error propagates |
+| `type: person` + `emails: "x"` | `PersonRepository.load()` | listed, `reason="schema-drift"` |
+| `type: company` note | `PersonRepository.load()` | **not** listed, no warning |
+| `type: company` note | `parse_person` | `None`, exactly as today |
+| Missing file | `update_frontmatter_field` | `FileNotFoundError` |
+| Truncated fence | `update_to_discuss_item` | `FrontmatterParseError` |
+| Truncated fence | `get_to_discuss_items` | `ValueError` subclass, not `[]` |
+| No `## Timeline` | `append_to_timeline` | `True`, section created, body preserved |
+| Duplicate key | `append_to_timeline` | `False`, unchanged from today |
+| Malformed YAML carrying a secret-shaped value | any raising path | the raised message names the path, the error class and a line/column — **and not the value** (M1) |
+| Undecodable bytes | `PersonRepository.load()` | `reason="unreadable"`, `detail == "UnicodeDecodeError"`, no byte snippet in `detail` or the WARNING (M2) |
+| Any write path failing on a foreign exception | the WARNING each P1 handler logs | names the writer and the path, and contains no rendering of the caught exception (M1 — the five `person.py` handlers rebuilt) |
+| The package as a whole, at close-out | Task 18's sweeps A/B/C | A returns exactly one permitted match, B returns zero, and every line C returns interpolates only in-bound values (M3) |
+
+Those last four rows are the Threat Model's three required mitigations expressed as observables. The first two have named regression tests rather than only a Design paragraph — `test_seam_errors_carry_bounded_diagnostics` (Task 12) and `test_skip_surface_detail_is_bounded` (Task 13); neither is an AC check, because the frozen AC set predates the threat model and quantifies over behaviour and derivations rather than over disclosure, so they are ordinary tests in the floor and the floor is what grades them. **M3's observable is deliberately a sweep and not a test**, and the distinction is the point of the mitigation: the two tests prove the bound at the two sites they were written for, while M3 asks whether it holds at sites nobody has written a test for yet. That is a question about the tree, so it is answered by scanning the tree at close-out (Task 18), with the pre-fix baseline recorded at Task 1 so the delta is walkable rather than a bare number.
+
+**Integration — downstream consumers.** HAL9000 (contact resolution, intro previews), exocortex (attendee resolution, meeting sync) and orchestrator (`find_or_create_stub`) all install this package `-e` and are **not importable from this tree**, so none can be exercised by the floor. What is verified locally is the property that bounds their exposure: AC-5 freezes every legitimate no-op's exact return value, so an existing `if not repo.append_to_body_section(...)` branch keeps its current meaning and the only behaviour any consumer sees change is a silent data-loss becoming loud. The three N4 call sites (enricher, introducer, scheduler) are parked for Dave's call as a companion HAL9000 item (Non-goals; Relationship to other work).
+
+**Regression — named tests that must still pass unchanged.** `tests/test_parser.py::TestParsePerson::test_parse_person_wrong_type` (265-273 — the foreign-type `None`, the baseline AC-2's rule is written around); the whole of `tests/test_wi126_body_preservation.py` (the guard AC-4 hardens); `tests/test_repositories.py::test_append_to_timeline_deduplication` (930-948) and `::test_append_to_body_section_create_if_missing_false_noop` (1055-1062) and the four To-Discuss not-found cases (1748-1774) — the no-op returns AC-5 freezes; `tests/test_vault_path_required.py` in full, including its `rglob("*.py")` scan at 320, which AC-7's withdrawn second marker was dropped over; `tests/test_identity_index.py::test_malformed_email_skipped_but_legacy_indexes_it` (183-200), whose leniency is at the *identifier* layer and is untouched by a frontmatter-layer change. **Exactly two existing tests change**, both revised in place because a frozen AC mandates the contract change: `tests/test_writer.py::test_update_nonexistent_file` and `tests/test_repositories.py::test_append_to_body_section_no_frontmatter_fence_returns_false` (renamed). Any *third* pre-existing test going red is a signal the fix over-shot — most likely by making absent frontmatter loud — and must be investigated, not edited.
+
+**Incident replay — a CLOSE-OUT step, run outside the cage, after the build merges.** This item exists because the C2 corruption chain is real and reproducible in this tree, not because a fixture suggested it, so the fixture battery is not the whole of Verification. On a **disposable copy** — never Dave's live vault, never tracked state:
+
+1. `mkdir -p /tmp/wi020-replay && cp` one real person note out of the vault into it, then hand-edit its frontmatter to contain a stray unquoted colon so the YAML will not parse.
+2. Against the **pre-fix** commit, run `update_frontmatter_field(<that copy>, "last_contacted", "2026-07-24")` and confirm the failure mode by eye: the file is rewritten as `---\nlast_contacted: …\n---\n` followed by the *entire original note* dumped into the body.
+3. Restore the copy, switch to the **post-fix** commit, run the identical call, and confirm it raises `FrontmatterParseError` and `diff` reports the file byte-identical.
+4. Construct a `PersonRepository` over `/tmp/wi020-replay` containing that malformed note plus two healthy ones and confirm live: `load()` returns 2, one WARNING names the bad file, `skipped_count == 1`, and `skipped_notes[0].path` is that file.
+5. `rm -rf /tmp/wi020-replay`.
+
+Steps 3 and 4 are also the live check on M1/M2 that no fixture can give: the note is a **real** one out of Dave's vault, so its frontmatter holds real emails and phone numbers. Read the raised message and the WARNING line by eye and confirm neither contains any of that note's field values — only its path, the error class, and a line/column. The fixture tests plant sentinels the test authored; this is the only place the bound meets content nobody wrote for it.
+
+Redact paths and note contents before any of this output is recorded in a tracked document — the run is live, the transcript is not. That instruction is doing double duty here: if a message *did* leak a field value, redacting the transcript is what keeps the leak from being copied into this repo while it is fixed.
+
+## Verified Diagnosis
+
+Each load-bearing diagnostic claim below, with the falsifiable artifact that grounds it. Every one was re-read live in this worktree at the cited `file:line`, and the Data Audit above independently re-derived all of them (its findings 1-13). If any were false, the corresponding fix would be unnecessary.
+
+1. **`parse_frontmatter` renders a parse failure as the value a legitimately frontmatter-less file produces.** `parser.py:78-80` returns `{}, content` from `except yaml.YAMLError`; `parser.py:64-65` returns `{}, content` for a file with no fence. Byte-identical returns for opposite conditions — read the two lines side by side.
+2. **The C2 corruption chain is live and destroys content.** `base.py:311` reads, `312` parses, `324` updates, `327-328` rebuilds as `f"---\n{yaml}---\n{body}"` where `body` is the *whole original file*, `329` writes it. Reproducible by the replay above, step 2.
+3. **The write path's own safety check cannot catch it.** `base.py:332-334` reloads and raises if the entity is `None`; the corrupt output is valid YAML (`---\n{updates}\n---\n…`), so `_load_file` reloads a stripped-but-valid entity and the guard passes.
+4. **The body-shrink guard disables itself exactly when it cannot verify.** `writer.py:189-190`: `except Exception: existing_body = ""`, which makes `existing_lines` empty at 191, so `dropped` at 193 is empty and the overwrite proceeds.
+5. **Un-loadable notes vanish without a trace.** `base.py:181-183` logs at `debug` and returns `None`; `load()` at 160 simply does not add it — no count, no list. `meeting.py:81-83` and `book.py:77-79` are the same shape.
+6. **`parse_to_model` returns the same value for "unknown type" and "known type that failed validation".** `parser.py:135-137` and `parser.py:148-150` both `return None, frontmatter.copy()`, and `model_class` (threaded from the caller at 110) is compared against nothing the note declares.
+7. **Every caller in scope forces the model class, so the auto-detect branch never runs for them.** `base.py:178` passes `self.entity_type`; `parser.py:218, 224, 230, 236` pass `Person`/`Company`/`Book`/`Meeting`. Without the round-27 ownership rule, "known" read as "a class was supplied" makes `parse_person` raise on a well-formed company note — and `tests/test_parser.py:265-273` asserts today that it returns `None`, so that reading would turn a live floor case red.
+8. **Write paths collapse failure and no-op into one `False`.** `writer.py:242-243` (missing file) and `writer.py:259-260` (`except Exception`) return the same `False`. `append_to_body_section` returns `False` for five distinct reasons: no fence (1563), malformed fence (1570), governed absence (1579), dedup (1584), and any exception at all (1603-1607).
+9. **The fence-split shape is copy-pasted, so a one-function fix leaves three.** Identical blocks at person.py 1558-1570, 1675-1683, 1734-1742, 1801-1809.
+10. **`_get_body_content` answers a broken fence with the whole file, frontmatter included.** `person.py:1622-1626` — `if content.startswith("---")` and the split yields fewer than three parts, control reaches `return content` at 1626. Its only caller, `get_to_discuss_items` (1641), then runs `get_section` over frontmatter text and returns `[]` at 1647 — a corrupted note reported as having nothing to discuss.
+11. **`load()`'s loop has no insulation of its own.** `base.py:157-165` calls `self._load_file(file_path)` with no `try`, so each `_load_file`'s own `except` is the entire margin between one bad note and an aborted batch. This is what makes A3-alone wrong and what NO-ABORT guards.
+12. **The glob is wider than the ownership set, in both directions, over one shared implementation.** `file_pattern` is defined at base.py:132-135 (`@*.md`), meeting.py:50, book.py:49 and nowhere else; `PersonRepository` (person.py:159) and `CompanyRepository` (company.py:46) override neither it nor `_load_file`, and `base._load_file` checks no `type` at all — ownership falls out of `isinstance` at base.py:179, *after* the parse at 178. So a naive surfacing reports every company note as a skipped person and every person note as a skipped company.
+13. **Today's silent behaviour is asserted by the floor, which is why two tests must change.** `tests/test_writer.py:242` asserts `update_frontmatter_field` on a missing file is falsy; `tests/test_repositories.py:1102` asserts the no-fence branch returns `False`. Both are the behaviour AC-5's P4 and P2 convert to raises.
+14. **`Hypothesis` is not available** — `pyproject.toml:31-35` declares `pytest>=7.0` and `pytest-cov>=4.0` and nothing else. This grounds Decision 2 and is the one Check-strategy premise the document never ran.
+
+Nothing above is marked `[hypothesis — needs verification]`; every claim this spec rests on is grounded.
+
+## Scope Boundary
+
+**What we're NOT doing**
+
+- **Physical quarantine of bad notes** (rename, sidecar, move). Routed to `lint_vault` / WI-026 — a deliberate tool action, not a library read behaviour (approach A4). This item surfaces; it never relocates one of Dave's files.
+- **The write-side `mkdir(parents=True)` bogus-tree guard.** WI-024's reroute #2, write half. Recommended owner is WI-004, the atomic-write seam; Non-goals and Relationship to other work already answer it in that direction and the Architectural Review's note 3 recommends treating that routing as the standing answer. This spec does, and surfaces the question again only if speccing turns up a reason to move it — it did not.
+- **Atomic writes / torn-write protection.** WI-004's, which builds on this floor. This item makes a failed write *loud*; it does not make it *atomic*.
+- **Migrating HAL9000's three N4 consumer call sites** (enricher, introducer, scheduler). Another repository this hermetic floor cannot import; parked for Dave's call as a companion item.
+- **Adding Hypothesis or any other dependency.** Decision 2.
+- **`lint_vault`'s import-time env read** (lint_vault.py:48) — WI-026's.
+- **Fixing the stale `_obsidian_schemas.pth`** — load-bearing as-is.
+- **Refactoring `body_sections`' lossy round-trip.** AC-5 permits fixing the sibling's identical latent wipe at the same time and does not require it; this spec takes the narrower route (string insertion) because it satisfies the preservation clause without changing behaviour for `append_to_body_section`'s existing callers. The sibling's latent wipe is real and should be captured as its own idea — do not fold it in here.
+- **Retry, locking, or transactional semantics** at any boundary.
+
+**Unchanged files** — the builder must not touch:
+
+- `README.md`, `CLAUDE.md`, `pipeline-runners.yaml`, `pyproject.toml`, `state/**` — all outside `write_authority` or explicitly frozen. The floor-count line in `CLAUDE.md` is a conductor commit, not a build write.
+- `obsidian_schemas/models.py` — read from (the `Literal` defaults, `TYPE_TO_MODEL`), never modified. No schema changes in this item.
+- `obsidian_schemas/body_sections.py`, `name_validation.py`, `name_cleaning.py`, `repositories/company.py`, `repositories/__init__.py` — untouched. **`identifier.py` was on this list and has moved off it, deliberately and by exactly two lines:** Task 2 rewrites `IdentifierError.__init__`'s message at 67-68 and nothing else in the file. It is the one pre-existing site in the package that interpolates a value read off a note into an error message, so leaving it would make Threat Model M3's sweep return a violation at close-out and force either a carve-out or a false verify (Design/Data model, "Why `identifier.py:68` is in this table at all"). The parse functions, the `Identifier` subclasses, `EntityRef`, `IdentifierConflict` and every `.kind`/`.raw`/`.detail` attribute are **not** touched — a builder who finds themselves editing anything else in this file has gone out of scope. `name_validation.py:135` is the sibling shape and stays untouched because it already complies. `company.py` in particular overrides neither `_load_file` nor `file_pattern` and must keep it that way; its correct behaviour comes from inheriting `base`'s and declaring its own `type_name`, which is exactly what AC-3 proves from the company chair.
+- `tests/test_parser.py`, `tests/test_wi126_body_preservation.py`, `tests/test_vault_path_required.py`, `tests/test_body_sections.py`, `tests/test_identifier.py`, `tests/test_identity_index.py`, `tests/test_models.py`, `tests/test_name_cleaning.py`, `tests/test_name_validation.py`, `tests/test_resolve_or_create.py` — untouched. Only `tests/test_writer.py` and `tests/test_repositories.py` change, and only at the two named cases.
+
+## Risk Analysis
+
+This touches the boundary every HAL9000 startup and every exocortex meeting sync runs through, so the section is required.
+
+| Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|
+| **The fix over-shoots and makes *absent* frontmatter loud**, breaking `update_fields` on every freshly-created stub and `roundtrip_file` on every fence-less note. | Medium — it is the natural over-correction, and the reason AC-1 pairs the halves. | High — stub creation is on `find_or_create_stub`'s hot path. | AC-1 quantifies the absent-must-succeed half over the *same* derived four-path list as its raise half, so a fix that special-cases some paths fails. Plus Task 3's verify: only the two named tests may go red. |
+| **A narrowed `except` in a loader misses the new typed failure**, turning "one note skipped" into a dead repository at HAL9000 startup. | Low — because this spec explicitly does *not* narrow the three `_load_file` clauses. | Critical — startup failure. | The design keeps all three broad on purpose and states why; AC-3 asserts NO-ABORT on all twelve cells per class, never inferring it from the base path. |
+| **The skip surface cries wolf** — every company note reported as a skipped person, every malformed note anywhere as a skipped book. | Medium — it is what a naive glob-scoped surfacing does. | Medium — an unreadable signal is the unread DEBUG line with more noise. | Ownership decided on the raw declared `type` and, failing that, on whether the class's own glob is a naming convention; asserted in both directions from all four chairs. |
+| **The Timeline accommodation destroys a note's body**, trading a dropped entry for a dropped page. | Low, given the ruling — but it is exactly what naively mirroring the sibling does. | Critical — silent loss of Dave's writing. | String insertion, never the `body_sections` round-trip; the preservation oracle is `new_content.startswith(original)` proved on a heading-less fixture and a preamble fixture. |
+| **A note whose body opens with a `---` thematic break, or whose frontmatter is CRLF-terminated, starts raising.** | Low — rare in a vault written by this package. | Low — and the direction is safe. | Named in Edge Cases: such notes are *already* invisible today (they load as `None` and are not cached), so the change surfaces an existing loss rather than creating one, and it stops the write paths corrupting them. |
+| **N4's return-contract change breaks a HAL9000 consumer branch.** | Low — the only change is failure-`False` → raise. | Medium — an unhandled exception in a skill. | AC-5 freezes every legitimate no-op's exact return value; the errors are `ValueError` subclasses so an existing `except ValueError` still catches. The migration is parked as a companion item with this one as its dependency. |
+| **The check harness itself becomes the maintenance burden** — one shared module, a repo-global "only one file may import `ast`" constraint. | Certain — it is a stated trade, not a surprise. | Low-Medium — a six-month owner meets AC-7 first. | The Architectural Review accepts it knowingly at promotion time; AC-7 states how a future legitimate second `ast` consumer is meant to arrive (by extending the criterion, not by silently absorbing the fact). |
+| **The fix leaks note content into logs and a public API field.** Making the boundary loud routes a note's own bytes — for a person note, emails and phone numbers — into a WARNING line and `SkippedNote.detail`, which HAL9000, exocortex and orchestrator may render onward. The channel does not exist today because `parser.py:78` and `148` discard their exception objects. | Medium if unbounded — it is what `str(e)` and `f"...{e}"` do by default, and both were in the first revision of this Design; **a per-site carve-out for `person.py`'s five existing handlers survived into the second revision and was caught at review**, which is the evidence that the site-by-site form of this mitigation does not hold. | Medium-High — PII in a log file, in a repo this hermetic floor cannot audit the consumers of. | Threat Model M1/M2/M3. One construction rule (`errors.bounded_message`) with a fall-through that reduces an unrecognised exception to its class name, so there is no per-site caution to forget and no unenumerated case that defaults to `str()`; **no site is exempt, including the five that had a message worth keeping and the one pre-existing violation in `identifier.py`.** Sized by Task 1's interpreter probe, ordered in Tasks 2, 3, 7 and 8, regression-tested by `test_seam_errors_carry_bounded_diagnostics` and `test_skip_surface_detail_is_bounded`, swept over the whole package at Task 18 (A/B/C, where C is name-independent so an unenumerated content-bearing local fails loud), and met against real content once in the incident replay. |
+| **The sweep that proves the rule becomes a rubber stamp** — its patterns cover the exception half only, so a message interpolating note content passes it silently, or its "exactly one permitted match" is kept true by exempting the sites that violate it. | Medium — both happened. Round 1 shipped the exception-only pattern list (M3); round 2 shipped a carve-out for five real violations, inside the remedy for round 1. | Medium — a green sweep is worse than no sweep, because it is read as coverage. | The rule is stated over *values* rather than over names or sites, so "which sites are exempt" is not a question the spec can answer; sweep B excludes file-content assembly by **domain** (building note text is not building a diagnostic) rather than by exemption; sweep C keys on the site rather than the name, so a local B never heard of is still caught; and the one pre-existing violation the widened sweep surfaces is fixed in Task 2 rather than carved out, so the close-out's verify is true rather than aspirational. |
+
+**Rollback.** Clean and small: the seam change is two `return`s becoming two `raise`s; the loader change is a handler body plus a list; the write changes are handler shapes. Reverting `parser.py:69-70` and `78-80` alone restores today's behaviour at every one of the fourteen closure members simultaneously, which is the upside of fixing at the seam. No data migration to undo, no on-disk format to reverse, no flag to unset. A bad landing degrades to a noisy startup, not to a corrupted vault.
+
+**Migration path.** None required — see Edge Cases / Migration. First load after upgrade on a vault containing malformed notes begins WARNing and populating `skipped_notes`; that is the intended end state, not a transitional one.
+
+## Self-Review Dry Run
+
+Walked the Implementation Plan top-to-bottom as the builder. Three questions a cold-start builder would plausibly ask, and where each is answered:
+
+1. *"Does `parse_frontmatter` raise, or return something discriminated?"* — Design/Decision 1: raise, with the reason the alternative cannot satisfy AC-2's propagation clause, and the LESSONS #13 trade recorded rather than hidden.
+2. *"The Check strategy says Hypothesis, but it is not installed — do I add it?"* — Design/Decision 2: no, with the evidence (`pyproject.toml:31-35`) and the argument that the ACs quantify over code, which the derivations supply, not over generated inputs.
+3. *"AC-2 says the map is keyed by return site, but my fix turns two returns into raises — is my scan wrong?"* — Design/Acceptance Criteria reading 1: exit sites are `Return ∪ Raise` post-fix; four sites, five outcome classes, the non-bijection preserved.
+
+A fourth a builder would hit within the hour and that is answered above rather than left to judgment: *"An existing test fails — do I fix the code or the test?"* — Integration points and Tasks 5/6: exactly two pre-existing tests change in the whole plan, both named, both revised because a frozen AC mandates the contract change, and **neither of them fails at Task 3** (each exits its function before reaching the seam; they move only when their own site does, at Tasks 5 and 6). So the floor is green at 607 through Task 3, and *any* red test at that point means the fix over-shot — most likely onto absent frontmatter — and is to be investigated, never accommodated.
+
+Three more this revision added answers for, all raised by the spec-review round-1 bounce:
+
+5. *"Design/Data model says `SkippedNote.detail` is `str(error)`; the Threat Model says never `str(error)`. Which wins?"* — Neither is a live instruction any more: Design/Data model now defines `detail` as `bounded_detail(error)`, and the whole rule sits in one place, "Bounded diagnostics". The contradiction was real and is the reason this revision exists.
+6. *"What exactly goes in the message for a `yaml.YAMLError` and a Pydantic `ValidationError`?"* — Design/Data model's permitted-vs-excluded table, implemented by `bounded_cause`: class name plus `problem_mark.line`/`.column`, or class name plus each error's `loc` and `type`. Task 1's probe confirms both shapes on the actual interpreter before any of it is written, and the fall-through means a drifted shape degrades the diagnostic rather than blocking the build.
+7. *"Task 5's P1 shape says keep the existing message unchanged, but `writer.py:259-260` has no message."* — Design/Flow §6 now says five of the seven sites have one to keep and two do not, and gives the two their message. **Superseded this round:** the "keep" half of that answer was itself the round-2 bounce (see question 8), and no site keeps its message now.
+
+Three more this revision added answers for, all three of them the spec-review round-2 bounce's blocking issues, and each answered where a builder actually stands rather than in a note:
+
+8. *"Task 7 says keep `person.py`'s five `{e}` log lines exactly; Task 18 says any `{e}` in the package is a forbidden second construction site and its verify wants exactly one match. Which?"* — **The keep order is deleted.** Design/Flow §6 and Task 7 now both rebuild all seven P1 WARNINGs from `bounded_message`, with a per-site `reason` literal tabulated in both places so nothing is left to judgment, and Task 7 carries its own `grep person.py for {e} → zero` verify so the answer is checked at the site rather than only at close-out. The substance, not just the count: P1's first clause re-raises `LoudFailError`, so what reached those five interpolations was always a *foreign* exception — including the `UnicodeDecodeError` from each writer's own `read_text`, whose `str()` is the byte snippet M1's exclusion table names. The fix is the sweep as the definition with no site exempt, because per-case patching is what produced this round.
+9. *"Task 18 is the step that makes M1/M2 a property of the tree, and M3 says it must cover note content too. What do I grep for?"* — Design/Data model, "What the sweep at Task 18 enforces", and the three greps written out in Task 18: **A** (exception half, exactly one permitted match), **B** (note-content half — M3's named locals, two-stage so file-content assembly is excluded by *domain* rather than by exemption, expect zero), **C** (name-independent net over every message-construction line, which is what makes an unenumerated content-bearing local fail loud rather than pass silently). The rule the greps mechanize is stated over *values* — did this come from reading a note off disk? — with the three note-derived exceptions ruled in-bound and enumerated, and caller-supplied arguments explicitly on the trusted side so a builder does not churn on `text[:50]`.
+10. *"Task 2 says export the five leaf classes and there are six classes, four of them leaves. Which five?"* — **All six, enumerated by name** in Design/Data model, in Task 2, in Integration points and in the `writes` fence, with the reason both non-leaves are exported (`LoudFailError` is the package-wide base; `NoteParseError` is the one `except` that catches both parse failures without catching a write failure). Task 2 carries a verify that imports all six from `obsidian_schemas` by name, so the export set is now checked rather than described.
+
+An eleventh question this round's own fix creates, answered before a builder can hit it: *"Scope Boundary says `identifier.py` is untouched, but Task 2 tells me to edit it."* — Scope Boundary now says so explicitly and bounds it to two lines (`IdentifierError.__init__`'s message at 67-68), with the reason it moved: it is the single pre-existing site in the package that interpolates a note-derived value into an error message, so the alternative to fixing it is a carve-out in the very sweep whose carve-outs bounced this spec twice. Everything else in that file, and `name_validation.py` entirely, stay on the untouched list.
+
+Contradiction scan over the rest of the document: the Approach's "typed error or discriminated result — spec-writer's call" and AC-5's "the mechanism is open (string insertion, or making the section round-trip content-preserving)" are the two places this spec closes an explicitly-open choice, and both are closed here in the direction the frozen fences require. The Approach's own statement that the seam's loudness "PROPAGATES the typed error" at the public parse layer is consistent with Decision 1 and would have been contradicted by the discriminated-result variant — which is the argument that settled it. No other section of this document states a mechanism this spec now contradicts.
+
+OPEN items: **0** (cap is 2).
 
 ## AC Red-Team — 2026-07-24
 
@@ -2327,3 +3423,1903 @@ date: 2026-07-24
 model: claude-sonnet-5
 note: Round-25 fold (AC-7 per-member sufficiency) confirmed correct; new finding, unrelated to round 24 -- AC-2's parse_to_model clause never states how "known type" is decided when model_class is caller-forced (every in-scope caller: base._load_file, parse_person/company/book/meeting), so a compliant implementation can make parse_person raise on a well-formed foreign-type note, breaking the existing test_parse_person_wrong_type baseline and the Examples of done's own "book where a person was expected" case.
 ```
+
+## AC Red-Team — 2026-07-24 (re-verify 17)
+
+Decorrelated cold-start pass over the round-26/fold-27 commit (`77f76dc`, Dave-ruled: parse_to_model's
+"known type" decision rule stated as a property of the note, never of the call). Read in full, in order:
+Intent, Problem/Motivation, Exploration Notes end to end through round 27 (every prior fold and audit-fold
+subsection, including Non-goals and Inherited scope), Approach, Acceptance Criteria AC-1 through AC-7 (all
+`desc:`/`why:` text, read as fences), Examples of done, Relationship to other work — then the full prior
+`AC Red-Team` history (all seventeen prior sections), with particular weight on re-verify 16 (the round-26
+finding this fold answers). Code re-read live against the current tree: `obsidian_schemas/parser.py` in full
+(`parse_to_model` lines 108-150, `parse_markdown_file`/`parse_markdown_content`/the four conveniences
+153-237), `obsidian_schemas/models.py` (every `type: Literal[...]` declaration and `TYPE_TO_MODEL`, lines
+78-331), `obsidian_schemas/repositories/meeting.py:64-83`, `obsidian_schemas/repositories/book.py:57-79`.
+
+### What round 27 got right, re-verified against source rather than against the fold's own summary
+
+**The comparand claim.** `grep`/read confirms all eight declarations cited (models.py:78, 127, 159, 192,
+220, 240, 259, 294) are `type: Literal["<name>"] = "<name>"` — a `Literal` with a matching string default —
+so `model_class.model_fields["type"].default` is a live, correct derivation for every model in the package,
+not an assertion taken on faith.
+
+**The "one rule, both branches" claim.** `TYPE_TO_MODEL` (models.py:309-318) is a literal dict mapping each
+of the eight type strings to the class whose own `Literal` default is that same string (`"person": Person`,
+`"company": Company`, ... `"exploration": Exploration`) — verified entry-by-entry, zero mismatches. So
+`get_model_for_type`'s auto-detect resolution and the caller-forced comparand are provably the same equality
+by construction, exactly as round 27 claims, not merely asserted.
+
+**The caller-forced-only reachability claim.** Re-read `parse_to_model` (parser.py:108-150) line by line:
+lines 130-137 (the auto-detect branch, `if model_class is None: ...`) are skipped whenever a caller passes a
+class, and every in-scope caller does — `parse_markdown_file`/`parse_markdown_content` forward whatever
+`expected_type` they were given straight through as `model_class` (parser.py:176, 202) with no fallback to
+`None`, and `base._load_file`/`meeting._load_file`/`book._load_file` and the four conveniences all pass a
+concrete class. Confirmed: the branch AC-2's original text described (read `type`, resolve, return `None` on
+no match) is provably dead code for this item's entire caller set, exactly as the fold states.
+
+**Layer-carry, checked by reading each layer rather than trusting the fold's own "completed on re-run"
+claim.** The Approach paragraph (the long paragraph under `## Approach`) now reads "**and 'known' names its
+deciding input**... `model_class.model_fields["type"].default` is the deriving source... `TYPE_TO_MODEL`
+(models.py:309-317) maps..." — the retired "distinguish known type, failed validation from unknown type"
+framing round 27's own fold-note says was left behind twice before is in fact gone from this text now. The
+C5 per-finding subsection (Exploration Notes, "C5 — `parse_to_model` swallows...") carries the identical
+restated rule in its own paragraph, not a cross-reference to AC-2. The Check-strategy note explicitly moves
+AC-2's `parse_to_model` half into the explicit-fixture family with the round-6 justification restated. All
+three layers checked; none left on the retired framing.
+
+**The exception-routing consequence, worked through independently rather than taken from the doc's prose.**
+I traced whether `meeting._load_file` (meeting.py:64-83) and `book._load_file` (book.py:57-79) can still
+correctly separate their must-list and must-not-list AC-3 cells now that both their own prefilter's
+`parse_frontmatter` call (meeting.py:72 / book.py:67) and the later `parse_markdown_file` call
+(meeting.py:78 / book.py:74) sit under one shared `except Exception` (meeting.py:81 / book.py:77). For
+`MeetingRepository` this is moot — both its malformed (a) and owned-drifted (b) cells are MUST-be-listed, so
+the two failure modes never need to be told apart. For `BookRepository` they do: (a) malformed MUST NOT be
+listed (no ownership evidence under the catch-all glob) while (b) owned-drifted MUST be listed, and both
+raises land in the same except clause. Whether that's implementable turns on whether C2's malformed-YAML
+raise and C5's schema-drift raise are the same exception type — a design decision AC-2/AC-4/Constraints
+leave open (Constraints only commits to "a new `FrontmatterParseError` should follow suit" for the C2 seam,
+naming no type for C5's raise). But this is not a coverage gap: AC-3's fixture (a)/(b) requirement is
+observable and already tested per-cell, so any implementation that can't tell the two apart (same exception
+type, one un-split except clause) fails fixture (a) or (b) outright and the suite catches it — the AC pins
+the property and rightly leaves the exception-type/try-split mechanism that satisfies it to the builder, the
+same "mechanism is open" pattern this document applies everywhere else (A1, AC-5's P3, AC-7's marker). Not a
+finding; recorded because it was the one thread this pass chased to a structural dead end rather than a
+one-line check.
+
+**The third case's reachability.** Verified live: `parse_to_model` line 123 (`if not frontmatter: return
+None, {}`) only short-circuits on an *empty* frontmatter dict. A note with some non-`type` fields and no
+`type` key has non-empty frontmatter, skips 123, forces `model_class.model_validate(normalized)` at 141
+using the model's own `type` default, and fails only if some other field is drifted — exactly the case AC-2's
+third fixture names, reachable exactly as claimed, not a vacuous clause.
+
+### What I attacked and found clean
+
+Attempted to reopen round 4/26's collision one layer further: whether the deciding comparand
+(`model_class.model_fields["type"].default`) could be satisfied by a cheaper, non-conformant derivation
+(`model_class.__name__.lower()`) that happens to agree with the `Literal` default for `Person`/`Company`,
+the only two classes AC-2's required fixture pair exercises — `Person.lower() == "person"`,
+`Company.lower() == "company"`. It does agree for those two, and would still pass AC-2's fixture pair; it
+would silently diverge for `GiftIdea` (`"giftidea"` vs. the declared `"gift-idea"`). But `GiftIdea` and
+`Exploration` are not reachable through any caller in this item's scope (no repository or convenience
+function forces those classes), so the divergence is inert for everything this item touches — not a material
+gap, and AC-2's text already forecloses the naming-derived reading in words ("never taken from the calling
+function's name") even though it doesn't separately forbid `__name__`. Attacked whether AC-3's own
+ownership-evidence taxonomy needs updating now that `parse_to_model` itself embeds the foreign/owned
+distinction post-fix (i.e., whether `base._load_file` still needs its own raw-`type` read given a foreign
+note now returns `None` without raising at all) — worked the twelve cells through by hand for
+`PersonRepository`/`CompanyRepository`/`BookRepository`/`MeetingRepository` and found AC-3's fence is already
+mechanism-agnostic (it specifies the twelve observable cells, not how ownership is decided), so this is a
+simplification available to a builder, not a gap in the AC. Re-verified `parser.py`'s four-return-site /
+five-outcome-class structure for `parse_frontmatter` still matches AC-2's citations exactly. Did not re-derive
+the AC-1 four-path sweep or the AC-5 28-site universe from scratch this round; re-verify 8 and re-verify 9's
+independent re-derivations stand and nothing in this pass touches either surface.
+
+```verdict
+gate: ac-red-team
+verdict: PROMOTE
+date: 2026-07-24
+model: claude-sonnet-5
+note: Round-27 fold (parse_to_model known-ness decided on the note's raw type, comparand derived from model_fields["type"].default, TYPE_TO_MODEL construction, third case named, all three layers carried) verified correct against live source -- Literal defaults, TYPE_TO_MODEL, and parse_to_model's caller-forced-only reachability all confirmed by direct read, not by trusting the fold's summary. Attacked the __name__-vs-Literal-default comparand substitution and the book.py/meeting.py exception-routing consequence; neither is a material AC gap. Attacked and found nothing new.
+```
+
+## AC Sign-off
+
+```verdict
+gate: ac-signoff
+verdict: PROMOTE
+date: 2026-07-24
+reviewer: dave
+channel: cli
+signed_at: 2026-07-24T13:53:06+01:00
+provenance: verified
+signoff_escalation: ESC-WI-020-exploring-awaiting-ac-signoff-94ce85e7
+ac_hash: dfa3ceddda0b
+intent_hash: eaa4e881448e
+ac_hash_AC-1: 0bb25d0237e8
+ac_hash_AC-2: c0bc96ee6874
+ac_hash_AC-3: c4494a7ec5a0
+ac_hash_AC-4: 6257494d1c78
+ac_hash_AC-5: c9af928ccc69
+ac_hash_AC-6: 3e57f0a2efee
+ac_hash_AC-7: 7cc31153b6f2
+artifact: docs/spec-reviews/WI-020-dave-review-2026-07-24.md
+```
+
+## Architectural Review — 2026-07-24
+
+**Recommendation: PROMOTE to architected**
+
+Cold-start architect pass. Read: role definition; this doc in full (Problem/Motivation, Intent,
+Exploration Notes end to end through round 27, Non-goals, Approach, AC-1..AC-7 as fences, Examples
+of done, Relationship to other work, the AC Sign-off fence and `docs/spec-reviews/WI-020-dave-review-2026-07-24.md`);
+project `CLAUDE.md`; `LESSONS.html`. Code re-read live rather than trusted from the doc:
+`parser.py` in full, `writer.py:170-325`, `repositories/base.py:110-190` and `248-339`,
+`repositories/person.py:1440-1509`, `models.py` type declarations, `pyproject.toml`,
+`tests/test_parser.py:260-273`, `tests/test_vault_path_required.py:320`, plus package-wide sweeps
+for the exception convention and for `ast`.
+
+### Trigger check
+
+Four fire; the review runs.
+- **Replaces or significantly extends a core system.** `parse_frontmatter` (parser.py:53-80) is the
+  package's only frontmatter boundary; every repository loader and every write path runs through it.
+- **Touches >3 files in different concerns** — parser, writer, and four repository modules.
+- **Changes an externally-visible contract** — N4's return contract, plus the propagating public
+  parse surface (`parse_markdown_content`, the four conveniences at parser.py:216-237).
+- **Effort > 1 day.**
+
+### Review
+
+**Fit:** Strong, and verified rather than asserted. The chosen fix is LESSONS #1 (parse, don't
+validate) applied at the one line where the information exists and is discarded — the
+`except yaml.YAMLError: return {}, content` at parser.py:78-80, byte-identical to the legitimate
+absent-frontmatter return at parser.py:64-65. The exception convention the Constraints section
+claims holds live: `IdentifierError(ValueError)` (identifier.py:58), `NameValidationError` /
+`WeakIdentityError` (name_validation.py:125,140), `VaultPathNotConfiguredError(ValueError)`
+(base.py:20) — and the one deviation, `BodyTruncationError(Exception)` (writer.py:30), is correctly
+named as not-to-follow. The read/write asymmetry is forced by the code, not chosen for symmetry:
+`load()`'s loop (base.py:157-165) has no `try` of its own, so each `_load_file`'s own `except`
+(base.py:181-183, meeting.py:81-83, book.py:77-79) is the entire margin between one bad note and an
+aborted batch — which is exactly why A3-alone fails and why AC-3 asserts no-abort per class.
+
+**Duplication:** A1 over A2 is the right call and is the WI-185 seam rule applied correctly — the
+malformed/absent distinction exists only at parser.py:78, and any write-path re-detection would be
+reconstructing downstream what the seam discarded. The four-member write set is real: `update_fields`
+(base.py:312 → 324 → 327-329), `update_frontmatter_field` (writer.py:247 → 253-256),
+`update_frontmatter_fields` (writer.py:286 → 292-295), `roundtrip_file` (writer.py:317 → 319-322),
+the last carrying no `try` at all. The proven negative is genuinely separable on data flow rather
+than on name: `write_markdown_file` binds only `existing_body` from its parse (writer.py:186) and
+builds what it writes from its own `entity`/`frontmatter` arguments (writer.py:197-205). The one
+shared scan module is LESSONS #4 applied to the harness, and it is satisfiable on this floor as
+claimed — no `conftest.py` exists anywhere in the tree and `tests/__init__.py` is present, so
+`tests/<name>.py` is importable under the rootdir prepend the suite already depends on.
+
+**Boundaries:** Ownership stays where it is declared. `type_name` is abstract per class
+(base.py:126-130) while the glob is not — `PersonRepository` and `CompanyRepository` share `@*.md`
+(base.py:132-135, neither overriding it) and `BookRepository` globs the catch-all `*.md`
+(book.py:49-51) — so deciding the skip surface on `type_name` rather than on the glob is the
+boundary-correct answer, and AC-3's refusal to decide ownership from `isinstance` (base.py:179) /
+`model_validate` success is the load-bearing half. No new cross-cutting coupling: the item adds no
+module and no cross-system reach.
+
+**Determinism boundary (LLM vs code):** n/a, and stated so the absence is recorded rather than
+assumed. This design hands nothing to an LLM — it is library code from seam to consumer, with every
+decision (malformed vs absent, owned vs foreign, failure vs no-op) made by code on values already
+present in the note. The WI-115 scar has no analogue here.
+
+**Reversibility:** Good. The seam change is additive (a typed error where a value was silently
+normalised); the loader change is a narrowing plus a queryable list; back-out is a revert of one
+`except` clause plus the narrowed catches. The one genuinely one-way door is N4's contract change at
+HAL9000's three call sites, and AC-5 buys it down to the smallest possible surface by freezing every
+legitimate no-op's exact return value — so the only behaviour an existing `if not repo.…:` branch
+sees change is a silent data-loss becoming loud. No shadow mode or flag is proposed and none is
+needed: a bad landing degrades to a noisy startup, not to a corrupted vault, which is the correct
+direction for this item to fail in.
+
+**Generalization:** The package fix generalizes exactly as far as the defect does — one class at five
+named sites plus three the campaign's enumeration missed (`roundtrip_file`, `book._load_file`,
+`_get_body_content`), all three confirmed live. The *harness* generalizes further than the package
+change does; see Cost, and note 2.
+
+**Cost & maintenance:** The package change is small. The check harness is not, and it is worth naming
+plainly at promotion time: one shared scan module exporting six derivations, a transitive closure
+with a computed stop set, a four-way partition assertion, and a repo-global constraint that the `ast`
+module be imported in exactly one file across `obsidian_schemas/` and `tests/`. That last is a
+durable cross-cutting constraint minted by a test rather than by the package, and it is satisfiable
+today — swept live, no `.py` file anywhere in this tree references `ast`, so the shared module
+becomes the sole home by construction. AC-7 accepts the cost knowingly and states how a future
+legitimate second consumer is meant to arrive. This is a stated trade, not an oversight, and it is
+not a promotion blocker; it is the clause a six-month owner will meet first.
+
+**Build vs extend vs integrate:** Extend, correctly — no new module, no new integration, no new
+runtime dependency. The exception is in the *test* strategy, and it is note 1 below.
+
+**Prior art (outside view):** The item does build machinery around a constraint — "a hand-written
+enumeration goes stale" — so the dimension applies. The world's standard answers are a lint rule
+(ruff's `BLE001` for blind `except`, custom AST plugins for house rules) and making the bad state
+unrepresentable at the type level so no scan is needed. Neither blocking condition fires: this is not
+the 2nd+ recurrence of a compensated-for constraint (the recurrence in this document is red-team
+rounds converging on one AC set, not repeated work items compensating for the same subtraction), and
+the ruling defers no option behind a named re-entry condition — the two deferrals (HAL9000 consumer
+migration, the write-side `mkdir` guard) are routed to named owners in Non-goals and Relationship to
+other work, not parked behind a condition. Advisory only: see note 2, where the type-level answer is
+partly available inside this item's own chosen approach.
+
+### Notes (non-blocking)
+
+1. **The Check strategy commits three checks to Hypothesis, which is not present in this project —
+   the one claim in this document that was never run against the live tree.** The Check-strategy note
+   assigns AC-1, AC-2's `parse_frontmatter` half, and AC-5's two halves to Hypothesis property tests.
+   Verified live: `pyproject.toml:31-35` declares `pytest>=7.0` and `pytest-cov>=4.0` and nothing
+   else, and the floor interpreter's `site-packages` holds no `hypothesis*`. Three consequences the
+   spec-writer must resolve explicitly rather than inherit: (a) it is a new external dependency, an
+   architect trigger this doc never fires and its Constraints section never discusses; (b) it lands
+   on the hardest named constraint — Hypothesis writes a `.hypothesis/` example database into the
+   working directory, and the floor is specified as hermetic, ~1s, and run from a foreign cwd, so
+   both a `database=None` profile and an explicit `max_examples` are needed for the floor to keep its
+   stated shape; (c) this document's own round-25 rule — a proposed mechanism is a hypothesis until
+   it is run against the live tree — was discharged for `ast` and for `rglob` and never for this. It
+   is a note rather than a blocking issue because it does not touch the approach: no `desc:` in any
+   of the seven fences names Hypothesis, every AC is `kind: test` with a named check, and the
+   explicit-fixture family the doc already uses for AC-3's twelve cells, AC-7 and AC-2's
+   `parse_to_model` half is an in-repo fallback that satisfies every fence as written. Decide it in
+   the spec, and if the dependency is added, add it to Constraints and to the dev extra.
+
+2. **The mechanism choice at the seam decides how much of the harness is load-bearing, and A1's two
+   variants are not equal on that axis.** The Approach deliberately leaves "typed error raised" vs.
+   "discriminated result" to the spec-writer, and that is right. Worth carrying forward: under the
+   discriminated-result variant a future fifth write path cannot re-serialize a failed parse without
+   handling the malformed case at all, so AC-1's forward-looking sweep verifies a property that is
+   already true by construction; under the raising variant the sweep is the only thing standing
+   between a future write path and the C2 chain. That is LESSONS #13 — the variant that lets a check
+   become redundant is paying principal, the one that needs the check forever is paying interest. It
+   changes no AC (both satisfy AC-1 as written), but it is the trade to weigh when the mechanism is
+   picked.
+
+3. **One parked question is not visibly ruled.** Inherited scope #2 asks Dave to choose whether the
+   write-side `mkdir(parents=True)` bogus-tree guard folds into this item or belongs to WI-004, and
+   says it is "flagged for sign-off, not encoded as an AC." The `ac-signoff` fence records
+   `comments: null`, which signs off the AC set but does not obviously rule a question deliberately
+   kept out of it. Non-goals and Relationship to other work both already answer it in the same
+   direction (WI-004 owns the write-side guard), and that is the boundary-correct home — WI-004 is
+   the atomic-write seam. Recommend the spec-writer treat the Non-goals routing as the standing
+   answer and surface it to Dave only if speccing turns up a reason to move it.
+
+```verdict
+gate: architect
+verdict: PROMOTE
+date: 2026-07-24
+model: claude-opus-4-8
+note: The seam fix is the architecturally correct shape and every load-bearing code claim re-verified live -- malformed and absent are byte-identical returns at parser.py 64-65 vs 78-80, the four write paths re-serialize the parsed dict while write_markdown_file provably does not, load()'s loop has no try so each _load_file's except is the whole margin, and the ValueError convention holds at four of five sites; nothing here needs redesign in speccing, with the one unrun claim (Hypothesis is absent from pyproject.toml's dev extra and from the floor venv) resolvable inside the AC set's own explicit-fixture fallback.
+```
+
+## Data Audit — 2026-07-24
+
+**Recommendation: PROMOTE to specced**
+
+### Trigger check
+
+**Class 2 (with Class 1 members).** Both fire, and heavily.
+
+- **Class 2 — rule-effect-against-existing-corpus.** Five of the seven ACs introduce a *rule run against the current package source*: AC-1's data-flow write-path scan (plus its proven negative), AC-2's return-site enumeration and its transitive-closure caller sweep, AC-3's `BaseRepository`-subclass scan, AC-5's 28-site falsy universe, AC-7's single-homed `ast` marker. For this item the production corpus is not a vault of notes — it is `obsidian_schemas/` and `tests/` on disk, because that is what every one of these predicates is evaluated against at test time. Their correctness is a claim about what they return *today*, and each carries a stated baseline count that a builder will assert against.
+- **Class 1 — field-presence/existence.** The AC set rests on quantified existence claims: exactly four `ast.Return` nodes in `parse_frontmatter` carrying five outcome classes; exactly four concrete repository subclasses collapsing to three `_load_file` implementations; exactly 28 non-completed-write return sites; zero `ast` references anywhere in the tree; `tests/__init__.py` present and no `conftest.py`; `test_parse_person_wrong_type` asserting `None` as a live floor case; and each of the four classes' own drifted-field fixture being derivable from that class's own model.
+
+The premise-rot risk here is unusually concrete: these are counts written into a document that has been folded 27 times, and the fix itself edits three of the functions being counted.
+
+### Premise → predicate → result
+
+Every predicate below was run against the live tree in this worktree. No claim is carried from the doc.
+
+**1. The C2 corruption chain is live, and its own guard is defeated.** Read `base.py:300-334`: `update_fields` raises `ValueError` (305) / `FileNotFoundError` (307-308), then `content = read_text` (311) → `frontmatter, body = parse_frontmatter(content)` (312) → `frontmatter.update(updates)` (324) → `write_frontmatter` (327) → `f"---\n{yaml}---\n{body}"` (328) → `write_text` (329). The post-write reload guard is at 332-334 and cannot catch it, because the rewritten file is valid YAML. **Confirmed exactly as documented, at the cited lines.**
+
+**2. `parse_frontmatter` has FOUR return sites and FIVE outcome classes.** Read `parser.py:53-80` in full: `return` at **65** (no leading fence), **70** (`re.match` failed — opening fence, no closing fence), **77** (valid), **80** (`yaml.YAMLError`). The empty-fence class is the `if frontmatter is None: frontmatter = {}` normalisation at **74-75**, which has no return of its own and falls through to 77. **Confirmed — AC-2's round-14 keying correction is right, and the naive five-site map would indeed be red on a correct implementation.** Sites 65/70/80 all return `{}, content`; 80 is byte-identical to 65, which is the whole defect.
+
+**3. `parse_to_model` returns the same value for two different reasons.** `parser.py:135-137` returns `(None, frontmatter.copy())` for an unresolvable type; `parser.py:139-150` returns `(None, frontmatter.copy())` from a blanket `except Exception` around `model_validate` (141). Identical value, identical shape. `model_class` is threaded from the caller (110) and is compared against nothing the note declares. **Confirmed — round 27's "known-ness is the note's property, never the call's" is grounded in the code, not asserted.**
+
+**4. The adjacency-vs-closure premise (AC-2's round-16 fold).** Grepped `parse_frontmatter` across the package: it is *named* by exactly nine functions — `write_markdown_file` (writer.py:186), `update_frontmatter_field` (247), `update_frontmatter_fields` (286), `roundtrip_file` (317), `parse_markdown_file` (parser.py:174), `parse_markdown_content` (201), `update_fields` (base.py:312), `meeting._load_file` (72), `book._load_file` (67). **The doc's "an adjacency scan returns nine functions" is exact.** The four typed conveniences (parser.py:216-237) and `base._load_file` (base.py:178, via `parse_markdown_file`) are absent from that set — so the closure requirement is load-bearing, not decorative.
+
+**5. Four concrete repositories, three `_load_file` implementations, one shared glob.** `file_pattern` is defined at `base.py:132-135` (`"@*.md"`), `meeting.py:50`, `book.py:49` — and nowhere else; `_load_file` at `base.py:171`, `meeting.py:64`, `book.py:57` — and nowhere else. `PersonRepository` (person.py:159) and `CompanyRepository` (company.py:46) override **neither**, and `base.save` writes `f"@{name}.md"` (base.py:257). `type_name`/`entity_type` are abstract per class (base.py:120-130). **Confirmed: the 4-classes/3-paths asymmetry is real, and the healthy-vault exposure (every company note reporting as a skipped person and vice versa) follows from the code alone — it needs no vault statistic to be true.**
+
+**6. Each class's own drifted-field fixture is derivable from its own model.** `models.py`: `extra="allow"` (32), `BaseEntity.tags: List[str]` (40), `Person.emails: List[str]` (81), `Meeting.attendees: List[str]` (261). Read `Company` (127-132) and `Book` (159-170) field-by-field: **every declared field is `str`** — so for both, the inherited `tags` is the only `List` and is therefore the correct derivation, exactly as AC-3 states. `type` is a `Literal` with a matching default at 78/127/159/192/220/240/259/294, so `model_class.model_fields["type"].default` is a real deriving source. `TYPE_TO_MODEL` at 309-317, read via `get_model_for_type` (331). **All confirmed; no field claim in AC-3 was transposed.**
+
+**7. The 28-site falsy universe is exact.** Swept `return False` / `-> bool` across `obsidian_schemas/`: `writer.py` 243, 260, 282, 299 (4); `person.py` 1478, 1484, 1492, 1502, 1563, 1570, 1579, 1584, 1607, 1681, 1683, 1704, 1740, 1742, 1747, 1761, 1777, 1807, 1809, 1814, 1824, 1839 (22). Plus the two non-`False` members read directly at `person.py:1613-1626` — the missing-file `None` at **1617** and the unsplittable-fence fall-through `return content` at **1626**. 4 + 22 + 2 = **28, matching the doc's site list line-for-line**. `company.py`, `meeting.py` and `book.py` contain no `return False` and no bool-returning writer — confirmed, which is what makes `append_to_timeline` P3's only member by enumeration. The named out-of-universe pure predicate `phones_match` is at person.py:136/156 as cited. `get_to_discuss_items` converting `_get_body_content`'s `None` into a `ValueError` is live at 1641-1643 (no-op class (d)).
+
+**8. AC-7's `ast` single-homing is satisfiable, not red on arrival.** Ran the marker predicate across every `.py` in the tree: **zero matches**. Nothing in `obsidian_schemas/`, `tests/` or `scripts/` imports or references `ast` today, so the shared scan module becomes the sole home by construction. **Confirmed live** — this is the one premise in the AC set that would have made a fence red the day it was written if it were stale.
+
+**9. AC-7's round-25 withdrawal is grounded in a live conflict.** `tests/test_vault_path_required.py:320` runs `(REPO_ROOT / directory).rglob("*.py")` over `obsidian_schemas/` and `scripts/`, and its docstring at 314-315 reads "a scan that carries an exception list is a scan nobody trusts." **Confirmed** — a `.py`-enumeration marker really would be red on this compliant tree, and the exemption-by-name repair really is ruled out by the exempted test's own words. Round 25's withdrawal was correct, and its residue is honestly named.
+
+**10. The floor's import mechanics support the shared-module requirement.** `tests/__init__.py` exists; globbed `**/conftest.py` → **no files anywhere in the tree**. **Confirmed** — the round-20 claim that a shared scan module is importable with no new machinery holds.
+
+**11. The baseline this item may not break.** `tests/test_parser.py:265-273`, `test_parse_person_wrong_type`, asserts `parse_person` returns `None` on well-formed `type: company` content. **Confirmed verbatim** — AC-2's foreign-type-keeps-`None` half is protecting a real, live case, not a hypothetical.
+
+**12. Class-1 correction, non-blocking: Hypothesis is absent.** `pyproject.toml` `[project.optional-dependencies]` (31-35) declares `pytest>=7.0` and `pytest-cov>=4.0` and nothing else. The Check-strategy note assigns three checks to Hypothesis property tests. **The architect's note 1 is confirmed as a field-presence miss, not a judgement call.** It does not gate here: no `desc:` in any of the seven fences names Hypothesis, all seven are `kind: test` with an in-repo check name, and the explicit-fixture family the doc already uses satisfies every fence as written. The spec-writer decides it; if the dependency is added, it needs a `database=None` profile and an explicit `max_examples` to keep the floor hermetic and ~1s.
+
+**13. The read-path insulation premise.** `base.py:157-165`: `load()`'s loop calls `self._load_file(file_path)` with **no `try`/`except`**; `_load_file`'s own `except Exception → logger.debug` is at 181-183, `isinstance` ownership at 179. The non-existent-vault warn-and-return-0 is at 152-155. **Confirmed** — AC-3's per-class NO-ABORT assertion is guarding a real cliff, and AC-6's narrowing house style is what makes it reachable.
+
+### Not grounded — stated rather than hidden
+
+- **The 607-case floor was not executed.** This gate's cage has no shell, so `pytest` could not be run. It is a *regression floor*, not a premise the design's correctness rests on: no AC's truth depends on the count, and the build-runner's `### 2. Verify Assumptions` step re-runs the suite before building. Recorded so the gap is visible rather than assumed discharged. The structural half of the claim *was* checked: 13 test modules under `tests/`, `tests/__init__.py` present, no `conftest.py` — so no test file has silently vanished from the tree.
+- **Dave's live vault was not read** (it is outside this worktree). It is not load-bearing: every AC fixture is constructed in `tmp_path`, and round 3's healthy-vault exposure is derived from the shared `@*.md` glob plus the `Literal` type fields — code facts, both confirmed above — rather than from any distribution over real notes. The vault appears only in the Examples of done, as illustration.
+
+### Conclusion
+
+Every empirical claim the AC set will be *checked against* was re-derived from the live source in this worktree, and all of them hold: the four return sites against five outcome classes, the nine-function adjacency set that provably misses the conveniences, the four classes over three `_load_file` implementations, the all-`str` field lists that make `tags` the correct derivation for `Company` and `Book`, the 28-site falsy universe matching line-for-line, the zero-`ast` tree that makes AC-7 satisfiable, the pre-existing `rglob("*.py")` that makes its withdrawn second marker unsatisfiable, and the missing `conftest.py` that makes the shared module importable anyway. Two premises are ungrounded and named above rather than papered over; neither is load-bearing on a fence. One Class-1 premise in the Check-strategy prose (Hypothesis available) is false and is corrected here, matching the architect's note — it is spec-writer scope, and no fence rests on it.
+
+The counts in this document are unusually exposed to rot, because the ACs assert them and the fix edits the functions being counted. As of today they are exact. That is what this dating is for: at build-start, re-run predicates 2, 5, 7 and 8 before writing the tests — those are the four whose baselines the fix itself moves or whose satisfiability a later work item could quietly remove.
+
+```verdict
+gate: data-premise
+verdict: PROMOTE
+date: 2026-07-24
+model: claude-opus-4-8
+note: Every AC-checked premise re-derived live and all hold -- parse_frontmatter's 4 return sites carrying 5 outcome classes, the 9-function adjacency set that provably misses the four conveniences, 4 repository classes over 3 _load_file implementations sharing @*.md, all-str field lists making inherited tags the correct Company/Book derivation, the 28-site falsy universe matching line-for-line, and zero ast references tree-wide so AC-7 is satisfiable rather than red on arrival; the two ungrounded premises (the 607-case floor, unrunnable without a shell here, and Dave's live vault) are named and neither is load-bearing on a fence, while the Check-strategy note's Hypothesis assumption is confirmed false against pyproject.toml and is spec-writer scope.
+```
+
+## Threat Model — 2026-07-24
+
+**Recommendation: PROMOTE to threat-modeled**
+
+Cold-start threat-modeler pass. Read: the role definition; this document in full (Problem/Motivation,
+Intent, Exploration Notes through round 27, Non-goals, Approach, AC-1..AC-7 as fences, Examples of
+done, Relationship to other work, Design end to end, Edge Cases, Implementation Plan Tasks 1-18,
+Write Targets, Verification, Verified Diagnosis, Scope Boundary, Risk Analysis, Self-Review Dry Run,
+the `ac-signoff` fence, the Architectural Review with its three notes, and the Data Audit with its
+thirteen findings); project `CLAUDE.md`. Code re-read live in this worktree rather than trusted from
+the doc: `parser.py:50-155`, `writer.py:236-265`, `repositories/base.py:140-190`, plus a package-wide
+sweep for any existing redaction convention.
+
+### Trigger check
+
+Three fire; the review runs. Two of the trigger list's entries are the item's own subject matter, so
+the cheap path is not available.
+
+- **Handles input from external sources.** The untrusted input is the byte content of a note on disk —
+  arbitrary bytes Dave, Obsidian, or any other tool may have written. The document names this itself
+  and names it correctly (Prerequisites & Assumptions, "Trust boundary: exactly one, and it is the
+  point of the item").
+- **Performs filesystem operations on user-owned files.** Four write paths rebuild notes in Dave's
+  vault; `append_to_timeline` gains a new branch that writes to a note it previously refused.
+- **Persists data.** Not to a state file or database, but to the vault itself, and — new in this item —
+  to log output and to a queryable in-memory surface (`SkippedNote`).
+
+Explicitly **not** triggered, verified rather than assumed: no secrets, credentials, API keys, OAuth
+scopes or tokens (Prerequisites, line 1014); no outbound API calls; no MCP scopes; no access-control
+or permission changes; no external messages. The package does no network I/O.
+
+### STRIDE review
+
+**Spoofing:** No authentication boundary exists or is introduced. The one identity-shaped decision is
+`_owns(declared_type)` (Design/Flow §3), which decides a repository's skip-list membership on the
+note's *self-declared* `type` field. A note can therefore claim `type: person` and place itself on
+`PersonRepository`'s skip surface. That is correct and not a spoofing weakness: the skip list is an
+attention list, not an authorization decision, and nothing downstream grants a capability from it.
+The positive load path already trusts a note's declared `type` today (`meeting.py:75`, `book.py:70-71`),
+so the item introduces no new trust in that value — it moves the *ownership* decision off
+`isinstance`-after-construction (base.py:179) and onto the raw declared value, which is a
+data-modeling improvement, not a trust change.
+
+**Tampering:** Net strongly positive, and this is the item's whole purpose. The C2 chain is a live
+unauthorized-modification path: `update_fields` (base.py:311 → 312 → 324 → 327-329) rebuilds a note
+from a frontmatter dict that never parsed, destroying the original frontmatter and duplicating the
+file into its own body, and its own post-write reload guard (base.py:332-334) cannot catch it because
+the corrupt output is valid YAML. AC-1 closes it at all four derived write paths with a byte-identity
+assertion. One place the item *widens* the mutation surface rather than narrowing it:
+`append_to_timeline`'s accommodation (Design/Flow §6, P3) now writes to a note that previously got a
+`False` and no write, on a raw `write_text` (person.py:1495) that `writer.py:178-183` deliberately
+exempts from the WI-126 body-shrink guard. That widening is Dave-ruled (round 9), bounded by AC-5's
+PRESERVATION clause with a `new_content.startswith(original)` oracle proved on a heading-less and a
+preamble fixture, and the chosen mechanism is string insertion rather than the lossy `body_sections`
+round-trip. Adequately mitigated as specced; noted below only because it is the one direction in
+which this item mutates more than the tree does today.
+
+**Repudiation:** Improved. Today an un-loadable note produces `logger.debug` (base.py:181-183) — off
+by default — and a malformed-YAML or validation-failed note produces *no log line at all*, because
+both errors are swallowed to return values upstream at `parser.py:78-80` and `parser.py:148-150`
+(neither binds the exception with `as e`; the error object is discarded outright). Post-fix the skip
+is WARNING plus a queryable list, and AC-3 asserts the level via `caplog` rather than trusting it.
+No audit-trail integrity concern: the surface is per-instance, cleared per `load()` (Edge Cases,
+first-run vs subsequent-run), and makes no durability claim.
+
+**Information disclosure:** The one real finding, and it is a direct consequence of the item's own
+remedy. Today this package emits essentially zero note-content-bearing output above DEBUG — the two
+seam handlers discard their exception objects entirely (`parser.py:78`, `parser.py:148`),
+`writer.py:242-243` and `writer.py:259-260` return `False` with no logging, and the only content-
+adjacent line is a DEBUG one (base.py:182). This item routes those same errors into (i) typed
+exception messages constructed at the seam, (ii) `SkippedNote.detail`, specified as `str(error)`
+(Design/Data model, line 731), (iii) a WARNING line interpolating `{error}` (Design/Flow §3,
+`_note_skip`), and (iv) — per AC-2's invocation-surface clause — a typed error that *propagates out
+of the public parse surface* to three long-running consumer processes.
+
+What those messages contain is not neutral. A `yaml.YAMLError` from `safe_load` (parser.py:73) is a
+`MarkedYAMLError`, whose string form embeds the offending source line as a snippet — i.e. a verbatim
+line of the note's frontmatter. A Pydantic `ValidationError` from `model_validate` (parser.py:141) —
+the input to `SchemaDriftError` — renders `input_value=` for each failing field. The canonical
+worked fixture in this document is `@Broken.md` with `emails:` holding a bare string: the drifted
+field *is* the contact PII, and it lands verbatim in a WARNING line and in a public API field. The
+same is true of the generic-exception bucket Task 8 records as `reason="unreadable"`, where a
+`UnicodeDecodeError` renders a byte snippet of the file.
+
+This is not a hypothetical for this project: the document already recognises the exact hazard one
+paragraph over, instructing "Redact paths and note contents before any of this output is recorded in
+a tracked document" for the incident replay (Verification, line 1259) — while specifying the runtime
+path that produces the same content with no equivalent bound. The realistic exposure is not an
+attacker with vault access (who already has the data); it is aggregation and travel — log files
+pasted into issues, transcripts, briefings, and this pipeline's own tracked documents — plus an
+unbounded in-memory list of PII-bearing strings in a long-lived process. Swept live: this package has
+no existing redaction convention to inherit, so the bound has to be stated. Two required mitigations
+below; both are additive constraints on message *content*, land inside tasks that already exist, and
+collide with no frozen AC (no `desc:` in AC-1..AC-7 asserts anything about an error's message text;
+AC-3 asserts level, membership, reason and no-abort; AC-4 asserts type-distinguishability from
+`BodyTruncationError`).
+
+**Denial of service:** No rate limits, quotas, recursion or cost ceilings are relevant — the package
+makes no outbound calls and spawns nothing. Two bounded resource observations, neither blocking.
+(1) `_skipped` grows one entry per owned bad note per load; it is bounded by vault size and cleared
+at the top of `load()` beside base.py:149-150, and `_owns` keeps a catch-all-globbed `BookRepository`
+from claiming the whole vault. (2) The one path that escapes that reset is named in Edge Cases
+(line 1056): `update_fields`' post-write reload calls `_load_file` outside any `load()` and may
+append. A caller retrying a failing `update_fields` grows the list between loads. Thin — the caller
+also gets a `ValueError` at base.py:334 each time — but it interacts with the disclosure finding
+above, so M2 covers it by bounding what each entry holds rather than by adding a cap. The WARNING-per-
+bad-note volume is a noise concern the document already treats as its own risk row ("The skip surface
+cries wolf") and mitigates by ownership scoping.
+
+**Elevation of privilege:** None. No new module reaches outside the package, no subprocess, no shell,
+no `eval`, no deserialization primitive beyond `yaml.safe_load` (parser.py:73 — already the safe
+loader, unchanged by this item, and worth recording as verified rather than assumed since the item
+edits the lines around it). No file permissions are set or changed, no path is constructed from
+untrusted input — the write paths write back to the path the caller supplied and the loaders write
+nothing. AC-6's narrowing of `_known_companies` (person.py:1147-1160) moves in the least-privilege
+direction: a `VaultPathNotConfiguredError` stops being buried.
+
+### Mitigations verified in place
+
+1. **Fail-closed on the mutation path.** AC-1 requires every derived write path to refuse a failed
+   parse *and* asserts the on-disk file byte-identical afterward — a refusal that is proved by bytes,
+   not by "it raised". Already in Design/Flow §4 and Tasks 3/5/6.
+2. **Fail-open, but visibly, on the read path.** All three `_load_file` implementations keep a broad
+   `except Exception` on purpose (Design/Flow §3), because `load()`'s loop has no `try` of its own
+   (base.py:157-165) and each handler is the entire margin against an aborted batch. AC-3 asserts
+   NO-ABORT on all twelve cells per class rather than inferring it from the base path. This is the
+   correct fail-mode split for a library whose read path runs at consumer startup.
+3. **Security-relevant events logged at WARN.** AC-3 requires WARNING, never DEBUG, and Task 13
+   asserts it via `caplog` — closing the "satisfiable by a log line nobody reads" gap the document's
+   own red-team round 1 raised.
+4. **Backward-compatible error typing.** Every new error subclasses `ValueError` except the two
+   deliberate `FileNotFoundError`s (Design/Flow §6, P4), so an existing consumer `except ValueError`
+   still catches and the break degrades to a message change. Verified against the package convention
+   live: `IdentifierError` (identifier.py:58), `NameValidationError`/`WeakIdentityError`
+   (name_validation.py:125,140), `VaultPathNotConfiguredError` (base.py:20).
+5. **Ownership decided before model construction.** AC-2's and AC-3's shared rule — known-ness read
+   off the note's raw declared `type`, never off whether `model_validate` succeeded — is what keeps
+   the skip surface from becoming an untrusted-input amplifier that reports every foreign note in a
+   heterogeneous vault.
+6. **Safe YAML loader unchanged.** `yaml.safe_load` at parser.py:73; the item edits the handler
+   around it and never the loader. Recorded so a builder does not "simplify" it while touching
+   parser.py:72-80.
+
+Required mitigations follow as machine fences.
+
+```mitigation
+kind: required
+id: M1
+desc: The seam's typed errors carry a bounded diagnostic (path, line/column or field name, error class) and never the verbatim yaml.MarkedYAMLError source snippet or Pydantic input_value, both of which reproduce note content into every downstream consumer of the raised error.
+landed: Task 3
+```
+
+```mitigation
+kind: required
+id: M2
+desc: _note_skip's WARNING line and SkippedNote.detail carry that same bounded diagnostic rather than str(error) verbatim, covering the generic-exception "unreadable" bucket too, where a UnicodeDecodeError renders a byte snippet of the note.
+landed: Task 8
+```
+
+### Notes (non-blocking)
+
+- **`writer.py:259-260` has no existing log message to keep "unchanged."** Design/Flow §6's P1 shape
+  is annotated `logger.warning(...)  # the existing message, unchanged`, which is accurate for
+  `person.py`'s five handlers but not for `writer.py:259-260` / `298-299` — read live, both are bare
+  `except Exception: return False` with no logging at all. A builder following the annotation
+  literally at those two sites has nothing to copy. Not a security gap (P1's first clause re-raises
+  `LoudFailError` untouched, so a `FrontmatterParseError` is never re-wrapped there and only genuine
+  I/O errors reach the message), but it is a spec detail that will stall Task 5 for a minute.
+- **The public parse surface is the widest new disclosure channel, and it is out of this repo's
+  reach.** AC-2 requires the six residue members to propagate the typed error, so whatever M1 puts in
+  that message travels to HAL9000, exocortex and orchestrator, any of which may render an exception
+  into a user-facing surface. Bounding it at construction (M1) is the right place precisely because
+  the consumers cannot be audited from this hermetic floor — the same reasoning that parked the N4
+  consumer migration.
+- **The Timeline accommodation widens the set of notes this package mutates**, on a write path
+  deliberately exempt from the WI-126 guard. Dave-ruled and bounded by AC-5's PRESERVATION oracle, so
+  not a blocking concern — recorded only so that if the preservation half is ever relaxed, the
+  security-relevant consequence (a silent body wipe on hand-created notes) is on record here too.
+- **No shell in this cage**, so the 607-case floor was not executed and the PyYAML/Pydantic message
+  shapes were not run — they are stated from library semantics with the constructing call sites cited
+  (parser.py:73, parser.py:141) rather than from an observed run. Task 1 already re-runs the four
+  premise predicates at build start; confirming what those two error types actually render is a
+  one-line addition to it and is where M1's bound should be sized.
+
+```verdict
+gate: threat-modeler
+verdict: PROMOTE
+date: 2026-07-24
+model: claude-opus-4-8
+note: No security gap in the approach -- the item is a fail-closed-on-write / fail-open-but-visible-on-read hardening with no secrets, network, subprocess or privilege surface, and yaml.safe_load is unchanged at parser.py:73 -- but making the boundary loud newly routes note content into WARNING logs and a public API field, because parser.py:78 and 148 discard their exception objects today while the fix folds a MarkedYAMLError snippet and Pydantic input_value into SkippedNote.detail and _note_skip's warning, which for the doc's own @Broken.md fixture is contact PII verbatim; two required mitigations bound those messages at Task 3 and Task 8, neither colliding with a frozen AC.
+```
+
+## Spec Review — 2026-07-24
+
+**Recommendation: REVISE — return to spec writer (gaps to fix)**
+
+Cold-start spec-review pass, first review of this document. Read: the role definition and its
+generated contract; this document from line 1 (Problem/Motivation, Intent, Exploration Notes through
+round 27, Non-goals, Approach, AC-1..AC-7 as fences, Examples of done, Relationship to other work,
+Design end to end, Edge Cases, Implementation Plan Tasks 1-18, Write Targets, Verification, Verified
+Diagnosis, Scope Boundary, Risk Analysis, Self-Review Dry Run, the `ac-signoff` fence, the
+Architectural Review with its three notes, the Data Audit with its thirteen findings, and the Threat
+Model with M1/M2 and its four notes); `docs/spec-reviews/WI-020-dave-review-2026-07-24.md` (verdict
+PROMOTE, `comments: null`, the frozen AC text and its seven per-item hashes); project `CLAUDE.md`;
+`pipeline-runners.yaml`. Every code claim below was re-read live in this worktree at the cited
+`file:line` rather than trusted from the doc.
+
+### Citation verification
+
+Read at source and confirmed exact: `parser.py` in full (53-80 with returns at 65/70/77/80, the
+`safe_load`-`None` normalisation at 74-75, `parse_to_model` 108-150 with 123-124, 130-133, 135-137,
+139-150, `parse_markdown_file` 173/174/176 and its `Raises:` at 167-169, `parse_markdown_content`
+201-202, the four conveniences at 216/218, 222/224, 228/230, 234/236); `writer.py` (19, 30, 176,
+178-183, 184-195 with `existing_body = ""` at 189-190, 197-205, 217, 242-243, 247, 253-256, 259-260,
+276-277, 281-282, 286, 292-295, 298-299, 316-322); `repositories/base.py` (20, 116-118, 120-130,
+132-135, 149-150, 152-155, 157-165 with no `try`, 171-183 with 178/179/181-183, 256-258, 305-308,
+311, 312, 324, 327-329, 332-334); `meeting.py` (50-52, 64-83, 72, 75, 76, 78, 81-83); `book.py`
+(49-51, 57-79, 67, 70, 71, 74, 77-79); `person.py` (159, 1147-1160 with the import at 1149 and the
+bare `except` at 1156, 1462-1466, 1469-1470, 1476-1478, 1482-1484, 1487, 1490-1492, 1495, 1500-1502,
+1504, 1521-1524, 1536-1542, 1558-1570, 1578-1579, 1583-1584, 1586-1593, 1596-1597, 1603-1607,
+1613-1626 with 1617 and 1626, 1641-1643, 1675-1683, 1696, 1702-1704, 1734-1742, 1746-1747, 1759-1761,
+1768, 1775-1777, 1801-1809, 1813-1814, 1822-1824, 1831, 1837-1839); `models.py` (31-32, 39, 40, 78,
+81, 127, 159-170, 192, 220, 240, 259, 261, 294, 309-317, 331); `body_sections.py` (74-97, 76-78,
+100-134); `pyproject.toml` (31-35, 42); `pipeline-runners.yaml:34-38`; `tests/test_writer.py:235-242`;
+`tests/test_repositories.py:1088-1102`; `tests/test_parser.py:265-273`;
+`tests/test_vault_path_required.py:320` and its docstring at 314-315.
+
+Independently re-derived and confirmed: the 28-site falsy universe matches AC-5's list line-for-line
+(writer.py 243/260/282/299 + person.py's 22 `return False` + 1617 + 1626); the nine-function adjacency
+set is exactly writer.py 186/247/286/317, parser.py 174/201, base.py 312, meeting.py 72, book.py 67 —
+so the four conveniences and `base._load_file` really are absent from it and the 14-member closure
+resolves as the harness section states; `_get_body_content` has exactly one caller (person.py:1641);
+zero `.py` files anywhere in the tree import or reference `ast`; `tests/__init__.py` exists and there
+is no `conftest.py`; `Company` (127-132) and `Book` (159-170) declare only `str` fields, so the
+inherited `BaseEntity.tags` is the correct derivation for both.
+
+**Three citations do not match current code** (all in `## Problem / Motivation`, carried verbatim from
+the 2026-07-05 campaign and never re-verified when the Exploration Notes corrected them elsewhere):
+
+1. Line 27 — `base.update_fields` (base.py:255-273). That range is inside **`save()`** (256 is
+   `name = getattr(entity, "name", "Unknown")`; `update_fields` does not begin until base.py:278). The
+   correct citation, used correctly at line 35, in the Approach, in AC-1 and in Verified Diagnosis #2,
+   is base.py:311-329.
+2. Line 29 — `C4 — un-loadable notes vanish at DEBUG (base.py:125-126)`. base.py:125 is blank and 126
+   is the `@property` decorator on the abstract `type_name`. The site is base.py:181-183, which the
+   Per-finding subsection (line 77) cites correctly.
+3. Line 29 — `also meeting.py:70-83`. The handler is meeting.py:81-83; 70 is the `try:`. Loose rather
+   than wrong, but it is the same paragraph and the same drift.
+
+None of the three is load-bearing on the build — the Design, the Implementation Plan and the ACs all
+carry the corrected lines — but the Problem statement is the first thing a cold-start reader anchors
+on, and a document that has been folded twenty-seven times on "derive, never name" should not still
+point its opening paragraph at `save()`.
+
+### Blocking issues
+
+1. **The Threat Model's two `kind: required` mitigations have no substance anywhere in the plan, and
+   the Design prescribes the opposite of one of them.** M1 (line 3488, `landed: Task 3`) requires the
+   seam's typed errors to carry "a bounded diagnostic (path, line/column or field name, error class)"
+   and "never the verbatim `yaml.MarkedYAMLError` source snippet or Pydantic `input_value`". M2 (line
+   3495, `landed: Task 8`) requires "`_note_skip`'s WARNING line and `SkippedNote.detail` carry that
+   same bounded diagnostic **rather than `str(error)` verbatim**". The ordinals resolve (Tasks 3 and 8
+   both exist, so this is not a D8b refusal) — but the substance is absent, and worse, contradicted:
+
+   - Design/Data model (line 730) defines `detail: str      # str(error) — the message, not the
+     traceback`, which is the exact construction M2 names and forbids.
+   - Design/Flow §3 (line 818-819) writes `SkippedNote(file_path, _skip_reason(error), str(error))`
+     and `logger.warning(f"Skipped {self.type_name} note {file_path}: {error}")` — both interpolate the
+     underlying exception verbatim, which for the doc's own `@Broken.md` fixture is a Pydantic
+     `input_value` carrying contact PII, and for a malformed-YAML note is a `MarkedYAMLError` snippet
+     of the note's own bytes.
+   - Design/Flow §2 (line 782) raises `SchemaDriftError(..., declared_type=declared) from e` with the
+     message written as a literal `...` — unspecified even before M1 constrains it.
+   - Task 3 (line 1096) and Task 8 (line 1106) say nothing about message construction; neither
+     Verification, Edge Cases, nor Risk Analysis names the disclosure obligation at all.
+
+   A build-runner executing Task 8 as written produces exactly what M2 forbids, and has no stated way
+   to know which of the two same-document instructions wins. That is the one thing this gate exists to
+   prevent. **Suggested fix:** state the bounded diagnostic once, in Design/Data model, as the
+   constructor contract for `NoteParseError` (e.g. `NoteParseError` builds its own message from
+   `path`, `declared_type`, the error's class name, and — for `yaml.MarkedYAMLError` — `problem_mark.line`/`.column`
+   only; for a Pydantic `ValidationError` — the failing `loc` and error `type` only, never `input`);
+   change `SkippedNote.detail`'s comment and `_note_skip`'s two lines to use that bounded string rather
+   than `str(error)`; add the corresponding sentence to Task 3 and Task 8; and take the threat-modeler's
+   own suggestion (its note 4, line 3520-3522) of adding to Task 1 a one-line check of what
+   `yaml.YAMLError` and Pydantic `ValidationError` actually render on this interpreter, since M1's
+   bound cannot be sized without it. Note that `WriteFailedError(f"...{file_path}: {e}")` in
+   Design/Flow §6 is *not* in scope — P1's first clause re-raises `LoudFailError` untouched, so only
+   genuine `OSError`s reach that message, which the threat-modeler states explicitly.
+
+2. **The three stale citations in `## Problem / Motivation`** (itemised above). Repoint them at
+   base.py:311-329, base.py:181-183 and meeting.py:81-83 — the lines the rest of the document already
+   uses.
+
+### Non-blocking notes
+
+- **Task 3's verify predicts two failures that cannot occur at that point.** It says "floor green
+  except for expected failures in `tests/test_repositories.py` and `tests/test_writer.py` at the two
+  sites Task 5/6 revise". Read live, neither fails from Task 3's change:
+  `test_update_nonexistent_file` returns before any parse (writer.py:242-243, moved by Task 5), and
+  `test_append_to_body_section_no_frontmatter_fence_returns_false` writes content with **no** leading
+  `---` (test_repositories.py:1100), so it exits at person.py:1558 without reaching the seam and only
+  moves at Task 6. Swept the suite for any input that would newly raise after Task 3 and found none.
+  The floor should be fully green at 607 after Task 3; the "no other test may fail" guard is still the
+  right guard, but the stated expectation should be inverted so a green floor does not read as a
+  missed step.
+- **Design/Flow §2's rationale for `model_fields.get("type")` is inaccurate, though the code is
+  right.** It says "a caller may force a class that declares no `type` field — `BaseEntity` itself is
+  reachable". `BaseEntity` *does* declare `type: str` (models.py:39); what it lacks is a *default*, so
+  `.get("type")` returns a `FieldInfo` whose `.default` is `PydanticUndefined` and the equality simply
+  fails closed. The defensive `.get` is still correct — restate the reason as "a forced class may
+  declare `type` without a `Literal` default" so a builder does not delete it as unreachable.
+- **Design/Flow §6's rationale for P1's first clause names the wrong consumer.** It says re-wrapping
+  would cost `_load_file`'s ownership decision "its input" — but `_load_file` never calls person.py's
+  writers. The clause is still load-bearing for the stated general reason (the seam's own signal must
+  never be re-wrapped as a write failure); only the example is wrong.
+- **`__init__.py:102-103` is cited for three exports that sit at 102-104** (AC-2's `desc:`). Frozen
+  text, so not editable — recorded only so a builder reading the fence does not think an export is
+  missing.
+- **`models.py:261-262` is cited for `Meeting.attendees`, which is at 261 alone** (Approach). Harmless.
+
+### Carried-forward notes
+
+- **Architect note 1 (Hypothesis absent from `pyproject.toml`) — CLOSED.** Design/Decision 2 rules it
+  explicitly, with the evidence (`pyproject.toml:31-35`, re-verified here) and the argument that the
+  ACs quantify over code rather than generated inputs. No fence is weakened; Scope Boundary records
+  the non-addition.
+- **Architect note 2 (LESSONS #13, principal vs. interest at the seam) — CLOSED.** Design/Decision 1
+  records the trade openly and takes the interest knowingly, with the reason the discriminated-return
+  variant cannot satisfy AC-2's propagation clause.
+- **Architect note 3 (the parked `mkdir(parents=True)` bogus-tree question is not visibly Dave-ruled)
+  — STILL OPEN, deliberately.** The spec adopts the Non-goals routing (WI-004 owns the write-side
+  guard) in Scope Boundary and says so; the `ac-signoff` fence still records `comments: null`, which
+  signs the AC set but does not rule a question kept out of it. Re-deferred because the spec's
+  adoption is boundary-correct and reversible, and because the question belongs to WI-004's
+  origination rather than to this build. Dave's explicit word is still owed before WI-004 is specced.
+- **Data Audit — the 607-case floor was not executed at that gate.** Still not executed at this one:
+  this cage has no shell either. Task 1 re-runs it before any code is written, which is the right
+  placement. Recorded so the gap stays visible rather than reading as discharged.
+- **Data Audit — Dave's live vault was not read.** Not load-bearing; every fixture is built in
+  `tmp_path` and round 3's healthy-vault exposure follows from the shared `@*.md` glob plus the
+  `Literal` type fields, both re-confirmed here.
+- **Data Audit's closing instruction — re-run predicates 2, 5, 7 and 8 at build start.** Landed in
+  Task 1 verbatim, including the "if (8) has drifted, stop — AC-7 is not satisfiable as written"
+  escalation. Confirmed live at this gate: all four still hold.
+- **Threat-modeler note 1 (`writer.py:259-260` / `298-299` have no existing log message to keep
+  "unchanged") — STILL OPEN.** Design/Flow §6's P1 shape is annotated `logger.warning(...)  # the
+  existing message, unchanged`, which is true of person.py's five handlers and false of writer.py's
+  two, read live as bare `except Exception: return False`. Non-blocking (any reasonable message
+  serves) but it will stall Task 5, and the fix is one clause in Design/Flow §6.
+- **Threat-modeler note 2 (the public parse surface is the widest new disclosure channel and is out of
+  this repo's reach).** Folded into blocking issue 1 — bounding at construction is the right place
+  precisely because the six residue members propagate whatever M1 permits into three unauditable
+  consumers.
+- **Threat-modeler note 3 (the Timeline accommodation widens the set of notes this package mutates, on
+  a path exempt from the WI-126 guard) — carried, on record.** Dave-ruled at round 9, bounded by
+  AC-5's PRESERVATION oracle and by Design/Flow §6's string-insertion mechanism. Recorded so that if
+  the preservation half is ever relaxed the security consequence is traceable.
+- **Threat-modeler note 4 (no shell; the PyYAML/Pydantic message shapes were never run).** This is the
+  actionable half of blocking issue 1 — the Task 1 addition it proposes was not made.
+
+### Bar check
+
+Walked every check of `docs/spec-quality-bar.md`. Clean on: self-containment; Prerequisites &
+Assumptions (explicit, including the trust boundary and the load-bearing stale `.pth`); Configuration
+(none, stated); Edge Cases (eight categories, `OPEN: None`, 0 against a cap of 2); Risk Analysis
+(required — the item sits on HAL9000 startup and the exocortex meeting sync — present with rollback
+and migration); Check 10 (`## Acceptance Criteria` carries seven well-formed `criteria` fences, all
+`kind: test`, each with a bare in-repo check name; no `kind: command` check, so nothing assumes an
+unsandboxed shell); Check 11 (fourteen grounded diagnostic claims, all re-verified here, none marked
+needs-verification); Check 12 (the spec declares a zero-length diff inside the frozen section and
+keeps it — spot-compared AC-1 and AC-2 against `frozen_acceptance_criteria` in the sign-off artifact
+and they match verbatim; the three readings recorded at lines 1026-1028 sit outside the fences and
+none is a strength-weakening, actor-swap, scope-narrowing, oracle-swap or exception-carve — reading 1
+widens "return sites" to `Return ∪ Raise`, which the fence's own "five is a baseline, not the answer"
+and its post-fix-source requirement force).
+
+**Task-definition shape check (WI-141):** 18 canonical definitions, `- [ ] **Task N — <title>.**`,
+ordinals 1-18 unique. The two `landed: Task N` in `## Threat Model` (3 and 8) are both among them — no
+D8b refusal. (Whether their *substance* landed is blocking issue 1, judged separately as the check
+requires.)
+
+**Write-Targets coverage check (WI-132):** clean in both directions. Every task's target is declared —
+Task 1 writes nothing; 2 → `errors.py` + `__init__.py`; 3 → `parser.py`; 4, 5 → `writer.py` (5 also
+`tests/test_writer.py`); 6, 7, 9 → `repositories/person.py` (6 also `tests/test_repositories.py`); 8 →
+`repositories/base.py`, `meeting.py`, `book.py`; 10 → `tests/derivations.py`; 11, 12 →
+`tests/test_loud_fail_parse.py`; 13, 16 → `tests/test_loud_fail_load.py`; 14, 15 →
+`tests/test_loud_fail_write.py`; 17 → `tests/test_loud_fail_harness.py`; 18 → parser/writer/person/base,
+all already declared. No declared path is unwritten. No `kind: precondition` fence is present and none
+is needed: every path is inside `write_authority` (`pipeline-runners.yaml:34-38`, verified —
+`obsidian_schemas/**`, `tests/**`, `scripts/**`, `docs/**`), and the spec names `README.md` and
+`CLAUDE.md` as deliberately outside it. The floor command in Verification invokes but does not write,
+and is correctly not declared.
+
+### Build-runner dry-run
+
+Walked Tasks 1-18 as the builder. Every task names a concrete file, a concrete edit and a runnable
+verify with the absolute floor interpreter; the dependency ordering holds (11-17 gated on 10, which is
+gated on nothing but 2-9's contract); the harness section resolves every derivation the seven fences
+consume, and the 14-member closure and its 4/3/1/6 partition re-derive correctly against live source.
+Three questions a build-runner would plausibly ask:
+
+1. *"Design/Data model says `SkippedNote.detail` is `str(error)`; M2 says never `str(error)` verbatim.
+   Which?"* — **Not answered.** Blocking issue 1.
+2. *"M1 wants a bounded diagnostic. What exactly goes in the message for a `yaml.YAMLError` and for a
+   Pydantic `ValidationError`?"* — **Not answered** by any task, Design block or fence, and the
+   threat-modeler's own note says sizing it needs a run that Task 1 was supposed to gain and did not.
+   Blocking issue 1.
+3. *"Task 5's P1 shape says to keep the existing message unchanged, but writer.py:259-260 has no
+   message."* — Answerable by the builder, but only after re-reading the source. Non-blocking note 1
+   above.
+
+Everything else in the plan I could execute without leaving the document.
+
+```verdict
+gate: spec-reviewer
+verdict: REVISE
+date: 2026-07-24
+model: claude-opus-4-8
+note: The Threat Model's two kind:required mitigations are unimplementable as the plan stands -- M1 (landed Task 3) and M2 (landed Task 8) demand a bounded diagnostic and forbid str(error) verbatim, while Design/Data model defines SkippedNote.detail as "str(error)", Design/Flow §3 writes both str(error) and f"...{error}" into _note_skip, Design/Flow §2 leaves SchemaDriftError's message as a literal "...", and Tasks 3 and 8 say nothing about message construction, so a builder following the Design produces exactly what a required fence forbids and has no stated tiebreak; separately three citations in Problem/Motivation are stale (base.py:255-273 is save() not update_fields, base.py:125-126 is the abstract type_name not the C4 DEBUG swallow at 181-183, meeting.py:70-83 for a handler at 81-83), every other file:line in the document re-verified exact against live source including the 28-site universe, the nine-function adjacency set and the zero-ast tree.
+```
+
+## Adversarial Review — 2026-07-24
+
+Cold-start injection-hunter pass (the two-key corroborator, WI-059) — the SECOND, decorrelated
+verdict D5 requires alongside the spec-reviewer's at `specced -> ready`. Not a re-review of the
+spec's quality; the spec-reviewer's REVISE stands on its own merits (the M1/M2 message-construction
+contradiction, the three stale Problem/Motivation citations) and is not re-litigated here.
+
+Read in full: this document end-to-end — Problem/Motivation, Intent, Exploration Notes through round
+27, Approach, AC-1..AC-7 fences, Examples of done, Relationship to other work, Design, Edge Cases,
+Implementation Plan, Write Targets, Verification, Verified Diagnosis, Scope Boundary, Risk Analysis,
+Self-Review Dry Run, all seventeen `AC Red-Team` re-verify passes, the `ac-signoff` fence, the
+Architectural Review, the Data Audit, the Threat Model, and the Spec Review — and
+`docs/spec-reviews/WI-020-dave-review-2026-07-24.md` (Dave's sign-off record, `verdict: PROMOTE`,
+`comments: null`, the frozen AC text through round 27, both read in full). Also grepped the whole
+work-item doc and the sign-off doc for imperative-to-a-reviewer phrasing (ignore/disregard,
+pre-approved, emit-PROMOTE, "reviewer should", jailbreak/bypass language, addressed-to-an-agent
+instructions) — the only hits were ordinary code vocabulary ("overrides" as in Python method
+overriding, "do not report a completed write" describing a return value) and one prose sentence
+about the sixth derivation "not carry[ing] a marker of its own," none of it addressed to a gate or
+arguing for a verdict.
+
+**The one question:** has this spec, or any prior gate's verdict on it, been steered by a prompt
+injection planted in the untrusted content the gates read? No. Two things about this document's
+shape make it worth stating explicitly rather than just checking the box:
+
+1. **Unusual density is not the same as steering.** This doc is a 27-round fold plus seventeen
+   dated AC-Red-Team re-verify passes plus five prior gate verdicts (architect, data-premise,
+   threat-modeler PROMOTE; spec-reviewer REVISE) — the kind of volume an injection could hide
+   inside. But every round's content is the same shape throughout: a finding stated, the file:line
+   it was verified against, the rule extracted. None of it is addressed to a reviewer, none argues
+   "therefore PROMOTE" or "skip further checks," and the prior gates' own verdict notes are each
+   independently grounded in specific re-read file:line claims (e.g. the architect's note re-derives
+   the four write paths and the nine-function adjacency set itself; the threat-modeler's PROMOTE
+   independently traces the PII-disclosure finding to parser.py:78/148 rather than accepting the
+   Design's framing). A verdict that re-derives its own evidence from source is not the profile of a
+   verdict steered by persuasive prose planted in the doc.
+2. **The Dave-signoff doc's `comments: null` is a legitimate quiet field, not a suppressed one.**
+   It reads as an inert value on first pass, but the surrounding record (escalation ID, `ac_hash`,
+   per-AC hashes, the fully spelled-out round-by-round revision history) makes clear it means "no
+   review comments to fold," consistent with every downstream doc's citation of it — nothing hinges
+   on a reader interpreting `null` as an instruction.
+
+No text in either document argues for a verdict, addresses a reviewer/agent directly, or has a
+spec-shaped form with a steering effect. The spec-reviewer's REVISE is grounded in a real, quotable
+contradiction (Design/Data model's `str(error)` vs. the Threat Model's M1/M2 bans) that I independently
+re-confirmed at the cited lines — its reasoning is not the product of injected framing.
+
+```verdict
+gate: injection-hunter
+verdict: PROMOTE
+date: 2026-07-24
+model: claude-sonnet-5
+note: No planted steering found across the full document and the linked Dave-signoff doc -- every prior gate's verdict note re-derives its own evidence from cited file:line source rather than adopting persuasive framing from the doc, no text addresses a reviewer/agent or argues for a verdict, and the one contradiction driving the spec-reviewer's REVISE (SkippedNote.detail as str(error) vs. M1/M2's ban on it) is independently verifiable and not an injected claim.
+```
+
+## Threat Model — 2026-07-24
+
+**Recommendation: PROMOTE to threat-modeled**
+
+Cold-start re-review (WI-144 round 2). The prior round of this gate ran against the spec's *first*
+revision, raised M1/M2, and the spec-reviewer then REVISEd on the same contradiction it named
+(`SkippedNote.detail` specified as `str(error)` while M1/M2 forbid exactly that). The spec-writer has
+since folded. This round re-runs the review against the folded document and re-emits the full set.
+
+Read: the role definition; this document's Problem/Motivation, Intent, Exploration Notes (rounds
+1-27), Non-goals, Approach, AC-1..AC-7 as fences, Check-strategy note, Examples of done, Relationship
+to other work, Design (the two open decisions, the mitigation-landing table, Data model including
+**Bounded diagnostics**, Flow §1-§7, test harness), Implementation Plan Tasks 1-18, Verification, and
+every prior gate's section (AC red-team through round 27, `ac-signoff`, Architectural Review, Data
+Audit, my own round 1, Spec Review, Adversarial Review); project `CLAUDE.md`. Code re-read live in
+this worktree rather than trusted from the doc: `parser.py:73` (the loader), `parser.py:78`/`148`
+(the two handlers that bind no exception today), and `models.py` swept for `Dict`/`dict`-typed model
+fields — the one open question M1's projection rested on.
+
+### Trigger check
+
+Unchanged from round 1; the same three fire and the cheap path is still unavailable, because two of
+them are this item's own subject matter.
+
+- **Handles input from external sources** — the untrusted input is the byte content of a note on
+  disk, arbitrary bytes Dave, Obsidian or any other tool may have written.
+- **Performs filesystem operations on user-owned files** — four derived write paths rebuild notes in
+  the vault; `append_to_timeline` gains a branch that writes to a note it previously refused.
+- **Persists data** — to the vault, and (new in this item) to log output and to a queryable in-memory
+  surface, `SkippedNote`.
+
+Still **not** triggered, re-verified rather than carried forward: no secrets, credentials, API keys,
+OAuth scopes or tokens; no outbound API calls; no MCP scopes; no access-control or permission
+changes; no external messages; no network I/O anywhere in the package.
+
+### STRIDE review — the delta, re-verified at source
+
+The round-1 walk stands unchanged for S, T, R, D and E; the approach did not move. What moved is the
+disclosure finding's remedy, which is new code (`errors.py`, `bounded_message`, `bounded_cause`,
+`bounded_detail`, `SkippedNote.detail`), and new code gets its own pass rather than inheriting the
+verdict of the design it implements.
+
+**Information disclosure — the round-1 finding is now closed by construction, and the construction
+holds.** The fold is not a caution repeated at each site; it is one rule the schema makes total
+(Design/Data model, "Bounded diagnostics"), which is the right shape, because the failure mode the
+first revision hit was two instructions in one document with no stated tiebreak. Four properties
+checked rather than accepted:
+
+1. **The Pydantic projection cannot carry note content.** `bounded_cause` projects each error's
+   `loc` and `type` and never `input`/`input_value` (Design/Data model). `loc` is note-influenced
+   only where a model declares a `Dict`-typed field, whose keys come from the note. Swept live:
+   `models.py` declares **no** `Dict`/`dict`-typed model field — the sole `dict[...]` in the module
+   is `TYPE_TO_MODEL` at models.py:309, a module-level constant, not a field. With `extra="allow"`
+   (models.py:31-32) an unrecognised key never raises at all. So every `loc` element is a declared
+   field name or a list index — identifiers this package authored. The projection is sound, and this
+   was the one way M1's permitted half could have leaked.
+2. **`declared_type` cannot carry note content either.** It reaches a message from exactly one site,
+   `SchemaDriftError` (Design construction table), and that raise fires only on owned-and-drifted —
+   i.e. only where the note's raw `type` **equals** `model_class.model_fields["type"].default`, one
+   of the eight `Literal`s at models.py 78/127/159/192/220/240/259/294. The `!r` quoting is
+   belt-and-braces on top of a value that is already drawn from a closed set.
+3. **The unenumerated case fails safe.** `bounded_cause` is a fall-through, not a dispatch table, so
+   an exception type nobody anticipated reduces to its class name. That is what makes the bound a
+   property of the rule rather than of the two library shapes, and it is why Task 1's probe drifting
+   degrades the diagnostic's usefulness and not its bound — correctly stated at Task 1 as a
+   non-blocker.
+4. **`bounded_detail`'s `isinstance(error, LoudFailError)` branch is not a hole**, for the stated
+   reason and it checks out: a `LoudFailError`'s message has one construction site, and the
+   construction table leaves it no second home. The generic bucket M2 names by hand — a
+   `UnicodeDecodeError` whose `str()` renders a byte snippet — lands in `bounded_cause` and comes out
+   as the class name alone.
+
+M1 and M2 therefore have substance where round 1 found none: a construction rule (Design/Data
+model), a total construction table naming every raise site in the package, ordered work at Tasks 3
+and 8, two named regression tests (`test_seam_errors_carry_bounded_diagnostics` at Task 12,
+`test_skip_surface_detail_is_bounded` at Task 13) whose oracles are sentinels the test itself plants
+rather than substrings of a library rendering, two observable rows in the Verification failure-mode
+table, and a live by-eye check on a real note in the incident replay (step 3/4 close-out). Both fences
+are re-emitted below unchanged — a required mitigation stays declared for as long as it is required,
+and re-emitting is what keeps D8 reading them in this round rather than the previous one.
+
+**One gap remains, and it is in the check rather than in the design.** Task 18 is framed as the step
+that makes M1/M2 "a property of the tree rather than of two tests", and that framing is right — but
+the sweep it performs greps `obsidian_schemas/**` for `str(e`, `str(error`, `{e}`, `{error}` and
+`{exc}`, all five of which are **exception**-shaped. The rule it is proving is broader by its own
+words: "no error message in `obsidian_schemas` is ever built by interpolating an exception **or note
+content**", with `bounded_message`'s `reason` documented as "a literal written in this package's
+source — never a value read off a note." A message interpolating note content directly passes that
+grep. This is not decorative: `_split_frontmatter_fence` (Design/Flow §6, P2) holds the **entire note
+content** in its `content` parameter at both of its raise sites, and it is the helper five call sites
+route through; the same is true of the writers' `body`/`frontmatter` locals at re-assembly. The
+designed messages are literals and correct today, so nothing in this build leaks — the exposure is
+the forward-looking one the sweep exists to cover, which is precisely the half it does not cover.
+M3 below widens it; it is a one-pattern addition to a grep that already exists in the task named.
+
+**Spoofing / Tampering / Repudiation / Denial of service / Elevation of privilege:** re-walked, no
+change from round 1, with two items re-verified rather than carried:
+
+- **`yaml.safe_load` is still the loader** — confirmed live at parser.py:73, and the item edits the
+  handler at 78 around it, never the load call. Recorded again because Tasks 3 and 4 both touch
+  parser.py:72-80 and a "simplification" there is the one edit in this item that would matter.
+- **The new harness introduces no execution surface.** AC-7's proven negative plants two `.py`
+  fixture modules into `tmp_path` (Task 17). They are **scanned as parsed syntax and never imported
+  or executed** — AC-7 requires the marker be read off parsed syntax precisely so the detector cannot
+  match its own source, and the same property means the plants are data, not code. `tests/derivations.py`
+  itself imports `ast` and walks source; AC-3's scan imports discovered *package* modules, which the
+  suite already imports. Worth stating because a harness that plants files and a harness that imports
+  what it plants are one edit apart.
+- **DoS, `_skipped` growth:** the round-1 observation is now thinner rather than gone. With M2 folded,
+  each entry holds a bounded string (class name, or a path plus a line/column) instead of a
+  content-bearing one, so the unbounded-list concern is unbounded *class names*. Still bounded by
+  vault size, still cleared at the top of `load()` beside base.py:149-150, and `_owns` still keeps a
+  catch-all-globbed `BookRepository` from claiming the whole vault. Non-blocking, as before.
+
+### Mitigations verified in place
+
+1. **Fail-closed on the mutation path.** AC-1 requires every derived write path to refuse a failed
+   parse *and* asserts the file byte-identical afterward — refusal proved by bytes, not by "it
+   raised". Design/Flow §4, Tasks 3/5/6, oracle stated at Verification ("the test wrote the fixture").
+2. **Fail-open but visibly on the read path.** All three `_load_file` implementations keep a broad
+   `except Exception` deliberately (Design/Flow §3), because `load()`'s loop has no `try` of its own
+   (base.py:157-165) and each handler is the entire margin against an aborted batch. AC-3 asserts
+   NO-ABORT on all twelve cells per class. Correct fail-mode split for a library whose read path runs
+   at consumer startup.
+3. **Security-relevant events at WARN, asserted not assumed.** AC-3 requires WARNING never DEBUG;
+   Task 13 asserts the level via `caplog`.
+4. **One message-construction site for the whole package.** `bounded_message` / `bounded_cause` /
+   `bounded_detail` in `errors.py`, duck-typed so the module imports nothing and cannot cycle;
+   module-private and deliberately not exported (Task 2), since they are a construction rule rather
+   than a consumer API. This is the mitigation that makes M1 and M2 total rather than site-by-site.
+5. **Backward-compatible error typing.** Every new error subclasses `ValueError` except the two
+   deliberate `FileNotFoundError`s (Design/Flow §6, P4), matching `IdentifierError` (identifier.py:58),
+   `NameValidationError`/`WeakIdentityError` (name_validation.py:125,140) and
+   `VaultPathNotConfiguredError` (base.py:20), so an existing consumer `except ValueError` still
+   catches and the break degrades to a message change.
+6. **Ownership decided before model construction.** AC-2's and AC-3's shared rule — known-ness read
+   off the note's raw declared `type`, never off whether `model_validate` succeeded — is what keeps
+   the skip surface from becoming an untrusted-input amplifier that reports every foreign note in a
+   heterogeneous vault. `_owns` (Design/Flow §3) compares against `self.type_name` and derives the
+   convention-vs-catch-all test from the class's own `file_pattern`, so a fifth repository is correct
+   with no edit.
+7. **Safe YAML loader unchanged**, parser.py:73, re-verified live this round.
+8. **The skip surface records failures, not non-matches** (Design/Flow §3, the ruled case). A clean
+   note that simply is not this repository's entity never enters the list, which is both what keeps
+   it actionable and what keeps its volume proportional to broken notes rather than to vault size.
+
+Required mitigations follow as machine fences. M1 and M2 are re-emitted from the previous round
+because they still stand; M3 is new this round.
+
+```mitigation
+kind: required
+id: M1
+desc: The seam's typed errors carry a bounded diagnostic (path, line/column or field name, error class) and never the verbatim yaml.MarkedYAMLError source snippet or Pydantic input_value, both of which reproduce note content into every downstream consumer of the raised error.
+landed: Task 3
+```
+
+```mitigation
+kind: required
+id: M2
+desc: _note_skip's WARNING line and SkippedNote.detail carry that same bounded diagnostic rather than str(error) verbatim, covering the generic-exception "unreadable" bucket too, where a UnicodeDecodeError renders a byte snippet of the note.
+landed: Task 8
+```
+
+```mitigation
+kind: required
+id: M3
+desc: Task 18's package-wide message-construction sweep must also cover the note-content half of the rule it proves - its five grep patterns are all exception-shaped, so a message interpolating note content passes it, and _split_frontmatter_fence holds the entire note in scope at both of its raise sites; widen the sweep to the content-bearing locals at the package's raise sites (content, body, body_raw, frontmatter, raw) and keep the same exactly-one-permitted-match verify.
+landed: Task 18
+```
+
+### Notes (non-blocking)
+
+- **The public parse surface remains the widest disclosure channel and is still out of this repo's
+  reach.** AC-2 requires the six residue members to propagate the typed error, so whatever M1 admits
+  travels to HAL9000, exocortex and orchestrator, any of which may render an exception into a
+  user-facing surface. Bounding at construction is the right place precisely because the consumers
+  cannot be audited from a hermetic floor — the same reasoning that parked the N4 consumer migration.
+  Unchanged from round 1 and correctly handled; recorded so the reasoning survives.
+- **`path` is in-bound by ruling, and note paths are note-identifying.** `@John Smith.md` names a
+  person. The Design rules it in (actionability; base.py:182 already logs it today; person.py:1469
+  already raises with it), and I concur — but it is worth stating plainly that the bound M1 draws is
+  around note *content*, not around the fact that a note exists and is broken. If a consumer ever
+  renders these messages somewhere more public than a log, that is the line to re-examine.
+- **The Timeline accommodation still widens the set of notes this package mutates**, on a raw
+  `write_text` (person.py:1495) that writer.py:178-183 deliberately exempts from the WI-126 guard.
+  Dave-ruled at round 9 and bounded by AC-5's PRESERVATION oracle
+  (`new_content.startswith(original_content)` on a heading-less and a preamble fixture). Not blocking
+  — recorded again only so that if the preservation half is ever relaxed, the security-relevant
+  consequence (a silent body wipe on hand-created notes) is on record here too.
+- **Round 1's note 1 and note 4 were both folded and are closed.** The `writer.py:259-260` /
+  `298-299` "existing message, unchanged" annotation is corrected at Design/Flow §6 (five sites keep
+  a message, two have none) and at Task 5; the error-render probe that sizes M1's bound is now Task 1,
+  with the right non-blocking disposition on drift. No shell in this cage this round either, so the
+  607-case floor is again not executed — Task 1 remains where that is discharged.
+
+```verdict
+gate: threat-modeler
+verdict: PROMOTE
+date: 2026-07-24
+model: claude-opus-4-8
+note: Re-review after the M1/M2 fold -- both now have substance rather than ordinals (one construction rule in Design/Data model, a total construction table, Tasks 3 and 8, two sentinel-oracle regressions at Tasks 12/13, two Verification observables, and a live by-eye check in the incident replay), and the two properties the projection rested on are verified live rather than assumed: models.py declares no Dict-typed field so Pydantic loc cannot carry note-supplied keys, declared_type reaches a message only from the owned-and-drifted raise where it equals one of the package's own eight Literals, and yaml.safe_load is still the loader at parser.py:73; the new harness plants .py fixtures that are scanned as parsed syntax and never imported, so it adds no execution surface; one gap remains and is a check rather than a design defect -- Task 18's sweep, the step framed as proving M1/M2 over the tree, greps only exception-shaped interpolations while the rule it proves also forbids interpolating note content, which _split_frontmatter_fence holds in scope at both its raise sites, so M3 widens that one grep.
+```
+
+## Spec Review — 2026-07-24
+
+**Recommendation: REVISE — return to spec writer (gaps to fix)**
+
+Second spec-review pass, run cold-start against the folded document rather than against the diff. Read
+from line 1: Problem/Motivation, Intent, Exploration Notes through round 27, Non-goals, Approach,
+AC-1..AC-7 as fences with the Check-strategy note and the specification-altitude declaration, Examples
+of done, Relationship to other work, Design end to end (the two open decisions, the mitigation-landing
+table, Data model including **Bounded diagnostics**, Flow §1-§7, the test harness, Integration points,
+Configuration, Prerequisites & Assumptions, the Check-12 zero-diff record), Edge Cases, Implementation
+Plan Tasks 1-18, Write Targets, Verification, Verified Diagnosis, Scope Boundary, Risk Analysis,
+Self-Review Dry Run, the seventeen AC Red-Team passes, the `ac-signoff` fence, the Architectural
+Review, the Data Audit, Threat Model round 1, my own round-1 review, the Adversarial Review, and
+Threat Model round 2 with M1/M2/M3; plus `docs/spec-reviews/WI-020-dave-review-2026-07-24.md`, project
+`CLAUDE.md` and `pipeline-runners.yaml`. Every code claim below was re-read live in this worktree.
+
+### Citation verification
+
+**All `file:line` citations verified against current code. ✓** Re-read at source this round rather
+than carried from my previous pass: `parser.py` 53-80 (returns at 65/70/77/80, `safe_load` at 73, the
+`None` normalisation at 74-75, the bare `except yaml.YAMLError` at 78 binding nothing), 108-150
+(the signature at 110 with `model_class: Optional[Type[BaseEntity]]`, the empty short-circuit at 123,
+auto-detect at 130-133, the unresolvable return at 135-137, `model_validate` at 141, the swallow at
+148-150), `parse_markdown_file` 153-176; `writer.py` 176 (`FileExistsError`), 178-183 (the
+section-writer exemption), 184-195 with `existing_body = ""` at 189-190, 197-205, 242-243, 245-260,
+281-282, 284-299; `repositories/person.py` 1500-1502, 1603-1607, 1613-1626 (the fence split at
+1622-1626, the missing-file `None` at 1616-1617), 1641-1643, 1702-1704, 1775-1777, 1837-1839;
+`models.py` 39, 40, 78, 127, 159, 192, 220, 240, 259, 261, 294, 309 — every `Literal` default and
+`Meeting.attendees` exact, and `Meeting.attendees` is now cited at 261 alone (my round-1 note on
+`261-262` is closed); `__init__.py` 35-39 (the parser import block), 40-45 (the writer import block,
+which is where Task 2 adds the error imports), 102-104, 105-109.
+
+The three stale `## Problem / Motivation` citations from round 1 are **repointed and correct**:
+base.py:311-329 for `update_fields`, base.py:181-183 for C4, meeting.py:81-83 for its sibling, with
+the repoint itself recorded at line 33. Blocking issue 2 of round 1 is closed.
+
+Independently re-derived this round: the eight `{e}`-shaped interpolations that exist in the package
+today are exactly base.py:182, book.py:78, meeting.py:82 and person.py 1501/1605/1703/1776/1838 —
+which is the evidence for blocking issue 1 below.
+
+### Blocking issues
+
+1. **Task 7 orders the builder to keep five message-construction sites that Design/Data model's own
+   total rule forbids and that Task 18's verify step will fail on.** This is round 1's blocking issue
+   reproduced inside the remedy for it — two instructions in one document, no stated tiebreak — and it
+   is load-bearing rather than cosmetic.
+
+   - Design/Data model (line 747) states the rule as total: *"no error message in `obsidian_schemas`
+     is ever built by interpolating an exception or note content. Every one is built by
+     `errors.bounded_message`, which is the only function in the package permitted to read anything
+     off a caught exception."*
+   - Design/Flow §6's canonical P1 shape (lines 995-1003) builds its WARNING with
+     `bounded_message(...)` at **all seven** sites.
+   - Design/Flow §6's "two details" paragraph (line 1005) then carves five of them back out:
+     *"`person.py`'s five handlers (1500, 1603, 1702, 1775, 1837) each already log; keep each one's
+     existing message and level exactly as it stands."* **Task 7 (line 1262) repeats it as an
+     order in bold.**
+   - Read live, those five existing messages are
+     `logger.warning(f"Failed to update timeline for {person.name}: {e}")` (person.py:1501) and its
+     four siblings at 1605, 1703, 1776, 1838 — every one an `{e}` interpolation of the caught
+     exception.
+   - **Task 18 (line 1298) then greps `obsidian_schemas/**` for `{e}` among five patterns and states
+     the only permitted match in the whole package is `errors.bounded_detail`'s `LoudFailError`
+     branch, with the verify *"the grep returns exactly the one permitted match."*** After Tasks 7
+     and 8 land as written the grep returns **six** (errors.py's one plus the five Task 7 preserved),
+     and the instruction attached to any other match — *"must be routed through `bounded_message`"* —
+     directly contradicts Task 7's "exactly as it stands."
+
+   The substance, not just the grep: under the two-clause P1 shape, the first clause re-raises
+   `LoudFailError`, so the exception reaching those five `{e}` interpolations is by construction a
+   *foreign* one — `OSError`, or the `UnicodeDecodeError` a non-UTF-8 note raises out of
+   `file_path.read_text(encoding="utf-8")` in each of those five writers. That is the exact bucket
+   M2 names by hand and the exact rendering the M1 exclusion table (line 794) calls out as *"a byte
+   snippet of the note."* So the five preserved lines are a live M1/M2 disclosure channel in a public
+   library, and the step framed as proving the rule over the tree is the step that trips on them.
+
+   **Suggested fix, and it is a rule rather than five patches** — this is the second round the
+   message-construction discipline has landed a finding, so patching the five sites individually is
+   the treadmill: make the sweep the definition and let no site be exempt. Concretely, delete the
+   "five keep / two do not" carve-out at Design/Flow §6 line 1005 and in Task 7, and state instead
+   that **every** P1 handler's WARNING is rebuilt from `bounded_message` with the site's existing
+   wording carried in as the literal `reason` (e.g.
+   `logger.warning(bounded_message("failed to update timeline", path=file_path, cause=e))`) — which
+   preserves what the five messages were *for* (the reader can still tell which writer failed) while
+   removing what M1 forbids. `person.name` is note-identifying rather than note-content and is
+   already in-bound by the same ruling that admits `path`, so keeping it is fine; interpolating `{e}`
+   beside it is not. Then Task 18's "exactly one permitted match" becomes true rather than
+   aspirational, and the fold that closed threat-modeler note 1 (writer.py's two handlers really do
+   have no message to keep) stops entrenching the five that do.
+
+2. **M3 is `kind: required` with `landed: Task 18`, and Task 18 carries no substance for it.** The
+   ordinal resolves — 18 canonical task definitions exist, so this is not a D8b refusal — but the
+   plan is unchanged from the revision the threat-modeler reviewed. Task 18's grep is still the five
+   exception-shaped patterns (`str(e`, `str(error`, `{e}`, `{error}`, `{exc`), while the rule it is
+   framed as proving (Design/Data model line 747, and `bounded_message`'s own docstring: *"`reason` is
+   a literal written in this package's source — never a value read off a note"*) also forbids
+   interpolating **note content**. Verified at source: `_split_frontmatter_fence` (Design/Flow §6,
+   lines 1012-1023) holds the entire note in its `content` parameter at both of its raise sites, and
+   the four writers hold `frontmatter` and `body_raw` in scope at re-assembly (line 1026) — so a
+   message interpolating any of those passes today's sweep silently. The designed messages are all
+   literals, so nothing in this build leaks; the exposure is the forward-looking one the sweep exists
+   to cover. **Suggested fix:** widen Task 18's pattern list with the content-bearing locals M3 names
+   (`content`, `body`, `body_raw`, `frontmatter`, `raw`), keep the same exactly-one-permitted-match
+   verify, and add the M3 row to Design's mitigation-landing table (lines 695-698) so the fence has a
+   visible landing site the way M1 and M2 now do.
+
+3. **The error hierarchy is six classes and the spec says "five" in three places, calling them
+   "leaf" classes when four are leaves.** Design/Data model (lines 707-738) declares
+   `LoudFailError`, `NoteParseError`, `FrontmatterParseError`, `SchemaDriftError`,
+   `UnverifiableBodyError` and `WriteFailedError` — six. Line 741 says *"All five are exported from
+   `obsidian_schemas/__init__.py`"*; Task 2 (line 1248) says *"Export the five **leaf** classes"*;
+   the `writes` fence at line 1309 and Integration points at line 1108 both say "the five error
+   classes." A builder writing the `__init__.py` export block has to choose which of the six to drop,
+   and the two candidate readings differ in a way that matters to consumers: dropping
+   `NoteParseError` costs a caller the one `except` that catches both parse failures, dropping
+   `LoudFailError` costs it the package-wide base. Nothing else in the document decides it — no AC,
+   no test, and no verify names the export set, since Task 2's own check imports from
+   `obsidian_schemas.errors` directly. **Suggested fix:** state the export set by enumeration rather
+   than by count (all six, which is the reading the `except ValueError` backward-compat argument at
+   line 704 implies), and correct the three "five" occurrences and the "leaf" qualifier.
+
+### Non-blocking notes
+
+- **`_get_body_content`'s post-fix shape (Design/Flow §6, lines 1030-1035) leaves the helper's first
+  raise unreachable from that call site.** The snippet keeps today's outer `if
+  content.startswith("---")` guard and then calls `_split_frontmatter_fence`, whose own first branch
+  raises `FrontmatterParseError("no frontmatter fence")` on exactly the negation of that guard. Dead
+  but harmless, and the outer guard is what preserves the legitimately-fence-less `return content`
+  that AC-5's no-op half needs — so the shape is right and only the redundancy is worth a comment, so
+  a later reader does not "simplify" the guard away and turn the fence-less case into a raise.
+- **Task 18's grep as written is partly redundant.** `str(e` already subsumes `str(error`, and `{e}`
+  does not subsume `{error}`. Not wrong, just worth tightening when issue 2's widening lands, since
+  the patterns are about to be re-typed anyway.
+- **`__init__.py:102-103` is cited for three exports that sit at 102-104** (AC-2's `desc:`). Frozen
+  text, so not editable — recorded again only so a builder reading the fence does not think an export
+  is missing.
+
+### Carried-forward notes
+
+- **Architect note 3 (the parked `mkdir(parents=True)` bogus-tree question is not visibly Dave-ruled)
+  — STILL OPEN, deliberately.** Unchanged this round: the spec adopts the Non-goals routing (WI-004
+  owns the write-side guard) in Scope Boundary and says so, and `ac-signoff` still records
+  `comments: null`, which signs the AC set but does not rule a question kept out of it. Re-deferred
+  for the same reason as last round — the adoption is boundary-correct and reversible, and the
+  question belongs to WI-004's origination rather than to this build. Dave's explicit word is still
+  owed before WI-004 is specced.
+- **Data Audit — the 607-case floor was not executed at that gate.** Still not executed at this one:
+  this cage has no shell either. Task 1 re-runs it before any code is written, which remains the
+  right placement. Recorded so the gap stays visible rather than reading as discharged.
+- **Data Audit — Dave's live vault was not read.** Not load-bearing; every fixture is built in
+  `tmp_path`, and the incident replay (Verification, steps 1-5) is explicitly a post-merge close-out
+  on a disposable copy, which is the right home for the one check that needs a real note.
+- **Data Audit's closing instruction (re-run predicates 2, 5, 7, 8 at build start) — CLOSED.** Landed
+  in Task 1 verbatim including the "if (8) has drifted, stop" escalation; re-confirmed live at this
+  gate that all four still hold, including zero `ast` references tree-wide.
+- **Threat-modeler round-1 note 1 (`writer.py:259-260` / `298-299` have no existing message) —
+  CLOSED, and it is what produced blocking issue 1.** Design/Flow §6 line 1005 and Task 5 now state
+  correctly that those two are bare `except Exception: return False` with no logging (verified live).
+  The correction is right; the carve-out it introduced for the other five is not.
+- **Threat-modeler note 2 (the public parse surface is the widest new disclosure channel and is out
+  of this repo's reach) — carried, correctly handled.** AC-2 requires the six residue members to
+  propagate, so whatever M1 admits travels to three consumers a hermetic floor cannot audit; bounding
+  at construction is the right place, which is why blocking issue 1 is blocking rather than a note.
+- **Threat-modeler note 3 (the Timeline accommodation widens the set of notes this package mutates,
+  on a path exempt from the WI-126 guard) — carried, on record.** Dave-ruled at round 9, bounded by
+  AC-5's PRESERVATION oracle and by Design/Flow §6's string-insertion mechanism (lines 1041-1050).
+  Recorded so that if the preservation half is ever relaxed the security consequence is traceable.
+- **Threat-modeler round-1 note 4 (no shell; the PyYAML/Pydantic message shapes were never run) —
+  CLOSED.** Task 1 now carries the error-render probe with the right non-blocking disposition on
+  drift (the fall-through degrades usefulness, not the bound).
+- **Threat-modeler round-2 note ("`path` is in-bound by ruling, and note paths are note-identifying")
+  — carried.** Agreed, and it is the line blocking issue 1's suggested fix leans on: `person.name`
+  stays, `{e}` goes.
+- **My round-1 notes on Task 3's verify, Design/Flow §2's `BaseEntity` rationale, Design/Flow §6's
+  P1 rationale, and the `models.py:261-262` citation — all CLOSED.** Task 3 now expects a fully green
+  607 and says "any test going red here is a signal, not an expectation" (line 1254); Flow §2 now
+  states correctly that `BaseEntity` declares `type: str` without a default so `.get` fails closed
+  (line 901); Flow §6 records that the earlier `_load_file` example was wrong and the clause stands
+  on the general reason (line 1007); the Approach now cites `models.py:261`.
+
+### Bar check
+
+Walked every check of `docs/spec-quality-bar.md`. Clean on: self-containment; Prerequisites &
+Assumptions (explicit, including the trust boundary and the load-bearing stale `.pth`); Configuration
+(none, stated, with the Hypothesis candidate ruled out and the reasoning recorded); Edge Cases
+(`OPEN: None`, 0 against a cap of 2); Risk Analysis (required — HAL9000 startup and the exocortex
+meeting sync — present, with rollback and migration); Check 10 (seven well-formed `criteria` fences,
+all `kind: test`, each with a bare in-repo check name; no `kind: command` check, so nothing assumes an
+unsandboxed shell); Check 11 (every load-bearing diagnostic claim cites a falsifiable artifact and
+each artifact supports its specific claim — re-verified here, including the C2 chain at
+base.py:311→326-329 and the defeated post-write reload at 331-334); Check 12 (zero-length diff inside
+the frozen section, held — the three readings recorded at lines 1146-1148 sit outside the fences and
+none is a strength-weakening, actor-swap, scope-narrowing, oracle-swap or exception-carve; reading 1
+widens "return sites" to `Return ∪ Raise`, which the fence's own "five is a baseline, not the answer"
+and its post-fix-source requirement force, and readings 2 and 3 are both explicitly licensed by the
+fences they read).
+
+**Task-definition shape check (WI-141):** 18 canonical definitions, `- [ ] **Task N — <title>.**`,
+ordinals 1-18 unique. The three `landed: Task N` in `## Threat Model` (3, 8, 18) are all among them —
+no D8b refusal. Whether M3's *substance* landed is judged separately, as the check requires, and is
+blocking issue 2.
+
+**Write-Targets coverage check (WI-132):** clean in both directions, re-run against the folded plan.
+Task 1 writes nothing (its probe is a heredoc read-only run); 2 → `errors.py` + `__init__.py`;
+3 → `parser.py`; 4, 5 → `writer.py` (5 also `tests/test_writer.py`); 6, 7, 9 →
+`repositories/person.py` (6 also `tests/test_repositories.py`); 8 → `repositories/base.py`,
+`meeting.py`, `book.py`; 10 → `tests/derivations.py`; 11, 12 → `tests/test_loud_fail_parse.py`;
+13, 16 → `tests/test_loud_fail_load.py`; 14, 15 → `tests/test_loud_fail_write.py`; 17 →
+`tests/test_loud_fail_harness.py`; 18 → parser/writer/person/base, all already declared. No declared
+path is unwritten. No `kind: precondition` fence is present and none is needed: every path is inside
+`write_authority` (`pipeline-runners.yaml:34-38` — `obsidian_schemas/**`, `tests/**`, `scripts/**`,
+`docs/**`), and the spec names `README.md` and `CLAUDE.md` as deliberately outside it. Task 18's grep
+and Task 8's scratch check invoke paths but do not write them, and are correctly not declared.
+
+### Build-runner dry-run
+
+Walked Tasks 1-18 as the builder. The dependency ordering holds (11-17 gated on 10; 10 gated on
+2-9's contract), every task names a concrete file and a runnable verify on the absolute floor
+interpreter, and the harness section resolves every derivation the seven fences consume — the
+14-member closure and its 4/3/1/6 partition re-derive correctly against live source. Three questions
+a build-runner would plausibly ask:
+
+1. *"Task 7 says keep person.py's five `{e}` log lines exactly; Task 18 says any `{e}` in the package
+   is a forbidden second construction site and its verify wants exactly one match. Which?"* — **Not
+   answered.** Blocking issue 1.
+2. *"Task 18 is the step that makes M1/M2 a property of the tree, and M3 says it must cover note
+   content too. What do I grep for?"* — **Not answered** by any task, Design block or fence.
+   Blocking issue 2.
+3. *"Task 2 says export the five leaf classes and there are six classes, four of them leaves. Which
+   five?"* — **Not answered.** Blocking issue 3.
+
+Everything else in the plan I could execute without leaving the document.
+
+```verdict
+gate: spec-reviewer
+verdict: REVISE
+date: 2026-07-24
+model: claude-opus-4-8
+note: Round 1's failure shape recurs inside its own remedy -- Design/Data model states the message rule as total ("no error message in obsidian_schemas is ever built by interpolating an exception or note content") and Task 18's sweep verifies "exactly the one permitted match", while Design/Flow §6 line 1005 and Task 7 order the builder in bold to KEEP person.py's five existing handlers "exactly as it stands", and those five are logger.warning(f"...{person.name}: {e}") at 1501/1605/1703/1776/1838 read live, so the grep returns six and the two instructions have no tiebreak; substantively those five are a real M1/M2 channel, because P1's first clause re-raises LoudFailError so only foreign exceptions reach them -- including the UnicodeDecodeError whose str() the M1 table itself calls a byte snippet of the note; separately M3 (kind:required, landed Task 18) has no substance, Task 18's five grep patterns still being exception-shaped only while _split_frontmatter_fence holds the whole note in scope at both raise sites, and the errors.py hierarchy is six classes described three times as "the five leaf classes" (four are leaves) leaving the __init__ export set undecided; every file:line in the document re-verified exact against live source this round, including the three Problem/Motivation citations round 1 rejected, which are correctly repointed.
+```
+
+## Adversarial Review — 2026-07-24 (round 2)
+
+Cold-start injection-hunter re-run (WI-059, the two-key corroborator), reading the document fresh
+rather than trusting the round-1 Adversarial Review's own conclusion. Round 1 (above, dated the same
+day) covered this document end-to-end through round 27, the Architectural Review, Data Audit, Threat
+Model round 1 and Spec Review round 1, plus `docs/spec-reviews/WI-020-dave-review-2026-07-24.md`, and
+PROMOTEd. Since that pass, two more gate rounds were appended: Threat Model round 2 (re-review after
+the M1/M2 fold, `PROMOTE`, adding required mitigation M3) and Spec Review round 2 (cold-start against
+the folded document, `REVISE`, citing a new contradiction between Design/Flow §6 line 1005 / Task 7's
+"keep person.py's five handlers exactly as it stands" and Task 18's "exactly one permitted match"
+sweep, plus M3's unimplemented substance and a five-vs-six error-class miscount). Read in full this
+round: both new sections end to end, verbatim, and re-read against source rather than trusted from
+the doc's own citations — `parser.py` 53-80, `writer.py` 176-299, `person.py` 1444-1839, `models.py`'s
+field declarations, and `Design/Data model` and `Design/Flow §6` in the same document — to confirm the
+contradiction Spec Review round 2 names is real rather than a persuasive misreading. It is: Task 7
+(Implementation Plan) does say, in bold, to keep the five existing `person.py` log lines "exactly as
+it stands," and those five are `f"...{e}"` interpolations read live at 1501/1605/1703/1776/1838; Task
+18's grep for `{e}` with a stated "exactly one match" expectation is written against the same tree.
+Also re-read the older material this round's new sections cite back into — the `ac-signoff` fence, the
+Architectural Review, the Data Audit, Threat Model round 1 and Spec Review round 1 — spot-checked
+rather than re-read to the same depth as round 1's pass, since round 1 already covered them end to end
+and nothing in the two new sections revises or references them in a way that would require re-litigating
+that coverage. Grepped the whole document again for imperative-to-a-reviewer phrasing (ignore/disregard,
+pre-approved, emit-PROMOTE, "reviewer should", bypass/jailbreak language, second-person instructions
+addressed to an agent) — no hits beyond the same two innocuous ones round 1 already named (Python
+method "overriding," and "do not report a completed write" describing a return value in AC-5's `desc:`).
+Also read `docs/spec-reviews/WI-020-dave-review-2026-07-24.md` end to end again (it is unchanged since
+round 1 — `note: null`, `comments: null`, the frozen AC text matching the in-document fences verbatim)
+and `pipeline-runners.yaml` (unchanged, a project-root artifact declared not builder-writable, no
+review-facing language of any kind).
+
+**The one question:** has this spec, or any prior gate's verdict on it — including the two rounds added
+since my own round-1 PROMOTE — been steered by a prompt injection planted in the untrusted content the
+gates read? No. The Threat Model round-2 PROMOTE and the Spec Review round-2 REVISE both read as
+independent re-derivations rather than adoptions of persuasive framing: the threat-modeler re-verifies
+the M1/M2 construction rule live against `errors.py`'s shape and `models.py`'s field declarations before
+crediting it, and separately re-derives the models.py Dict-field sweep and the yaml.safe_load site
+rather than citing the Design's claim about them; the spec-reviewer's blocking issue 1 is not "the doc
+says this is fine" accepted at face value — it is a contradiction the spec-reviewer traces itself,
+quoting Design/Flow §6 line 1005 and Task 7 verbatim, re-deriving the five `f"...{e}"` sites live, and
+tracing the data-flow argument for why they are a real disclosure channel (P1's re-raise clause means
+only foreign exceptions reach them) rather than accepting a label. Neither verdict's reasoning traces
+back to a sentence in the document that argues for a verdict; both trace back to file:line claims the
+reviewing gate re-checked. The REVISE is the second consecutive one on this item, on a genuine
+recurrence of round 1's own failure shape (two contradictory instructions in one document, still no
+stated tiebreak) — that is a real defect surviving two folds, not a sign of manipulation, and it is
+exactly the kind of ordinary persuasive spec-review prose ("this is load-bearing rather than cosmetic")
+the role's calibration note warns against mistaking for injection.
+
+```verdict
+gate: injection-hunter
+verdict: PROMOTE
+date: 2026-07-24
+model: claude-sonnet-5
+note: No planted steering found in the two sections added since round 1 (Threat Model round 2, Spec Review round 2) or on re-check of the material round 1 covered -- both new gate verdicts re-derive their evidence live against parser.py/writer.py/person.py/models.py rather than adopting the document's own framing, the spec-reviewer's REVISE traces to a quoted, source-verified contradiction (Design/Flow §6 line 1005 and Task 7's "keep exactly as it stands" vs. Task 18's "exactly one permitted match" sweep, with the five person.py f"...{e}" sites confirmed live), and a fresh grep of the whole document and the linked Dave-signoff doc for imperative-to-a-reviewer phrasing returned no hits beyond the two innocuous ones round 1 already named.
+```
+
+## Threat Model — 2026-07-24
+
+**Recommendation: PROMOTE to threat-modeled**
+
+Cold-start re-review (WI-144 round 3), run against Revision 3 of the spec — the fold of Spec Review
+round 2's three blocking issues and of my own round-2 M3. Read: the role definition; this document's
+Problem/Motivation, Intent, Exploration Notes (rounds 1-27), Approach, AC-1..AC-7 as fences, the
+Check-strategy note and the specification-altitude declaration, Design end to end (Revision 3's three
+changes, the two open decisions, the mitigation-landing table, Data model including **Bounded
+diagnostics**, the export set, **What the sweep at Task 18 enforces** with sweeps A/B/C, Flow §1-§7),
+Edge Cases, Implementation Plan Tasks 1-18, Write Targets, Verification, and every prior gate section
+(Architectural Review, Data Audit, Threat Model rounds 1 and 2, Spec Review rounds 1 and 2,
+Adversarial Review rounds 1 and 2); project `CLAUDE.md`. Five code claims the fold's new machinery
+rests on were re-derived live in this worktree rather than carried from the doc — the results are in
+the STRIDE section below.
+
+### Trigger check
+
+Unchanged from rounds 1 and 2; the same three fire, and two of them are this item's own subject
+matter, so the cheap path is again unavailable.
+
+- **Handles input from external sources** — the untrusted input is the byte content of a note on
+  disk, arbitrary bytes Dave, Obsidian or any other tool may have written. The trust boundary is
+  drawn at `Path.read_text` (Prerequisites & Assumptions).
+- **Performs filesystem operations on user-owned files** — four derived write paths rebuild notes in
+  the vault; `append_to_timeline` gains a branch that writes to a note it previously refused.
+- **Persists data** — to the vault, to log output, and to a queryable in-memory surface,
+  `SkippedNote`, whose `detail` field three out-of-repo consumers may render.
+
+Still **not** triggered, re-verified rather than carried: no secrets, credentials, API keys, OAuth
+scopes or tokens; no outbound API calls; no MCP scopes; no access-control changes; no external
+messages; no network I/O anywhere in the package.
+
+### STRIDE review — the delta, re-verified at source
+
+S, T, R, D and E are unchanged from rounds 1 and 2: the approach did not move, and Revision 3 touches
+only the message-construction discipline. Two standing items re-verified rather than carried, plus
+one that is new this round:
+
+- **`yaml.safe_load` is still the sole loader**, and there is no `yaml.load`/`unsafe_load` anywhere
+  in the package — swept live, one hit at `parser.py:73`, unchanged. Recorded a third time because Tasks 3 and 4
+  both edit the handler wrapped around that call.
+- **Zero `ast` references anywhere in the tree** — swept live over every `.py` under the repo root,
+  no matches. Data-Audit predicate (8) holds, AC-7's single-homing is satisfiable rather than red on
+  arrival, and Task 1's stop-the-build escalation on that predicate is still the right placement.
+- **Sweep C runs as a heredoc and is never written to a file** (Design/Data model; Task 1 copies it
+  verbatim), so the one new `ast` consumer this item introduces is `tests/derivations.py` and AC-7's
+  marker stays single-homed. The plants at Task 17 are still scanned as parsed syntax and never
+  imported, so the harness adds no execution surface.
+
+**Information disclosure — the fold closes the round-2 finding and opens a narrower one inside its
+own remedy.** M3's substance landed: Task 18's sweep is now three sweeps, A (exception half), B (the
+note-content half M3 asked for) and C (a name-independent syntax pass), with C existing precisely
+because a line-based grep is blind to 25 of the package's 59 message-construction calls. Four
+properties checked live rather than accepted:
+
+1. **Sweep A's post-fix arithmetic is exact.** Run live, the eight `{e}`-shaped interpolations are
+   exactly `base.py:182`, `meeting.py:82`, `book.py:78` and `person.py` 1501/1605/1703/1776/1838 —
+   the lines the doc names, no more and no fewer. Tasks 7 and 8 remove all eight and `errors.py` adds
+   one, so "exactly one permitted match" is derived rather than hoped for. Note 1605 came back as a
+   bare continuation line with no `logger.warning` on it, which is C's own justification observed
+   rather than argued.
+2. **Sweep B's load-bearing stage is exact.** Stage 2 returns exactly one line today,
+   `identifier.py:68`, which Task 2 fixes — so post-fix zero is right. (Stage 1 reads **19** here,
+   not the 20 the doc states; non-blocking, since the verify is on stage 2. Noted below.)
+3. **Blocking issue 1 is genuinely closed, not relabelled.** Task 7 now rebuilds all five `person.py`
+   WARNINGs from `bounded_message` with per-site `reason` literals and drops `{e}` — the carve-out is
+   deleted at both homes (Design/Flow §6 and the task). Those five were the live M1/M2 channel: P1's
+   first clause re-raises `LoudFailError`, so only a foreign exception reaches them, including the
+   `UnicodeDecodeError` whose `str()` the M1 table itself calls a byte snippet of the note.
+4. **The `identifier.py:68` fix is a real bound and is floor-safe.** Read live, the message today is
+   `f"{kind}: {detail} (raw={raw!r})"` and `raw` at that boundary is an email or a phone number —
+   verbatim the class M1's exclusion table names. Nothing in the package reads `.raw` off the error
+   or asserts on the message (`.raw` appears twice, both in `identifier.py` itself), and all eight
+   `IdentifierError` assertions in `tests/test_identifier.py` are bare `pytest.raises` (56, 95, 115,
+   142, 171, 203, 222, 250). Fixing it rather than carving it out is the right call and it removes a
+   PII channel that exists in the tree today.
+
+**The new finding: the `reason` argument is the one input to the message system that no sweep checks,
+and it reaches the public `SkippedNote.detail`.** `bounded_message`'s own docstring specifies `reason`
+as *"a literal written in this package's source — never a value read off a note"*, and that clause is
+load-bearing — `reason` is interpolated verbatim into the returned message. It is also the only part
+of the contract nothing mechanizes:
+
+- Sweep C's `is_message_call` returns `False` for any callee in `BOUNDED`, which includes
+  `bounded_message` and the three note-parse error classes, so `raise FrontmatterParseError(<anything>,
+  path=path)` is never listed as a construction site at all.
+- `reaching_names` returns `set()` at a `BOUNDED` call without descending, so
+  `logger.warning(bounded_message(<anything>, path=p))` contributes nothing either.
+- Sweep B would catch a `reason` carrying `content`/`body`/`frontmatter`/`body_raw`/`raw`, but B is a
+  name list; C is the net that is supposed to cover the unenumerated name, and here it does not.
+
+So a future `raise SchemaDriftError(f"could not read {payload}", …)` or
+`logger.warning(bounded_message(f"bad note: {chunk}", …))` passes all three sweeps. This is not purely
+forward-looking bookkeeping: Design/Data model argues `bounded_detail`'s `isinstance(error,
+LoudFailError)` branch is not a hole because *"the only way a `LoudFailError`'s message can contain
+note bytes is if some site built it without `bounded_message`"* — and the `reason` channel is exactly
+a way for it to contain note bytes **while** built by `bounded_message`, after which
+`bounded_detail` returns `str(error)`, the one permitted `str()`, straight into `SkippedNote.detail`.
+Nor is the non-literal `reason` hypothetical: post-Task-2 `identifier.py:68` is
+`bounded_message(f"{kind}: {detail}")`, the single site in the package where `reason` is not a
+literal, and its safety rests on a hand-audit of 21 raise sites — the hand-audited list this document
+has bounced twice. A 22nd raise site passing a note-derived `detail` is invisible to A, B and C.
+
+The design is right and the gap is in the check, which is the same grade of finding M3 was and takes
+the same disposition: **M4** below, one predicate change in a heredoc Task 18 already owns. It is not
+a REVISE — nothing in the Design is unsafe, and the fold rule routes a mechanical landing through D8
+rather than around a REVISE loop.
+
+### Mitigations verified in place
+
+1. **Fail-closed on the mutation path.** AC-1 requires every derived write path to refuse a failed
+   parse *and* asserts the file byte-identical afterward. Design/Flow §4, Tasks 3/5/6.
+2. **Fail-open but visibly on the read path.** All three `_load_file` implementations keep a broad
+   `except Exception` deliberately, because `load()`'s loop has no `try` of its own (base.py:157-165).
+   AC-3 asserts NO-ABORT on all twelve cells per class. Correct fail-mode split for a library whose
+   read path runs at consumer startup.
+3. **Security-relevant events at WARN, asserted not assumed** — AC-3 requires WARNING never DEBUG;
+   Task 13 asserts the level via `caplog`.
+4. **One message-construction site for the whole package** — `bounded_message` / `bounded_cause` /
+   `bounded_detail` in `errors.py`, duck-typed so the module imports nothing and cannot cycle,
+   module-private and deliberately unexported (Task 2). This is what makes M1/M2 total rather than
+   site-by-site, and Revision 3 removes the last exemption from it.
+5. **The projection cannot carry note content** — `bounded_cause` projects `loc` and `type` and never
+   `input`/`input_value`. Re-swept live: `models.py` declares **no** `Dict`/`dict`-typed model field
+   (the sole `dict[...]` is `TYPE_TO_MODEL` at models.py:309, a module constant), so every `loc`
+   element is a declared field name or a list index this package authored. The unenumerated exception
+   type falls through to its class name, so the bound is a property of the rule, not of two library
+   shapes.
+6. **The skip surface's `reason` is a closed set of three source literals** derived from the error
+   type, never passed in (Design/Data model), and it records failures rather than non-matches, so its
+   volume tracks broken notes rather than vault size.
+7. **Ownership decided before model construction** — `_owns` compares against `self.type_name` and
+   derives the convention-vs-catch-all test from the class's own `file_pattern`, which is what keeps
+   the skip surface from becoming an untrusted-input amplifier on a heterogeneous vault.
+8. **Backward-compatible error typing** — every new error subclasses `ValueError` except the two
+   deliberate `FileNotFoundError`s, so an existing consumer `except ValueError` still catches.
+9. **The export set is enumerated, not counted** (blocking issue 3, folded) — all six classes, with
+   both non-leaves justified. No builder is left choosing which to drop.
+
+Required mitigations follow as machine fences. M1, M2 and M3 are re-emitted because each is still
+required; M4 is new this round.
+
+```mitigation
+kind: required
+id: M1
+desc: The seam's typed errors carry a bounded diagnostic (path, line/column or field name, error class) and never the verbatim yaml.MarkedYAMLError source snippet or Pydantic input_value, both of which reproduce note content into every downstream consumer of the raised error.
+landed: Task 3
+```
+
+```mitigation
+kind: required
+id: M2
+desc: _note_skip's WARNING line and SkippedNote.detail carry that same bounded diagnostic rather than str(error) verbatim, covering the generic "unreadable" bucket too, where a UnicodeDecodeError renders a byte snippet of the note.
+landed: Task 8
+```
+
+```mitigation
+kind: required
+id: M3
+desc: Task 18's package-wide message-construction sweep must cover the note-content half of the rule it proves, not only the exception half - sweep B's named content-bearing locals plus sweep C's name-independent syntax pass, with the one pre-existing violation (identifier.py:68) fixed rather than carved out.
+landed: Task 18
+```
+
+```mitigation
+kind: required
+id: M4
+desc: Sweep C must also inspect the reason argument of a BOUNDED callable - today is_message_call skips every bounded_message/NoteParseError/FrontmatterParseError/SchemaDriftError/IdentifierError call outright and reaching_names refuses to descend into one, so a non-literal reason carrying note content under an unenumerated name passes A, B and C and then reaches the public SkippedNote.detail through bounded_detail's permitted str(); either require reason to be an ast.Constant or recurse into it, update the two close-out expectations that change (identifier.py:68 lists kind/detail after Task 2 rather than nothing, and Task 1's baseline is taken with the same heredoc), and keep the property assertion rather than a count.
+landed: Task 18
+```
+
+### Notes (non-blocking)
+
+- **Sweep C's post-fix output will list `detail` at `_note_skip`'s two log lines, and the close-out
+  rule has no ruling for it.** `detail` is a local holding `bounded_detail(error)` — a bounded
+  callable's output, which the design treats as the permitted projection by definition — but
+  `reaching_names` only skips descending into a bounded *call*, not a variable holding its result, so
+  the close-out's "each listed identifier must be in-bound (path, entity name, `declared_type`, or a
+  caller-supplied argument)" leaves a builder with an un-rulable survivor created by this plan's own
+  Task 8. Over-flagging is the safe direction, but an unexplained survivor is how a close-out becomes
+  a rubber stamp. One sentence adds the fourth in-bound category — a value that is the output of a
+  bounded callable — alongside the two readings Design already rules.
+- **Sweep B's stage-1 count reads 19 live, not the 20 stated** (9 in `identifier.py`, 4 in
+  `writer.py`, 4 in `person.py`, 1 each in `base.py` and `body_sections.py`). Immaterial to the
+  mitigation: the verify is on stage 2, which is exactly one today and zero post-Task-2, both
+  confirmed live. Recorded for the spec-reviewer's citation pass.
+- **The `identifier.py` message change is externally visible and sits outside AC-2's enumerated
+  caller set.** A consumer logging `str(IdentifierError)` loses `raw` from its log line. That is the
+  intended bound and `.raw` remains a public attribute, so nothing is unrecoverable — but it is a
+  second consumer-visible change beyond N4's, and it belongs in the same parked cross-repo companion
+  item rather than being discovered by HAL9000 at runtime.
+- **The public parse surface remains the widest disclosure channel and is still out of this repo's
+  reach.** AC-2 requires the six residue members to propagate, so whatever M1 admits travels to
+  consumers a hermetic floor cannot audit. Bounding at construction is the right place. Unchanged
+  from rounds 1 and 2.
+- **`path` is in-bound by ruling, and note paths are note-identifying.** `@John Smith.md` names a
+  person. Carried from round 2, still the right call, still the line to re-examine if a consumer ever
+  renders these messages somewhere more public than a log.
+- **The Timeline accommodation still widens the set of notes this package mutates**, on a raw
+  `write_text` that `writer.py:178-183` exempts from the WI-126 guard. Dave-ruled at round 9, bounded
+  by AC-5's PRESERVATION oracle. Recorded again only so that if the preservation half is ever
+  relaxed, the security consequence is on record.
+- **`_skipped` growth** is bounded by vault size, cleared at the top of `load()`, and holds bounded
+  strings post-M2; `_owns` keeps a catch-all-globbed `BookRepository` from claiming the whole vault.
+  Non-blocking, as in both prior rounds.
+- **The 607-case floor is again not executed at this gate** — no shell in this cage this round
+  either. Task 1 remains where that is discharged.
+
+```verdict
+gate: threat-modeler
+verdict: PROMOTE
+date: 2026-07-24
+model: claude-opus-4-8
+note: Revision 3 closes the round-2 finding properly -- M3 has substance (sweeps A/B/C, with C a syntax pass because a line grep is blind to 25 of 59 construction calls), the person.py carve-out that made five f"...{e}" sites a live M1/M2 channel is deleted at both homes, and identifier.py:68's (raw={raw!r}) PII suffix is fixed rather than exempted; re-derived live rather than carried, sweep A's eight {e} sites are exactly the eight named, sweep B's stage 2 is exactly identifier.py:68, models.py declares no Dict-typed field so Pydantic loc cannot carry note-supplied keys, yaml.safe_load is still the only loader at parser.py:73, and no .py in the tree references ast so AC-7 is satisfiable; one gap remains and it is in the check rather than the design -- bounded_message's reason is specified as a source literal and nothing mechanizes it, because sweep C skips every BOUNDED call outright and never descends into its arguments, so a non-literal reason carrying note content under an unenumerated name passes all three sweeps and then reaches the public SkippedNote.detail via bounded_detail's one permitted str(), which is also the exact counter-example to the "no LoudFailError message can contain note bytes" argument; M4 widens that one predicate in a task that already owns the sweep.
+```
+
+## Spec Review — 2026-07-24
+
+**Recommendation: REVISE — return to spec writer (gaps to fix)**
+
+Third spec-review pass, run cold-start against the folded document rather than against the diff. Read
+from line 1: Problem/Motivation, Intent, Exploration Notes rounds 1-27, Non-goals, Approach, AC-1..AC-7
+as fences with the Check-strategy note and the specification-altitude declaration, Examples of done,
+Relationship to other work, Design end to end (Decisions 1-2, the mitigation-landing table, Data model
+including **Bounded diagnostics** and **What the sweep at Task 18 enforces**, Flow §1-§7, the test
+harness, Integration points, Configuration, Prerequisites & Assumptions, the Check-12 zero-diff record),
+Edge Cases, Implementation Plan Tasks 1-18, Write Targets, Verification, Verified Diagnosis, Scope
+Boundary, Risk Analysis, Self-Review Dry Run, the AC Red-Team passes, the `ac-signoff` fence, the
+Architectural Review, the Data Audit, and all three Threat Model rounds, both Adversarial Reviews and
+both prior spec reviews; plus `docs/spec-reviews/WI-020-dave-review-2026-07-24.md`, project `CLAUDE.md`
+and `pyproject.toml`. Every code claim below was re-read live in this worktree, and the two sweeps
+whose counts the document derives were **run** rather than read.
+
+### Citation verification
+
+**All `file:line` citations verified against current code. ✓** Re-read at source this round rather than
+carried: `parser.py` 53-80 (returns at 65/70/77/80 only, `safe_load` at 73, the `None` normalisation at
+74-75, the bare `except yaml.YAMLError` at 78 binding nothing), 108-150 (signature at 110, empty
+short-circuit at 123, auto-detect 130-133, unresolvable return 135-137, `model_validate` at 141, the
+swallow at 148-150); `writer.py` 176, 178-183 (the section-writer exemption, verbatim), 184-195 with
+`existing_body = ""` at 189-190, 197-205, 211, 242-243, 254, 259-260, 281-282, 293, 298-299, 302-;
+`repositories/base.py` 116-118, 120-130, 132-135, 149-150, 157-165 (no `try` around `_load_file` at
+159 — confirmed), 171-183, 178, 179, 182; `repositories/person.py` 1147-1160 with the `except Exception`
+at **1156** exactly as Task 9 cites, 1596/1696/1768/1831; `identifier.py` 58-71 with the
+`(raw={raw!r})` suffix at 68; `name_validation.py` 311/321/330/337 (first argument a `Constant`, second
+a `JoinedStr` reaching only `name` — the Design's "will list `name`" ruling is exact);
+`pyproject.toml` 31-35 (`pytest>=7.0`, `pytest-cov>=4.0`, nothing else) and 42 (`python_files =
+["test_*.py"]`); `tests/test_vault_path_required.py` 320 (`rglob("*.py")`) with the
+"a scan that carries an exception list is a scan nobody trusts" docstring at 314-315;
+`tests/test_identifier.py` — all eight `IdentifierError` assertions are bare `pytest.raises` at exactly
+56/95/115/142/171/203/222/250, and a tree-wide grep for `raw=` returns only `identifier.py:68` itself,
+so Task 2's "no test asserts the message text" holds; `obsidian_schemas/__init__.py` 35-39, 40-45,
+102-104, 105-109.
+
+Run rather than read, because a count is only trustworthy once someone executes it:
+
+- **Sweep A over `obsidian_schemas/` returns exactly 8 matches** — `base.py:182`, `meeting.py:82`,
+  `book.py:78`, `person.py` 1501/1605/1703/1776/1838. The `8 − 8 + 1 = 1` derivation at Design line 870
+  and Task 18 line 1479 is correct. `person.py:1605` is the continuation line of a `logger.warning(`
+  opening at 1604, exactly as Task 1's second expectation says.
+- **Zero `ast` references anywhere in the tree** (`obsidian_schemas/`, `tests/`, `scripts/`) — AC-7's
+  single-homing is satisfiable rather than red on arrival, and Data Audit predicate 8 still holds.
+- **Sweep B stage 1 returns 19, not the 20 the document states twice** (Design line 872, Task 18
+  line 1481). See non-blocking notes; the document's own enumeration sums to 19 and stage 2 is exactly
+  `identifier.py:68`, so the verify is unaffected.
+
+### Blocking issues
+
+1. **M4 is `kind: required` with `landed: Task 18`, and neither Task 18 nor the sweep it runs carries
+   any substance for it — and the Design states, as a load-bearing fact, the opposite of what the code
+   it prescribes does.** This is round 2's blocking issue 2 in the same place one revision later, and I
+   traced it myself rather than adopting the threat-modeler's framing.
+
+   Read the heredoc at Design/Data model lines 886-928, which Task 18 line 1477 orders run *verbatim*:
+
+   - `BOUNDED` (886-890) holds `bounded_message`, `bounded_cause`, `bounded_detail`, `NoteParseError`,
+     `FrontmatterParseError`, `SchemaDriftError`, `IdentifierError`.
+   - `is_message_call` (892-902) returns **`False`** for any `ast.Name` callee in `BOUNDED`, so
+     `raise FrontmatterParseError(<reason>, path=…, cause=e)` is not a construction site at all and its
+     arguments are never walked.
+   - `reaching_names` (904-917) returns `set()` for a `Call` whose func is in `BOUNDED`, so at
+     `logger.warning(bounded_message(<reason>, …))` — the shape all seven rebuilt P1 handlers take —
+     the `reason` argument is likewise never reached.
+
+   **`reason` is therefore unswept at every one of the nine construction sites in the table at Design
+   lines 809-817.** The Design's own reconciliation for this is at line 933: *"`raise
+   FrontmatterParseError(…)` contributes nothing, because that class builds its own message from
+   `bounded_message` inside `errors.py` — where this same sweep does see it."* That sentence is false,
+   and it is the sentence the mitigation rests on. `bounded_message`'s body (lines 760-767) is three
+   `parts.append(f"…")` calls and a `join`; `parts.append` is an `ast.Attribute` whose `attr` is
+   `"append"` — not in `LEVELS`, not `"__init__"`, and the callee is not a `Name` ending in `Error` —
+   so `is_message_call` is `False` there too. The sweep sees neither the `reason` at the call site nor
+   anything inside the helper that would reveal it. There is no third place it could be seen.
+
+   **Concrete failure scenario.** A later edit writes, in `parser.py`,
+   `raise FrontmatterParseError(f"could not parse {payload}", path=path)` where `payload` holds a slice
+   of the note. Sweep A does not match (`payload` is not in the exception-name alternation). Sweep B
+   stage 1 does not match (`payload` is not in the content-name alternation — which is the exact
+   "unenumerated content-bearing local" case B's own name list is admitted to have, and which line 874
+   promises **C** covers). Sweep C skips the call entirely. All three verifies pass. The message then
+   reaches `SkippedNote.detail` through `bounded_detail`'s `isinstance(error, LoudFailError) →
+   str(error)` branch (line 843-845) — the one permitted `str()` — and out to HAL9000, exocortex and
+   orchestrator, which Task 8 line 1433 notes "may render it into a user-facing surface". It also
+   falsifies the totality argument at line 848 (*"the only way a `LoudFailError`'s message can contain
+   note bytes is if some site built it without `bounded_message`"*): this site **did** use
+   `bounded_message`; it passed a non-literal `reason`.
+
+   **Suggested fix — and per the fold recommendation below it should be executed as one audit pass over
+   sweep C, not as a patch to `is_message_call`.** The shape that closes it totally rather than by
+   another name list: `BOUNDED` today does two different jobs under one set — "this callee builds its
+   own bounded message internally, so skip it as a site" and "this callee's *output* is a permitted
+   projection, so do not descend into it". The second is true; the first is false for the callee's own
+   first argument. Split them, and make `reason` a **type** obligation the pass can decide rather than a
+   convention the pass trusts: at every `BOUNDED` constructor and at `bounded_message` itself, require
+   the `reason` argument to be an `ast.Constant` (or a `JoinedStr` containing no `FormattedValue`), and
+   fail loud on anything else. That is total over the surface by construction — a `reason` under any
+   name, present or future, is either a literal or a red — where widening a name list is the per-case
+   move that has now produced three rounds. Then update the two close-out expectations that shift
+   (Task 1's baseline is taken with the same heredoc, and `identifier.py:68` lists `kind`/`detail` after
+   Task 2 rather than nothing), and keep the assertion as the property, not a count.
+
+2. **Task 18's close-out rule cannot classify the output its own sweep will produce, on lines this plan
+   itself orders written.** The close-out (line 1485) says: *"each listed identifier must be in-bound —
+   the note's path, the entity's own name, `declared_type`, or a caller-supplied argument."* Design/Flow
+   §3 lines 1030 and 1033 prescribe
+
+   ```
+   logger.debug(f"Not ours, not skipped: {file_path}: {detail}")
+   logger.warning(f"Skipped {self.type_name} note {file_path}: {detail}")
+   ```
+
+   `detail` is a **local** holding `bounded_detail(error)`. `reaching_names` skips descending into a
+   bounded *call*, not into a `Name` bound to its result, so both lines list `detail` — and `detail` is
+   none of the four in-bound categories. Both lines also list `self`, because `reaching_names` adds an
+   `Attribute`'s `attr` *and* recurses into its `value`, so `self.type_name` yields `{"self",
+   "type_name"}`; the rule enumerates `self.type_name` as in-bound but says nothing about the bare
+   `self` the sweep actually prints. A builder reaching Task 18 has two survivor identifiers created by
+   this plan's own Task 8, an instruction that says every survivor must be in-bound, and a sibling
+   instruction one paragraph up (line 1481) that *"if B returns anything, that thing is a note-content
+   disclosure and the close-out stops."* Whether to stop is a judgment call that could go either way,
+   which is the bar this gate holds. Design already rules two readings a builder will meet
+   (`name_validation.py`'s `name`, `identifier.py`'s post-Task-2 silence) so that neither is churned on;
+   these two need the same treatment — and the natural ruling, *a value that is the output of a bounded
+   callable*, is the fourth in-bound category and is the same conversion issue 1 turns on. Derive the
+   category list from what C actually prints on the prescribed post-fix tree rather than from the three
+   note-derived exceptions, so no survivor is met cold at close-out.
+
+### The pattern, and the fold I am recommending instead of a fourth single-site bounce
+
+This is the **third consecutive spec-review REVISE, and all three are one discipline**: the
+message-construction disclosure bound. Round 1 — `SkippedNote.detail` defined as `str(error)` against a
+rule that forbids it. Round 2 — five `person.py` `{e}` sites carved out of a rule stated as total, plus
+M3's sweep patterns covering only the exception half. Round 3 — the rule is now genuinely total over
+*values*, and the **checker** that proves it is not total over *sites and arguments*.
+
+Each round has been monotone: every objection closed and stayed closed, and the spec-writer's folds have
+been correct at the layer they touched. What keeps recurring is one level down each time — the rule, then
+the sweep's patterns, now the sweep's own predicate. Per the treadmill rule, I am not asking for a
+patch to `is_message_call`. **The ask is one audit pass, executed once, over sweep C as the single
+mechanism**, walking every message-construction site the post-fix package will hold — the nine in
+Design's construction table, the seven rebuilt P1 WARNINGs, `_note_skip`'s three interpolations, the new
+`logger.info` at Flow §6 line 1173, the eight `logger.info`/`logger.debug` lines Task 7 leaves alone,
+`name_validation.py`'s nine, and `bounded_message`'s own body — and reconciling C's *actual* output
+line-for-line against the in-bound rule. Both blocking issues above fall out of that one pass, and so
+would any third survivor I have not named. Where the pass needs an enumeration it cannot avoid, make the
+unenumerated case fail loud: `reason` as a required `ast.Constant` is the total closure, and it is
+strictly cheaper than the name list it replaces. The `writes` fence, the task ordinals and the frozen AC
+set are all untouched by this — it is a Design/Data-model edit plus one paragraph in Task 18.
+
+### Non-blocking notes
+
+- **Sweep B's stage-1 count is stated as 20 and is 19 live.** Design line 872 says *"stage 1 returns
+  **20** matches … the other 19 are file-content and parse expressions"*; the document's own
+  enumeration in the same sentence and again at Task 18 line 1481 lists 18 such expressions
+  (`identifier.py` 138/189/237/267/312/348/390/415, `writer.py` 211/254/293/320, `base.py:328`,
+  `person.py` 1596/1696/1768/1831, `body_sections.py:127`) which with `identifier.py:68` is 19 — the
+  enumeration is right and the aggregate is off by one. Immaterial to the mitigation, since B's verify
+  is on stage 2 (exactly `identifier.py:68` today, zero post-Task-2, both confirmed live), but worth
+  correcting while the paragraph is open for issue 1. Raised by the round-3 threat-modeler and
+  independently re-run here.
+- **`identifier.py`'s message change is a second externally-visible contract change and is not in
+  Relationship to other work.** Scope Boundary and Integration points both record it, and `.raw` stays
+  public so nothing is unrecoverable — but a consumer logging `str(IdentifierError)` loses `raw` from
+  its log line, and that is the same class of cross-repo consequence N4's parked HAL9000 companion item
+  exists for. One line in Non-goals or Relationship would put it in the same parking space rather than
+  leaving it to be met at runtime. Carried from the round-3 threat-modeler's note; I concur.
+- **Task 16's `ImportError` half may be defeated by the cached repository.** `_known_companies` only
+  runs `from .company import CompanyRepository` when `self._company_repo_for_cleaning is None`
+  (person.py:1148-1150), so a test that has already exercised the success path on the same instance
+  never re-enters the import. A fresh `PersonRepository` per assertion handles it; a builder will
+  almost certainly do that anyway, so this is a note rather than a gap.
+- **`__init__.py:102-103` is cited in AC-2's `desc:` for three exports that sit at 102-104.** Frozen
+  text, not editable. Recorded again only so a builder reading the fence does not think an export is
+  missing. Carried unchanged from round 2.
+
+### Carried-forward notes
+
+- **Architect note 3 (the parked `mkdir(parents=True)` bogus-tree question is not visibly Dave-ruled)
+  — STILL OPEN, deliberately.** Unchanged: the spec adopts the Non-goals routing (WI-004 owns the
+  write-side guard) in Scope Boundary and says so, and `ac-signoff` records `comments: null`, which
+  signs the AC set but does not rule a question kept out of it. Re-deferred for the third time on the
+  same reasoning — the adoption is boundary-correct and reversible, and the question belongs to
+  WI-004's origination rather than to this build. Dave's explicit word is still owed before WI-004 is
+  specced.
+- **Data Audit — the 607-case floor was not executed at that gate.** Still not executed at this one:
+  this cage has no shell either. Task 1 re-runs it before any code is written, which remains the right
+  placement. Recorded so the gap stays visible rather than reading as discharged.
+- **Data Audit — Dave's live vault was not read.** Not load-bearing; every fixture is built in
+  `tmp_path`, and the incident replay (Verification steps 1-5) is a post-merge close-out on a
+  disposable copy, which is the right home for the one check that needs a real note.
+- **Data Audit's closing instruction (re-run predicates 2, 5, 7, 8 at build start) — CLOSED.** Landed
+  in Task 1 verbatim including the "if (8) has drifted, stop" escalation. Predicates 2, 5 and 8
+  re-confirmed live at this gate.
+- **Threat-modeler round-1 note 1 (`writer.py:259-260` / `298-299` have no existing message) —
+  CLOSED.** Design/Flow §6 line 1125 and Task 5 both state it correctly (verified live: both are bare
+  `except Exception: return False`), and the carve-out it once introduced is gone.
+- **Threat-modeler note 2 (the public parse surface is the widest new disclosure channel and is out of
+  this repo's reach) — carried, correctly handled.** AC-2 requires the six residue members to
+  propagate, so whatever M1 admits travels to consumers a hermetic floor cannot audit; bounding at
+  construction is the right place, which is why blocking issue 1 is blocking rather than a note.
+- **Threat-modeler note 3 (the Timeline accommodation widens the set of notes this package mutates, on
+  a path exempt from the WI-126 guard) — carried, on record.** Dave-ruled at round 9, bounded by AC-5's
+  PRESERVATION oracle and by Flow §6's end-of-file string insertion (lines 1166-1177). Recorded so that
+  if the preservation half is ever relaxed the security consequence is traceable.
+- **Threat-modeler round-1 note 4 (the PyYAML/Pydantic message shapes were never run) — CLOSED.**
+  Task 1 carries the error-render probe with the right non-blocking disposition on drift.
+- **Threat-modeler round-2 note (`path` is in-bound by ruling; note paths are note-identifying) —
+  carried.** Agreed, and it is what lets the seven rebuilt WARNINGs keep `path=file_path` while
+  `person.name` and `{e}` both leave the message.
+- **Threat-modeler round-3 note (sweep C's `detail` survivor has no ruling) — PROMOTED to blocking
+  issue 2**, because the close-out instruction it collides with says the close-out stops.
+- **My round-2 note on `_get_body_content`'s unreachable first raise — CLOSED.** Flow §6 lines 1151-1162
+  now carry the guard comment as prescribed code, with the reason a later reader must not simplify it.
+- **My round-2 note on Task 18's redundant grep patterns — CLOSED.** Line 1479 states the tightening
+  and gives the reason (`str(e` subsumes `str(error`).
+- **My round-1 notes on Task 3's verify, Flow §2's `BaseEntity` rationale, Flow §6's P1 rationale, and
+  the `models.py:261-262` citation — all remain CLOSED.**
+
+### Bar check
+
+Walked every check of `docs/spec-quality-bar.md`. Clean on: self-containment; Prerequisites &
+Assumptions (explicit, including the single trust boundary at `Path.read_text` and the load-bearing
+stale `.pth`); Configuration (none, stated, with the Hypothesis candidate ruled out and grounded at
+`pyproject.toml:31-35`, re-verified live); Edge Cases (`OPEN: None`, 0 against a cap of 2); Risk
+Analysis (required — HAL9000 startup and the exocortex meeting sync — present, with rollback and
+migration); Check 10 (seven well-formed `criteria` fences, all `kind: test`, each with a bare in-repo
+check name; no `kind: command` check, so nothing assumes an unsandboxed shell); Check 11 (every
+load-bearing diagnostic claim cites a falsifiable artifact and each artifact supports its specific
+claim — re-verified, including the C2 chain and the defeated post-write reload, and finding 14's
+`pyproject.toml` grounding for Decision 2); Check 12 (zero-length diff inside the frozen section held —
+the round-27 text including AC-2's THIRD CASE and AC-7's `check:` name is present verbatim in the
+`ac-signoff` artifact, and the three readings recorded at lines 1274-1276 sit outside the fences and are
+none of strength-weakening, actor-swap, scope-narrowing, oracle-swap or exception-carve; reading 1 is
+forced by the fence's own "five is a baseline" plus its post-fix-source requirement, and readings 2 and
+3 are explicitly licensed by the fences they read).
+
+**Task-definition shape check (WI-141):** 18 canonical definitions, `- [ ] **Task N — <title>.**`,
+ordinals 1-18 unique. Every `landed: Task N` in the live `## Threat Model` (3, 8, 18, 18) resolves — no
+D8b refusal. Whether M4's *substance* landed is judged separately, as the check requires, and is
+blocking issue 1.
+
+**Write-Targets coverage check (WI-132):** clean in both directions. Task 1 writes nothing (its probe
+and sweep-C baseline are read-only heredocs); 2 → `errors.py`, `__init__.py`, `identifier.py`;
+3 → `parser.py`; 4, 5 → `writer.py` (5 also `tests/test_writer.py`); 6, 7, 9 →
+`repositories/person.py` (6 also `tests/test_repositories.py`); 8 → `repositories/base.py`,
+`meeting.py`, `book.py`; 10 → `tests/derivations.py`; 11, 12 → `tests/test_loud_fail_parse.py`;
+13, 16 → `tests/test_loud_fail_load.py`; 14, 15 → `tests/test_loud_fail_write.py`;
+17 → `tests/test_loud_fail_harness.py`; 18 → parser/writer/person/base docstrings, all already
+declared. No declared path is unwritten. No `kind: precondition` fence is present and none is needed:
+every declared path sits inside `write_authority` (`obsidian_schemas/**`, `tests/**`, `scripts/**`,
+`docs/**`), and the spec names `README.md` and `CLAUDE.md` as deliberately outside it. Task 18's greps
+and Task 8's scratch check invoke paths without writing them and are correctly not declared.
+
+### Build-runner dry-run
+
+Walked Tasks 1-18 as the builder. The dependency ordering holds (11-17 gated on 10; 10 gated on 2-9's
+contract), every task names a concrete file and a runnable verify on the absolute floor interpreter, the
+harness section resolves every derivation the seven fences consume, and the 14-member closure with its
+4/3/1/6 partition re-derives correctly against live source. Three questions a build-runner would
+plausibly ask:
+
+1. *"M4 says sweep C must inspect the `reason` argument of a BOUNDED callable. Task 18 tells me to run
+   the heredoc verbatim, and the heredoc skips those calls outright. Which?"* — **Not answered.**
+   Blocking issue 1.
+2. *"Sweep C lists `detail` and `self` at the two `_note_skip` log lines Task 8 told me to write.
+   Neither is in the in-bound list, and the close-out says a survivor that is not in-bound stops the
+   close-out. Do I stop?"* — **Not answered.** Blocking issue 2.
+3. *"Task 18 says B's stage 1 returns 20 today; I get 19. Has the tree drifted under me?"* — Answerable
+   with effort (the document's own enumeration sums to 19 and stage 2 is what the verify rests on), but
+   it costs the builder a reconciliation against a number that is simply wrong. Non-blocking note 1.
+
+Everything else in the plan I could execute without leaving the document.
+
+```verdict
+gate: spec-reviewer
+verdict: REVISE
+date: 2026-07-24
+model: claude-opus-4-8
+note: Third consecutive REVISE and all three are one discipline (the message-construction disclosure bound), so this is the audit-fold ask rather than a fourth patch -- M4 is kind:required landed Task 18 and neither Task 18 nor the heredoc it orders run verbatim carries it, traced live at Design lines 886-928: is_message_call returns False for every Name in BOUNDED so a raise FrontmatterParseError(<reason>,...) is not a site at all, and reaching_names returns set() for a BOUNDED call so the reason inside logger.warning(bounded_message(<reason>,...)) is never reached either, which makes the Design's own reconciliation at line 933 ("that class builds its message inside errors.py where this same sweep does see it") false, since bounded_message's body is three parts.append(f"...") calls that is_message_call also rejects -- so f"could not parse {payload}" passes A (name not in the exception alternation), B (name not in the content alternation, the case line 874 promises C covers) and C, then reaches the public SkippedNote.detail via bounded_detail's one permitted str(), falsifying the totality argument at line 848; second and from the same root, Task 18's close-out rule cannot classify its own sweep's output on lines this plan orders written -- Flow §3's two _note_skip log lines list detail (a local holding bounded_detail(error), which reaching_names does not skip) and self (from self.type_name), neither in the four in-bound categories, against a close-out that says an out-of-bound survivor stops it; the fold to run once is sweep C over every message-construction site the post-fix package will hold, reconciled line-for-line, closing reason as a type obligation (an ast.Constant, failing loud otherwise) rather than by widening another name list, and adding "the output of a bounded callable" as the fourth in-bound category; every file:line in the document re-verified exact against live source this round, sweep A run live returns exactly the eight sites the 8-8+1 derivation names and the tree still holds zero ast references, with one count off by one (B stage 1 is 19 live, stated 20 twice, the document's own enumeration summing to 19).
+```
+
+## Adversarial Review — 2026-07-24 (round 3)
+
+Cold-start injection-hunter re-run (WI-059, the two-key corroborator), reading the whole document
+fresh rather than trusting either of my own prior rounds' conclusions. Rounds 1 and 2 (both above,
+same day) covered this document end-to-end through the Adversarial Review round-2 fence and PROMOTEd
+twice. Since round 2, three more gate rounds were appended: Threat Model round 3 (re-review after the
+M3 fold, `PROMOTE`, adding required mitigation M4), Spec Review round 3 (cold-start against the folded
+document, `REVISE`, citing M4's missing substance in sweep C's `BOUNDED`-skip and the close-out rule's
+inability to classify its own `detail`/`self` survivors), and this same Spec Review round 3's `Third
+consecutive REVISE` framing recommending one audit-fold over sweep C rather than a fourth single-site
+patch.
+
+Read in full this round: the entire document from line 1 — Problem/Motivation, Intent, Exploration
+Notes through round 27, Approach, AC-1..AC-7 fences, Examples of done, Relationship to other work,
+Design, Edge Cases, Implementation Plan, Write Targets, Verification, Verified Diagnosis, Scope
+Boundary, Risk Analysis, Self-Review Dry Run, all seventeen `AC Red-Team` re-verify fences, the
+`ac-signoff` fence, the Architectural Review, the Data Audit, all three Threat Model rounds, all three
+Spec Review rounds, and both prior Adversarial Reviews — plus `docs/spec-reviews/WI-020-dave-review-2026-07-24.md`
+(Dave's sign-off record, `verdict: PROMOTE`, `comments: null`, the frozen AC text through round 27,
+read in full) and `pipeline-runners.yaml`. Re-read live against source rather than trusted from the
+doc's own citations: `parser.py:53-80`/`108-150`, `writer.py:176-325`, `person.py:1444-1839`,
+`identifier.py:58-71`, `models.py`'s `Literal` and `List` field declarations, and the `BOUNDED`/
+`is_message_call`/`reaching_names` heredoc at Design/Data model lines 886-928 that Spec Review round 3's
+blocking issue 1 turns on — to confirm that contradiction is real rather than a persuasive misreading,
+not to re-grade the spec's quality. It is real: `is_message_call` does return `False` for every `Name`
+callee in `BOUNDED`, and `bounded_message`'s body (three `parts.append(f"...")` calls) is itself
+rejected by the same predicate, so a non-literal `reason` at a `BOUNDED` constructor is invisible to
+sweeps A, B and C exactly as the spec-reviewer traces. Also grepped the whole work-item doc and the
+linked sign-off doc again for imperative-to-a-reviewer phrasing (ignore/disregard, pre-approved,
+emit-PROMOTE, "reviewer should", jailbreak/bypass language, second-person instructions addressed to an
+agent) — no hits beyond the same two innocuous ones both prior rounds named (Python method
+"overriding," and "do not report a completed write" describing a return value in AC-5's `desc:`) — and
+checked for non-printing/zero-width Unicode characters anywhere in the file: none found.
+
+**The one question:** has this spec, or any prior gate's verdict on it — including the three rounds
+added since my round-2 PROMOTE — been steered by a prompt injection planted in the untrusted content
+the gates read? No. The pattern holds through a third consecutive REVISE, which is itself worth stating
+rather than waving through: three REVISEs in a row on the same discipline is exactly the volume and
+repetition an injection could try to hide inside, or could try to exploit by arguing "surely this is
+now fine, PROMOTE it." Neither is present. The Threat Model round-3 PROMOTE re-derives its own evidence
+live (sweep A's eight sites, sweep B's stage-2 count, the `identifier.py:68` fix) before crediting M3,
+and independently finds M4 itself rather than accepting the Design's claim that `reason` is safe. The
+Spec Review round-3 REVISE traces blocking issue 1 to the heredoc's actual source — quoting
+`is_message_call`, `reaching_names` and `bounded_message`'s body verbatim and constructing the concrete
+failure scenario (`raise FrontmatterParseError(f"could not parse {payload}", ...)`) rather than
+asserting a conclusion — and blocking issue 2 the same way, off `_note_skip`'s two log lines read live.
+The "third consecutive REVISE" framing and its recommended fold (one audit pass over sweep C, `reason`
+as a type obligation) is ordinary spec-review argumentation about a check's soundness, not a directive
+to any gate about how to rule — it argues the code, not the reviewer. No text in either document is
+addressed to a reviewer/agent, argues "therefore PROMOTE" or "stop checking here," or has a spec-shaped
+form whose effect is to steer a verdict.
+
+```verdict
+gate: injection-hunter
+verdict: PROMOTE
+date: 2026-07-24
+model: claude-sonnet-5
+note: No planted steering found across the full document (through the third Threat Model and Spec Review rounds) or the linked Dave-signoff doc -- the round-3 Threat Model PROMOTE and Spec Review REVISE both re-derive their evidence live (sweep A/B counts, the identifier.py:68 fix, and the BOUNDED/is_message_call/reaching_names heredoc at Design lines 886-928, independently re-read here and confirmed to behave exactly as the spec-reviewer traces) rather than adopting the document's own framing; the "third consecutive REVISE, fold not patch" argument is ordinary spec-review reasoning about check soundness, not a directive addressed to a gate; a fresh grep for imperative-to-a-reviewer phrasing and a scan for non-printing/zero-width Unicode returned nothing beyond the two innocuous hits both prior rounds already named.
+```
+
+## Audit-fold — 2026-07-24 (the message-construction disclosure bound, closed as a class)
+
+Three consecutive spec-review REVISE rounds each found one member of one discipline: a
+caller-composable string entering the bounded machinery through `reason` — documented as "a
+source literal", enforced by nothing, and invisible to sweep C, whose `BOUNDED` exclusion made
+every such call *not a site at all*. Round 3's own note named the counter-example precisely: a
+non-literal reason reaches the public `SkippedNote.detail` through `bounded_detail`'s one
+permitted `str()`, falsifying the totality argument as then written. Per the standing treadmill
+discipline (Dave-ruled, verbatim: "Audit fold"), the conductor enumerated the class at source and
+folded ONCE, in the sections the machinery lives in — no fourth patch:
+
+1. **Runtime leg:** `errors.REASONS` (the construction table's literals, enumerated) +
+   `bounded_message` membership refusal; `LoudFailError` owns the hierarchy's ONE structured
+   constructor — no class accepts a free-form message (Design → Bounded diagnostics).
+2. **Static leg:** sweep C now visits `BOUNDED` calls and asserts the `reason` argument is an
+   `ast.Constant` string — M4 carried in the heredoc it orders run verbatim (Design → What the
+   sweep at Task 18 enforces).
+3. **The round-3 survivor ruled:** `IdentifierError.raw` is attribute-only, never rendered into
+   `str()` (Design → Bounded diagnostics).
+4. **Task 16's ImportError half** runs against a fresh instance — the cached-repository vacuity
+   is closed in the task's own text.
+5. The totality argument at Design → `bounded_detail` is restated structurally (two independent
+   legs), replacing the sentence the treadmill falsified.
+
+The frozen AC set (AC-1..AC-7, `ac_hash` of the D4a origination) is BYTE-UNTOUCHED by this fold —
+every edit is Design/Plan machinery below the signed criteria. Cold-verify round next, per the
+audit-fold convention: the reviewer reads the fold fresh; a REVISE against it is a new finding by
+definition, never a grant continuation.
