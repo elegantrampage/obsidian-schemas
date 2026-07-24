@@ -56,8 +56,19 @@ pip install -e /Users/davewascha/Workspaces/obsidian-schemas
     /Users/davewascha/Workspaces/obsidian-schemas/tests -q
 ```
 
-Hermetic, ~1s. Baseline **607 passed, exit 0** (2026-07-19 post-WI-024; originally 563, verified from a foreign cwd). A drive
-that lands fewer cases than the baseline without explanation has silently lost a test file.
+Hermetic, ~1s. Baseline: run the floor command to check the current count — never trust a number
+written here (2026-07-24 conductor note: the hardcoded "607 passed" baseline was drift-prone; WI-020's
+build raises the count substantially). The invariant is DIRECTIONAL: a drive that lands fewer cases
+than the previous run without explanation has silently lost a test file. Last verified-by-hand
+anchors, for archaeology only: 563 (pre-WI-024), 607 (2026-07-19 post-WI-024).
+
+**Loud-fail API (WI-020, landing):** `obsidian_schemas/errors.py` — six exported exception classes
+(`LoudFailError`, `NoteParseError`, `FrontmatterParseError`, `SchemaDriftError`,
+`UnverifiableBodyError`, `WriteFailedError`, all `ValueError` subclasses; catch `LoudFailError` for
+"this package refused", `NoteParseError` for both parse failures). Repositories expose a queryable
+skip surface for notes they own but could not load. Contract details live in the package docstrings
+(the build carries them there — this file holds only the pointer; per WI-020's spec, the build does
+NOT write this file, and this section is the conductor-committed landing note it relies on).
 
 System python has no pytest — always use the `.venv` interpreter. Note that this `.venv`'s editable
 install is stale (`_obsidian_schemas.pth` points at a path that no longer exists), so a bare
