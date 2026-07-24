@@ -1,7 +1,7 @@
 {
   "project": "obsidian-schemas",
   "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
-  "last_scanned": "2026-07-19T16:42:49Z",
+  "last_scanned": "2026-07-24T07:11:23Z",
   "next_id": 28,
   "items": [
     {
@@ -570,7 +570,7 @@
       "stage": "idea",
       "file": "docs/loud-fail-boundaries.md",
       "created": "2026-07-05",
-      "last_touched": "2026-07-05",
+      "last_touched": "2026-07-24",
       "stage_changed": "2026-07-05",
       "tags": [
         "corruption-class",
@@ -583,9 +583,97 @@
       "depends_on": [],
       "blocked": false,
       "transitions": [],
-      "latest_verdicts": {},
-      "verdicts": [],
-      "acceptance_criteria": [],
+      "latest_verdicts": {
+        "ac-red-team": {
+          "gate": "ac-red-team",
+          "verdict": "REVISE",
+          "date": "2026-07-24",
+          "model": "claude-sonnet-5",
+          "note": "Round-5 fold's PersonRepository/CompanyRepository split is cleanly resolved (independent instantiation required, CompanyRepository's own (b)/(c) fixtures derived and verified against models.py). New MATERIAL finding: AC-3 names \"four repository classes\" but derives worked (b)/(c) fixtures for only two \u2014 MeetingRepository gets no fixture anywhere in the fence, BookRepository gets only its exclusion direction \u2014 leaving the one new failure mode this item introduces (a schema-drift exception hitting book.py's/meeting.py's own except clause) unverified on two of four classes, with base.load()'s uninsulated for-loop meaning an uncaught miss there aborts the whole batch \u2014 still not signable."
+        }
+      },
+      "verdicts": [
+        {
+          "gate": "ac-red-team",
+          "verdict": "REVISE",
+          "date": "2026-07-24",
+          "model": "claude-sonnet-5",
+          "note": "1 CRITICAL (AC-5's cross-repo consumer audit unverifiable by its own local-suite check, HAL9000 confirmed absent from this tree) + 4 MATERIAL/MINOR class-closing and coverage gaps across AC-1/AC-3/AC-4 \u2014 draft not signable as-is."
+        },
+        {
+          "gate": "ac-red-team",
+          "verdict": "REVISE",
+          "date": "2026-07-24",
+          "model": "claude-sonnet-5",
+          "note": "Fold resolved 4/5 prior findings cleanly (CRITICAL AC-5 audit, AC-1 coverage requirement, AC-3 split/fixtures, AC-4 fixture naming); re-verify found 2 NEW MATERIAL gaps \u2014 AC-1's absent-must-succeed half covers 2 of the 4 paths its own raise-half derives over (update_fields, roundtrip_file uncovered), and AC-5's no-fence/malformed-fence reclassification was applied to append_to_body_section only, leaving 3 byte-identical sibling functions (add/update/remove_to_discuss_item) still collapsing that failure into the same False as a legitimate not-found \u2014 still not signable."
+        },
+        {
+          "gate": "ac-red-team",
+          "verdict": "REVISE",
+          "date": "2026-07-24",
+          "model": "claude-sonnet-5",
+          "note": "Both prior MATERIAL findings (AC-1's 2-of-4 absent-must-succeed gap; AC-5's single-function fence-split) are cleanly resolved. New MATERIAL finding: AC-3's repository sweep is correctly derived but BookRepository's unscoped \"*.md\" glob (vs. type-check ordering in book.py:67-71) means the fix will surface any malformed-YAML note of ANY type as a \"skipped book\" in a real heterogeneous vault, and AC-3's fixture wording doesn't force a multi-type vault test that would catch it \u2014 still not signable."
+        },
+        {
+          "gate": "ac-red-team",
+          "verdict": "REVISE",
+          "date": "2026-07-24",
+          "model": "claude-sonnet-5",
+          "note": "Prior MATERIAL finding (AC-3's fixture space hand-picked, BookRepository's unscoped glob) is cleanly resolved. New MATERIAL finding: AC-3's own two required fixtures collide \u2014 fixture (b) \"must appear in the skip surface\" but its only worked example (@Acme.md under PersonRepository) is also the AC's \"Foreign-and-absent \u2014 MUST NOT be listed\" case, so the owned-but-schema-drifted note (type: person, a field fails validation) that is C5's actual WI-119/WI-125 duplicate-creation driver is never pinned as present \u2014 still not signable."
+        },
+        {
+          "gate": "ac-red-team",
+          "verdict": "REVISE",
+          "date": "2026-07-24",
+          "model": "claude-sonnet-5",
+          "note": "Round-4 fold's fixture (b)/(c) collision is cleanly resolved (three distinct fixtures now required, ownership pinned to raw type read prior to model construction, verified against models.py directly). New MATERIAL finding: AC-3's repository-sweep sentence collapses PersonRepository and CompanyRepository into one sweep entry since both share base._load_file, so no fixture, direction, or Example of done in the doc ever independently exercises CompanyRepository's own skip-list \u2014 round 3's own \"every person note becomes a skipped company\" exposure ships unverified \u2014 still not signable."
+        },
+        {
+          "gate": "ac-red-team",
+          "verdict": "REVISE",
+          "date": "2026-07-24",
+          "model": "claude-sonnet-5",
+          "note": "Round-5 fold's PersonRepository/CompanyRepository split is cleanly resolved (independent instantiation required, CompanyRepository's own (b)/(c) fixtures derived and verified against models.py). New MATERIAL finding: AC-3 names \"four repository classes\" but derives worked (b)/(c) fixtures for only two \u2014 MeetingRepository gets no fixture anywhere in the fence, BookRepository gets only its exclusion direction \u2014 leaving the one new failure mode this item introduces (a schema-drift exception hitting book.py's/meeting.py's own except clause) unverified on two of four classes, with base.load()'s uninsulated for-loop meaning an uncaught miss there aborts the whole batch \u2014 still not signable."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "AC-1",
+          "desc": "No write/mutate path rebuilds a note from a frontmatter parse that failed, and no legitimate parse loses its ability to write. The test parametrizes over the write paths DERIVED from the package itself \u2014 every caller of parse_frontmatter that then re-serializes and writes, today update_fields (base.py:312), update_frontmatter_field (writer.py:247), update_frontmatter_fields (writer.py:286) and roundtrip_file (writer.py:317) \u2014 enumerated from the code, never a hand-picked subset, so a fifth such caller added later joins the sweep. For EACH path, on a note whose frontmatter is malformed YAML the call raises a typed ValueError subclass AND the file on disk is byte-identical to before (original content never duplicated into the body, frontmatter never replaced by the partial updates). Conversely, and over the SAME derived path list rather than a subset of it, on a note with genuinely absent frontmatter (parser.py:64-65) NO path raises \u2014 each of the four still behaves exactly as it does today, asserted against a baseline captured from the current tree (same return value AND same resulting file bytes), so update_fields and update_frontmatter_field(s) still add the frontmatter and preserve the body, and roundtrip_file still honours its documented contract of preserving all content. Malformed YAML is the ONLY input the raise half licenses; a fix that also raises on absent frontmatter at ANY path in the sweep fails this criterion, and a fix that special-cases absent at some paths but not others fails it too.",
+          "kind": "test",
+          "check": "test_no_mutation_writes_through_failed_parse"
+        },
+        {
+          "id": "AC-2",
+          "desc": "The parse boundaries distinguish failure from a legitimate empty/unknown result, with a case per outcome DERIVED from each function's own branch structure rather than a sampled fixture. For parse_frontmatter that is one case per return site \u2014 no leading fence (parser.py:64-65), an opening fence with no closing fence (69-70), a fence present but empty (73-75), valid frontmatter (77), and YAMLError (78-80). Malformed YAML must never return the same value as a fence-less or empty-fence document, and the legitimate cases must keep returning today's value so existing callers are unchanged. The unclosed-fence case must be classified explicitly as absent or as malformed \u2014 not left to default by accident \u2014 because append_to_body_section already treats that same input as a distinct malformed-fence case (person.py:1564-1570). For parse_to_model, a known type whose model_validate raised (loud \u2014 schema drift) is distinguishable from a legitimately unknown or unmodelled type (returns None as today, parser.py:135-137). Every distinction is observable by the caller, not only in a log line.",
+          "kind": "test",
+          "check": "test_parse_boundaries_distinguish_failure_from_empty"
+        },
+        {
+          "id": "AC-3",
+          "desc": "A batch load survives a bad note, surfaces it at WARNING (never DEBUG), and surfaces ONLY the notes that repository owns \u2014 proven over the COMPLETE derived 4x3 matrix, one worked fixture set PER repository class, each derived from that class's OWN model fields and its OWN _load_file structure (never transposed by hand from a sibling): (1) PersonRepository (inherits base._load_file base.py:171-183, glob @*.md, isinstance-after-construction) \u2014 (a) malformed-YAML @-note in its skip surface; (b) own-type-drifted type person + emails \"not-a-list\" (Person.emails List[str], models.py:81) MUST be listed; (c) foreign readable type (@Acme.md type company) MUST NOT be listed. (2) CompanyRepository (same inherited path and glob, independently instantiated and independently asserted in BOTH directions \u2014 sharing code is not sharing proof) \u2014 (b) type company + tags \"not-a-list\" (its only list field is the INHERITED BaseEntity.tags, models.py:40 \u2014 derived, not transposed); (a) and (c) mirrored with company-owned fixtures. (3) MeetingRepository (OWN _load_file meeting.py:64-83, glob \"Meeting *.md\", raw-type prefilter meeting.py:72-75 BEFORE parse_markdown_file, own except meeting.py:81-83) \u2014 (a) malformed-YAML \"Meeting X.md\" listed; (b) type meeting + attendees \"not-a-list\" (Meeting.attendees List[str]) MUST be listed \u2014 this fixture passes the prefilter and fails only inside parse_markdown_file, exercising meeting.py's except under the new failure mode; (c) a \"Meeting Y.md\" with type person excluded via the prefilter (the naming-convention glob makes strays rare \u2014 asserted anyway, reasoning stated). (4) BookRepository (OWN _load_file book.py:57-79, CATCH-ALL glob *.md book.py:49-51, prefilter book.py:67-70, own except book.py:77-79) \u2014 (b) type book + tags \"not-a-list\" (Book declares NO own list field; the inherited tags is the derivation, stated explicitly) MUST be listed; (a)/(c) per the ownership-evidence buckets (readable-foreign excluded; unreadable-type under the catch-all glob per the four-bucket taxonomy); the heterogeneous-vault requirement stands (one vault mixing @-notes, Meeting-notes, and bare-titled book notes). For EVERY one of the twelve cells additionally assert NO-ABORT: the fixture's failure is caught inside that class's OWN _load_file and never propagates into BaseRepository.load()'s bare for-loop (base.py:157-165 has NO try/except \u2014 one escaped exception aborts the whole batch, the C4/HAL9000-startup regression), so any implementation that narrows meeting.py's or book.py's except clause must still catch the new typed validation failure, and the test proves it per class rather than assuming the base-path result transfers.",
+          "kind": "test",
+          "check": "test_batch_load_survives_and_surfaces_only_owned_bad_notes"
+        },
+        {
+          "id": "AC-4",
+          "desc": "The WI-126 body-shrink guard refuses when it cannot verify, and does not re-swallow the signal AC-1/AC-2 introduce. write_markdown_file's guard (writer.py:184-195) raises rather than setting existing_body = \"\" for BOTH required fixtures \u2014 (a) the existing file's frontmatter is malformed YAML, the coupling case the Constraints section flags as highest-risk, since post-AC-2 parse_frontmatter raises there and today's bare except Exception would re-bury it; and (b) the existing file cannot be read at all (permission or IO error). Naming (a) explicitly is required: a test built only around a generic read error would satisfy the guard's wording while never proving the coupling holds. The except clause is narrowed so neither case reaches existing_body = \"\", and the guard's refusal is distinguishable from BodyTruncationError.",
+          "kind": "test",
+          "check": "test_body_guard_refuses_when_unverifiable"
+        },
+        {
+          "id": "AC-5",
+          "desc": "Write paths make genuine failure raise while every legitimate no-op keeps its current return value. The test classifies every falsy-return site DERIVED from the package by TWO predicates rather than by a name list, so a site added later joins the sweep automatically. Predicate 1 is the blanket except Exception in a writer (writer.py:259 and 298; person.py:1500, 1603, 1702, 1775, 1837) - a genuine I/O failure (disk full, torn write, permission denied) raises a typed ValueError subclass, so it can no longer be misread as a no-op and a consumer's existing except ValueError still catches it. Predicate 2 is the frontmatter-fence split (content.startswith(\"---\") followed by split(\"---\", 2)), which yields FIVE sites in person.py rather than the single function earlier rounds named - append_to_body_section (1558-1570), add_to_discuss_item (1675-1683), update_to_discuss_item (1734-1742) and remove_to_discuss_item (1801-1809), where \"no fence\" and \"malformed fence\" are pseudo-no-ops that are really failures and move to the raise side for ALL FOUR, so neither can keep returning the same False a legitimate item-not-found returns; plus the read helper _get_body_content (1622-1626), which today falls through to return content and hands its caller the whole file, frontmatter included, as body. Being a read it surfaces rather than raises, but the test must assert a caller can distinguish an unsplittable fence from a genuinely empty body, so get_to_discuss_items can no longer report a broken-fence note as having no items. No-op half - every case that is a legitimate no-op today (deduplicated; absent section with create_if_missing=False; To-Discuss item text not found at 1746-1747, 1759-1761 and 1822-1824) returns the SAME falsy value it returns today, so an existing caller's `if not repo.append_to_body_section(...)` branch keeps its current meaning. Net contract change is one-directional - no consumer-visible return value changes except where it was reporting a failure as a no-op.",
+          "kind": "test",
+          "check": "test_write_failure_raises_and_noops_keep_their_return"
+        },
+        {
+          "id": "AC-6",
+          "desc": "The bare except in _known_companies (person.py:1147-1160) is narrowed at the except clause itself, not merely re-logged. A VaultPathNotConfiguredError raised inside that try block PROPAGATES out of _known_companies rather than being swallowed \u2014 the WI-024 error this bare except currently buries \u2014 while the expected-unavailable case it exists for (ImportError on the CompanyRepository import) is still caught and still degrades to the person-company set. Changing logger.debug to logger.warning without narrowing the except clause does not satisfy this criterion.",
+          "kind": "test",
+          "check": "test_company_set_except_is_narrowed_not_just_logged"
+        }
+      ],
       "summary": "Five silent-degrade sites at the package's safety boundaries, found and file:line-verified by the 2026-07-05 campaign review. The first two interact to destroy data:"
     },
     {
