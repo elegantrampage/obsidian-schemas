@@ -12,11 +12,13 @@ its own Verified diagnosis/Approach). `queue_order` trimmed of shipped items. Th
 back-filled for the two July drives below (neither drive wrote an entry — driver commits +
 work-item docs were the record). Obsolete scratch handoff note retired. Orchestrator's 4
 pre-existing red tests (found during WI-024 consumer verification, unrelated to the flip):
-a mint into orchestrator reported success (WI-171) and was **silently reverted** —
-orchestrator has an active pipeline session (WI-166) and the cage reverts mid-spawn
-live-tree deltas; capture parked as a ready-to-mint scratch note
-(`~/scratch/orchestrator-red-tests-capture-pending.md`) for a quiesced session. Second
-specimen of the cross-session collision class (first: the 07-19 driver kills). Floor 617 green. Remaining linter NOTE (WI-004 missing
+two mints into orchestrator reported success and were **silently reverted** by concurrent
+WI-166 drive legs (the cage reverts mid-spawn live-tree deltas — 2-for-2 reproduction,
+second-precise ledger evidence); a third mint, gated on a 0-driver check both sides and
+at-rest verified, landed as **orchestrator/WI-171**. Defect report for workshop:
+`~/scratch/mint-vs-cage-defect-2026-08-09.md` (fix: the quiesce refusal belongs inside the
+mint CLI, fail-closed). Second specimen of the cross-session collision class (first: the
+07-19 driver kills). Floor 617 green. Remaining linter NOTE (WI-004 missing
 Exploration Notes, going cold) self-resolves when WI-004 is driven — next up.
 
 ---
