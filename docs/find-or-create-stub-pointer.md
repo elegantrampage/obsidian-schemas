@@ -35,3 +35,17 @@ DONE 2026-06-01: 5 tests added test-first, commit ec4393a.
 entities.py:203) migrated; path 2 (contact-detector role) and path 4 (exocortex Granola
 ingester — highest-frequency caller) NOT migrated, tracked as orchestrator WI-118
 (blocked on shadow harness). See campaign doc Cross-project signals.
+
+## Design
+
+Pointer stub — design lives in `../orchestrator/docs/find-or-create-stub.md` (built and
+documented from orchestrator sessions; see stub header for the regenerate_state rationale).
+
+## Approach
+
+Pointer stub — see `../orchestrator/docs/find-or-create-stub.md`.
+
+## Implementation Plan
+
+Pointer stub — executed 2026-06-01, commit ec4393a (5 tests, test-first); plan recorded in
+`../orchestrator/docs/find-or-create-stub.md`.

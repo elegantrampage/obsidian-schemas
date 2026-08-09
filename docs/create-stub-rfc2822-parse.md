@@ -52,6 +52,11 @@ This is a real cause of duplicate person notes (WI-102 territory): when the same
 | Example file's frontmatter shows the leak in `name`, `aliases`, AND `emails` fields | `@David Agmen-Smith davidasspeechmaticscom.md` head-25 inspection |
 | RFC 2822 parsing not happening anywhere upstream of `create_stub` | grep for `parseaddr\|email.utils\|<.*@.*>` in scanners / contact-detector roles returns nothing |
 
+## Design
+
+Pre-pipeline doc (built 2026-06, before the done-stage template): the design is carried by
+`## Verified diagnosis` above and `## Approach` below — no separate Design section was written.
+
 ## Approach
 
 Add a defensive parse step at the top of `create_stub` that detects the RFC 2822 form (`"Display Name <email@domain>"`) and splits it cleanly. Use Python's stdlib `email.utils.parseaddr` — battle-tested, handles edge cases (no display name, quoted display name, etc.).

@@ -6,7 +6,7 @@ stage: done
 created: 2026-07-05
 last_touched: 2026-07-24
 stage_changed: 2026-07-24
-touched_by: spec-writer
+touched_by: session
 tags: [corruption-class, loud-fail, parser, writer]
 depends_on: []
 transitions: ["idea>exploring@2026-07-24@conductor-session", "exploring>specced@2026-07-24@porter", "specced>ready@2026-07-24@conductor-session", "ready>building@2026-07-24@conductor-session", "building>done@2026-07-24@conductor-session"]

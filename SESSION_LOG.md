@@ -1,5 +1,63 @@
 # Session Log
 
+## 2026-08-09
+
+### Hygiene & housekeeping (pre-WI-004)
+
+Catch-up session before the next drive, at Dave's word. Linter 10 warnings → **0 errors, 0
+warnings**: two driver-gate `touched_by` values normalised to `session`, one citation
+line-range fixed to EOF, done-stage sections added to the three pre-pipeline docs as honest
+pointers (WI-018/019 → orchestrator's `find-or-create-stub.md`; WI-017's design carried by
+its own Verified diagnosis/Approach). `queue_order` trimmed of shipped items. This log
+back-filled for the two July drives below (neither drive wrote an entry — driver commits +
+work-item docs were the record). Obsolete scratch handoff note retired. Orchestrator's 4
+pre-existing red tests (found during WI-024 consumer verification, unrelated to the flip):
+a mint into orchestrator reported success (WI-171) and was **silently reverted** —
+orchestrator has an active pipeline session (WI-166) and the cage reverts mid-spawn
+live-tree deltas; capture parked as a ready-to-mint scratch note
+(`~/scratch/orchestrator-red-tests-capture-pending.md`) for a quiesced session. Second
+specimen of the cross-session collision class (first: the 07-19 driver kills). Floor 617 green. Remaining linter NOTE (WI-004 missing
+Exploration Notes, going cold) self-resolves when WI-004 is driven — next up.
+
+---
+
+## 2026-07-24
+
+### WI-020 shipped idea→done (dark-factory drive #2)
+
+Loud-fail hardening across parse/guard/write-return boundaries: parse raises, loads
+surface, guards refuse, writes never lie. New `obsidian_schemas/errors.py` exception API.
+The hardest drive yet — 27+ review rounds with repeated Dave-ruled audit-folds (the reason
+channel closed as a class, exception surface completed class-by-class, definition-site
+uniqueness proofs) before `building→done` closed unforced. One write-authority fork
+(conductor precondition: CLAUDE.md floor line de-drifted to run-to-check form — hardcoded
+counts are the drift they warn about). Floor 607 → 617. Record: `docs/loud-fail-boundaries.md`
++ the 2026-07-24 commit train ending `8ccb3e6` (retrospective).
+
+---
+
+## 2026-07-19
+
+### Factory readiness + WI-024 shipped idea→done (first drive on this repo)
+
+Morning (parallel setup session): WI-148 readiness — `pipeline-runners.yaml` declaration
+(write_authority incl. `scripts/**` for WI-026; seed_deps `.venv`) resolver-verified, floor
+recorded absolute/cwd-independent (563 baseline), report at
+`~/scratch/obsidian-schemas-readiness-report.md` (risk 1: three consumers' editable installs
+point at this checkout — every core merge is live everywhere immediately).
+
+Afternoon (this session): WI-024 driven idea→done in one day. No default vault —
+`VaultPathNotConfiguredError` on unconfigured/blank construction (incl. the `Path("")`→cwd
+door the red-team found), `lint_vault.py` demoted to explicit-vault, docs corrected.
+D4a/D4b conversational sign-offs (`bcc5e03b3564`); consumer audit committed as the
+`kind: precondition` fence (orchestrator: 16 live no-arg sites; remediation =
+`OBSIDIAN_VAULT_PATH` in `~/.zshenv`, readback-verified). Post-merge: all three consumer
+suites hand-run — HAL9000 432 green, exocortex 433 green, orchestrator 1073 green + 4
+pre-existing unrelated failures. Floor 563 → 607. Conductor scars (fence-commit trap,
+`confirm --sign`, cross-session driver kills) in session memory + `~/scratch/` incident note.
+
+---
+
 ## 2026-07-05
 
 ### Backlog campaign (Fable review)

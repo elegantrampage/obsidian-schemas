@@ -27,3 +27,17 @@ confidence. Token-subset matching, short-form "First L" partial-match, company-h
 
 DONE 2026-06-01: 9 tests added test-first, commit ec4393a. Foundation for WI-019
 find_or_create_stub. Full narrative: `../orchestrator/docs/find-or-create-stub.md`
+
+## Design
+
+Pointer stub — design lives in `../orchestrator/docs/find-or-create-stub.md` (this item is
+its WI-018 foundation half; built and documented from orchestrator sessions).
+
+## Approach
+
+Pointer stub — see `../orchestrator/docs/find-or-create-stub.md`.
+
+## Implementation Plan
+
+Pointer stub — executed 2026-06-01, commit ec4393a (9 tests, test-first); plan recorded in
+`../orchestrator/docs/find-or-create-stub.md`.

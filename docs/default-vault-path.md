@@ -6,7 +6,7 @@ stage: done
 created: 2026-07-05
 last_touched: 2026-07-19
 stage_changed: 2026-07-19
-touched_by: spec-reviewer
+touched_by: session
 tags: [loud-fail, configuration, small-mechanical]
 depends_on: []
 transitions: ["idea>exploring@2026-07-19@session", "exploring>specced@2026-07-19@session", "specced>ready@2026-07-19@session", "ready>building@2026-07-19@session", "building>done@2026-07-19@session"]
@@ -1277,7 +1277,7 @@ Cold-start. Read the full work-item doc (all 1,272 lines, including every prior 
 as carry-forward), then re-derived the diff by reading each changed file at its current state:
 `obsidian_schemas/repositories/base.py:1-140`, `obsidian_schemas/repositories/__init__.py` in
 full, `obsidian_schemas/__init__.py:66,130`, `scripts/lint_vault.py:1-60,1166-1189`,
-`tests/test_vault_path_required.py` in full, `docs/wi-024-consumer-audit.md:60-95`, and
+`tests/test_vault_path_required.py` in full, `docs/wi-024-consumer-audit.md:60-94`, and
 `pipeline-runners.yaml` in full.
 
 **Tooling limit, stated rather than papered over:** this gate ran without shell access, so I did
