@@ -8,6 +8,7 @@ last_touched: 2026-07-08
 stage_changed: 2026-07-08
 touched_by: session
 tags: [repository, write-safety, corruption-class]
+round_budget: 10
 depends_on: ["WI-020"]
 transitions: ["idea>exploring@2026-07-08@fable-explore"]
 ---
