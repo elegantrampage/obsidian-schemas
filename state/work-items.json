@@ -1,7 +1,7 @@
 {
   "project": "obsidian-schemas",
   "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
-  "last_scanned": "2026-07-24T21:27:47Z",
+  "last_scanned": "2026-08-09T19:41:25Z",
   "next_id": 28,
   "items": [
     {
@@ -17,6 +17,7 @@
         "data-quality",
         "small-mechanical"
       ],
+      "involvement": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -30,16 +31,17 @@
     {
       "id": "WI-004",
       "title": "Concurrent & external write safety (atomic writes, locking, stale-read protection)",
-      "stage": "exploring",
+      "stage": "building",
       "file": "docs/concurrent-access.md",
       "created": "2026-03-22",
-      "last_touched": "2026-07-08",
-      "stage_changed": "2026-07-08",
+      "last_touched": "2026-08-09",
+      "stage_changed": "2026-08-09",
       "tags": [
         "repository",
         "write-safety",
         "corruption-class"
       ],
+      "involvement": null,
       "parent": null,
       "children": [],
       "depends_on": [
@@ -53,11 +55,339 @@
           "at": "2026-07-08",
           "by": "fable-explore",
           "forced": false
+        },
+        {
+          "from": "exploring",
+          "to": "specced",
+          "at": "2026-08-09",
+          "by": "session",
+          "forced": false
+        },
+        {
+          "from": "specced",
+          "to": "ready",
+          "at": "2026-08-09",
+          "by": "session",
+          "forced": false
+        },
+        {
+          "from": "ready",
+          "to": "building",
+          "at": "2026-08-09",
+          "by": "session",
+          "forced": false
         }
       ],
-      "latest_verdicts": {},
-      "verdicts": [],
-      "acceptance_criteria": [],
+      "latest_verdicts": {
+        "architect": {
+          "gate": "architect",
+          "verdict": "PROMOTE",
+          "date": "2026-08-09",
+          "model": "claude-opus-5",
+          "note": "Round 6's behavioural finding is closed by a genuine audit fold rather than a seventh instance \u2014 D12 sweeps each axis by its declaring shape, Table 3a enumerates every permitted edit ahead of the build with its asserted property invariant, and Task 16 RUNS the floor and pins the complete red set with D12.4's fourth branch making an unswept red a mandatory hand-back; I re-executed the sweeps rather than reading them (\u03b1 = exactly tests/test_loud_fail_write.py:153 and tests/test_loud_fail_parse.py:450, \u03b3 = exactly tests/test_writer.py:152, \u03b2 = the 17 write_markdown_file and 10 .save sites cell for cell, the only directory-listing assertion tests/test_loud_fail_load.py:190 a subset check, and writer.py:195's gate on not allow_body_replacement making row 5 property-preserving) and could not falsify Table 3b through either likely escape hatch \u2014 the ~220 indirect create_stub/resolve_or_create reaches or an R12-shaped door-1-then-save; my four residual findings are Design's to fold and none forks consumer semantics, while U1 keeps the item at exploring on the data-premise gate's standing REVISE regardless of this verdict."
+        },
+        "data-premise": {
+          "gate": "data-premise",
+          "verdict": "PROMOTE",
+          "date": "2026-08-09",
+          "model": "claude-opus-5",
+          "note": "Both round-6 required-grounding items are discharged in the shape asked for \u2014 D5's \"cell Wall D(ii) cannot reach\" rules the consumer derivation cell as a knowing declared break with its consumer face, both alternatives rejected in writing with named costs, and AC-14 as its oracle; Task 16 RUNS the floor and pins the complete red set against Table 3b with D12.4's fourth branch making an unswept red a mandatory hand-back \u2014 and I re-executed all three declaring-shape sweeps cold rather than inheriting them, each returning EXACTLY the doc's set (\u03b1 = 2 sites at tests/test_loud_fail_write.py:153 and tests/test_loud_fail_parse.py:450, and the widened shape's two extra hits at :87 read_text and test_vault_path_required.py:265 mkdir are correctly non-members per D1 and D12.5 item 3; \u03b3 = 1 site at tests/test_writer.py:152; \u03b2 = the 17 write_markdown_file and 10 .save calls line for line, with the eleventh .save grep hit at test_wi126_body_preservation.py:69 correctly excluded as a docstring), plus I walked the two \"safe by luck\" classifications and both hold \u2014 _seed:358 commits through door 2 so :366-:423 are reason (ii), and repo.save at :432/:440 into a vault created empty at :430 is reason (i) whose step-8 registration is exactly what keeps :434/:441 reaching the WI-126 guard; the one premise no gate had run, D0.1's filelock, I grounded here and it comes back as the document already states it (pyproject.toml:26-29 is pydantic+pyyaml only, no .venv in this tree) with Task 1's abort as the real gate and the fence's own limit disclosed \u2014 so Class 1 stays discharged, the Class-2 premise is now measured rather than asserted, the target has moved every round and this round has nothing left to move to, and an eighth round of enumeration is the treadmill LESSONS #38 names rather than the fix."
+        },
+        "threat-modeler": {
+          "gate": "threat-modeler",
+          "verdict": "PROMOTE",
+          "date": "2026-08-09",
+          "model": "claude-opus-5",
+          "note": "Round 10 is an audit fold rather than a design move, and I checked each of its four surfaces for a new security category instead of assuming a fold cannot open one \u2014 none does. The only surface shipping CODE is BaseRepository._adopt, whose mutex inside a call graph that already takes a per-file flock is the one genuine deadlock shape round 10 could have introduced; it does not, because the repository lock spans the cache mutation ONLY (save holds it for base.py:331-333 and not around write_markdown_file, update_fields for :399-413 and not around its door-1 write), so neither lock is ever held while acquiring the other and there is no cycle in either direction \u2014 and I verified the four replaced sites are the identical three-line shape (base.py:331-334, :412-414, book.py:173-176, meeting.py:195-198) with load correctly excluded as a bulk walk. Surfaces 1, 3 and 4 are test-side: Wall B's and Wall C's new batteries plant mutation-capable imports into a SCRATCH module that is parsed and never imported or executed and that sits outside python_files_under(PACKAGE_ROOT, SCRIPTS_ROOT) by construction, so nothing plants an executable mutator into a shipped module, and AC-9's new check is a security oracle in my favour \u2014 a planted sentinel string asserted absent from every refusal message, which falsifies the information-disclosure property I had been leaning on the REASONS bound to carry. I re-ran the premise rather than reading it: vault_io.py and tests/test_concurrent_access.py are BOTH absent from the tree so Task 3 has not run, the widened grep for chmod|st_mode|umask|is_symlink|st_nlink|listxattr|O_EXCL|fchmod|mkstemp|NamedTemporaryFile|os.replace|os.link|fsync over obsidian_schemas/ and scripts/ returns zero, writer.py:236 is still a bare truncate-in-place write_text under :233's mkdir, errors.py:84-128 still holds the twelve-literal set with \"write did not complete\" live at :96 and the from-None bound, there are zero from-os imports and zero threading/RLock/filelock/fcntl references package-wide, and D2.2's four-step ordering paragraph, D2.3's one-resolved-path sentence and D3's M2 paragraph are all intact with Task 3 still carrying their three clauses. Both of my round-3 notes are closed by name and closed correctly \u2014 the index bound's two halves are now distinguished with the wrong-VALUE half verified closed at person.py:432/:454/:459/:476, and the setuid triad is named as M1's one honest exception with the trade stated rather than taken. All three fences are re-emitted BYTE-IDENTICAL because nothing about what they require has moved; they stand only because Task 3 has not run, and the series is converging rather than treadmilling \u2014 my round 2 raised the under-specification, round 9 discharged it surface by surface, round 10 touched none of it, and my two remaining notes are calibration-level observations I explicitly decline to require."
+        },
+        "spec-reviewer": {
+          "gate": "spec-reviewer",
+          "verdict": "PROMOTE",
+          "date": "2026-08-09",
+          "model": "claude-opus-5",
+          "note": "The audit fold I proposed last round LANDED, and I verified each of its four surfaces at its declaring source in code rather than reading the round-10 narrative \u2014 D10.5 now states the battery obligation ONCE over D10.1's five-predicate set with Task 12 deriving its list from it and Walls B and C written out shape by shape (their invisibility is measured, not argued: I confirmed zero `from os import` bindings and zero shutil/tempfile/fcntl/filelock/mmap imports under either root, the only os imports being plain `import os` at base.py:9, lint_vault.py:22 and migrate_person_to_discuss.py:23); the cache-adoption surface is total BY CONSTRUCTION through one BaseRepository._adopt door with functions_calling(files,\"_adopt\") pinned as a set-equality Table-2 row and a Table-1 empty row making it a measured delta, and I confirmed the four replaced sites are the identical three-part shape (base.py:331-334, :412-414, book.py:173-176, meeting.py:195-198) with load correctly excluded as a bulk rebuild (:176-178, :186-193), and that Task 8's _file_map argument holds end to end (person.py:1436 -> _writeback_identifier:1189/:1214 -> update_fields -> get_file_path base.py:363/:292 -> ValueError at :366 before the phone is written back); the acceptance set is closed by a DERIVED authoring map, and my own independent walk of all eighteen criteria fences found every check name authored by a named task into a declared write-target module, with AC-5 and AC-9 renamed to the AC's name AND widened to their full desc rather than the criterion narrowed to what a check happened to cover; and the count-pin surface is widened to corpora this item GROWS, with tests/derivations.py's exports named and the pin at test_loud_fail_harness.py:72-81 ruled GREEN-and-untouched on that check's own comment at :70-71, which I read. The round-9 citation defect is fixed to the real name and anchors (test_derivations_are_single_sourced:58, _check_derivations_are_single_sourced:66, modules_using_ast at :96), all three fold records are fresh (desc byte-identical to the latest speaking round 4) with their design and work quotes read in place and faithful and each mitigation carrying an oracle that distinguishes it from its near-miss, every plan task's target is a declared write target with no verify command writing outside write_authority, and both of the round-3 threat model's notes are closed correctly. Four description-level notes remain and none changes what a builder builds \u2014 chiefly `## Verification`'s _adopt row saying \"six adopting functions / a seventh site\" where Table 2, Task 11, Task 7, Edge Cases and Risk row 18 all say five and name them \u2014 so a fifth round would be the regress signature rather than progress."
+        }
+      },
+      "verdicts": [
+        {
+          "gate": "architect",
+          "verdict": "REVISE",
+          "date": "2026-08-09",
+          "model": "claude-opus-5",
+          "targets": "#approach, #intent",
+          "note": "The layered composite is right, but the entity-snapshot save() door (base.py:294-337 \u2192 writer.py:217-230, frontmatter unguarded) is never ruled on, so the doc's \"lost-update closed by construction\" claim and its single-residual Intent are both false for that door \u2014 leaving two builds with different consumer-facing semantics."
+        },
+        {
+          "gate": "data-premise",
+          "verdict": "REVISE",
+          "date": "2026-08-09",
+          "model": "claude-opus-5",
+          "targets": "#approach, #intent",
+          "note": "The doc's own four verification obligations are the premise set; three (vault filesystem/flock viability, Obsidian's write pattern underpinning the residual claim, dot-dir sentinel visibility) are entirely ungrounded, and the fourth is grounded here and comes back false \u2014 the routing set is 14 write sites plus a quarantine rename (lint_vault.py:1038) that mutate_note(path, fn) structurally cannot express, so \"every vault mutation routes through it\" is unsatisfiable as sketched."
+        },
+        {
+          "gate": "architect",
+          "verdict": "REVISE",
+          "date": "2026-08-09",
+          "model": "claude-opus-5",
+          "targets": "#approach, #intent",
+          "note": "Round 1's two findings are properly closed, but the create path (person.py:1466 via a cache-only collision check at :1429, WI-126's guard no-opping on a headings-only body at writer.py:210-214) is a door-2 write with no derivation read \u2014 so the revision's \"the rule is total because every write has a derivation read\" and Intent's \"never silently destroyed\" are both false for that cell, and the fix forks consumer-facing create semantics."
+        },
+        {
+          "gate": "data-premise",
+          "verdict": "REVISE",
+          "date": "2026-08-09",
+          "model": "claude-opus-5",
+          "targets": "#approach",
+          "note": "Round 1's own blocking finding is DISCHARGED \u2014 the routing set re-derives exactly as `## Approach` now states it (14 write_text, 1 rename to door 3, 2 mkdir ruled out, 0 deletes), and the revision's new tree-grounded premises (pyproject.toml:26-29 for the filelock ruling, tests/derivations.py:189-195 for the wall's reach) both check out; what remains is the same three live-vault observations, un-groundable from any cage-scoped session, with obligation 1 alone able to invalidate Layer 2 across all three doors \u2014 so this re-raise of #approach is a signal that the residue needs a shell and Dave, not another document round."
+        },
+        {
+          "gate": "architect",
+          "verdict": "PROMOTE",
+          "date": "2026-08-09",
+          "model": "claude-opus-5",
+          "note": "Round 2's create cell is closed correctly and verified in code (person.py:1429 cache guard, company.py:153 no guard at all, book.py:163/meeting.py:185 bypassing BaseRepository.save \u2014 so write_markdown_file:154 is the only total placement), and the generator-B rule is a genuine audit fold rather than a fourth instance; the one residue I found (property 3's path-keyed stamp lets a door-1 write satisfy a door-2 payload's precondition) has no consumer-facing fork and is Design's to key correctly, while U1 already holds this item on the data-premise REVISE until obligations 1-3 are observed against the live vault."
+        },
+        {
+          "gate": "data-premise",
+          "verdict": "REVISE",
+          "date": "2026-08-09",
+          "model": "claude-opus-5",
+          "targets": "#approach",
+          "note": "Third consecutive #approach re-raise, and the repetition IS the finding \u2014 every tree-checkable premise now holds, including round 3's new ones (create cell cache-guard at person.py:1429 via base.py:get:269's load-once, company.py:153 with no collision branch at all, WI-126 no-opping on the headings-only body at body_sections.py:306, and errors.py:REASONS:88 confirmed as exactly twelve literals with bounded_message:109-120 raising outside them), and the routing set re-derives cell for cell at 14/1/2/0 with round 3's 13+1 partition exact; what blocks is unchanged since round 1 \u2014 obligations 1-3 need a shell against the live vault, obligation 1 alone can invalidate Layer 2 across all three doors, and WI-024's removal of DEFAULT_VAULT_PATH means no future cage-scoped round can ground it either, so this is an escalation signal rather than a request for a fourth document round."
+        },
+        {
+          "gate": "architect",
+          "verdict": "REVISE",
+          "date": "2026-08-09",
+          "model": "claude-opus-5",
+          "targets": "#design, Task 7, Task 9, Task 12, AC-7",
+          "note": "D5/Task 7 record the derivation stamp only in BaseRepository._load_file:226, but book.py:57 and meeting.py:64 fully override _load_file (the corpus tests/derivations.py:365-368 itself documents as three loaders), so every book and meeting loaded from the vault has no stamp and D8 step 5's zero case turns BookRepository.save/MeetingRepository.save into NoteAlreadyExists while floor, wall and AC battery all stay green; separately D10's Wall A forbids the two live mkdir calls (writer.py:233, lint_vault.py:1034) that R5/D9/Task 9 order left in place, making AC-7 and Task 12's verify unachievable as written."
+        },
+        {
+          "gate": "data-premise",
+          "verdict": "REVISE",
+          "date": "2026-08-09",
+          "model": "claude-opus-5",
+          "targets": "#design, Task 7, Task 12, AC-7",
+          "note": "My three-round #approach block is DISCHARGED \u2014 obligations 1-3 are observed, dated and scope-stated, and R1(c) is restated on the negative Obsidian result \u2014 but Design introduces a new Class-2 predicate that comes back false: entity derivation happens in THREE functions (base.py:_load_file:226, book.py:57, meeting.py:64, neither subclass calling super, both reached by the dynamic dispatch at base.py:187 and :393, a corpus the tree pins at 3 in tests/test_loud_fail_parse.py:301), while D5/Task 7 record the stamp in one \u2014 so D8 step 5's zero case turns the ordinary BookRepository/MeetingRepository update into NoteAlreadyExists, and the corpus cannot report it because all six repo.save( calls in tests/test_repositories.py:644-725 are PersonRepository; separately Wall A's MUTATION_NAMES forbids the two live mkdir calls (writer.py:233, lint_vault.py:1034) that R5/D9/Task 9 order left in place, making AC-7 unsatisfiable."
+        },
+        {
+          "gate": "architect",
+          "verdict": "REVISE",
+          "date": "2026-08-09",
+          "model": "claude-opus-5",
+          "targets": "#design, Task 4, Task 5, Task 11, Task 12, AC-7, AC-10",
+          "note": "Round 4's two findings are properly closed and verified in code, but D10's walls are asserted green by prediction rather than derivation and two predicates come back false \u2014 tests/derivations.py:_is_write_call:189-195 gates on ast.Attribute while every door call D5/D7/D8 sketch is a bare name, so \"widened by DOOR_NAMES\" matches nothing and the four-writer set, the discrimination proof and seven SiteId entries all go red while Tasks 4/5 pre-authorise editing WI-020's battery; and MUTATION_NAMES' \"replace\" matches nine live str.replace calls (models.py:110,136, book.py:94,124,207,255, meeting.py:211, person.py:1141, lint_vault.py:889) in files Scope Boundary forbids touching, making AC-7 unsatisfiable with no ensure_dir-shaped move available."
+        },
+        {
+          "gate": "data-premise",
+          "verdict": "REVISE",
+          "date": "2026-08-09",
+          "model": "claude-opus-5",
+          "targets": "#design, Task 11, Task 12, AC-7, AC-10",
+          "note": "Round 4's two findings are closed and I re-verified both against the tree (three loaders line-for-line, Wall D(ii) exact, both mkdir sites), but D10's vocabulary predicate comes back false under BOTH readings of \"the vocabulary\": MUTATION_NAMES alone leaves Wall A red on 14 str.replace call nodes across 9 lines (models.py:110,136, book.py:94,124,207,255, meeting.py:211, person.py:1141, lint_vault.py:889) AND makes 11 of D10's own 23 MUST-MATCH shapes unsatisfiable because they name SUSPECT-only members (unlink, remove, shutil.move/copyfile/rmtree, makedirs, link, symlink_to, touch, NamedTemporaryFile, mkstemp), while the union adds three more reds via \"copy\" (writer.py:220, parser.py:176,211) in files D11 orders unchanged \u2014 so an attribute-name oracle needs a receiver/import discriminator, not a set choice, and the walls must be RUN against this tree and their returned sets pinned before the vocabulary is frozen."
+        },
+        {
+          "gate": "architect",
+          "verdict": "REVISE",
+          "date": "2026-08-09",
+          "model": "claude-opus-5",
+          "targets": "#design, Task 4, Task 5, Task 7, AC-10",
+          "note": "Round 5's call-form and vocabulary findings are properly closed and I re-verified both, but D7 derives the routing's effect on WI-020's battery over the four static AST predicates only while both modules are half behaviour \u2014 Path.write_text fault injection at tests/test_loud_fail_write.py:153 and tests/test_loud_fail_parse.py:450 stops firing once the commit moves to vault_io's fd path (D1/D2/Wall E all state it does), and AC-4's two raw-seeded write_markdown_file(overwrite=True) calls at tests/test_loud_fail_write.py:66,89 hit D8 step 5's zero case and raise NoteAlreadyExists instead of UnverifiableBodyError \u2014 so with both modules withdrawn as write targets a red there is a mandatory hand-back, the build aborts at Task 4, and AC-10's \"both UNEDITED\" is unsatisfiable."
+        },
+        {
+          "gate": "data-premise",
+          "verdict": "REVISE",
+          "date": "2026-08-09",
+          "model": "claude-opus-5",
+          "targets": "#design, Task 7, Task 14, AC-10",
+          "note": "The round-6 architect's three behavioural breaks are all real and I re-verified each, but their enumeration is incomplete and that is the finding \u2014 D8 step 5's zero case also fires at tests/test_writer.py:test_overwrite_when_requested:158-179 (raw write_text seed at :169, then overwrite=True at :171; allow_body_replacement is not D8(d)'s allow_unverified_overwrite) and at test_roundtrip_preserves_data:287-338, where parse_markdown_file:317 DOES derive an entity from those bytes yet records no stamp because D5 rules the derivation corpus to be the three _load_file functions and nowhere else, falsifying D8(e)'s \"stamp is None means nothing derived an entity here\" and breaking the package's own README:317-338 Round-Trip Preservation recipe with a consumer-facing NoteAlreadyExists that no ruling in this document covers \u2014 so Task 7's \"test_writer.py RED at :146 only\" and Task 14's one-line scope are both false, and the fold is to rule the derivation-outside-the-loader-corpus cell and to RUN the batteries and the floor against a routed tree rather than enumerate a sixth instance next round."
+        },
+        {
+          "gate": "architect",
+          "verdict": "PROMOTE",
+          "date": "2026-08-09",
+          "model": "claude-opus-5",
+          "note": "Round 6's behavioural finding is closed by a genuine audit fold rather than a seventh instance \u2014 D12 sweeps each axis by its declaring shape, Table 3a enumerates every permitted edit ahead of the build with its asserted property invariant, and Task 16 RUNS the floor and pins the complete red set with D12.4's fourth branch making an unswept red a mandatory hand-back; I re-executed the sweeps rather than reading them (\u03b1 = exactly tests/test_loud_fail_write.py:153 and tests/test_loud_fail_parse.py:450, \u03b3 = exactly tests/test_writer.py:152, \u03b2 = the 17 write_markdown_file and 10 .save sites cell for cell, the only directory-listing assertion tests/test_loud_fail_load.py:190 a subset check, and writer.py:195's gate on not allow_body_replacement making row 5 property-preserving) and could not falsify Table 3b through either likely escape hatch \u2014 the ~220 indirect create_stub/resolve_or_create reaches or an R12-shaped door-1-then-save; my four residual findings are Design's to fold and none forks consumer semantics, while U1 keeps the item at exploring on the data-premise gate's standing REVISE regardless of this verdict."
+        },
+        {
+          "gate": "data-premise",
+          "verdict": "PROMOTE",
+          "date": "2026-08-09",
+          "model": "claude-opus-5",
+          "note": "Both round-6 required-grounding items are discharged in the shape asked for \u2014 D5's \"cell Wall D(ii) cannot reach\" rules the consumer derivation cell as a knowing declared break with its consumer face, both alternatives rejected in writing with named costs, and AC-14 as its oracle; Task 16 RUNS the floor and pins the complete red set against Table 3b with D12.4's fourth branch making an unswept red a mandatory hand-back \u2014 and I re-executed all three declaring-shape sweeps cold rather than inheriting them, each returning EXACTLY the doc's set (\u03b1 = 2 sites at tests/test_loud_fail_write.py:153 and tests/test_loud_fail_parse.py:450, and the widened shape's two extra hits at :87 read_text and test_vault_path_required.py:265 mkdir are correctly non-members per D1 and D12.5 item 3; \u03b3 = 1 site at tests/test_writer.py:152; \u03b2 = the 17 write_markdown_file and 10 .save calls line for line, with the eleventh .save grep hit at test_wi126_body_preservation.py:69 correctly excluded as a docstring), plus I walked the two \"safe by luck\" classifications and both hold \u2014 _seed:358 commits through door 2 so :366-:423 are reason (ii), and repo.save at :432/:440 into a vault created empty at :430 is reason (i) whose step-8 registration is exactly what keeps :434/:441 reaching the WI-126 guard; the one premise no gate had run, D0.1's filelock, I grounded here and it comes back as the document already states it (pyproject.toml:26-29 is pydantic+pyyaml only, no .venv in this tree) with Task 1's abort as the real gate and the fence's own limit disclosed \u2014 so Class 1 stays discharged, the Class-2 premise is now measured rather than asserted, the target has moved every round and this round has nothing left to move to, and an eighth round of enumeration is the treadmill LESSONS #38 names rather than the fix."
+        },
+        {
+          "gate": "threat-modeler",
+          "verdict": "PROMOTE",
+          "date": "2026-08-09",
+          "model": "claude-opus-5",
+          "note": "Triggers fire on filesystem persistence and the filesystem-as-trust-boundary the doc names itself at D0.7, and the frame is the right integrity primitive \u2014 precondition at the write syscall against the target, zero case failing closed, no-clobber create as a kernel guarantee rather than a check, and WI-020's message/chain bounds inherited by construction (verified in errors.py:109-193, not taken from the citation); the three findings I raise are all inside the unbuilt vault_io.py and all fall out of one fact the document never states \u2014 Layer 1 changes committing bytes from truncate-in-place (Path.write_text at writer.py:236 preserves the inode and therefore the mode) to inode replacement, so the note's permission bits (M1, silently 0600 under mkstemp or umask-wide under a plain open, on a vault of PII-bearing person notes with a read-only backup consumer) and the identity of a symlinked target (M3, the design keys lock and stamp on path.resolve() but commits os.replace against the unresolved path) both stop riding for free, while M2 is simply the fail-loud-on-bad-config rule D6 already applies to its other two env vars applied to OBSIDIAN_SCHEMAS_LOCK_DIR, whose silent CWD-relative resolution would evaporate Layer 2's mutual exclusion without a sound; none re-opens a ruling, forks consumer semantics or needs a wall or vocabulary change (chmod is already in PATH_MUTATION_NAMES and Wall B excludes vault_io.py), so per WI-128 they are fences landed on Task 3 rather than a REVISE of a document two gates just converged on."
+        },
+        {
+          "gate": "spec-reviewer",
+          "verdict": "REVISE",
+          "date": "2026-08-09",
+          "model": "claude-opus-5",
+          "targets": "M1, M2, M3, Task 3, Task 12, #design",
+          "note": "The threat model's three kind:required mitigations are folded into nothing \u2014 there is no `## Mitigation Folds` section (so D8c refuses `\u2192 ready` mechanically) and, worse, M1/M2/M3's substance appears on zero surfaces a caged builder reads: D2 specifies Layer 1's whole commit sequence with no st_mode step, D6 gives OBSIDIAN_SCHEMAS_LOCK_DIR a valid range but no failure rule while its two sibling env vars each get an explicit raise, and D3/D5 key the lock and the registry on path.resolve() while D2 commits os.replace against the unresolved path \u2014 all three verified as newly-introduced rather than inherited (grep for chmod|st_mode|umask|is_symlink over obsidian_schemas/ returns nothing, and writer.py:236's write_text truncates in place), so Task 3 as written builds none of them and the fold records would have no real sentence to quote; separately Task 12's verify orders a temporary edit to obsidian_schemas/parser.py, which `## Scope Boundary` names untouchable and no writes fence declares, leaving the builder a judgment call at the wall task between violating a named untouchable and silently dropping a verify."
+        },
+        {
+          "gate": "threat-modeler",
+          "verdict": "PROMOTE",
+          "date": "2026-08-09",
+          "model": "claude-opus-5",
+          "note": "Round 8 folded my three round-1 fences as the two GENERATORS rather than the three instances (D2.1 enumerates every inode-borne property and its sweep produced the st_nlink cell no gate had raised; D6's _env_setting makes the config surface total), all three of my non-blocking notes landed including the one-INFO-line observe signal, and I re-ran the premise rather than reading it (grep for chmod|st_mode|umask|is_symlink|st_nlink|listxattr over obsidian_schemas/ returns zero, writer.py:236 is still a bare write_text, and errors.py:84-128 confirms the twelve-literal set, the live \"write did not complete\" member and the from-None bound) \u2014 so the frame stands and I re-emit rather than bounce; the two descs that move are MY under-specification, not a producer miss: M1 said \"before the replace\" and the design complies literally, which leaves the full note content sitting at the umask-derived temp mode across the write and the fsync while D2.2's own no-window argument reasons about another WRITER when M1's whole justification is a READER of PII-bearing person notes, closed by fchmod-ing the descriptor before the first byte and deleting the later chmod; and M3 named the lock KEY but not the lock HOME, so D3's <note's directory>/.obsidian-schemas-locks/<h>.lock computes one hash and places it in two directories when a symlink and its real file are reached from different parents \u2014 two locks, both acquired, which is verbatim the \"evaporate Layer 2's mutual exclusion with no sound\" failure M2 exists to prevent, and which neither AC-17 (single-process) nor AC-8 (no symlink) can see."
+        },
+        {
+          "gate": "spec-reviewer",
+          "verdict": "REVISE",
+          "date": "2026-08-09",
+          "model": "claude-opus-5",
+          "targets": "M1, M3, Task 3, Task 12, Task 13, AC-13, AC-15, AC-17, #mitigation-folds",
+          "note": "The round-2 threat model speaks after Spec-Writer Round 8 and moves M1's and M3's desc, so both fold records are stale against the latest speaking round (D8c refuses `\u2192 ready` on mechanics) and, worse, the moved substance is contradicted rather than merely unstated \u2014 D2 orders the commit \"write the bytes, flush, os.fsync(fd), close, carry the mode across, then link or replace\" and D2.2 implements it as os.chmod(tmp) before the replace, so the note's full content sits at the umask-derived temp mode across the write and the fsync while D2.2's own no-window argument excludes another WRITER and M1's justification is a READER of PII-bearing notes, and D2.3's enumeration plus D3's `<note's directory>/.obsidian-schemas-locks/<h>.lock` resolve the hash but not the sentinel's DIRECTORY, so two paths naming one note take two locks and both proceed \u2014 the exact failure D3's own M2 paragraph calls unacceptable, invisible to AC-15 (asserts the committed mode, green under both orderings), AC-17 (single-process) and AC-8 (no symlink); separately Wall E is a zero-count wall shipping neither a MATCHED battery nor a near-miss through falsy_returns_in while AC-13's desc certifies reach over all seven COMMIT_FUNCTION_NAMES including read_note and ensure_dir, the WI-232 shape D10.5 already closes for Walls A and D; and the repository-cache RLock \u2014 the item's original March scope, resolved concretely in `## Edge Cases` and ordered in six words in Task 7 \u2014 has no test in the plan, no row in `## Verification` and no criteria fence, with AC-8 and Task 13's reentrancy check both covering note_lock instead."
+        },
+        {
+          "gate": "threat-modeler",
+          "verdict": "PROMOTE",
+          "date": "2026-08-09",
+          "model": "claude-opus-5",
+          "note": "Round 9 closed both findings I raised in round 2 and closed them at the right level \u2014 M1's requirement was an ORDERING and D2.2 now stats the target, opens the temp at 0o600 with O_EXCL, fchmods the DESCRIPTOR before the first byte and DELETES the later chmod rather than supplementing it, so the note's content never reaches disk wider than the target in either direction and the round-8 no-window argument is replaced rather than kept; M3's sentinel now derives its DIRECTORY from target.parent alongside its hash, so two paths naming one real note key one sentinel; I re-ran the premise rather than reading it (grep for chmod|st_mode|umask|is_symlink|st_nlink|listxattr|O_EXCL|fchmod|mkstemp|os.replace|os.link|fsync over obsidian_schemas/ and scripts/ returns zero, writer.py:236 is still a bare truncate-in-place write_text under :233's mkdir, and errors.py:84-128 still holds the twelve-literal set with \"write did not complete\" live at :96 and the from-None bound), and I checked the two things that would have been new fences had they been false: D9 scopes observe to D4/D8/door-3 refusals with \"Layers 1 and 2 apply in both modes\", so M2's config refusal, the st_nlink refusal and Layer 1's mode-carry OSError all raise in BOTH modes and no env var can widen the escape; and AC-15's {0o600} fsync probe, which alone could not distinguish \"fchmod ran\" from \"create mode happened to match\", is covered by Task 13's committed-mode repetition at 0o644 where a skipped fchmod goes red \u2014 the two halves together see both failures. All three fences are re-emitted BYTE-IDENTICAL because nothing about what they require has moved; they stand only because Task 3 has not run yet, and the series is converging rather than treadmilling \u2014 round 2 raised my own under-specification, round 9 discharged it surface by surface, and my remaining notes are two calibration-level observations I explicitly decline to require."
+        },
+        {
+          "gate": "spec-reviewer",
+          "verdict": "REVISE",
+          "date": "2026-08-09",
+          "model": "claude-opus-5",
+          "targets": "AC-5, AC-7, AC-9, Task 7, Task 8, Task 11, Task 12, #design",
+          "note": "Third monotone REVISE, so this is an AUDIT-FOLD proposal rather than a fourth site list \u2014 the generator is that an enumeration this document owns is maintained from memory over the PRE-CHANGE tree where the surface is closed and derivable, and the five members are Wall E (my round 2), the March cache oracle (my round 2) and these three: D10.5/Task 12 ship match-shape batteries for three of the FIVE wall predicates, leaving os_module_attribute_uses and module_import_uses undriven while AC-7's desc certifies both (\"imports a mutation-capable module, or reaches a non-read-only os attribute in either access form ... proven to resolve every claimed match shape\"), and each is zero-count on the arm that matters (I confirmed the only os imports under either root are plain `import os` at base.py:9, lint_vault.py:22 and migrate_person_to_discuss.py:23 with zero `from os import` and zero shutil/tempfile/fcntl/filelock/mmap imports), so a Wall B without the ImportFrom arm added in round 6 and a Wall C that returns [] are both GREEN at Tasks 0, 11 and 12 while R10's stated bound on the declared blind spot is false; Task 8 orders \"cache the entity\" in create_stub's NoteAlreadyExists recovery, which is a TENTH _cache/_file_map mutation site in the one file D11 (\"No cache lock here\") and Task 7 (\"do not add a lock there\") declare needs none, escaping Edge Cases' nine-site grep because that grep was run over the pre-build tree, invisible to AC-18 (which exercises refresh/get_all/get_by_role, never create_stub), and under-specified against the three-part adoption every existing site uses (base.py:190-192, :331-334, :412-414) \u2014 cache alone leaves _file_map empty, so the reuse branch's _writeback_identifier -> update_fields -> get_file_path (base.py:363 -> :292) returns None and raises ValueError at base.py:366 before the phone is written back, which is exactly what Task 8's own verify asserts; and AC-5 and AC-9 name checks no task authors, each having a task that authors a differently-named check for the same behaviour (Task 8's test_create_stub_losing_a_cross_process_race_reuses_the_winner, Task 10's test_observe_mode_warns_and_proceeds_where_enforce_refuses), so both fail the exam's getattr(mod, name)() against a correct build, with AC-5's book/company half and AC-9's bounded-message half covered by no authored check at all; separately Task 11's verify names test_ast_is_single_homed in tests/test_loud_fail_harness.py, whose only test is test_derivations_are_single_sourced:58."
+        },
+        {
+          "gate": "threat-modeler",
+          "verdict": "PROMOTE",
+          "date": "2026-08-09",
+          "model": "claude-opus-5",
+          "note": "Round 10 is an audit fold rather than a design move, and I checked each of its four surfaces for a new security category instead of assuming a fold cannot open one \u2014 none does. The only surface shipping CODE is BaseRepository._adopt, whose mutex inside a call graph that already takes a per-file flock is the one genuine deadlock shape round 10 could have introduced; it does not, because the repository lock spans the cache mutation ONLY (save holds it for base.py:331-333 and not around write_markdown_file, update_fields for :399-413 and not around its door-1 write), so neither lock is ever held while acquiring the other and there is no cycle in either direction \u2014 and I verified the four replaced sites are the identical three-line shape (base.py:331-334, :412-414, book.py:173-176, meeting.py:195-198) with load correctly excluded as a bulk walk. Surfaces 1, 3 and 4 are test-side: Wall B's and Wall C's new batteries plant mutation-capable imports into a SCRATCH module that is parsed and never imported or executed and that sits outside python_files_under(PACKAGE_ROOT, SCRIPTS_ROOT) by construction, so nothing plants an executable mutator into a shipped module, and AC-9's new check is a security oracle in my favour \u2014 a planted sentinel string asserted absent from every refusal message, which falsifies the information-disclosure property I had been leaning on the REASONS bound to carry. I re-ran the premise rather than reading it: vault_io.py and tests/test_concurrent_access.py are BOTH absent from the tree so Task 3 has not run, the widened grep for chmod|st_mode|umask|is_symlink|st_nlink|listxattr|O_EXCL|fchmod|mkstemp|NamedTemporaryFile|os.replace|os.link|fsync over obsidian_schemas/ and scripts/ returns zero, writer.py:236 is still a bare truncate-in-place write_text under :233's mkdir, errors.py:84-128 still holds the twelve-literal set with \"write did not complete\" live at :96 and the from-None bound, there are zero from-os imports and zero threading/RLock/filelock/fcntl references package-wide, and D2.2's four-step ordering paragraph, D2.3's one-resolved-path sentence and D3's M2 paragraph are all intact with Task 3 still carrying their three clauses. Both of my round-3 notes are closed by name and closed correctly \u2014 the index bound's two halves are now distinguished with the wrong-VALUE half verified closed at person.py:432/:454/:459/:476, and the setuid triad is named as M1's one honest exception with the trade stated rather than taken. All three fences are re-emitted BYTE-IDENTICAL because nothing about what they require has moved; they stand only because Task 3 has not run, and the series is converging rather than treadmilling \u2014 my round 2 raised the under-specification, round 9 discharged it surface by surface, round 10 touched none of it, and my two remaining notes are calibration-level observations I explicitly decline to require."
+        },
+        {
+          "gate": "spec-reviewer",
+          "verdict": "PROMOTE",
+          "date": "2026-08-09",
+          "model": "claude-opus-5",
+          "note": "The audit fold I proposed last round LANDED, and I verified each of its four surfaces at its declaring source in code rather than reading the round-10 narrative \u2014 D10.5 now states the battery obligation ONCE over D10.1's five-predicate set with Task 12 deriving its list from it and Walls B and C written out shape by shape (their invisibility is measured, not argued: I confirmed zero `from os import` bindings and zero shutil/tempfile/fcntl/filelock/mmap imports under either root, the only os imports being plain `import os` at base.py:9, lint_vault.py:22 and migrate_person_to_discuss.py:23); the cache-adoption surface is total BY CONSTRUCTION through one BaseRepository._adopt door with functions_calling(files,\"_adopt\") pinned as a set-equality Table-2 row and a Table-1 empty row making it a measured delta, and I confirmed the four replaced sites are the identical three-part shape (base.py:331-334, :412-414, book.py:173-176, meeting.py:195-198) with load correctly excluded as a bulk rebuild (:176-178, :186-193), and that Task 8's _file_map argument holds end to end (person.py:1436 -> _writeback_identifier:1189/:1214 -> update_fields -> get_file_path base.py:363/:292 -> ValueError at :366 before the phone is written back); the acceptance set is closed by a DERIVED authoring map, and my own independent walk of all eighteen criteria fences found every check name authored by a named task into a declared write-target module, with AC-5 and AC-9 renamed to the AC's name AND widened to their full desc rather than the criterion narrowed to what a check happened to cover; and the count-pin surface is widened to corpora this item GROWS, with tests/derivations.py's exports named and the pin at test_loud_fail_harness.py:72-81 ruled GREEN-and-untouched on that check's own comment at :70-71, which I read. The round-9 citation defect is fixed to the real name and anchors (test_derivations_are_single_sourced:58, _check_derivations_are_single_sourced:66, modules_using_ast at :96), all three fold records are fresh (desc byte-identical to the latest speaking round 4) with their design and work quotes read in place and faithful and each mitigation carrying an oracle that distinguishes it from its near-miss, every plan task's target is a declared write target with no verify command writing outside write_authority, and both of the round-3 threat model's notes are closed correctly. Four description-level notes remain and none changes what a builder builds \u2014 chiefly `## Verification`'s _adopt row saying \"six adopting functions / a seventh site\" where Table 2, Task 11, Task 7, Edge Cases and Risk row 18 all say five and name them \u2014 so a fifth round would be the regress signature rather than progress."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "AC-1",
+          "desc": "A crash or concurrent read during any door's write never observes a partially-written note \u2014 every commit is atomic.",
+          "check": "test_every_door_commits_atomically",
+          "kind": "test"
+        },
+        {
+          "id": "AC-2",
+          "desc": "A door-1 write whose target changed since its in-lock read raises ExternalWriteConflict and leaves the target byte-identical to the interloper's bytes.",
+          "check": "test_door_one_refuses_a_raced_content_write",
+          "kind": "test"
+        },
+        {
+          "id": "AC-3",
+          "desc": "A door-2 save() derived from a cache snapshot older than the target raises StaleEntityWrite instead of overwriting, and refresh() plus re-apply succeeds.",
+          "check": "test_save_refuses_a_stale_snapshot_and_succeeds_after_refresh",
+          "kind": "test"
+        },
+        {
+          "id": "AC-4",
+          "desc": "A door-1 write to a path does NOT satisfy a door-2 payload's precondition for that path \u2014 the architect's note-#1 sequence raises StaleEntityWrite rather than silently destroying the frontmatter change.",
+          "check": "test_a_door_one_write_does_not_satisfy_a_door_two_payload",
+          "kind": "test"
+        },
+        {
+          "id": "AC-5",
+          "desc": "A create with no derivation read is an atomic no-clobber create \u2014 PersonRepository.create_stub losing a cross-process race reuses the winner's note with its created_by and email intact, while the book and company stubs surface NoteAlreadyExists.",
+          "check": "test_create_is_no_clobber_and_create_stub_reuses_the_winner",
+          "kind": "test"
+        },
+        {
+          "id": "AC-6",
+          "desc": "move_note refuses an existing destination by syscall rather than by check, leaving both source and destination byte-identical, and quarantine_garbage skips that note instead of clobbering it.",
+          "check": "test_move_note_refuses_an_existing_destination",
+          "kind": "test"
+        },
+        {
+          "id": "AC-7",
+          "desc": "obsidian_schemas/vault_io.py is the ONLY file under obsidian_schemas/ or scripts/ that names a filesystem-mutation capability, imports a mutation-capable module, or reaches a non-read-only os attribute in either access form \u2014 and the wall's predicate discriminates by provenance, proven to resolve every claimed match shape and to reject every near-miss including the live str.replace and dict.copy call nodes this tree already carries.",
+          "check": "test_filesystem_mutation_is_single_homed",
+          "kind": "test"
+        },
+        {
+          "id": "AC-8",
+          "desc": "Layer 2 excludes concurrent writers both across processes and across threads, is reentrant within one thread, and a write attempted without the lock held raises WriteFailedError.",
+          "check": "test_locking_excludes_and_is_reentrant",
+          "kind": "test"
+        },
+        {
+          "id": "AC-9",
+          "desc": "Every refusal this item adds is a LoudFailError distinguishable from WriteFailedError, carries its path, and leaks no note content into its message; observe mode downgrades each to a WARNING and an unrecognised guard value raises.",
+          "check": "test_refusals_are_loud_bounded_and_mode_governed",
+          "kind": "test"
+        },
+        {
+          "id": "AC-10",
+          "desc": "WI-020's acceptance battery still holds over the re-routed tree in BOTH halves \u2014 its four derivations return exactly their pinned sets (four writers, write_markdown_file reached and rejected by the discrimination proof, every falsy return still classified, the count pins at tests/test_loud_fail_parse.py:300-301 passing), AND its own checks still PASS with every asserted property intact, the only edits being the fault-injection and escape-keyword lines D12.3 Table 3a enumerates.",
+          "check": "test_wi020_derivations_survive_the_routing",
+          "kind": "test"
+        },
+        {
+          "id": "AC-11",
+          "desc": "A repository that OVERRIDES _load_file can update a note it loaded \u2014 BookRepository.save and MeetingRepository.save of a loaded note succeed as 2u updates rather than raising NoteAlreadyExists, and raise StaleEntityWrite once that note is edited on disk behind the repository.",
+          "check": "test_a_loader_overriding_repository_can_update_a_note_it_loaded",
+          "kind": "test"
+        },
+        {
+          "id": "AC-12",
+          "desc": "The observation side is total over the corpus derived from the tree \u2014 every function the loader corpus resolves to records a derivation stamp (stat before read, remember on the entity branch), and the set of functions deriving an entity from a file's bytes is exactly that corpus, so a new loader or a new derivation site is a red floor rather than a silent stamp loss.",
+          "check": "test_every_derived_loader_records_a_derivation_stamp",
+          "kind": "test"
+        },
+        {
+          "id": "AC-13",
+          "desc": "No function in vault_io.py's path-, payload- and stamp-returning surface returns a falsy value \u2014 the rule is stated over exactly the set the wall checks, COMMIT_FUNCTION_NAMES, with read_note and ensure_dir inside it rather than quoted past it, it is enforced by a predicate that can actually see the doors rather than by a scan whose universe gate no door enters, and that predicate's REACH is driven rather than assumed: a fixture generated by iterating COMMIT_FUNCTION_NAMES plants one falsy-returning function per member and asserts falsy_returns_in returns exactly that set of names, alongside the three falsy forms, the falsy-constant forms, the nested-function boundary and a near-miss battery the predicate must NOT match.",
+          "check": "test_committing_doors_never_return_falsy",
+          "kind": "test"
+        },
+        {
+          "id": "AC-14",
+          "desc": "An overwrite of an existing note this process never observed is refused with NoteAlreadyExists, and the named escape allow_unverified_overwrite=True lets it land WITHOUT surrendering the WI-126 body-shrink guard \u2014 so the documented parse-then-write-back recipe works under the escape, preserves extra fields, and still raises BodyTruncationError on a shrink.",
+          "check": "test_unobserved_overwrite_refuses_and_the_escape_still_guards_the_body",
+          "kind": "test"
+        },
+        {
+          "id": "AC-15",
+          "desc": "Inode replacement does not rewrite a note's permissions and never exposes its content at a wider mode than the target's \u2014 a note written through write_note, write_markdown_file or move_note keeps the exact st_mode bits it had, the target's mode is on the temp file's OWN DESCRIPTOR before the first note byte reaches it (observed at os.fsync time, when the payload is on disk and not yet committed, which is the only assertion that distinguishes it from a chmod after the write), a fresh create takes the same umask-derived mode Path.write_text gives an equally fresh sibling in that run, and a failure to carry the mode across raises WriteFailedError rather than committing at a mode nobody chose.",
+          "check": "test_every_door_preserves_the_targets_mode",
+          "kind": "test"
+        },
+        {
+          "id": "AC-16",
+          "desc": "Every setting this item reads is validated at first use and refuses loudly rather than coercing \u2014 OBSIDIAN_SCHEMAS_LOCK_DIR relative, empty or naming a non-directory raises WriteFailedError instead of resolving against the process CWD, OBSIDIAN_SCHEMAS_LOCK_TIMEOUT non-positive or unparseable raises, OBSIDIAN_SCHEMAS_WRITE_GUARD unrecognised raises, each unset var yields its documented default, and a lock held past the configured timeout raises WriteFailedError rather than hanging.",
+          "check": "test_configuration_refuses_invalid_values_and_bounds_acquisition",
+          "kind": "test"
+        },
+        {
+          "id": "AC-17",
+          "desc": "Every door derives its lock sentinel's HASH and its sentinel's own DIRECTORY, its stamp-registry key, its temp-file directory, its precondition stat and its terminal syscall from ONE resolved path \u2014 a symlinked note updated through any write door lands its bytes in the real file and leaves the symlink a symlink, exactly as Path.write_text does today; two paths in two different parents naming one real note produce exactly ONE sentinel, in the resolved note's own directory, so the second acquirer waits rather than proceeding; and move_note refuses a symlinked source with WriteFailedError leaving both paths intact.",
+          "check": "test_every_door_uses_one_resolved_path",
+          "kind": "test"
+        },
+        {
+          "id": "AC-18",
+          "desc": "The repository cache is safe under concurrent mutation \u2014 the item's original March scope \u2014 because every mutation of _cache and _file_map REPLACES the mapping under the per-repository threading.RLock rather than mutating a live one, and every single-entity adoption routes through the one BaseRepository._adopt door (including the fifth one this item's own create_stub recovery adds, which a pre-build enumeration could not reach), so a thread calling get_all() and get_by_role() while another refreshes always sees the complete pre- or post-refresh mapping, never a half-built vault reported as the whole one and never a RuntimeError from a dict mutated mid-iteration, with no lock taken on any read path.",
+          "check": "test_repository_cache_is_consistent_under_concurrent_refresh",
+          "kind": "test"
+        }
+      ],
       "summary": "The repository layer currently assumes single-threaded use \u2014 no locking, no thread-safe cache operations. HAL9000 runs as a FastAPI server handling concurrent requests, which means multiple request ha"
     },
     {
@@ -75,6 +405,7 @@
         "root-fix",
         "small-mechanical"
       ],
+      "involvement": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -96,6 +427,7 @@
       "tags": [
         "entity-relationships"
       ],
+      "involvement": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -119,6 +451,7 @@
         "configuration",
         "small-mechanical"
       ],
+      "involvement": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -375,6 +708,7 @@
       "tags": [
         "repository"
       ],
+      "involvement": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -396,6 +730,7 @@
       "tags": [
         "repository"
       ],
+      "involvement": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -419,6 +754,7 @@
         "dedupe-prevention",
         "root-fix"
       ],
+      "involvement": null,
       "parent": null,
       "children": [],
       "depends_on": [
@@ -442,6 +778,7 @@
       "tags": [
         "integration"
       ],
+      "involvement": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -465,6 +802,7 @@
         "wi-125-followup",
         "strangler-completion"
       ],
+      "involvement": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -486,6 +824,7 @@
       "tags": [
         "performance"
       ],
+      "involvement": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -507,6 +846,7 @@
       "tags": [
         "performance"
       ],
+      "involvement": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -528,6 +868,7 @@
       "tags": [
         "repository"
       ],
+      "involvement": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -551,6 +892,7 @@
         "write-safety",
         "testing"
       ],
+      "involvement": null,
       "parent": null,
       "children": [],
       "depends_on": [
@@ -578,6 +920,7 @@
         "parser",
         "writer"
       ],
+      "involvement": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -1077,6 +1420,7 @@
       "tags": [
         "schema-evolution"
       ],
+      "involvement": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -1100,6 +1444,7 @@
         "wi-125-followup",
         "cross-project"
       ],
+      "involvement": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -1121,6 +1466,7 @@
       "tags": [
         "integration"
       ],
+      "involvement": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -1143,6 +1489,7 @@
         "architecture",
         "maintainability"
       ],
+      "involvement": null,
       "parent": null,
       "children": [],
       "depends_on": [
@@ -1166,6 +1513,7 @@
       "tags": [
         "schema"
       ],
+      "involvement": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -1187,6 +1535,7 @@
       "tags": [
         "entity-relationships"
       ],
+      "involvement": null,
       "parent": null,
       "children": [],
       "depends_on": [
@@ -1212,6 +1561,7 @@
         "dedupe-prevention",
         "root-fix"
       ],
+      "involvement": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -1233,6 +1583,7 @@
       "tags": [
         "repository"
       ],
+      "involvement": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -1254,6 +1605,7 @@
       "tags": [
         "schema-evolution"
       ],
+      "involvement": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -1276,6 +1628,7 @@
         "testing",
         "real-data-fixtures"
       ],
+      "involvement": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -1297,6 +1650,7 @@
       "tags": [
         "repository"
       ],
+      "involvement": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -1320,6 +1674,7 @@
         "name-validation",
         "rfc2822"
       ],
+      "involvement": null,
       "parent": null,
       "children": [],
       "depends_on": [
