@@ -169,7 +169,7 @@ the table moved)*. Every row re-derived from source this round rather than inher
 | D4 `update_fields` | `self.type_name`, the same object, already used at `:430` and `:461` | `base.py:update_fields:403-461` |
 | D5 / D6 `update_frontmatter_field(s)` | the target note's own `type:`, already parsed in-lock one line before the mutation | `writer.py:329`; `writer.py:381` |
 | D7 `roundtrip_file` | n/a — introduces nothing, out under the delta rule (Finding C) | `writer.py:roundtrip_file:419` |
-| D8 `lint_vault --fix` | `vf.entity_type`, already computed from `fm.get("type", "")` | `lint_vault.py:140`, `:148`; field declared at `:93` |
+| D8 `lint_vault --fix` | the note's own `type:` — `fm.get("type")` off the in-lock parse at `:821` *(round-10 correction: this row read `vf.entity_type`; `apply_fixes` is handed `issues`, `vault_path` and `idx` (`:804-805`) and never the walk's `VaultFile`, so the value `read_vault` records at `:140` is the same string in a frame this one cannot reach)* | `lint_vault.py:apply_fixes:819-821`; the equivalent walk-side value at `:140`, `:148`, field declared at `:93` |
 | D1b `frontmatter=` | the caller's dict — declared iff it carries `type:` | `writer.py:259` |
 | D1c `extra_fields`-only | the caller's dict — declared iff it carries `type:` | `writer.py:263` |
 
@@ -196,10 +196,15 @@ other check runs. `LintIssue.auto_fixable` defaults to `False` (`:83`) and the `
 construction does not set it, while `apply_fixes` collects only `if issue.auto_fixable` (`:810`). So
 an undeclared note yields exactly one non-auto-fixable ERROR and never reaches the whole-`fm`
 serialization at `:876-882`. **The D8 arm cannot serialize an undeclared note at all.** That
-discharges re-entry step 3's "check the rewrite against member 9": the gate at D8 is handed
-`vf.entity_type`, the value the enclosing repair loop already dispatches on at eleven sites (`:186`,
-`:188`, `:190`, `:374`, `:423`, `:458`, `:472`, `:490`, `:548`, `:673`, `:688`), so that call frame
-carries ONE dispatch implementation instead of the three the superseded design was about to create.
+discharges re-entry step 3's "check the rewrite against member 9": the gate at D8 is handed the note's
+own `type:`, read as `fm.get("type")` off the in-lock parse at `:821` — the same string this module
+already dispatches on at eleven sites through `vf.entity_type` (`:186`, `:188`, `:190`, `:374`, `:423`,
+`:458`, `:472`, `:490`, `:548`, `:673`, `:688`), so the module carries ONE dispatch implementation
+instead of the three the superseded design was about to create. *(Round-10 correction: this paragraph
+named `vf.entity_type` as the value handed to the gate. `apply_fixes` never holds a `VaultFile` — it is
+passed `issues`, `vault_path` and `idx` (`:804-805`) and reaches into `idx` for `meetings` alone
+(`:813`) — so the in-frame source is `fm`. The dispatch-count argument is unchanged: it is the same
+value by a different binding.)*
 
 **The same reading corroborates ruling 2 from the tree.** `missing_type` being an ERROR is this
 codebase's own already-shipped answer to "is an untyped `@*.md` note a legitimate record": no — it is
@@ -364,15 +369,31 @@ gated".**
 
 - **D2 `BaseRepository.save` gets NO gate call.** It binds no dict, and every byte it produces reaches
   the seam through D1a one frame later, where the gate already fires on `model_to_frontmatter`'s
-  projection of the same entity. A gate call here would be pure redundancy. **Finding F is closed at
-  D1a, not at D2, and that is checkable rather than asserted:** `vault_io.ensure_dir(file_path.parent)`
-  is at `writer.py:273`, DOWNSTREAM of the convergence point at `:266` (re-read from source this
-  round), so a refusal raised at D1a precedes the `mkdir` and no `@Dave/` directory is created — which
-  is the byte-identical/no-stray-directory promise `AC-2` makes. **That argument covers the REFUSAL
-  case only, and one object `save` binds is not a byte the seam produces**: the FILENAME, bound from the
-  raw `entity.name` at `base.py:381` and never revisited. What makes the removal safe on the
-  accept-and-normalize path too is the identity rule on the gate's name output — see the round-8
-  subsection below, which is where that leg is derived rather than assumed.
+  projection of the same entity. A gate call here would be pure redundancy. Two legs make the removal
+  safe, and **neither is the one this bullet used to give**:
+  - on the ACCEPT-and-normalize path, the identity rule on the gate's name output — the FILENAME is
+    bound from the raw `entity.name` at `base.py:381` and never revisited, and under (b′) the gate
+    cannot make the field disagree with it. Derived in the round-8 subsection below.
+  - on the REFUSAL path, the gate's PLACEMENT inside `write_markdown_file`: it runs above
+    `vault_io.note_lock`, so the refusal precedes every filesystem-visible act on that path. Derived
+    in the round-9 subsection below.
+
+  > **Corrected 2026-08-11 (fold, round 9), answering the round-8 architectural review's blocking issue
+  > and the round-8 data audit's confirmation of it — and the conductor's EXECUTION of the scenario
+  > (`## Conductor Booking`).** The superseded refusal leg read: *"`vault_io.ensure_dir(file_path.parent)`
+  > is at `writer.py:273`, DOWNSTREAM of the convergence point at `:266`, so a refusal raised at D1a
+  > precedes the `mkdir` and no `@Dave/` directory is created."* That check reads `write_markdown_file`'s
+  > own body and finds the one `ensure_dir` written in it. It is **false as a claim about the frame**:
+  > `write_markdown_file` takes the note lock as its FIRST action (`writer.py:209`), and `note_lock`
+  > `mkdir`s the lock sentinel's home (`vault_io.py:400`), which DEFAULTS to `target.parent`
+  > (`vault_io.py:350`) — fifty-seven lines above the convergence point. Eight architectural rounds,
+  > five red-team rounds, eight data audits and eight spec-writer rounds verified this promise by
+  > READING, and the composition `write_markdown_file × note_lock` is exactly the shape no reader can
+  > falsify (LESSONS #42). The conductor executed it: `repo.save(Person(name="Dave/Bob"))` leaves
+  > `<vault>/@Dave/`, `<vault>/@Dave/.obsidian-schemas-locks/<digest>.lock` and `<vault>/@Dave/Bob.md`
+  > on disk today. The D2 removal itself is UNAFFECTED — the round-6 membership ruling turns on what a
+  > function BINDS — but the reason given for it being safe is replaced above, and the fix is a
+  > placement rule rather than a re-instated arm.
 - **D3 `PersonRepository.save` carries ONE gate call, as a RIDER and not as an arm.** Its reason is
   independent of routing and no other frame can supply it: `_normalize_address_fields` mutates the
   caller's `Person` in place today (`person.py:1317`, `:1343`), so after `repo.save(person)` the
@@ -394,10 +415,11 @@ D2 removes one of the three invocations, not the requirement.
 > Tier-2 repairs stay a `create_stub`-only behaviour, above the write path, where they already live.
 
 The subsection above removed D2 from the derived set on the argument that *"every byte either `save`
-produces reaches the seam through D1a one frame later"*. That argument is true and it was verified
-against the REFUSAL case — a refusal at D1a precedes `vault_io.ensure_dir` (`writer.py:273` vs the
-convergence at `:266`), so Finding F stays closed. It says nothing about the ACCEPT-but-normalize case,
-and the object that breaks there is not a frontmatter byte at all. Re-derived from source this round:
+produces reaches the seam through D1a one frame later"*. That argument was verified against the
+REFUSAL case *(and that verification was itself wrong on the frame — see the round-9 subsection below,
+which repairs it with a placement rule; nothing in THIS subsection turns on it)*. It says nothing about
+the ACCEPT-but-normalize case, and the object that breaks there is not a frontmatter byte at all.
+Re-derived from source this round:
 
 | Claim | Read from | Result |
 |---|---|---|
@@ -455,6 +477,302 @@ except `create_stub`. Whether that population is large enough to deserve a sweep
 item (parked defect 1's neighbourhood — a rename that moves the file), and the number that would size
 both is query **G4** in `## Grounding Still Owed`, booked this round. Nothing in this item's scope turns
 on it, which is the point: (b′) is the one shape whose correctness does not wait on a count.
+
+#### The gate runs ABOVE `note_lock`, because the frame's first filesystem-visible act is the LOCK's own `mkdir` (2026-08-11, round-9 fold)
+
+> Answering the round-8 architectural review's blocking issue and the round-8 data audit's confirmation
+> of it, **to Dave's ruling** — `## Conductor Preconditions`, precondition 1: *"option (a) adopted — the
+> gate runs ABOVE `note_lock`."* The shape was not this round's to choose; what this round owes is the
+> derivation, the SCOPE (which arms move and which must not), and the two obligations the move creates.
+> `AC-2`'s *"no stray directory is created"* clause therefore **stands as signed and is now meetable**.
+
+**The frame, re-derived from source this round.** Every row read rather than inherited:
+
+| Step | Read from | Result |
+|---|---|---|
+| `write_markdown_file` acquires the note lock as its FIRST action — before the stamp lookup, before the WI-126 guard, before any fm is built | `writer.py:204` (`file_path = Path(file_path)`), `:209` (`with vault_io.note_lock(file_path) as resolved:`); the three arms are at `:256-263`, the convergence at `:266` | confirmed |
+| `note_lock` resolves NON-STRICTLY, so a path whose parent does not exist is accepted rather than refused | `vault_io.py:note_lock:376` (`target = _resolved(path)`), `vault_io.py:_resolved:234-239` — docstring: *"a not-yet-existing leaf resolves against its resolved parent"* | confirmed |
+| on the OUTERMOST acquisition it derives a sentinel and `ensure_dir`s the sentinel's parent, before it yields | `vault_io.py:392-393` (`if not reentrant:`), `:398` (`sentinel = _sentinel_path(target)`), `:400` (`ensure_dir(sentinel.parent)`); the `yield` is at `:424` | confirmed |
+| the sentinel's home **DEFAULTS to the note's own directory** | `vault_io.py:_sentinel_path:350` — `home = configured if configured is not None else target.parent / SENTINEL_DIR_NAME`; `SENTINEL_DIR_NAME = ".obsidian-schemas-locks"` at `vault_io.py:SENTINEL_DIR_NAME:58` | confirmed |
+| `_configured_lock_dir()` returns `None` unless `OBSIDIAN_SCHEMAS_LOCK_DIR` is set to an ABSOLUTE path — its own first docstring line says *"or None for the default (the note's own directory)"* | `vault_io.py:_configured_lock_dir:137-152`, `default=None` at `:149` | confirmed — **the default is the live production case** |
+| `ensure_dir` is `mkdir(parents=True, exist_ok=True)` and carries no compensating action | `vault_io.py:ensure_dir:618-638`, `mkdir` at `:634`, the ruling at `:621-624` (*"Carries NO precondition and NO lock … it is idempotent and has no loss mode"*) | confirmed — nothing in the package removes what it creates |
+| a `.lock` FILE is then created inside that directory | `vault_io.py:410-414` (`filelock.FileLock(str(sentinel), …)`, `file_lock.acquire(...)` at `:414`) | confirmed |
+| `BaseRepository.save` performs no filesystem act in its own frame — it binds the path and delegates | `base.py:380-382`, `:387-395`; no `mkdir`/`open`/`unlink`/`rename` anywhere in `:356-401` | confirmed |
+
+**So the item's own headline scenario, end to end:** `repo.save(Person(name="Dave/Bob"))` →
+`filename = "@Dave/Bob.md"` (`base.py:381`) → `write_markdown_file` → `note_lock` (`writer.py:209`) →
+`_sentinel_path` yields `<vault>/@Dave/.obsidian-schemas-locks/<digest>.lock` → `ensure_dir`
+(`vault_io.py:400`) runs `mkdir(parents=True)` and **creates `<vault>/@Dave/`**, plus the lock
+subdirectory inside it and the `.lock` file at `:410-414`. Only then does control reach `:266`. A gate
+at the convergence point refuses *after* the directory exists, the lock releases, and the directory
+stays. **This is no longer a reading**: the conductor executed it against a throwaway tmp vault and
+recorded the four artefacts on disk (`## Conductor Booking`).
+
+**The rule, stated once and over PLACEMENT rather than over membership:**
+
+> At `write_markdown_file`'s three arms the fm construction and the gate call are **hoisted above
+> `vault_io.note_lock`**. The gate's refusal precedes every filesystem-visible act the frame performs —
+> the lock sentinel's `mkdir` (`vault_io.py:400`), the `.lock` file (`:410-414`) and
+> `ensure_dir(file_path.parent)` (`writer.py:273`) alike. `write_frontmatter(fm)` stays where it is, at
+> the convergence point.
+
+**Why the hoist is legal, and it is Dave's ruling 1 that makes it so.** Under DECLARE the gate is a
+pure function of the payload plus the handed type — *"it never consults the filesystem: no glob, no
+path shape, no sibling note"* — so nothing it reads is protected by the lock and nothing it decides can
+change while the lock is held. That is not a convenience: a gate that consulted the filesystem would
+have had to run INSIDE the lock to be sound, and option (a) would not have been available at all.
+Ruling 1 and precondition 1 are the same decision seen twice.
+
+**And the hoist is mechanically local.** Re-read from source: nothing between `writer.py:209` and
+`:263` feeds the three arms. The stamp lookup (`:210`), the `unverified` flag (`:214-215`), `is_create`
+(`:226`) and the WI-126 body read (`:236-239`) are all downstream CONSUMERS of the lock, not inputs to
+`fm`; the arms read only `entity`, `frontmatter` and `extra_fields`, which are parameters. So the hoist
+moves ten lines, changes no arm's identity, creates no fourth branch, and **leaves `AC-1`'s eight-arm
+floor and its `(qualname, arm)` assertion exactly as they are** — the three bindings are still three
+bindings of the dict one function serializes, and they still converge on one `write_frontmatter` call.
+
+**The hoist is ARM-SPECIFIC, and saying so is what stops a build over-applying it.** Only an arm whose
+frame can reach a path that does not exist can create a stray directory. Swept from source across the
+whole derived set plus the rider — every cell read this round:
+
+| Arm | Frame's FIRST filesystem-visible act | Can the frame reach a non-existent path? | Gate placement |
+|---|---|---|---|
+| D1a / D1b / D1c `write_markdown_file` | `note_lock` (`writer.py:209`) → `ensure_dir(sentinel.parent)` (`vault_io.py:400`) + `.lock` (`:410-414`); then `ensure_dir(file_path.parent)` (`writer.py:273`) | **YES** — no existence guard anywhere in the frame; the create case is its normal case | **ABOVE the lock** (the hoist) |
+| D4 `update_fields` | `note_lock` (`base.py:437`) | no — `raise FileNotFoundError` at `base.py:432-433`, above the lock | **in-lock, unchanged** |
+| D5 `update_frontmatter_field` | `note_lock` (`writer.py:327`) | no — `raise FileNotFoundError` at `writer.py:320-321` | **in-lock, unchanged** — and it must stay, because the declaration is the note's own `type:`, parsed at `:329` |
+| D6 `update_frontmatter_fields` | `note_lock` (`writer.py:379`) | no — `raise FileNotFoundError` at `writer.py:374-375` | **in-lock, unchanged** — declaration parsed at `:381` |
+| D7 `roundtrip_file` | `note_lock` (`writer.py:417`) | **yes** — there is no existence guard in this frame | **ABOVE, by the default** *(round-10 correction; the row read "no gate call at all", which contradicts `## Approach` and `AC-1`'s floor alike)* — D7 is a member and routes, on an EMPTY delta (Finding C), so the call can never refuse and the placement is free. Its unguarded lock is parked defect 4, unchanged |
+| D8 `lint_vault --fix` | `note_lock` (`lint_vault.py:819`) | ~~no — `fpath` comes from the vault walk~~ **YES, today** *(round-10 correction)* — `fpath` is bound from a dict keyed on the `issues` PARAMETER (`:808-815`); the walk is `read_vault`'s `rglob` at `:111`, two frames away (`run_lint:1069`, `apply_fixes` called at `:1100-1103`), so nothing in this frame is evidence the target exists | **in-lock — and this item makes that DERIVABLE** by adding the sibling guard above `:819` (round-10 fold). `fm` is parsed at `:821`, and the declaration is that dict's own `type:`, not `vf.entity_type` — `apply_fixes` never holds the walk's `VaultFile` |
+| the D3 rider `PersonRepository.save` | none in its own frame (`person.py:1269-1272` delegates) | n/a | above `super().save()`, hence above D1's frame already |
+
+Two things follow that the build must not blur. **D5/D6/D8's gate calls must STAY inside the lock**:
+that is where the dict they judge and the declaration they pass are read from the note, and hoisting
+them would move the gate above the parse that supplies its type. And **D4's stays too** — it needs no
+hoist (`base.py:432-433` guards it) and its delta is the caller's `updates`, read from a parameter, so
+there is no reason to move it and one reason not to (a second placement rule for no gain).
+
+**The obligation the hoist creates, and it is the same instrument one argument wider.** The derived
+wall as specified proves an arm *calls* the gate somewhere in its body. *"The gate call precedes the
+frame's first filesystem-visible act"* is a PLACEMENT fact, and nothing enforces it — a build that
+hoists correctly today and a build that leaves the call at `:266` are indistinguishable to a wall that
+only asks whether the call exists. So the wall's per-arm assertion widens from a pair to a triple:
+
+> Per arm, the wall asserts **(the arm, the declaration it passes, the gate call's PLACEMENT)**, where
+> placement is `above` (the gate call precedes the frame's first `vault_io` mutation call) or `in-lock`.
+> The required value is DERIVED, not listed: an arm whose frame refuses on the target's non-existence
+> before its first such act ~~— or whose target is supplied by a walk of notes already read —~~ may be
+> `in-lock`; **every other arm requires `above`, which is the default for an arm the predicate does not
+> recognise.** A ninth arm added next month is therefore RED unless it is hoisted or is provably
+> existence-guarded, rather than green by omission.
+>
+> *(Round-10 fold: the struck disjunct is DELETED — it was a property of a caller two frames away, and
+> it left D8 required `above` by the default and `in-lock` by the sentence below. The rule now has one
+> local leg, and D8 is made to satisfy it. Derivation in the round-10 subsection below.)*
+
+This sits beside the round-3 pass-what pin, on the same derived set, and it is a re-origination
+obligation on `AC-1` — recorded in `## Re-origination Brief`, not written into the signed fence here.
+
+**And the fixture that proves it must run under the DEFAULT lock home, or it is a control with no
+discriminating power.** With an absolute `OBSIDIAN_SCHEMAS_LOCK_DIR` configured, `_sentinel_path` puts
+the sentinel outside the vault entirely (`vault_io.py:_sentinel_path:349-351`) and no `@Dave/` appears —
+so a fixture that sets that variable passes against un-hoisted code while production fails. The `AC-2`
+no-stray-directory fixture must therefore assert the variable is UNSET. Its oracle must be derived from
+what the test itself holds — ~~**snapshot the vault root's full recursive listing immediately before the
+refused call and assert it is unchanged afterwards**~~ — never "the vault root's only child is X", which
+assumes a layout the test did not create (WI-149).
+
+> **The struck sentence is WRONG and is replaced here** *(round-12 fold; architect round 11 blocking,
+> sharpened by data-premise round 11, both re-derived from source below)*. Its justification was one
+> sentence — *"under the hoist the refusal precedes `note_lock`, so even the lock home is not created and
+> the comparison is exact"* — which is true of the `above` set and of **nothing else**. At D4/D5/D6/D8 the
+> placement rule REQUIRES `in-lock`, so `note_lock`'s outermost acquisition has already run
+> `ensure_dir(sentinel.parent)` (`vault_io.py:note_lock:398-400`, before the `yield` at `:424`) and
+> created the `.lock` (`:407-414`) by the time the gate can speak, and `ensure_dir` carries no
+> compensating action by its own ruling (`vault_io.py:ensure_dir:618-638`, ruling at `:621-624`). A whole
+> listing is an AMBIENT artifact set: it forbids every artifact, including the ones this package's own
+> locking layer is REQUIRED to create before the gate is reached. That is LESSONS #35 re-incurred inside
+> the oracle written to discharge WI-149 — a negative assertion must name the exact artifact it forbids.
+>
+> **The replacement, which is what `### Examples of done` scenario 1 already says in Dave's own words**
+> (*"the vault contains no new `@Dave/` directory and no `Bob.md` inside one"*): the oracle names the
+> artifacts, each COMPUTED from a value the test holds. For `repo.save(Person(name="Dave/Bob"))` against
+> a tmp vault the test holds the name and the vault root, so it asserts `<vault>/@Dave` does not exist
+> (which subsumes the lock home and the note inside it) and `<vault>/@Dave.md` does not exist. For a
+> direct `write_markdown_file(target, …)` the test holds `target`, so it asserts `target` does not exist,
+> `target.parent` does not exist where the test did not create it, and
+> `target.parent/".obsidian-schemas-locks"` does not exist. Three assertions, every path derived from one
+> value the fixture passed in, no ambient set quantified over.
+
+**Why the replacement is not merely a weaker oracle: at the arms it covers, the flip the ambient oracle
+suffers CANNOT occur** *(round-12 fold)*. The ambient oracle's verdict depends on how the fixture planted
+its note — plant through a package door and the identical sentinel digest is already in the *before*
+snapshot (`_sentinel_path` hashes `str(_resolved(target))`, `vault_io.py:348` with `_resolved` at `:376`),
+so the comparison is green; plant with `Path.write_text`, which `AC-2`'s Tier-1 sweep needs and which the
+round-10/11 riders prescribe for the whole of `AC-3`, and the digest is new and the same correct build is
+red. But **a plant is needed at exactly the arms the directory clause is being scoped OUT of**: D4, D5,
+D6 and D8 all refuse a non-existent target above their lock (`base.py:429-433` above `:437`;
+`writer.py:320-321` above `:327`; `:374-375` above `:379`; and, added by this item, the sibling guard
+above `lint_vault.py:819`), while D1a/D1b/D1c bind what they serialize from their own ARGUMENTS
+(`writer.py:257`, `:258-261`, `:262-263`) and need no target to exist. Plant-requirement and clause-scope
+are the SAME partition of the seven arms `AC-2`'s typed pass covers, so scoping the clause to
+`{D1a, D1b, D1c}` does not narrow around the flip — it removes the flip's precondition. The scoping
+itself is signed text and is staged in `## Re-origination Brief`.
+
+**One parked adjacency, named so the scoping note is not read as a claim D7 is guarded.**
+`roundtrip_file` locks a path it never existence-checks (`writer.py:414-417`), so calling it on a
+non-existent path creates the sentinel directory and lock file and *then* fails in `read_note`. It
+introduces nothing, so its gate call is on an empty delta and cannot refuse *(round-10 correction: the
+superseded sentence read "it has no gate call", which contradicted `## Approach`'s eight-arm routing
+and `AC-1`'s floor — D7 routes, and that is orthogonal to its unguarded lock)*, which is why the defect
+is outside this item: it is the same shape as Finding F one door over, it is pre-existing, and this
+item neither causes nor fixes it. **The fix is SHARED with D8's, not separate** *(round-10 fold,
+architect round-9 note 1)*: the guard this item adds to `apply_fixes` is the same one statement
+`roundtrip_file` is missing, so whoever takes parked defect 4 copies a line that will already be in the
+tree. It is still parked — closing it would move D7 from `above` to `in-lock` in the placement table
+and there is nothing in this item that needs that.
+
+##### The placement value is DERIVED by ONE LOCAL rule, and D8 is made to satisfy it (2026-08-11, round-10 fold)
+
+> Answering the round-9 architectural review's blocking issue, which the round-9 data audit confirmed
+> from the same source. The finding is against the wall-rule block above — not against Dave's ruling and
+> not against the hoist, both of which re-derive: **the rule as written gave D8 two required values at
+> once.** Everything above this point stands; this subsection replaces one clause of it.
+
+The round-9 rule let an arm be `in-lock` on either of two grounds — *the frame refuses on the target's
+non-existence*, **or** *the target is supplied by a walk of notes already read*. The first is a fact
+about the arm's own frame and an AST predicate resolves it for D4, D5 and D6 (`base.py:432-433` above
+`:437`; `writer.py:320-321` above `:327`; `:374-375` above `:379` — all three re-read this round). **The
+second is a fact about a CALLER**, and the D8 row of the sweep table above is corrected against source:
+`apply_fixes(issues, vault_path, idx)` (`lint_vault.py:apply_fixes:804-805`) groups by
+`issue.file_path` off its `issues` parameter (`:808-811`) and binds `fpath` from that dict (`:815`);
+the walk that guarantees those paths existed is `vault_path.rglob("*.md")` in `read_vault` (`:111`),
+reached from `run_lint` (`:1069`), with `apply_fixes` called thirty lines later (`:1100-1103`). Nothing
+in `apply_fixes` is evidence the target exists. So the predicate that resolves the other three does not
+recognise D8, D8 falls to the rule's own `above` default — while the same rule two paragraphs earlier
+requires D8 to be `in-lock`, and D8 **cannot be hoisted**: its delta is `fm`, parsed at `:821` from the
+read at `:820`, both inside the lock at `:819`, and hoisting means reading the note outside the lock,
+which is the staleness WI-004 closed (`writer.py:324-326`). One pin, two answers, one arm.
+
+**The repair is to make D8 derivable, not to widen the predicate** — the architect's shape (A), which
+the round-9 data audit independently endorses because it also removes any need to reason about the
+walk's scope:
+
+> **This item adds to `apply_fixes` the existence guard its three siblings carry** — one
+> `if not fpath.exists(): raise FileNotFoundError(...)` as the first statement of the per-file body,
+> above `note_lock` at `lint_vault.py:819`, in the same statement shape as `base.py:432-433`,
+> `writer.py:320-321` and `:374-375`. The placement rule then has ONE leg, local and syntactic:
+> **`in-lock` iff the arm's own frame refuses on the target's non-existence above its first `vault_io`
+> mutation call; `above` otherwise; `above` is the default for an arm the predicate does not
+> recognise.** *"DERIVED, not listed"* survives as written, and the four in-lock arms resolve
+> identically.
+
+Three things about that guard, so the build does not read it as a formality. **It is a real
+correction**: `apply_fixes` runs after the walk, so a note deleted or quarantined in between reaches
+`note_lock` on a path that no longer exists, gets the sentinel `mkdir` (`vault_io.py:400`) and the
+`.lock` file (`:410-414`), and only then fails inside `read_note` — Finding F's shape, one door over,
+and the reason *"it came from a walk"* was never a safety property. **It changes no observable
+behaviour for callers**: the raise lands inside the per-file `try/except Exception` at
+`lint_vault.py:902-903`, which already prints `Fix error on <name>: …` and continues to the next file,
+which is exactly what a vanished file does today via `read_note`. **And it is one line in a function
+this item already opens** for the delta threading (`## Questions the later spec round still owes`,
+item 2), so it adds a statement, not a work item.
+
+**The second leg is a consistency CHECK, not a second route to `in-lock`.** D5, D6 and D8 pass the gate
+a declaration bound inside the lock (`writer.py:329`, `:381`; `lint_vault.py:821`), so they must be
+`in-lock` on pain of reading the note outside it. That is also locally decidable, and the wall asserts
+it in the opposite direction: an arm the one rule requires `above` while its gate arguments are bound
+in-lock is a CONTRADICTION the wall reports, and the repair is that frame's missing existence guard,
+never a hoist above the parse that supplies its type. Under this rule the required values over the
+whole set are D1a/D1b/D1c `above` (the hoist), D4/D5/D6 `in-lock` (guarded today), D8 `in-lock`
+(guarded by this item), D7 `above` (unguarded, and free — its delta is empty).
+
+**The rejected alternative, named so the choice is falsifiable.** The architect's shape (B) — state the
+placement table by EQUALITY, as `AC-2` and `AC-4` already state their exclusion sets, with `above` the
+default for any arm not in it — is fail-closed for the ninth arm and satisfiable for the eighth, and it
+was rejected only because it costs the phrase *"DERIVED, not listed"* that three red-team rounds spent
+their findings buying. It stays the correct fallback if the guard is ever found to disturb something
+the consumer audit cares about; nothing else in the design depends on which of the two is taken.
+
+##### `AC-2`'s four conjuncts are FRAME properties asserted over a set derived for the GATE — all four swept (2026-08-11, round-12 fold)
+
+> Answering the round-11 architectural review's blocking issue and the round-11 data audit's sharpening
+> of it. Neither is against Dave's ruling, the hoist, the arm set or the placement rule — all four
+> re-derive from source this round. The finding is that ONE criterion asserts properties of the FRAME
+> over the set `AC-1` derives for the GATE, and two of its four conjuncts are false at some arms in that
+> set. The class is swept here; the signed consequences are staged in `## Re-origination Brief`.
+
+`AC-2` conjoins four promises and binds them to every arm in `AC-1`'s derived set with the typed-pass
+exclusion `{roundtrip_file}` asserted by equality — so **seven arms**: D1a, D1b, D1c, D4, D5, D6, D8.
+
+> *"…is refused at every ARM in `AC-1`'s derived set, the target is left byte-identical, **no stray
+> directory is created**, and the refusal is a `LoudFailError` carrying the stable pattern key and no
+> note content."*
+
+The gate is a pure function of payload plus handed type (the DECLARE ruling), so it can be routed
+anywhere the frame's inputs allow — but *no directory appears* and *the caller sees an exception* are
+properties of the FRAME, and a criterion cannot inherit them for every arm the gate is routed through.
+Swept conjunct by conjunct, each against the arm's own source:
+
+| # | Conjunct | Holds at all seven? | Result |
+|---|---|---|---|
+| 1 | refused | **yes** | the gate is total on the delta at every arm; nothing here is frame-dependent |
+| 2 | target left byte-identical | **yes, with one sub-cell** | at D4/D5/D6/D8 the refusal is after `read_note` and before `write_note`, so the bytes are untouched; at D1a/D1b/D1c in the CREATE case there is no target to be identical to. See the sub-cell below |
+| 3 | **no stray directory is created** | **NO — three of seven** | see the artifact table below |
+| 4 | **the refusal is a `LoudFailError`** | **NO — six of seven** | at D8 the gate call is inside `apply_fixes`'s per-file `try` (`lint_vault.py:apply_fixes:816`) whose handler is `except Exception as exc: print(f"  Fix error on {fpath.name}: {exc}", file=sys.stderr)` (`:902-903`), so the refusal is swallowed into a stderr line. Every sibling frame carries `except LoudFailError: raise` above its broad catch (`writer.py:341-342`, `:393-394`); `apply_fixes` does not, because it predates the gate. Resolution in Finding E |
+
+**Conjunct 3, and the fact this document has never separated: `note_lock` creates TWO artifacts with
+DIFFERENT arities** *(data-premise round 11, re-derived from source)*. Every prior round wrote "the lock
+debris" as one thing. It is two, and they are not created at the same rate:
+
+| Artifact | Keyed on | Arity | Created when |
+|---|---|---|---|
+| `<parent>/.obsidian-schemas-locks/` | the target's PARENT (`vault_io.py:_sentinel_path:350`, `SENTINEL_DIR_NAME` at `:58`) | **one per directory, ever** | only if that parent has never been locked — `ensure_dir` is `mkdir(parents=True, exist_ok=True)` (`vault_io.py:ensure_dir:618-638`) |
+| `<parent>/.obsidian-schemas-locks/<sha256(str(target))[:32]>.lock` | the RESOLVED TARGET (`vault_io.py:348`, `_resolved` at `:376`) | **one per note, ever** | only if that note has never been locked |
+
+Three consequences, and they decide the shape rather than merely colouring it:
+
+- **The signed conjunct is not what goes red at D4/D5/D6/D8 — the round-9 ORACLE is.** Those four arms
+  reach the gate only if the target already exists, so its parent has a lock home already or acquires one
+  once, ever; what a refused write leaves there is a new zero-byte `.lock` FILE, which is not a directory
+  and which the conjunct does not forbid. The clause is *meetable* at those arms; the ambient-listing
+  oracle is not. That is the same LESSONS #35 diagnosis one artifact finer — `.obsidian-schemas-locks/`
+  and `<digest>.lock` are two artifacts, and an oracle that names neither forbids both.
+- **A genuine stray DIRECTORY is creatable at `{D1a, D1b, D1c}` and only there.** It takes a
+  path-mangled parent, and the only frame in this package that mints one is `base.py:381`'s filename
+  derivation feeding `write_markdown_file` — Finding F's own defect, executed and on the record
+  (`## Conductor Booking`). At the four in-lock arms the parent is an existing note's parent.
+- **Filtering `SENTINEL_DIR_NAME` out of a listing does NOT rescue the ambient oracle.** Filtering the
+  directory ENTRY leaves the per-note `.lock` inside it in the listing, and the `.lock` is the artifact
+  that is always new; the filter would have to drop the whole SUBTREE. Recorded because it is the
+  cheapest of the available repairs to implement subtly wrong.
+
+**The sub-cell conjunct 2 leaves, found by sweeping the level below the conjuncts** *(this round's
+next-level sweep, per WI-226)*. The dimension under "which conjunct" is *which artifact each conjunct's
+oracle names*, and conjunct 2 names "the target" — which at D1a/D1b/D1c's create case does not exist
+before the call. *"Left byte-identical"* has no referent there, and a fixture is free to read it as
+vacuously true. The reading the criterion plainly means is *"a target that existed is unchanged; a target
+that did not is not created"*, and the second half is exactly what the replacement oracle above asserts
+by name. It costs one fixture sentence and no promise change, so it rides on the `AC-2` item already in
+the brief rather than opening one.
+
+**And the level below that — the artifacts no conjunct names — is declared rather than left open.** At
+the four in-lock arms a refused write may leave a new `<digest>.lock` inside an existing lock home —
+**and, where that parent has never been locked, the `.obsidian-schemas-locks/` DIRECTORY as well**
+*(precision added round-13 fold, architect round-12 note 1; the round-12 wording said "inside an
+EXISTING lock home" and understated the declaration by exactly this case)*. `ensure_dir` runs on every
+OUTERMOST acquisition (`vault_io.py:note_lock:398-400`, guarded only by `if not reentrant:` at `:393`),
+so the home is minted by the refused write itself whenever the parent is fresh — which is precisely the
+state a fixture reaches when it plants its note with `Path.write_text` into a tmp vault, since nothing
+there has locked anything. That is the fixture shape `AC-2`'s Tier-1 sweep produces at those arms, so the
+case is not exotic; it scores NOTHING, because conjunct 3 is scoped out of `{D4, D5, D6, D8}` by the
+clause above, and G5(b)'s new column sizes the same artifact in production. It is stated because a
+declaration that omits it invites the next oracle to rediscover a directory appearing at an in-lock arm
+and read it as the stray directory the criterion forbids. All of it is permitted debris: it is
+`note_lock`'s contract, not this item's write, `ensure_dir`'s ruling says nothing in this package removes
+what it creates (`vault_io.py:621-624`), and removing it is precondition 1's rejected option (b) — a
+`vault_io`/WI-004 amendment with its own blast radius and a different work item. It is named here so that
+a future oracle does not rediscover it as a finding, and its live size is G5(b)'s new column
+(`## Grounding Still Owed`).
 
 **Where the UNDECLARED case exists, and where it cannot.** Rewritten with the rest of Finding B: the
 dimension is no longer "typed vs untyped note", it is "the caller declared a type or it did not", and
@@ -523,7 +841,11 @@ disease.
 > count and both re-derive: (a) `lint_vault --fix` and `roundtrip_file` exist to REPAIR records, so a
 > gate that judges what a write preserves refuses the repair tools by construction — the argument is
 > about the tools' purpose, not about how many notes currently need them; and (b) the delta is the
-> only thing available one frame above the seam anyway (base.py:437 pre-merge, writer.py:329, :381),
+> only thing available one frame above the seam anyway (base.py:437 pre-merge, writer.py:329, :381
+> — *round-11 correction: those three citations name where each frame binds its PARSE of the stored
+> note, which is the delta's neighbour and not the delta itself; at D5 the introduced fields have no
+> dict form in the frame at all. See the round-11 subsection below before reading any of them as an
+> instruction*),
 > so whole-record judging is not merely unwise here, it is a different and worse position in the call
 > stack. Four gate rounds held the rule on this reasoning. What the re-dating DOES change is the risk
 > register: the delta rule is now a cheap insurance policy rather than a load-bearing brick-avoidance
@@ -543,6 +865,167 @@ the elegant "gate inside the serializer" answer (Approach B) and forces the shap
 below takes: one gate FUNCTION whose home is a module of its own, called by each door with what
 that door actually knows, and a DERIVED wall that proves the call set is total instead of a
 maintainer remembering to add the seventh door.
+
+#### One of the four repair doors cannot REACH most of the population count 3 measured (2026-08-11, round-10 fold)
+
+> Answering the round-9 data audit's finding. It is decided entirely by a constant in this tree, it
+> needs no vault query, and it does not make `AC-3` false — every door `AC-3` names still commits for a
+> stored-dirty note, which is the design property the criterion asserts. What it changes is which of
+> those doors can be exercised against the live population, and therefore what the criterion's fixture
+> is honestly proving.
+
+`AC-3` names four repair doors — `update_fields` on an unrelated field, a body-section append,
+`roundtrip_file`, and `lint_vault --fix`. The fourth one walks a corpus with a hole in it, and the hole
+is exactly where the dirt is. Every link read from source this round:
+
+| Link | Source |
+|---|---|
+| `--fix` fixes only what the lint pass found | `lint_vault.py:1100-1103` — `apply_fixes(fixable, …)` where `fixable ⊆ all_issues` |
+| every issue comes from the files `read_vault` returned | `:1069` (`all_files = read_vault(vault_path)`), `:1080-1093` |
+| `read_vault` walks `rglob("*.md")` and DROPS anything `should_skip` matches | `:109-113` |
+| `should_skip` is true if ANY path part is in `SKIP_DIRS` | `:104-106` |
+| `SKIP_DIRS` = `{".obsidian", "Templates", "src", ".trash", "_quarantine", "_merged_dupes"}` | **`lint_vault.py:SKIP_DIRS:57`** |
+
+Against the conductor's count 3 — *79 Tier-1-dirty stored names total, of which 2 live; the 77 others
+in `_merged_dupes/` (61) and `_quarantine/` (16)* — **both archive directory names are members of
+`SKIP_DIRS`**. So `lint_vault --fix` provably never reads 77 of the 79 notes in the population `AC-3`
+exists to keep writable, and the only Tier-1-dirty notes it CAN reach are count 3's two live hits,
+`@+12068523646.md` and `@447950289840.md` — the WI-083 phone-sentinel stubs, which are dirty **by
+design** and carry Finding H's payload-derived exemption (`person.py:1406`).
+
+Three consequences, and only the first touches signed text:
+
+1. **`AC-3`'s `lint_vault --fix` leg must be signed knowing its fixture is SYNTHETIC.** Its live
+   discriminating population is at most two notes that the gate is required to permit anyway, so the
+   fixture is necessarily a constructed tmp-vault note. That is fine and normal — it is not fine
+   *silently*: an oracle that is satisfied identically whether or not the door works on the population
+   it was written for is the WI-235 shape, and it is the same rider the round-9 fold demanded for
+   `AC-2`'s fixture one criterion over. Staged in `## Re-origination Brief` under the `AC-3` item.
+2. **Count 3's "the premise is now historical" reading is scoped TWICE, not once.** Round 8 showed the
+   measurement corpus cannot see path-forked notes because their leaf is `Bob.md` rather than `@*.md`
+   (that became G5). This shows the other half: even for the dirt count 3 DID find, the one repair door
+   `AC-3` names that could clean it is barred from the directories it sits in. "Historical" means *out
+   of the walker's scope*, not *cleaned* and not *reachable*.
+3. **`should_skip` is the right partition for the owed queries, and `SKIP_DIRS` has six members, not
+   two.** G1's hand-written path class names `_merged_dupes/` and `_quarantine/`; a note under
+   `.trash/` or `Templates/` would land in G1's *"neither"* bucket and read as live while no vault
+   walker in this repo will ever touch it. G1 has not run, so this is a free correction, made in
+   `## Grounding Still Owed`; G4 and G5(a) inherit it rather than each carrying a hand-copy.
+
+**What this does NOT say.** It does not weaken the delta rule, whose two surviving legs are arguments
+about the repair tools' PURPOSE and about where the delta lives in the call stack — neither of which
+turns on how many notes a given tool's walker reaches. And it does not remove `lint_vault --fix` from
+the door set: it is D8, it is a routed arm, and a fixture through it is required by `AC-1` regardless.
+
+#### Where the delta LIVES is arm-specific, and at D5 it has no dict form in the frame at all (2026-08-11, round-11 fold)
+
+> Answering the round-10 architectural review's note 1 — the unsigned half of its blocking issue,
+> free to fold in the same round. It is the correction the round-5 fold already wrote for D1b, in the
+> other direction, and it costs one paragraph.
+
+This Finding's own sentence cites `base.py:437`, `writer.py:329` and `:381` for *"the delta only exists
+ONE FRAME ABOVE the seam"*. Those citations name where each frame binds its PARSE of the stored note.
+That is the delta's neighbour, not the delta — and at two arms the two objects are not merely different:
+one of them has no dict form in the frame at all. Every row re-read from source this round:
+
+| Arm | Where the STORED record is bound | Where the INTRODUCED fields are | Merge |
+|---|---|---|---|
+| D4 `update_fields` | `frontmatter` — `base.py:439` | `updates`, the caller's dict, a parameter — `base.py:406` | `frontmatter.update(updates)`, `base.py:451` |
+| **D5 `update_frontmatter_field`** | `frontmatter` — `writer.py:329` | **two loose parameters**, `field_name` and `field_value` (`writer.py:294-295`) — **no dict anywhere in the frame** | `frontmatter[field_name] = field_value`, `writer.py:332` |
+| D6 `update_frontmatter_fields` | `frontmatter` — `writer.py:381` | `updates`, the caller's dict, a parameter — `writer.py:352` | `frontmatter.update(updates)`, `writer.py:384` |
+| D8 `lint_vault --fix` | `fm` — `lint_vault.py:821` | nothing bound: the `elif` branches mutate `fm` in place, which is why threading a delta is item 2 of `## Questions the later spec round still owes` | in place, `:822-875` |
+| D1a | — | `model_to_frontmatter`'s projection IS the whole record (`writer.py:257`) | none — record == delta |
+| D1b / D1c | — | the caller's dict IS the whole record (`writer.py:258-263`) | none — record == delta |
+
+**D5 is the sharpest case in the tree and the review is right to name it.** The gate must be handed
+`{field_name: field_value}`, an object the build has to CONSTRUCT, while `frontmatter` — the stored
+record, the wrong object — sits bound one line above the natural call site at `writer.py:332`. A build
+that reads the Finding C citation as the instruction lands on precisely the object the delta rule exists
+to keep out of the gate. D6 is the same shape with the delta available as a parameter, so it is one
+degree safer and identical in consequence.
+
+**Stated here for the same reason the round-5 fold stated D1b's, and it is the same sentence in the
+other direction:** the citation names where the arm's dict is BOUND; the gate must be handed the fields
+the write INTRODUCES. At D1b that meant reading `fm` at the convergence point rather than the
+`frontmatter` parameter; at D5/D6 it means constructing the delta rather than reaching for the parse.
+The two are the only places in this document where the citation and the instruction come apart, and both
+are now stated.
+
+#### Reachability is THREE partitions, not one — and it is what makes `AC-3`'s door list load-bearing (2026-08-11, round-11 fold)
+
+> Answering the round-10 data audit's finding. It needs no vault query — every partition is a walker in
+> this tree — and it is the reason the `AC-3` repair the round-10 architect asks for is necessary rather
+> than merely tidier.
+
+The subsection above established that `--fix` cannot reach `_merged_dupes/` or `_quarantine/`, where 77
+of count 3's 79 Tier-1-dirty stored names sit, and restated G1's archive class as `should_skip`'s own
+predicate. **`should_skip` is `lint_vault`'s partition. It is not the package's, and it is not the
+repositories'.** Read from source this round, this tree has three independent reachability partitions,
+they bind different arms, and they CROSS:
+
+| Partition | Where | What it excludes | Which arms it binds |
+|---|---|---|---|
+| `should_skip` over `SKIP_DIRS` | `lint_vault.py:should_skip:104-106`; `lint_vault.py:SKIP_DIRS:57` | any path with a part in `{.obsidian, Templates, src, .trash, _quarantine, _merged_dupes}` | **D8** |
+| `glob(file_pattern)` — **NON-RECURSIVE** | `base.py:load:230`, with the default `"@*.md"` at `base.py:file_pattern:195-197` | **everything not at the vault ROOT**, whatever it is named | **D4**, and every Class-2 body writer |
+| none at all | `writer.py:update_frontmatter_field:292-296`, `writer.py:update_frontmatter_fields:350-353`, `writer.py:roundtrip_file:414` | nothing — any path that `.exists()` | **D5, D6, D7** |
+
+Every leg re-derived rather than inherited. `update_fields` resolves its target through `get_file_path`
+(`base.py:427`) → `self._file_map` (`base.py:get_file_path:343-354`), which only `load` populates
+(`base.py:235`) off that non-recursive glob, and raises `ValueError` when the lookup misses (`:429-430`);
+the six body writers reach the same accessor and raise the same way (`person.py:1538-1540`, and at
+`:1657`, `:1725`, `:1788`, `:1854`, `:1928`). D5/D6/D7 take a `Union[str, Path]` and consult no walker at
+all — the only constraint is `.exists()` (`writer.py:320-321`, `:374-375`).
+
+**Mapped onto count 3's population, `AC-3`'s four hand-listed doors have an EMPTY live discriminating
+set.**
+
+| `AC-3`'s named door | Can it write one of the 77 archived dirty notes? | Why |
+|---|---|---|
+| `update_fields` on an unrelated field | **no** | the map is filled by a root-only `glob`, so an archived note is never loaded, `get_file_path` returns `None`, and `base.py:429-430` raises before any write |
+| a body-section append | **no** | same accessor, same map, same raise (`person.py:1538-1540`) |
+| `roundtrip_file` | yes | raw path, no walker — but it INTRODUCES nothing (`writer.py:414-426`), so the delta rule is satisfied by an empty delta and the fixture discriminates nothing |
+| `lint_vault --fix` | **no** | `SKIP_DIRS`, derived in the subsection above |
+
+**And the two arms `AC-3` does NOT name are the only two in the whole eight-arm set through which any of
+those 77 can be written at all.**
+`update_frontmatter_field(Path("<vault>/_merged_dupes/@X.md"), "company", "Acme")` is a legal call today:
+no repository, no glob, no `SKIP_DIRS`, and the note's own `type:` supplies the declaration
+(`writer.py:329`). Under the failure the round-10 architect describes — a build gating the merged record
+rather than the delta at D5/D6 — that call becomes permanently refused, and there is no other door in
+this package through which those notes can be amended or repaired. That is the *remedy-is-the-disease*
+outcome this whole Finding exists to prevent, greenable with `AC-1`, `AC-2` and `AC-4` all satisfied.
+
+**So the two omitted arms are not two more members of a list; they carry the whole of the criterion's
+live subject matter.** Which is also why the repair is a RE-BASING onto `AC-1`'s derived set rather than
+"add D5 and D6 to the list": a hand-list that happened to name the two arms with a live population would
+still exempt the ninth arm by construction — the shape `AC-2` and `AC-4` were re-based to escape, in the
+one criterion that still carries it. Staged in `## Re-origination Brief` under the `AC-3` item, with the
+exclusion set asserted **by equality** as `{D1a, D1b, D1c}` and with its reason stated rather than left
+to a builder: those are the arms whose delta IS the whole record (`writer.py:257`, `:258-263`), where a
+note carrying a stored-dirty name cannot be written without re-introducing it and refusal is the correct
+answer — which `AC-2`'s typed pass already asserts.
+
+**Two consequences that ride with it, named so the re-origination does not have to rediscover them.**
+(1) The fixture population for the WHOLE criterion is **synthetic**, for the reason the round-10 fold
+already booked for the `--fix` leg alone — count 3's two live Tier-1-dirty names are the WI-083 sentinel
+stubs, which the payload rule permits anyway — so that rider now covers `AC-3` end to end and carries a
+stated reason instead of one door's accident. (2) The body-section append stays as a named BEHAVIOURAL
+example rather than as a member: it is a Class-2 pass-through (`## Exploration Notes`, Class 2) and not
+an arm, and the criterion should say so rather than leave the reader to infer it from the arm set's
+silence.
+
+**One non-blocking correction to the numbers, recorded so the next reader does not equate two objects.**
+Count 1 and count 3 were measured with `rglob("@*.md")` (`## Conductor Rulings & Grounding`), a recursion
+`PersonRepository` does not have — its corpus is `glob("@*.md")` at `base.py:230`, root only. This
+changes no ruling: rule (ii) is fail-closed, so count 1 being a SUPERSET of the repository corpus is
+conservative in the safe direction. It matters for count 3, which feeds `AC-3`'s *"the premise is now
+historical"* reading: any dirty note in a subdirectory was counted while no repository door can touch it.
+G1's new depth column (`## Grounding Still Owed`) resolves it as a by-product.
+
+**What this subsection does NOT say.** It does not make `AC-3` false, and it does not weaken the delta
+rule — if anything the D5/D6 reading strengthens it, because those are the arms where a legacy-dirty note
+is genuinely reachable and genuinely brickable. It says the criterion as signed asserts the rule over
+three arms where nothing is at stake and is silent at the two where everything is.
 
 ### Finding D — the consolidation rider is partly false; three jobs, not four copies
 
@@ -664,19 +1147,147 @@ closed enumeration and `bounded_message` refuses any reason outside it; and `cha
 `NameValidationError` cannot even ride `__cause__`.
 
 The resolution has a precedent in the tree: the door converts, and the STABLE PATTERN KEY
-(`"rfc2822_leak"`, `"path_hostile_char"`, …) rides in the `declared_type` slot, which
-`bounded_message` renders verbatim and which a pattern id may legitimately occupy because it is a
-source literal by construction. That is exactly the channel `vault_io._bad_setting` (vault_io.py:88)
-uses to name an environment variable without leaking its value. Consumers keep the routing signal;
-the person's name never reaches a log line.
+(`"rfc2822_leak"`, `"path_hostile_char"`, …) rides in ~~the `declared_type` slot~~ **a dedicated
+`pattern` attribute**, a source literal by construction, so no note content reaches a log line. That is
+the same channel `vault_io._bad_setting` (`vault_io.py:88`) uses to name an environment variable without
+leaking its value. Consumers keep the routing signal; the person's name never reaches a log line.
+*(Correction, round-12 fold — an in-place repair of a contradiction, not a new decision. This paragraph
+carried `declared_type` from round 1 while `## Approach` and `## Carried Forward` have both said
+**dedicated `pattern` attribute, never `declared_type`** since round 3, for a stated reason:
+`base._note_skip` reads `declared_type` straight off the exception and feeds it to `_owns`
+(`base.py:_note_skip:266-274`, `_owns` at `:258-264`), so a pattern id in that slot makes every
+repository disown the note it just refused. Left standing, this section and the design were buildable two
+ways. Note for the spec: `bounded_message`'s keyword set is `path`/`declared_type`/`cause`
+(`errors.py:bounded_message:134-136`), so whether `pattern` also RENDERS into the message is a spec-time
+call on that function's signature; the attribute is the contract either way.)*
+
+**And at D8 the refusal is not observable as an exception at all — the one arm where `except
+LoudFailError` is false today** *(round-12 fold; architect round 11, second leg, confirmed from source by
+data-premise round 11)*. `apply_fixes` wraps its whole per-file body in `try:` (`lint_vault.py:816`) with
+`except Exception as exc: print(f"  Fix error on {fpath.name}: {exc}", file=sys.stderr)` (`:902-903`), and
+that handler sits INSIDE the `for fpath, file_issues in by_file.items()` loop at `:815`. So a
+`LoudFailError` raised by the gate at D8 is swallowed into a stderr line, and `## Approach`'s closing
+claim — *"`except LoudFailError` remains the one idiom for 'this package refused'"* — is false at exactly
+the arm the repair tool lives on. Every sibling frame already carries the correct idiom above its broad
+catch (`writer.py:341-342`, `:393-394`).
+
+**The repair is not `except LoudFailError: raise`, and this is a decision rather than a copy.** Because
+the handler is inside the loop, re-raising aborts the whole `--fix` run on the first refused note —
+3,418 notes' repairs abandoned because one carries a name the gate declines. That is the wrong contract
+for a batch repair tool, and it is not what the sibling frames' idiom means: those are library DOORS with
+one target each, where propagating is the only way to tell the caller. **This item takes the third
+shape**: `apply_fixes` gains a dedicated refusal arm ABOVE the broad one, which records the refusal in a
+structured per-file refusal list (path + the exception's `pattern` attribute, never note content), prints
+a refusal line distinguishable from `Fix error on …`, and CONTINUES to the next file; the function reports
+the refusal count alongside its `fixed` count, and the CLI surfaces it. That keeps the batch semantics,
+makes "did this package refuse?" answerable structurally rather than by scraping stderr, and gives
+`AC-2`'s fourth conjunct something to assert at D8 — a counted, typed refusal record rather than
+`pytest.raises(LoudFailError)` at a tool boundary that has never propagated anything. **The rejected
+alternative is named so the choice is falsifiable:** plain `except LoudFailError: raise`, which is one
+word shorter, matches the siblings literally, and turns one dirty note into a vault-wide repair outage.
+Which of the two `AC-2` means is a difference a fixture can see, so it is staged as one clause on the
+`AC-2` item in `## Re-origination Brief` rather than decided silently here; the design above is this
+fold's recommendation and the brief says so. The edit lands in the same function and the same task as the
+delta threading and the existence guard (`## Questions the later spec round still owes`, item 2).
+
+**And the arm CANNOT filter on `LoudFailError`, because that is the base of the hierarchy and this frame
+already raises four of its subclasses today** *(round-13 fold, architect round 12 blocking, its exhibit
+sized by data-premise round 12; re-derived from source here rather than accepted from the finding)*. The
+round-12 wording above said *"a dedicated `except LoudFailError` arm"*, copying the siblings' idiom
+verbatim. Read against `apply_fixes`'s own per-file `try` (`lint_vault.py:apply_fixes:816-900`), that
+filter catches things the gate had no part in:
+
+| Call inside the per-file `try` | Raises | Where that raise is written |
+|---|---|---|
+| `vault_io.note_lock(fpath)` (`lint_vault.py:819`) | `WriteFailedError` on thread-lock timeout, on `ensure_dir` failure, on `filelock.Timeout`, on `OSError` | `vault_io.py:note_lock:387-388`, `:405-406`, `:416-417`, `:419-420` |
+| `parse_frontmatter(content)` (`:821`) | `FrontmatterParseError` — fence opened and never closed, or YAML `safe_load` refused | `parser.py:parse_frontmatter:96`, `:107` |
+| `vault_io.write_note(...)` (`:882`, `:900`) | `WriteFailedError`, `ExternalWriteConflict`, `NoteAlreadyExists` — the three classes `vault_io`'s door-1 commit path raises | classes declared `errors.py:80`, `:92`, `:98`; the door's own raise sites are `vault_io`'s and are not re-cited here |
+
+Every one is a `LoudFailError` by declaration (`errors.py:LoudFailError:37`; `FrontmatterParseError`
+reaching it through `NoteParseError` at `:57`/`:65`), and **none of them can carry a `pattern`**:
+`bounded_message`'s keyword set is `path`/`declared_type`/`cause` (`errors.py:bounded_message:134-136`)
+and the hierarchy has exactly one constructor (`:47-54`). So the arm as first written would record
+*"the gate declined this note"* — with its one typed field `None` — for a lock timeout, a corrupt
+frontmatter fence, or a failed commit. Two consequences, and the first is why this is not cosmetic:
+
+1. **`AC-2`'s fourth conjunct would lose its discriminating power in the same round it acquired it.** The
+   clause asserts *a counted, typed refusal record at D8*. A fixture that hands `apply_fixes` an issue for
+   a note whose frontmatter fence does not close — no dirty name anywhere — produces exactly that record,
+   from `parser.py:96`, on a build where **no gate call exists at D8 at all**. `AC-1`'s wall cannot rescue
+   it: the wall proves the arm CALLS, PASSES and is placed `in-lock`, never which exception the observable
+   record came from. That is the *control with no discriminating power* shape five ac-red-team rounds and
+   three architectural rounds have closed elsewhere in this set, arriving one last time through a
+   criterion's ORACLE rather than through its quantifier.
+2. **It is also a live diagnostics regression, independent of any fixture.** A lock timeout or a failed
+   commit prints `Fix error on <name>: …` today (`:902-903`); under the wide filter it would print a
+   refusal line instead and be counted as *"the package declined this note"* — a real IO failure moved out
+   of the channel an operator reads for IO failures. `ExternalWriteConflict` names *"an external writer
+   (Obsidian, another process) landed mid-mutation"* in its own docstring (`errors.py:92-95`), which is the
+   ordinary condition of linting a vault that is open, so this is the likeliest of the four to fire rather
+   than the cheapest to plant.
+
+**The repair, decided here on the same authority the record-and-continue shape was: the refusal gets its
+OWN type.** This item adds one class to the hierarchy — `NameGateRefusal(LoudFailError)`, a leaf beside
+its siblings, declaring no `__init__` of its own exactly as `StaleEntityWrite` and `NoteAlreadyExists` do
+not (`errors.py:84-89`, `:98-103`) — and D8's arm catches THAT. **Its parent is `LoudFailError` DIRECTLY
+and never `NoteParseError`**, and that is a requirement rather than a preference: `NoteParseError`'s
+subclasses are what `base._skip_reason` maps to a skip reason (`base.py:_skip_reason:40-46`) and what
+`_note_skip` files into the repository's queryable skip surface (`base.py:266-274`), so a refusal parked
+under it would read as *"this note could not be loaded"* — the note is perfectly loadable; a WRITE was
+declined. The catch becomes exact by construction
+instead of by an attribute probe on a base-class catch, which is a detecting check where a type makes the
+miss impossible; the class already earns its keep on the same ground `StaleEntityWrite` does (the
+distinction is visible to a caller and a caller acts on it); and it costs one source literal in `REASONS`
+(`errors.py:REASONS:110-127`), which this item was already obliged to add (`## Carried Forward`). The
+rejected shape is `except LoudFailError as exc:` with `if getattr(exc, "pattern", None) is None: raise` —
+one line shorter, and it re-derives at runtime what a type states at import.
+
+**The class this closes, stated as one rule over the whole surface rather than as this arm's fix**
+*(WI-226; the generator is **a handler or an oracle discriminating on a SUPERTYPE in a frame that already
+raises other members of it**)*. Swept: the package has seven `except LoudFailError` sites — `writer.py:341`,
+`:393` and five in `person.py` (`:1598`, `:1700`, `:1819`, `:1899`, `:1968`) — and **every one of them
+re-raises**, so its filter width is unobservable. D8's is the first that ABSORBS. Hence the rule, which is
+total over the surface and makes the unenumerated case loud rather than assumed:
+
+> **A handler that RE-RAISES may filter on the hierarchy root; a handler that ABSORBS — records, counts,
+> logs and continues — must filter on the exact refusal type.** The same rule binds the criteria: every
+> oracle that asserts the gate refused names `NameGateRefusal` and its `pattern`, never `LoudFailError`.
+
+The next level down — the artifacts each such assertion names — is swept in the round-13 fold's
+class-shaped fold, together with the one place a new hierarchy member is read by TYPE elsewhere in the
+package (`base.py:_skip_reason:40-46`, whose `isinstance` chain is total with an *"unreadable"* fallback
+and which sits on the LOAD path the gate never reaches).
 
 ### Finding F — the concrete failure this closes
 
-Not hypothetical. `repo.save(Person(name="Dave/Bob"))` → `filename = f"@{name}.md"` (base.py:381) →
-`write_markdown_file` → `vault_io.ensure_dir(file_path.parent)` (writer.py:273), which CREATES
-`<vault>/@Dave/` and writes `Bob.md` inside it. A spurious directory and an invisible note, from a
-name `NameValidator._PATH_HOSTILE_RE` (name_validation.py:95) already knows how to reject and simply
-never sees on this path. This is the AC-2 fixture.
+Not hypothetical, and **no longer only read — EXECUTED** *(round-9 fold; the conductor ran it against a
+throwaway tmp vault, `## Conductor Booking`)*. `repo.save(Person(name="Dave/Bob"))` →
+`filename = f"@{name}.md"` (base.py:381) → `write_markdown_file` → the call SUCCEEDS, and afterwards the
+disk carries four artefacts:
+
+```
+<vault>/@Dave/                                        ← the stray directory
+<vault>/@Dave/.obsidian-schemas-locks/                ← the lock home, created INSIDE it
+<vault>/@Dave/.obsidian-schemas-locks/48bc….lock
+<vault>/@Dave/Bob.md                                  ← the note, path-mangled
+```
+
+A spurious directory and an invisible note, from a name `NameValidator._PATH_HOSTILE_RE`
+(name_validation.py:95) already knows how to reject and simply never sees on this path. This is the
+AC-2 fixture.
+
+**Two corrections the execution forces on the sentence this Finding used to carry.** It named
+`vault_io.ensure_dir(file_path.parent)` (writer.py:273) as the mkdir that creates `<vault>/@Dave/`.
+That call does run, but it is not the FIRST one: `note_lock` (`writer.py:209`) has already `mkdir`ed
+the sentinel's home (`vault_io.py:400`, defaulting to `target.parent` at `:350`) fifty-seven lines
+earlier, which is why the lock debris is inside the stray directory rather than beside it. So (1) the
+promise is unmeetable by any gate at the convergence point, and the fix is the **hoist above
+`note_lock`** Dave ruled in (`## Conductor Preconditions`, precondition 1; derived in Finding B's
+round-9 subsection); and (2) the defect is **not prophylactic** — it succeeds today, so the vault may
+already contain notes and directories of this shape, a population no count run or owed can see. That
+number is query **G5** in `## Grounding Still Owed`, and it bears on `AC-3` rather than on `AC-2`,
+because a note at `<vault>/@X/Y.md` carrying `name: X/Y` is legacy-dirty and, once the gate lands, is
+unrepairable through any door in this package.
 
 ### Finding G — phone write-back is the same defect the mint named only for email
 
@@ -1108,12 +1719,50 @@ into a person.py cleanup:
 3. **`CompanyRepository.create_stub` has no validator at all** and still runs the mangler regex the
    Person side deleted. That is WI-022, already open. This item stays **Person-only**; company names
    have a different contract (a company suffix is legitimate there and is Tier 3 here).
+4. **`roundtrip_file` locks a path it never existence-checks** *(new, round-9 fold; architect round 8
+   note 1)*. `writer.py:414-417` acquires `note_lock` with no guard, unlike its three siblings
+   (`base.py:432-433`, `writer.py:320-321`, `:374-375`), so calling it on a path that does not exist
+   creates the sentinel directory and lock file (`vault_io.py:400`, `:410-414`) and only then fails in
+   `read_note`. Same shape as Finding F's stray directory, one door over. D7 introduces nothing — its
+   gate call is handed an empty delta and cannot refuse *(round-10 correction: this entry read "D7 has
+   no gate call", which contradicted `## Approach` and `AC-1`'s eight-arm floor; routing and guarding
+   are independent facts)* — so this item neither causes nor fixes the unguarded lock. Recorded so the
+   round-9 scoping note is not misread as a claim that D7 is existence-guarded like D4/D5/D6. Candidate
+   follow-on, cheapest as one `if not file_path.exists(): raise FileNotFoundError` matching its
+   siblings — **and that is now the SAME line this item adds to `apply_fixes`** *(round-10 fold,
+   architect round-9 note 1)*, so the follow-on copies a statement already in the tree rather than
+   inventing one. Deliberately still parked: adding it would flip D7's required placement from `above`
+   to `in-lock` in the wall's table, and nothing in this item needs that.
+5. **`Person.whatsapp` is a fourth identifier-bearing field and NOTHING normalizes it** *(new,
+   round-11 fold; found by sweeping the level below this round's class rather than reported by a gate)*.
+   `models.py:Person:83` declares `whatsapp: str = ""`, and `identifier.py` carries a typed parser for
+   exactly that value — `identifier.py:WhatsAppJID.parse:264`, which normalizes through
+   `normalize_phone` at `:272-273` and applies the `Phone.MIN_DIGITS` floor at `:274`. Read from source
+   this round, no path this item routes ever touches it:
+   `_normalize_address_fields` walks `person.emails` and `person.aliases` only
+   (`person.py:1300-1343`), and `_writeback_identifier` sets `updates["emails"]`/`updates["phones"]`
+   only (`person.py:1204-1210`). So the gate's three-field container — `emails[]`, `phones[]`,
+   `aliases[]` — is **not a hand-list with an unnoticed hole**: the fourth candidate exists, is named
+   here, and is genuinely outside, because preserving today's behaviour on a field nothing normalizes
+   is not a regression and a JID is not an RFC 2822 address (Finding D's job partition). A dict arm CAN
+   introduce it — `update_frontmatter_field(path, "whatsapp", "+44 7739 341679")` is legal — and the
+   gate will pass it through unnormalized, exactly as every door does today. **Deliberately parked:**
+   widening the container a fourth time would add an item to Dave's round for a defect this item
+   neither causes nor worsens, and the typed-parser adoption is identity-engine territory (WI-023 /
+   WI-125), not a write-door question. Candidate follow-on; recorded so the next reader does not
+   discover it as a finding.
 
 ### Constraints & dependencies
 
 - **WI-004 is the floor, not the home.** `vault_io` owns the mechanical door; this is the semantic
   layer above it, and it must not put semantics inside that module — doing so would give the one
-  file the routing wall exempts a second reason to exist.
+  file the routing wall exempts a second reason to exist. **And "above" is an ORDERING, not only a
+  layering** *(round-9 fold, per architect round 8's boundaries dimension)*: the mechanical floor
+  touches the filesystem the moment it is entered — `note_lock`'s sentinel `mkdir` at
+  `vault_io.py:400` — so the semantic layer must run BEFORE that floor is entered, not inside it.
+  Both placements are individually right and they composed into "the mechanical door has already
+  touched the filesystem before the semantic door gets to say no". This sentence implied the ordering
+  from the start; Finding B's round-9 subsection is where it is finally stated.
 - **The wall belongs in `tests/derivations.py`.** That module is the only file permitted to name
   `ast` (derivations.py:14-17), and its existing vocabulary — `_is_write_call` at :238,
   `functions_reserializing_parsed_frontmatter` at :294 — is most of the predicate this item needs.
@@ -1131,13 +1780,40 @@ into a person.py cleanup:
   `Phone.key`-vs-`phones_match` question, which this item deliberately does not touch. Worth stating
   because the next reader of WI-023 will find item 4 already done and should not read that as scope
   drift.
-- **Effort:** one to two sessions. **Two** new modules — the gate and the phone leaf — routing at
+- **Effort: RE-DERIVED from current scope, 2026-08-11 (round-11 fold), per architect round 10's
+  non-blocking note — and it is larger than the number this bullet carried.** *"One to two sessions"*
+  was written at round 3, before the phone leaf module (round 5), the subsumption of
+  `_normalize_address_fields` (round 6), the arm-shape split on two cross-field migrations (round 6), the
+  name-identity rule (round 8), the hoist (round 9), the D8 existence guard (round 10) and the wall's
+  growth from a per-arm PREDICATE to a per-arm TRIPLE (rounds 3, 9, 10). Each increment was priced
+  honestly and small in its own round; nobody re-added them, and the estimate is the one number in this
+  document that never moved while its subject did. Re-derived from the scope as it now stands, in units
+  a builder can check rather than one number to be optimistic about:
+
+  | Piece | Size | Note |
+  |---|---|---|
+  | `obsidian_schemas/phone_normalization.py` + re-export + two deferred imports deleted | **small** | two pure functions moved verbatim; verified by `tests/test_repositories.py:1868-1893` staying green UNEDITED |
+  | The gate module: Tier-1 branch-unit reification (Finding H), payload-derived sentinel, splitter on `Email.parse` owning the parens form, three-field container with the arm-shape split, name-identity predicate, phone dedupe-normalized/store-display, `REASONS` literal + `pattern` attribute | **large** | the substance of the item; the reification alone has no table to sweep today |
+  | Routing eight arms + the D3 rider, including the D1 hoist above `note_lock` and D5's CONSTRUCTED delta | **medium** | no new call sites beyond the eight + rider; ~10 moved lines in `write_markdown_file` |
+  | `lint_vault --fix` delta threading + the existence guard | **largest single piece**, unchanged in that ranking across four architectural rounds | the fix loop mutates `fm` in place across its `elif` branches and serializes the whole dict (`lint_vault.py:876-882`), in `scripts/`, outside the package |
+  | The derived wall: the new ARM predicate, plus three per-arm arguments (calls / passes / placement), the planted multi-branch positive control, the near-miss, and the RED consistency leg | **medium-large** | the one genuinely new piece of AST work; the battery shape is copied from `tests/test_write_routing.py:1-18` |
+  | The five AC batteries, now including `AC-3` over five arms with synthetic fixtures | **medium** | `AC-2`/`AC-4` are each two passes over the derived set |
+
+  **Honest total: three to four sessions**, with the `--fix` threading and the wall's third argument the
+  two pieces most likely to overrun. This changes no design decision — it is recorded because carrying a
+  round-3 number past six scope increments is how a plan ships an estimate nobody believes. The pieces
+  below are unchanged and are what the table above prices.
+- **Composition:** **Two** new modules — the gate and the phone leaf — routing at
   **eight arms across six functions** plus one rider at `PersonRepository.save` *(corrected round-7
   fold: two of the previously-counted ten bind no dict and are not arms; taking the architect's shape
   (b) makes the derived set exactly what one stated predicate resolves and REDUCES the work by two
   call sites and a second predicate; **round-8 fold: shape (b′) reduces it again** — declaring the
   gate's name output an identity DELETES a rider obligation rather than adding one, since there is then
-  nothing on that field to write back)*, one derived wall, the splitter consolidation *(which is the
+  nothing on that field to write back; **round-9 fold: the gate-above-`note_lock` hoist adds ten moved
+  lines in one function and one argument to the wall's per-arm assertion — it changes no arm's identity
+  and creates no new call site**; **round-10 fold: making that argument derivable adds ONE statement —
+  the existence guard in `apply_fixes` above `lint_vault.py:819` — in a function the delta threading
+  already opens, and DELETES a clause from the rule rather than adding one**)*, one derived wall, the splitter consolidation *(which is the
   SUBSUMPTION of `_normalize_address_fields`, not a local swap: its inner `_extract_email_and_name`
   becomes the splitter and its two cross-field migrations become entity-arm gate behaviour —
   Finding I)*, and the invariant tests — plus two pieces the gate rounds added and priced: the
@@ -1241,14 +1917,88 @@ resolve the set WITHOUT a hand-list, which is what fixes the arm count at eight.
 > stays a `create_stub`-only behaviour above the write path. Everything else stands: the signature, the
 > splitter ruling, DECLARE, the phone relocation, the arm set, the arm-shape split, and the output
 > contract's *never emit a key the write did not carry* clause, which this narrows rather than replaces.
+>
+> **Amended 2026-08-11 (fold, round 9)** to the round-8 architectural review's blocking issue, the
+> round-8 data audit's confirmation, the conductor's EXECUTION of the scenario (`## Conductor Booking`)
+> and **Dave's ruling on the fork** (`## Conductor Preconditions`, precondition 1). One correction, and
+> it is to WHERE in the frame the gate call sits rather than to which arms carry one. Round 7's D2
+> removal rested on *"`vault_io.ensure_dir` at `writer.py:273` is downstream of the convergence point at
+> `:266`"* — true of the one `ensure_dir` written in `write_markdown_file`'s body, false of the frame:
+> `note_lock` (`writer.py:209`) `mkdir`s the lock sentinel's home (`vault_io.py:400`), which DEFAULTS to
+> the note's own parent (`:350`), before any fm exists. The gate therefore **runs ABOVE `note_lock`** at
+> `write_markdown_file`'s three arms — option (a), Dave's call — and `AC-2`'s *"no stray directory is
+> created"* clause stands as signed and becomes meetable. The hoist is arm-specific: D4/D5/D6/D8 keep
+> their in-lock gate calls, because their frames refuse on a missing target before locking and because
+> D5/D6/D8 read their declaration from the note inside it. Everything else stands: the signature, the
+> splitter ruling, DECLARE, the phone relocation, the eight-arm set and its floor, the arm-shape split,
+> the output contract and the name-identity rule.
+>
+> **Amended 2026-08-11 (fold, round 10)** to the round-9 architectural review's blocking issue and the
+> round-9 data audit's. One correction, and it is to how the placement value is DERIVED rather than to
+> any arm's placement. The round-9 text let an arm be `in-lock` if its frame refuses on the target's
+> non-existence **or** if its *"target is supplied by a walk of notes already read"*. The second
+> disjunct is a property of a CALLER two frames away — `apply_fixes` binds `fpath` from a dict keyed on
+> its `issues` PARAMETER (`lint_vault.py:808-815`) and the walk is `read_vault`'s `rglob` at `:111` — so
+> an AST predicate over the arm's own frame cannot resolve it, D8 fell to the rule's own `above`
+> default, and the same rule requires D8 to stay `in-lock` (its declaration and its delta are parsed
+> inside the lock at `:821`) where it also cannot be hoisted. One pin, two answers, on one arm. The
+> disjunct is **DELETED** and D8 is made DERIVABLE instead — the architect's shape (A): this item gives
+> `apply_fixes` the same existence guard its three siblings already carry, one statement above
+> `note_lock`, so ONE local syntactic rule resolves all four in-lock arms identically and *"DERIVED,
+> not listed"* survives as written. Everything else stands: the hoist, the eight-arm set, DECLARE, the
+> splitter, the phone relocation, the output contract and the name-identity rule.
+>
+> **Amended 2026-08-11 (fold, round 11)** to the round-10 architectural review's note 1 and the round-10
+> data audit's finding. **Nothing in the shape moved and no rule changed** — the whole of the round-10
+> blocking issue lands in signed text (`AC-3`) and is staged in `## Re-origination Brief` rather than
+> repaired here. What changed in this section is one sentence of PRECISION about a rule already written:
+> the gate is handed the fields the write INTRODUCES, and Finding C's `writer.py:329`/`:381` citations
+> name where each frame binds its PARSE — which at D5 is the only dict-shaped object in the frame, while
+> the delta is two loose parameters (`writer.py:294-295`, mutated into the parse at `:332`). The delta
+> rule, the hoist, the eight-arm set, DECLARE, the splitter, the phone relocation, the output contract
+> and the name-identity rule all stand unchanged.
+>
+> **Amended 2026-08-11 (fold, round 12)** to the round-11 architectural review's blocking issue, its two
+> non-blocking notes, and the round-11 data audit's artifact distinction. **No rule of the design moved
+> and no arm changed placement** — the blocking issue is that ONE signed criterion asserts FRAME
+> properties over the set `AC-1` derives for the GATE, which is staged in `## Re-origination Brief`. Three
+> things changed in this section, all of them corrections to text that was already here. (1) The D8
+> refusal is made OBSERVABLE: `apply_fixes`'s per-file `except Exception` (`lint_vault.py:902-903`)
+> swallows a `LoudFailError` into a stderr line, so the closing sentence's *"one idiom"* claim is scoped
+> to package doors and D8 gains a dedicated refusal arm that records and continues rather than aborting
+> the run (Finding E). (2) The D3 rider's write-back sentence said `phones[]` was among the fields
+> `_normalize_address_fields` mutates *"precisely"*; read from source it walks `emails` and `aliases`
+> only (`person.py:_normalize_address_fields:1300-1343`), so the rider ADDS one in-place mutation rather
+> than preserving three. (3) The delta paragraph now records that D4's frame contributes one key of its
+> own. The gate, the splitter, DECLARE, the phone relocation, the eight-arm set, the arm-shape split, the
+> output contract, the name-identity rule and the hoist all stand unchanged.
+>
+> **Amended 2026-08-11 (fold, round 13)** to the round-12 architectural review's blocking issue and the
+> round-12 data audit's sizing of its exhibit. **No rule of the design moved, no arm changed placement,
+> and no criterion changed scope** — the correction is to the MECHANISM round 12 chose for D8's refusal
+> arm, one round after choosing it. That arm was written as `except LoudFailError`, which is the BASE of
+> the hierarchy (`errors.py:LoudFailError:37`) in a frame that already raises four of its subclasses
+> today — `WriteFailedError` from `note_lock` (`lint_vault.py:819`), `FrontmatterParseError` from
+> `parse_frontmatter` (`:821`), and `WriteFailedError`/`ExternalWriteConflict`/`NoteAlreadyExists` from
+> `write_note` (`:882`, `:900`) — none of which can carry a `pattern`, so a corrupt fence or a lock
+> timeout would be recorded as *"the gate declined this note"*, and `AC-2`'s fourth conjunct would be
+> greenable on a build with no gate at D8 at all. **The refusal therefore gets its OWN type**,
+> `NameGateRefusal(LoudFailError)`, and every absorbing handler and every oracle names that type rather
+> than the root (Finding E's round-13 subsection carries the derivation, the rejected attribute-probe
+> shape, and the one rule that closes the class). The gate, the splitter, DECLARE, the phone relocation,
+> the eight-arm set, the arm-shape split, the output contract, the name-identity rule, the hoist and the
+> placement rule all stand unchanged.
 
 Build **one semantic gate** — a single function, in a module of its own next to `errors.py`, that
 takes the fields a write is INTRODUCING plus **a declared entity type it is HANDED**, and returns
 them validated and — on the address fields only — normalized, or refuses. The gate never consults the filesystem: no glob, no path
 shape, no sibling note, and `BaseRepository._owns` is not called anywhere in this design. Six of
 the eight arms already hold the declaration they must pass — the model's own `type` at D1a,
-`self.type_name` at D4 (and at the D3 rider), the note's parsed `type:` at D5/D6, `vf.entity_type` at
-D8, with D7 needing none because it introduces nothing — so this
+`self.type_name` at D4 (and at the D3 rider), the note's parsed `type:` at D5/D6 and at D8
+*(round-10 correction: at D8 that value is `fm.get("type")` from the in-lock parse at
+`lint_vault.py:821`, NOT `vf.entity_type` — `apply_fixes` is handed `issues` and `idx`
+(`lint_vault.py:804-805`) and never the walk's `VaultFile`, so `read_vault`'s `:140` is the same value
+in a frame this one cannot see)*, with D7 needing no declaration because it introduces nothing — so this
 costs no caller change; the remaining cell is a `frontmatter=` or `extra_fields`-only call that
 carries no `type:` key, and **an undeclared write that introduces a `name:` is refused outright**
 (Dave's ruling 2, chosen against a live undeclared population of 0 of 3,418 `@*.md` notes — a
@@ -1302,9 +2052,15 @@ values back onto the entity so the in-place model mutation callers see today is 
 write-back IS the D3 rider**: it is the reason `PersonRepository.save` carries a gate call at all now
 that it is not an arm, no other frame can perform it (the gate returns a dict and never touches the
 model), and it sits explicitly outside the derived set. **The write-back is the IDENTIFIER fields only —
-`emails[]`, `phones[]`, `aliases[]` — and never `name`** *(round-8 fold)*: those are precisely the
-fields `_normalize_address_fields` mutates in place today (`person.py:1317`, `:1343`), and under the
-identity rule the gate returns the name unchanged, so there is nothing on that field to write back. That
+`emails[]`, `phones[]`, `aliases[]` — and never `name`** *(round-8 fold)*: those are ~~precisely~~ **two
+of the fields `_normalize_address_fields` mutates in place today, plus one it does not**
+(`person.emails = new_emails` at `person.py:1317`, `person.aliases = new_aliases` at `:1343`; that
+function walks `emails` and `aliases` ONLY, `:1300-1343`, and never touches `person.phones`), and under
+the identity rule the gate returns the name unchanged, so there is nothing on that field to write back.
+*(Wording corrected round-12 fold, architect round-11 note 1. `phones[]` in the rider is a NEW in-place
+mutation a caller holding a `Person` will observe where it does not today — the behaviour `AC-4` wants,
+and no gate has objected to it, but the consumer audit's blast radius is one FIELD wider than
+*"precisely"* implied, and the audit's grep list is written against this sentence.)* That
 is the whole of what shape (b′) costs the rider — it deletes an obligation rather than adding one, and
 it means no repository override is load-bearing for the path/field agreement: it holds by construction,
 for every entity type, at every arm. The gate is
@@ -1331,13 +2087,64 @@ Route all **eight arms across six functions** through it — `write_markdown_fil
 arms, `update_fields`, `update_frontmatter_field(s)`, `roundtrip_file`, and `lint_vault --fix`, with
 `_writeback_identifier` reaching the set through `update_fields` — plus the one **rider** at
 `PersonRepository.save`, which is not a member and is pinned by its own fixture rather than by the
-wall. Then prove the routing TOTAL with a derived AST wall in `tests/derivations.py`, so
+wall.
+
+**And route them at the right POINT in the frame, not merely somewhere in it** *(round-9 fold, Dave's
+precondition 1; the DERIVATION corrected round-10 fold)*. At `write_markdown_file`'s three arms the fm construction and the gate call are
+**hoisted above `vault_io.note_lock` (`writer.py:209`)**, because that lock's own outermost acquisition
+`mkdir`s the sentinel home (`vault_io.py:400`) at a path that DEFAULTS to the note's own parent
+(`:350`) — so a gate at the convergence point refuses *after* `<vault>/@Dave/` and a `.lock` file are
+already on disk, which the conductor confirmed by execution (`## Conductor Booking`). The hoist is
+legal precisely because of DECLARE: the gate reads only the payload and the handed type, so nothing it
+touches is protected by the lock. It is also arm-specific — **D4, D5, D6 and D8 keep their in-lock gate
+calls** — and the property that says which arms MAY is ONE fact about the arm's own frame: *the frame
+refuses on the target's non-existence above its first `vault_io` mutation call*. Three arms carry that
+guard today (`base.py:432-433`, `writer.py:320-321`, `:374-375`). **D8 does not, and this item adds
+it** *(round-10 fold)*: one `if not fpath.exists(): raise FileNotFoundError(...)` immediately above
+`note_lock` at `lint_vault.py:819`, matching its three siblings statement for statement, in a function
+this item already opens for the delta threading. That is not predicate plumbing — `apply_fixes` binds
+`fpath` from a dict keyed on its `issues` parameter (`lint_vault.py:808-815`) and the walk that found
+those paths ran two frames away in `read_vault` (`:111`, reached from `run_lint:1069`, with
+`apply_fixes` called at `:1100-1103`), so nothing in the frame is evidence the target still exists and
+a note deleted between the two passes gets the sentinel `mkdir` and the `.lock` before `read_note`
+fails. D5/D6/D8 additionally **MUST** stay in-lock, because that is where the dict they judge and the
+declaration they pass are parsed (`writer.py:329`, `:381`; `lint_vault.py:821`). **D7 takes `above`**,
+by the default rather than by a hoist: its frame carries no guard either, and the placement costs
+nothing because its gate call is handed an empty delta (see below). `write_frontmatter`
+stays at the convergence point, so the arm set and `AC-1`'s floor are unchanged by the move.
+
+**D7 routes, and what it passes is EMPTY** *(round-10 fold, resolving a contradiction round 9
+created)*. `roundtrip_file` is one of the eight members of `AC-1`'s floor and `AC-1` requires every
+member to route, so D7 carries a gate call like the rest; what makes it harmless is Finding C's delta
+rule, not an exemption — it re-serializes the note's own parsed frontmatter (`writer.py:418-421`) and
+introduces no field, so the gate is handed an empty mapping, has nothing to judge, can never refuse
+and needs no declaration. That is exactly why `AC-2` and `AC-4` exclude it by equality as *"the one arm
+that introduces no fields"*, and it is why the call is worth writing rather than skipping: the wall's
+per-arm triple stays total, and the ninth arm someone adds next month by copying `roundtrip_file`
+inherits a gate call instead of a hole. Round 9's placement table said *"no gate call at all"* for this
+row, which contradicted this section and `AC-1` both; the row is corrected in Finding B.
+
+Then prove the routing TOTAL with a derived AST wall in `tests/derivations.py`, so
 that the ninth arm someone adds next month, whether a new function or a new branch inside an
 existing one, is red at test time rather than silently unguarded. **The wall must pin what each arm
-PASSES as well as which arms CALL**: the declaration handed to the gate is the one available at that
-arm, **and where none is available that is EXPRESSED rather than defaulted** — without that, wiring
-all eight arms with the type defaulting to `None` greens the routing while every `update_fields` write
-(whose delta carries no `type:` key) escapes the contract permanently. *(Wording aligned with the
+PASSES and WHERE each arm CALLS, as well as which arms call**: the declaration handed to the gate is
+the one available at that arm, **and where none is available that is EXPRESSED rather than defaulted** —
+without that, wiring all eight arms with the type defaulting to `None` greens the routing while every
+`update_fields` write (whose delta carries no `type:` key) escapes the contract permanently — **and the
+gate call's PLACEMENT is derived by ONE local, syntactic rule over the arm's OWN frame: the required
+value is `in-lock` iff that frame refuses on the target's non-existence above its first `vault_io`
+mutation call, `above` otherwise, and `above` is the DEFAULT for any arm the predicate does not
+recognise** *(round-9 fold; the rule's second disjunct — "or whose target is supplied by a walk of
+notes already read" — DELETED round-10 fold, because it asked an AST instrument to certify a fact about
+a caller two frames away and left D8 with two required values at once; D8 now satisfies the one rule,
+by carrying the guard)*. One further leg rides with it, as a RED consistency check rather than as a
+second route to `in-lock`: an arm that passes the gate a value bound inside the lock — D5/D6/D8 parse
+their declaration from the note there (`writer.py:329`, `:381`; `lint_vault.py:821`) — must be
+`in-lock`, so an arm the one rule requires `above` while its gate arguments are bound in-lock is a
+contradiction the wall REPORTS rather than resolves, and the repair is that frame's missing guard, never
+a hoist above the parse that supplies its type. Without that third argument, a build that leaves the D1 gate call at
+`writer.py:266` is indistinguishable from one that hoists it, and `AC-2`'s no-stray-directory clause is
+green in the wall and false on disk. *(Wording aligned with the
 re-origination brief's `AC-1` entry, 2026-08-11 round-6 fold, per architect round-4 note 2: the
 round-3 phrasing "no arm hardcodes a literal or defaults it" is too strong, because two arms
 legitimately have no declaration to pass — `roundtrip_file` (D7), which parses a note it does not
@@ -1346,12 +2153,55 @@ the undeclared cell rule (ii) exists for. Corrected here so `## Approach` and th
 the pin two ways.)*
 
 The gate judges the DELTA, never the stored record, which is what keeps a note writable by the tools
-whose job is to repair it. Refusals convert to a `LoudFailError` carrying the stable NameValidator
+whose job is to repair it. **And WHERE that delta lives is arm-specific, so the object handed to the
+gate is not the object each frame's parse citation names** *(round-11 fold)*: at D4 and D6 it is the
+caller's `updates` dict (`base.py:406`, `writer.py:352`), at D1a/D1b/D1c it IS the whole record, at D7 it
+is empty, at D8 it is what the delta threading must build, and **at D5 there is no dict in the frame at
+all** — `update_frontmatter_field` takes `field_name`/`field_value` as two loose parameters
+(`writer.py:294-295`) and mutates the parsed record with them at `writer.py:332`, so the build must
+CONSTRUCT `{field_name: field_value}` while the stored record sits bound one line above the call site at
+`:329`. Gating the merged record at D5/D6 would make `update_frontmatter_field` permanently refuse every
+note whose stored name is Tier-1 dirty — the remedy-is-the-disease outcome this rule exists to prevent,
+at the two arms where those notes are reachable at all (Finding C's two round-11 subsections). **One
+frame contributes a key the gate is never handed, and the build must know it does** *(round-12 fold,
+architect round-11 note 2)*: on a name change `update_fields` appends the old filename stem to `aliases`
+itself (`base.py:update_fields:443-448`) before merging the caller's `updates` at `:451`, so D4's write
+introduces a value that is not in the delta the design hands the gate. Under the arm-shape split
+`aliases[]` is passed through byte-identical on dict arms, so there is nothing the gate would have done
+differently and no rule changes — it is recorded so the D4 delta is specified as *the caller's `updates`
+dict*, knowingly, rather than as *everything this write introduces*. (The pre-existing ordering bug —
+`updates` carrying its own `aliases` at `:451` overwrites the append at `:448` — is not this item's and
+is not absorbed; it joins the parked list only if a later item needs it.)
+
+Refusals convert to **one new leaf of the loud-fail hierarchy, `NameGateRefusal(LoudFailError)`**
+*(round-13 fold; round 12 said "a `LoudFailError`" and that is one level too wide — see below)*, carrying
+the stable NameValidator
 pattern key on a **dedicated `pattern` attribute** — not in `declared_type`, which `base._note_skip`
-already feeds back into `_owns` (base.py:266-274) — and no note content, so `except LoudFailError`
-remains the one idiom for "this package refused". The refusal's reason literal must be chosen at spec
-time and added to `REASONS`, a closed frozenset of fifteen (`errors.py:110-127`) that
-`bounded_message` refuses any non-member of (`errors.py:139-145`).
+already feeds back into `_owns` (`base.py:_note_skip:266-274`) — and no note content, so **at every
+package DOOR `except LoudFailError` remains the one idiom for "this package refused"** *(scoped round-12
+fold, architect round 11: the unqualified claim was false at D8, where the arm is not a door but a batch
+CLI whose per-file `except Exception` at `lint_vault.py:902-903` swallows it. D8's refusal is made
+observable as a structured, counted refusal record that does not abort the run — Finding E carries the
+shape, the rejected alternative and the `AC-2` consequence)*.
+
+**The new type is what makes that record mean anything, and it is forced rather than chosen**
+*(round-13 fold, architect round 12)*. `LoudFailError` is the hierarchy's base (`errors.py:37`) and
+`apply_fixes`'s per-file `try` already raises four of its subclasses before this item touches the frame
+(`note_lock` at `lint_vault.py:819`, `parse_frontmatter` at `:821`, `write_note` at `:882`/`:900`), none of
+which can carry a `pattern` — `bounded_message`'s keyword set is `path`/`declared_type`/`cause`
+(`errors.py:bounded_message:134-136`) and the hierarchy has exactly one constructor (`:47-54`). A handler
+filtering on the root would therefore record a corrupt frontmatter fence as a gate refusal and move real
+IO failures out of the `Fix error on …` channel. **One rule covers the whole surface**, and it is stated
+that way rather than as this arm's exception: *a handler that RE-RAISES may filter on the hierarchy root —
+which is why the package's seven existing `except LoudFailError` sites (`writer.py:341`, `:393`;
+`person.py:1598`, `:1700`, `:1819`, `:1899`, `:1968`) are all correct as they stand — while a handler that
+ABSORBS must filter on the exact refusal type, and every oracle asserting that the gate refused names
+`NameGateRefusal` and its `pattern` rather than `LoudFailError`.* The new class declares no `__init__` of
+its own, exactly as `StaleEntityWrite` and `NoteAlreadyExists` do not (`errors.py:84-89`, `:98-103`), so
+the message bound holds by construction. The refusal's reason literal must be
+chosen at spec time and added to `REASONS`, a closed frozenset of fifteen
+(`errors.py:REASONS:110-127`) that `bounded_message` refuses any non-member of
+(`errors.py:bounded_message:139-145`).
 
 ## Acceptance Criteria
 
@@ -3627,17 +4477,93 @@ the list is one artifact rather than three verdict notes. Every query below need
 access **outside the spec cage** and all of them can be run in one pass, alongside Dave's
 re-origination. None of them gates the SHAPE of any rule — the shapes are ruled (Dave's rulings 1–3;
 the architect's signature, splitter and DECLARE rulings; the round-5 phone relocation; the round-8
-name-identity rule). They size blast radius and they give build-start re-grounding something that
+name-identity rule; the round-9 gate-above-lock placement). They size blast radius and they give
+build-start re-grounding something that
 detects rot. *(Round-8 note, so the list is not misread as growing under a decision: G4 is added this
 round and it is a SIZING query for a choice already made in the fold, not an input to it — the round-7
 data audit's own reading is that the chosen shape (b′) has a zero live blast radius on the population
 G4 counts, and the shapes it would have priced are the two the fold rejected.)*
 
+> **Round-9 note — one item LEAVES this list by being RUN, and one joins.** The round-8 data audit
+> booked two new items. **G6 — the tmp-vault execution — is DONE**: the conductor ran it and the result
+> is recorded verbatim in `## Conductor Booking`. It settled two things eight reading rounds could not
+> (the N2 bypass completes today; the stray directory is created by `note_lock`'s sentinel `mkdir`, not
+> by `writer.py:273`) and it is the evidence Dave's precondition 1 was decided against. It is listed
+> below as **RUN with its finding** rather than deleted — a discharged query is evidence, and the next
+> reader should not have to reconstruct why it stopped being owed. **G5 joins and is still owed**: it is
+> the live population that same defect has ALREADY created, and unlike every other item on this list it
+> bears on a signed criterion's PREMISE (`AC-3`'s "the legacy-dirt premise is historical") rather than
+> only on blast radius.
+>
+> **Round-10 note — nothing is added, one item is CORRECTED before it runs.** The round-9 data audit's
+> finding was decided in-cage against a constant in this tree and needs no query. Its one consequence
+> here is free: **G1's path class is restated as `should_skip`'s own predicate** rather than as a
+> hand-written two-name list, because `SKIP_DIRS` has six members (`lint_vault.py:SKIP_DIRS:57`) and a
+> note under `.trash/` or `Templates/` would otherwise be reported as live while no walker in this repo
+> can reach it. **G4 and G5(a) inherit the corrected partition** instead of carrying three hand-copies
+> of a wrong one. The list is still four owed queries plus the consumer audit, and none of them gates a
+> shape.
+>
+> **Round-11 note — again nothing is added, and the SAME item is corrected a second time before it
+> runs.** The round-10 data audit found that round 10's correction adopted `lint_vault`'s reachability
+> notion as the package's, and it is not: `should_skip` binds D8, while a NON-RECURSIVE
+> `glob(file_pattern)` (`base.py:load:230`, default at `:195-197`) binds D4 and every Class-2 body
+> writer, and D5/D6/D7 are bound by nothing at all (`writer.py:292-296`, `:350-353`, `:414`). **The two
+> partitions CROSS** — a note at `<vault>/People/@Al.md` is `should_skip`-FALSE and would be reported
+> as live while `PersonRepository` never loads it and `update_fields` raises `ValueError` on it
+> (`base.py:427-430`); a note under `_quarantine/` is `should_skip`-TRUE and reported as archived while
+> `update_frontmatter_field` writes it today. So **G1 gains one more column, not one more query: every
+> bucket additionally split by DEPTH — at the vault root vs. in any subdirectory** — because
+> root-vs-subdirectory is the reachability predicate for D4 and the body pass-throughs exactly as
+> `should_skip` is for D8. **G4 and G5(a) inherit it** as they inherited the last correction; G5(b) asks
+> for `@`-prefixed directories and is unaffected. The column is also what resolves the non-blocking
+> observation that count 1 and count 3 were measured with an `rglob` the repositories do not have
+> (Finding C's round-11 subsection). The list is still four owed queries plus the consumer audit, and
+> none of them gates a shape.
+>
+> **Round-12 note — nothing is added, no query is written, and ONE existing query gains one free
+> column.** The round-11 data audit's finding is decided in-cage from this tree (`note_lock` creates two
+> artifacts with different arities — Finding B's round-12 subsection) except for one empirical half:
+> whether the lock home already exists in the live vault, which decides whether the stray-directory harm
+> at the four in-lock arms is live or is a first-write artifact already spent. **G5(b) answers it on the
+> walk it is already performing** — it opens every `@`-prefixed directory anyway, so adding one
+> `.exists()` at the vault root and one `iterdir` per directory costs no new corpus and no parsing. The
+> list is still four owed queries plus the consumer audit, and none of them gates a shape. **Zero is a
+> measurement here too**: an absent or empty root lock home would mean this package's own doors have
+> never run against this vault, which is worth knowing before `AC-2` is signed against their behaviour.
+>
+> **Round-13 note — nothing is added, no query is written, and the LARGEST query gains a fourth BUCKET
+> because its partition was not total.** The round-12 data audit found that G1 classifies every vault
+> `.md` into (a) frontmatter with `type:`, (b) frontmatter without, (c) no fence — and a note whose fence
+> OPENED and did not parse is none of the three: `parse_frontmatter` raises on it
+> (`parser.py:parse_frontmatter:94-98` unclosed, `:100-108` YAML refused) and returns `({}, content)` only
+> for the genuinely fence-less document at `:79-80`, which IS bucket (c). This repo's own whole-vault
+> walker already needs the fourth state and carries a dedicated field for it (`read_vault`'s broad catch at
+> `lint_vault.py:124-128`, the `parse_error` field at `:96`/`:121`, the second-chance YAML probe at
+> `:131-138`), so a runner implementing G1 as written would either abort the pass on the first such note or
+> copy `read_vault`'s shape and file it silently under (b) or (c). **Rule (ii)'s DIRECTION is unaffected** —
+> it is fail-closed, so an unparseable note reads as undeclared and a larger population is stricter — but
+> every number downstream is: the consumer audit intersects G1, build-start re-grounding re-runs it, and
+> G4 and G5(a) inherit its partition. **G1 therefore gains bucket (d)** — *a fence that opened and did not
+> parse* — reported separately with the same path-class and depth splits its other three carry, and G4 and
+> G5(a) inherit it exactly as they inherited the `should_skip` correction and the depth column. Stated as
+> an implementation obligation rather than a preference: the runner wraps the parse in
+> `except FrontmatterParseError` (`errors.py:65`) and COUNTS, never swallowing into `{}`. **Zero is a
+> measurement in both directions**: an empty (d) says the round-12 conjunct-4 exhibit has no live
+> population and the defect was fixture-only; a non-empty (d) says `--fix` is meeting those notes today.
+> *(One number does NOT transfer, per the same audit: `read_vault` walks `rglob("*.md")` under
+> `should_skip` (`lint_vault.py:111-113`), so a `parse_error` count from a past `lint_vault` run is bucket
+> (d) at `should_skip`-false only and says nothing about the archived class or the depth split — the column
+> is not discharged by an old lint report.)* The list is still four owed queries plus the consumer audit,
+> and none of them gates a shape.
+
 | # | Query | Owed to | What it decides |
 |---|---|---|---|
-| **G1** | **Rule (ii)'s undeclared population, at the rule's own scope.** Over EVERY `.md` file in the vault (not `rglob("@*.md")`): classify as (a) frontmatter carrying `type:` → declared; (b) frontmatter, no `type:` → undeclared; (c) no frontmatter fence → undeclared. Report `\|b\|` and `\|c\|` **separately**, each split by path class (under `@*.md` / under `_merged_dupes/` or `_quarantine/` / neither). Predicate stated in Finding B. | data-premise round 4, Finding 1; supersedes round-1 item 1 and item 4's `@*.md` phrasing | Nothing about the rule's direction — (ii) is fail-closed, so a larger population is stricter, not wronger. It sizes the target set the consumer audit then intersects, and it is the number build-start re-grounding re-runs. |
+| **G1** | **Rule (ii)'s undeclared population, at the rule's own scope.** Over EVERY `.md` file in the vault (not `rglob("@*.md")`): classify as (a) frontmatter carrying `type:` → declared; (b) frontmatter, no `type:` → undeclared; (c) no frontmatter fence → undeclared; **(d) a fence that OPENED and did not parse → undeclared, and reported as its own bucket** *(amended round-13 fold, per data-premise round 12: the three-bucket partition is NOT TOTAL — `parse_frontmatter` RAISES on this input (`parser.py:parse_frontmatter:94-98`, `:100-108`) and returns `({}, content)` only for the genuinely fence-less document at `:79-80` that IS bucket (c), which is why `read_vault` carries a dedicated `parse_error` field beside its `fm` (`lint_vault.py:96`, `:121`, broad catch at `:124-128`). Implementation obligation: wrap the parse in `except FrontmatterParseError` (`errors.py:65`) and COUNT — do not swallow into `{}`, and do not let one such note abort the pass)*. Report `\|b\|`, `\|c\|` and `\|d\|` **separately**, each split by path class — **and the archive class is `should_skip`'s OWN predicate, not a hand-list** *(amended round-10 fold, per data-premise round 9)*: `any(part in SKIP_DIRS for part in rel.parts)` (`lint_vault.py:should_skip:104-106`) over the six-member `SKIP_DIRS` (`:57`), so the three buckets are (under `@*.md` / `should_skip` true / neither) and `.trash/`, `Templates/`, `src/` and `.obsidian/` stop being counted as live. **And every bucket is additionally split by DEPTH — at the vault ROOT vs. in any subdirectory** *(amended round-11 fold, per data-premise round 10)*, because `should_skip` is only `lint_vault`'s partition (it binds D8) while `BaseRepository.load`'s NON-RECURSIVE `glob(self.file_pattern)` (`base.py:load:230`, default `"@*.md"` at `:195-197`) is the reachability predicate for D4 and every Class-2 body writer, and the two CROSS in both directions. Predicate stated in Finding B; the crossing derived in Finding C's round-11 subsection. | data-premise round 4, Finding 1; supersedes round-1 item 1 and item 4's `@*.md` phrasing; path class corrected, data-premise round 9; depth column added, data-premise round 10; bucket (d) added, data-premise round 12 | Nothing about the rule's direction — (ii) is fail-closed, so a larger population is stricter, not wronger. It sizes the target set the consumer audit then intersects, and it is the number build-start re-grounding re-runs. **The depth column additionally decides which of the counted notes any repository door can reach at all**, and it is what reconciles count 1 / count 3 (measured with `rglob`) against `PersonRepository`'s actual corpus (`glob`, root only). **And bucket (d) decides two things nothing else here can.** It makes the partition TOTAL, so the number is a census rather than a sample with an unnamed remainder — and it sizes the live population behind the round-12 conjunct-4 exhibit: those notes die at `parse_frontmatter` (`lint_vault.py:821`) above any gate call D8 would carry, and every one of the five `auto_fixable=True` producers already excludes them (`lint_vault.py:343`, `:359`, `:388`, `:532`, `:598`, with `apply_fixes` filtering to `auto_fixable` at `:810`), so **G1's undeclared count over-states the set that reaches the gate at D8 by exactly this cell** — the same *two partitions that cross* shape as the depth column, one layer lower, and invisible in the output rather than merely uncorrected until the bucket exists. Zero says the exhibit is fixture-only; non-zero says `--fix` meets those notes today. |
 | **G2** | **Finding D reconciliation 2, four cells plus the case cell — reported PER FIELD, plus one deletion column.** Over every stored `emails[]`/`aliases[]` entry, evaluate BOTH `_extract_email_and_name` (`person.py:1286-1298`) and `Email.parse` (`identifier.py:134-160`); report *agree* / *extracted-but-refused* / *not-extracted-but-parsed* / *neither*, plus, within *agree*, how many differ only by CASE. Counts and a sample per cell, **with every cell reported separately for `emails[]` and for `aliases[]`** *(amended round-6 fold, per data-premise round 5)*. **And within the `emails[]` *extracted* cell, how many entries have a non-empty display half whose value is NOT already present in that same note's `aliases[]`** *(amended round-7 fold, per data-premise round 6)*. | data-premise round 4 Finding 2(a); per-field split, data-premise round 5; deletion column, data-premise round 6 | Three things, one pass. The `emails[]` half: whether the splitter consolidation is a refactor or a behaviour change, and how large — non-empty cells 2–3 are a list the spec owes, and a non-empty case cell forces the splitter's return contract to be stated (raw slice vs `Email.parse(...).value`). The `aliases[]` half: the *extracted* cell IS the address-bearing-alias population, which is what Finding I's arm-shape split forks and what `AC-4`'s scoped clause is signed against. **The deletion column:** the dict-arm rule stores the bare address and drops the display half with no destination, and an entry whose display half is already in `aliases[]` loses nothing — so this intersection, not the extracted cell, is the population the fix DELETES, and it is the number `AC-4`'s dict-side clause and `### Examples of done` scenario 3's (a)/(b) choice must be signed against. |
-| **G4** | **The Tier-2 / path-divergence population, two columns** *(new, round-8 fold, per data-premise round 7)*. Over every live `@*.md` note with parseable frontmatter — the same corpus and the same walk count 3 already did — report: **(a)** how many stored `name:` values are Tier-1-CLEAN (`validate_strict` does not raise) but Tier-2-DIRTY (`validate_strict(name) != name`, i.e. a strip or a `\s{2,}` collapse fires), with a sample and a breakdown by which repair fires; and **(b)** how many notes have a filename stem (`path.stem.lstrip("@")`) that differs from the stored `name:` value. | data-premise round 7 | **Neither column gates the chosen shape** — the round-8 fold takes (b′), whose live blast radius on column (a) is zero by construction, so this is booked for the same reason G1 is: it sizes, it does not decide. **(a)** is the population (b′) declines to repair — the notes that keep a Tier-2-dirty stored name on every non-`create_stub` path — and it is the number a future rename-the-file item (parked defect 1) would be scoped against; it is ALSO the number that would have priced (a′)/(c′), so recording it keeps the rejected shapes falsifiable rather than merely rejected. **(b)** is the population where path and field have ALREADY diverged, which forks on its next `save` under every shape including (b′), because this item does not rename files; it is parked defect 1's standing size. Count 3 cannot bound either: Tier 1 RAISES and Tier 2 REWRITES with `_raise_on_tier1` between them (`name_validation.py:288-295`), so every Tier-2-dirty name sits inside count 3's clean 3,339 by construction. **Cheap:** one extra string comparison and one `path.stem` read on a walk already performed once, with no new corpus and no new parsing. |
+| **G4** | **The Tier-2 / path-divergence population, two columns** *(new, round-8 fold, per data-premise round 7)*. Over every live `@*.md` note with parseable frontmatter — the same corpus and the same walk count 3 already did, with **"live" stated as `should_skip(path) is False`** (`lint_vault.py:should_skip:104-106` over `SKIP_DIRS` at `:57`) rather than as a two-name exclusion *(amended round-10 fold; inherits G1's corrected partition, and — round-11 fold — G1's DEPTH split too: report each column additionally split root vs. subdirectory, because column (b)'s path/field divergence forks on the next `save` only for notes a repository can load; and — round-13 fold — **G1's bucket (d)**, i.e. this corpus's own "parseable frontmatter" qualifier is the COMPLEMENT of (d) and must be reported as a count rather than assumed empty)* — report: **(a)** how many stored `name:` values are Tier-1-CLEAN (`validate_strict` does not raise) but Tier-2-DIRTY (`validate_strict(name) != name`, i.e. a strip or a `\s{2,}` collapse fires), with a sample and a breakdown by which repair fires; and **(b)** how many notes have a filename stem (`path.stem.lstrip("@")`) that differs from the stored `name:` value. | data-premise round 7 | **Neither column gates the chosen shape** — the round-8 fold takes (b′), whose live blast radius on column (a) is zero by construction, so this is booked for the same reason G1 is: it sizes, it does not decide. **(a)** is the population (b′) declines to repair — the notes that keep a Tier-2-dirty stored name on every non-`create_stub` path — and it is the number a future rename-the-file item (parked defect 1) would be scoped against; it is ALSO the number that would have priced (a′)/(c′), so recording it keeps the rejected shapes falsifiable rather than merely rejected. **(b)** is the population where path and field have ALREADY diverged, which forks on its next `save` under every shape including (b′), because this item does not rename files; it is parked defect 1's standing size. Count 3 cannot bound either: Tier 1 RAISES and Tier 2 REWRITES with `_raise_on_tier1` between them (`name_validation.py:288-295`), so every Tier-2-dirty name sits inside count 3's clean 3,339 by construction. **Cheap:** one extra string comparison and one `path.stem` read on a walk already performed once, with no new corpus and no new parsing. |
+| **G5** | **The population Finding F's defect has ALREADY created, two parts** *(new, round-9 fold, per data-premise round 8)*. On G1's own walk — every `.md` in the vault, NOT `rglob("@*.md")` — report **(a)** every note whose frontmatter carries a `type:` key but whose path leaf does NOT match `@*.md`, i.e. G1's cell (a) reported BY PATH CLASS — **G1's corrected three-bucket partition, `should_skip` and all** *(amended round-10 fold)*, **and by G1's DEPTH split** *(amended round-11 fold: a correctly-named `@*.md` note that has merely been filed into a folder is invisible to `PersonRepository` for a completely different reason than a path-forked one, and no other owed query counts it)* **and with G1's bucket (d) carried through** *(amended round-13 fold: a path-forked note whose fence does not parse has no legible `type:` and so cannot land in cell (a) at all — report it under (d) rather than dropping it, because it is the same defect's output and the same query's blind spot)* — rather than discarded, broken down by `type:` value, with each note's stored `name:` and whether that name is Tier-1-dirty; and **(b)** a listing of every directory in the vault whose own name begins with `@`, with its contents — **plus, on that same walk, whether `<vault>/.obsidian-schemas-locks/` exists at the vault ROOT and how many `<digest>.lock` files it holds, and the same two numbers for each `@`-prefixed directory the listing finds** *(amended round-12 fold, per data-premise round 11; one `.exists()` and one `iterdir` on a directory the query is already opening — no new corpus, no parsing, no new query)*. **Not person-scoped** — `CompanyRepository` inherits `base.py:381` with no `save` override and no name contract at all, and company names carry `/` far more often than person names do. | data-premise round 8; lock-home column, data-premise round 11 | **The only owed item that touches a signed criterion's PREMISE rather than its blast radius.** `AC-3` was signed against count 3's finding that the legacy-dirty population is 79 total / 2 live, both intentional sentinel stubs — *"the premise is now historical"*. A note at `<vault>/@X/Y.md` carrying `name: X/Y` is legacy-dirty, is structurally invisible to count 1, count 3 and G4 (their walk is `rglob("@*.md")` and the leaf is `Y.md`) and to G1 (such a note IS `type:`-declared, so it lands in G1's discarded cell (a)) — and once the gate lands it is **unrepairable through every door in this package**, because the repair requires setting the name, which is exactly what is refused, and under the round-8 identity rule the package also declines to normalize it. If (a) or (b) is non-empty, `AC-3`'s "historical" reading was concluded from a corpus that excludes the dirt this item's own headline defect produces, and `AC-2`'s directory clause needs its scope stated (the fix declines to CREATE such directories; it does not remove existing ones). **Cheap:** (a) is one extra breakdown on a cell G1 already computes and discards; (b) is one directory listing that parses nothing. **Zero is a measurement, not a default** — `create_stub` has cleaned the dominant inbound path since WI-105, so it may well be zero, but that is the number that makes `AC-3` safe. **And the new lock-home column decides one thing on a DIFFERENT criterion** *(round-12 fold)*: `AC-2`'s directory conjunct is scoped in the brief to `{D1a, D1b, D1c}` on the argument that at the four in-lock arms the parent is an existing note's parent and its lock home is a one-per-directory-ever artifact — a non-empty root lock home confirms that from live data rather than from reading `ensure_dir`, and an ABSENT one says this package's doors have never been run against this vault, which bounds how every other count here may be read. |
+| **G6** | ~~**Execute `repo.save(Person(name="Dave/Bob"))` against a throwaway tmp vault under the DEFAULT lock home and list what is on disk afterwards.**~~ | data-premise round 8, endorsed from architect round 8's arc note | **RUN — by the conductor, result in `## Conductor Booking`.** The call **SUCCEEDED**; disk afterwards carried `<vault>/@Dave/`, `<vault>/@Dave/.obsidian-schemas-locks/`, a `.lock` file inside it, and `<vault>/@Dave/Bob.md`. Two findings beyond the static claim: the N2 bypass is live end-to-end (not merely un-gated in principle), and the stray directory is created by `note_lock`'s `ensure_dir` (`vault_io.py:400`, home defaulting to `target.parent` at `:350`) rather than by `writer.py:273` — so no gate inside `write_markdown_file` can meet `AC-2`'s clause. This is the evidence Dave's precondition 1 (hoist above the lock) was decided against, and it is the LESSONS #42 specimen for this item: one execution settled what eight architectural rounds, five red-team rounds, eight data audits and eight spec-writer rounds all reasoned about and got wrong. |
 | ~~G3~~ | ~~Stored `phones[]` entries normalizing to fewer than seven digits (`identifier.py:228`)~~ | data-premise round 4, Finding 2(b) | **MOOT — the condition it was conditional on did not occur.** The audit scoped it *"conditional on the architect's phone-authority ruling — if the gate is to delegate to `Phone.parse`"*. Round 5 chose the relocation shape instead, so `MIN_DIGITS` never enters the dedupe path and there is no refusal to size (Finding G). Withdrawn on the same terms it was raised. |
 
 **Also owed and NOT a vault query — the consumer audit**, carried unchanged from Constraints and
@@ -3774,6 +4700,88 @@ new this round except where marked. Three tiers, because they have three differe
 > `AC-1` entry's rider clause gains its fixture pin (identifier fields only) plus one control asserting
 > the gate never alters a `name`. **No item was added, no criterion joined the set, and no Tier A
 > sentence moved.** `AC-2`, `AC-3`, `AC-4` and `AC-5` are untouched by this round.
+>
+> **Updated after the round-8 reviews, the conductor's EXECUTION and Dave's ruling (round-9 fold) —
+> still ONE round, still Tier A + Tier B, and this time the list GROWS BY ONE ITEM. I am saying so
+> plainly rather than letting it read as unchanged.** The round-8 architectural review found `AC-2`'s
+> signed *"no stray directory is created"* clause unmeetable by any gate inside `write_markdown_file`;
+> the round-8 data audit confirmed it from source and added its data half; the conductor executed the
+> scenario and confirmed it by artefact (`## Conductor Booking`). **Dave has ruled the fork**
+> (`## Conductor Preconditions`, precondition 1): option (a), the gate runs above `note_lock`, and
+> `AC-2`'s clause **stands as signed**. Net change to Dave's round: `AC-1` gains a THIRD pin beside the
+> pass-what pin and the rider clause — the gate call's placement — and `AC-2` gains a fixture rider
+> (default lock home, snapshot oracle) rather than a wording change. **`AC-3` is the new item**: the
+> defect succeeds today, so the vault may already hold notes this criterion's "historical" premise was
+> concluded without seeing, and that is a scope sentence the criterion should carry deliberately rather
+> than by omission. `AC-4` and `AC-5` remain untouched.
+>
+> **Updated after the round-9 reviews (round-10 fold) — still ONE round, still Tier A + Tier B, still no
+> new criterion, and this time the list does NOT grow: both changes land inside items already on it.**
+> The round-9 architectural review found the placement pin written LAST round self-contradictory on one
+> arm — its second disjunct is a property of a caller two frames away, so the predicate cannot resolve
+> D8 and the pin's own default requires `above` for an arm the same pin requires `in-lock` and which
+> cannot be hoisted. That is a defect in the wording of an obligation Dave is about to sign, not a
+> decision for him, so it is REPAIRED here rather than staged: the disjunct is deleted, the item adds
+> D8's missing existence guard, and the `AC-1` entry below states the pin with one local rule. The
+> round-9 data audit added the other change, inside the `AC-3` item this brief already carries: the one
+> repair door `AC-3` names that could clean count 3's dirt is barred by `SKIP_DIRS`
+> (`lint_vault.py:SKIP_DIRS:57`) from the two directories 77 of those 79 notes sit in, so that leg's
+> fixture is necessarily synthetic and should be signed as such. Net change to Dave's round: `AC-1`'s
+> placement pin reads differently and is now satisfiable; `AC-3` gains one fixture sentence beside the
+> scope sentence it already had. **No item was added, no criterion joined the set**, and `AC-2`, `AC-4`
+> and `AC-5` are untouched by this round.
+>
+> **Updated after the round-10 reviews (round-11 fold) — still ONE round, still Tier A + Tier B, still
+> no new criterion, and the list does NOT grow: the change lands inside the `AC-3` item already on it.**
+> The round-10 architectural review found that `AC-3` — the ONLY criterion pinning Finding C's delta
+> rule — is still specified as the hand-list of four doors it was signed with, which is the exact shape
+> `AC-2` and `AC-4` were re-based onto `AC-1`'s derived set to escape; it omits `update_frontmatter_field`
+> and `update_frontmatter_fields`, the two arms where the record/delta distinction is constructible and
+> where the delta is not a dict in the frame at all. The round-10 data audit confirmed it from source and
+> supplied the fact that makes it urgent rather than tidy: mapped against the three reachability
+> partitions this package actually has, the four doors `AC-3` names have an EMPTY live discriminating
+> population while the two it omits are the only arms in the whole set that can reach the 77 archived
+> Tier-1-dirty notes at all. Net change to Dave's round: **the `AC-3` entry gains a third clause** —
+> re-base its preservation property onto `AC-1`'s derived set, iterated at arm granularity, with the
+> exclusion set asserted by equality as `{D1a, D1b, D1c}` — beside the scope sentence (round 9) and the
+> synthetic-fixture sentence (round 10) it already carries, and that fixture rider now covers the whole
+> criterion with a stated reason rather than one door's accident. **No item was added, no criterion
+> joined the set**, and `AC-1`, `AC-2`, `AC-4` and `AC-5` are untouched by this round.
+>
+> **Updated after the round-11 reviews (round-12 fold) — still ONE round, still Tier A + Tier B, still no
+> new criterion, and the list does NOT grow: the change lands inside the `AC-2` item that has been on it
+> since round 9.** The round-11 architectural review found that `AC-2` conjoins four promises and binds
+> them to all seven arms of `AC-1`'s derived set (typed-pass exclusion `{roundtrip_file}`) — but two of
+> the four are properties of the FRAME, not of the gate, and are false at some of those arms: the *"no
+> stray directory is created"* conjunct is meetable only where the hoist reaches, and the *"the refusal
+> is a `LoudFailError`"* conjunct is false at D8, where `apply_fixes`'s per-file `except Exception`
+> swallows it. The round-11 data audit confirmed both from source and supplied the distinction that
+> decides the repair: `note_lock` creates **two** artifacts with different arities, so at the four in-lock
+> arms the signed conjunct HOLDS and it is the round-9 fixture RIDER — the ambient *"full recursive
+> listing unchanged"* oracle, written in this brief — that is red against a correct build, with its
+> verdict flipping on how the fixture planted its note. Net change to Dave's round: **the `AC-2` entry
+> grows from one rider to a scoping clause, a refusal clause and a replaced oracle**, and the oracle half
+> is REPAIRED here rather than staged, because that rider is this brief's own unsigned text rather than
+> signed text. **No item was added, no criterion joined the set**, and `AC-1`, `AC-3`, `AC-4` and `AC-5`
+> are untouched by this round. This is the last round `round_budget: 12` holds before the re-sign.
+>
+> **Updated after the round-12 reviews (round-13 fold) — still ONE round, still Tier A + Tier B, still no
+> new criterion, and the list does NOT grow: the change is HALF A SENTENCE inside the `AC-2` item's
+> conjunct-4 clause, which round 12 wrote.** The round-12 architectural review found that the D8 refusal
+> arm round 12 designed filters on `except LoudFailError` — the BASE of the hierarchy
+> (`errors.py:LoudFailError:37`) — in a frame that already raises four of its subclasses today, none of
+> which can carry a `pattern`; the round-12 data audit confirmed every leg from source and sized the
+> exhibit (the notes it is drawn from die at `parse_frontmatter`, `lint_vault.py:821`, above any gate call,
+> and all five `auto_fixable=True` producers already exclude them — so the LIVE half of the harm rests on
+> `WriteFailedError`/`ExternalWriteConflict` instead, the ordinary condition of linting an open vault).
+> **The mechanism is repaired in unsigned text** — the refusal gets its own type, `NameGateRefusal`, and
+> the design's absorbing handler and every oracle name it rather than the root (Finding E's round-13
+> subsection, `## Approach`, `## Carried Forward`). What lands HERE is the one clause that is signed: the
+> conjunct-4 obligation must say the record carries **the gate's own `pattern` key**, so a record without
+> one is RED. Net change to Dave's round: half a sentence inside the `AC-2` item that has been on his list
+> since round 9. **No item was added, no criterion joined the set**, and `AC-1`, `AC-3`, `AC-4` and `AC-5`
+> are untouched by this round. **`round_budget: 12` is SPENT on three of the four gates** — see the
+> round-13 fold's re-entry, which books the budget question as a conductor action rather than answering it.
 
 ### Tier A — consequences of Dave's own rulings 1 and 2
 
@@ -3813,7 +4821,10 @@ so this is the one place the brief goes beyond that list; accept or overrule in 
   `type:` key (base.py:403-451) so every `update_fields` write lands in the undeclared cell
   permanently — under rule (ii), refused. **Add:** per arm, the declaration passed is the one
   available at that arm (the model's type at D1a; `self.type_name` at D2/D3/D4; the parsed note's
-  `type:` at D5/D6; `vf.entity_type` at D8), **and where none is available that is EXPRESSED rather
+  `type:` at D5/D6 **and at D8** *(round-10 correction: `fm.get("type")` off the in-lock parse at
+  `lint_vault.py:821` — not `vf.entity_type`, which `apply_fixes` cannot reach; the value is the same
+  string, the binding is not, and the pin is about what the arm PASSES)*), **and where none is
+  available that is EXPRESSED rather
   than defaulted**. The ten-arm floor, the driven positive controls and the near-miss are unchanged.
   *(Wording corrected 2026-08-11, round-5 fold, per architect round-4 note 2 — which flags its own
   round-3 phrasing "no arm hardcodes a literal or defaults it" as too strong: two arms legitimately
@@ -3838,9 +4849,11 @@ so this is the one place the brief goes beyond that list; accept or overrule in 
     least"*, asserted by `(qualname, arm)` exactly as before, with the multi-branch and near-miss
     controls unchanged;
   - `BaseRepository.save` and `PersonRepository.save` are **not members and carry no gate call as
-    arms**; entity-shaped writes are gated at D1a, which is upstream of `vault_io.ensure_dir`
-    (`writer.py:273` vs the convergence at `:266`), so Finding F's no-stray-directory promise is
-    unaffected;
+    arms**; entity-shaped writes are gated at D1a, and Finding F's no-stray-directory promise is
+    carried by the D1 gate call's PLACEMENT rather than by the removal *(corrected round-9 fold: the
+    superseded clause read "upstream of `vault_io.ensure_dir` (`writer.py:273` vs the convergence at
+    `:266`)", which is true of that one `mkdir` and false of the frame — `note_lock` at `writer.py:209`
+    `mkdir`s the sentinel home at `vault_io.py:400` first. See the placement pin below)*;
   - `PersonRepository.save` carries **one gate call as a RIDER** — the entity write-back that keeps
     today's in-place model mutation (`person.py:1317`, `:1343`) observable to callers — which is
     **explicitly outside the derived set** and is pinned by its own named fixture rather than by the
@@ -3869,6 +4882,235 @@ so this is the one place the brief goes beyond that list; accept or overrule in 
   the whole AC consequence of the shape choice — both round-7 gates say so in their own words. The two
   rejected shapes (the rider writing the name back; a gate call above the filename derivation) would
   each have needed G4's column (a) as a price before they could be signed; (b′) does not.
+
+  **And the wall gains a THIRD per-arm argument — the gate call's PLACEMENT** *(NEW, round-9 fold;
+  architect round 8, confirmed by data-premise round 8 and by the conductor's execution; shape ruled by
+  Dave, precondition 1).* `AC-1(a)/(b)/(c)` resolve which arms CALL the gate and the pass-what pin
+  resolves what they PASS. Neither constrains WHERE in the frame the call sits — and that is the
+  property `AC-2`'s no-stray-directory clause actually depends on. `write_markdown_file` takes the note
+  lock as its first action (`writer.py:209`), and `note_lock`'s outermost acquisition `mkdir`s the
+  sentinel's home (`vault_io.py:400`), which defaults to the note's own parent (`vault_io.py:350`,
+  `_configured_lock_dir` returning `None` at `:137-152`) — so a gate at the convergence point refuses
+  fifty-seven lines after `<vault>/@Dave/` exists. The conductor executed it and the debris is on the
+  record (`## Conductor Booking`). **Add, as one clause on the wall's per-arm assertion:**
+  - per arm, the wall asserts the triple **(arm, declaration passed, gate-call placement)**, where
+    placement is `above` — the gate call precedes the frame's first `vault_io` mutation call — or
+    `in-lock`;
+  - the required value is **DERIVED, not listed, by ONE LOCAL rule over the arm's own frame**: it is
+    `in-lock` iff that frame refuses on the target's non-existence above its first such act
+    (`base.py:432-433`, `writer.py:320-321`, `:374-375`, and — added by this item — `apply_fixes`'s own
+    guard above `lint_vault.py:819`), and `above` otherwise. **`above` is the DEFAULT for an arm the
+    predicate does not recognise**, so a ninth arm is RED by omission rather than green by it.
+    *(Restated round-10 fold, per architect round 9. The round-9 wording carried a second disjunct —
+    "or whose target is supplied by a walk of notes already read" — which is a property of a CALLER:
+    `apply_fixes` binds `fpath` from a dict keyed on its `issues` parameter (`lint_vault.py:808-815`)
+    and the walk is `read_vault`'s `rglob` at `:111`, two frames away, so an AST predicate over the arm
+    cannot resolve it. D8 therefore fell to the `above` default while the same pin required it
+    `in-lock`, on an arm that cannot be hoisted — one clause, red against the design it enforces. The
+    disjunct is deleted and D8 is made to satisfy the one rule instead; the guard is one statement in a
+    function this item already edits, and it closes D8's own exposure to the sentinel `mkdir` on a note
+    deleted since the walk.)*
+  - a second leg is asserted as a **RED consistency check, never as an alternative route to
+    `in-lock`**: an arm that passes the gate a value bound inside the lock — D5/D6/D8 parse their
+    declaration from the note there (`writer.py:329`, `:381`; `lint_vault.py:821`) — MUST be `in-lock`,
+    so an arm the one rule requires `above` while its gate arguments are bound in-lock is a
+    contradiction the wall reports, whose repair is that frame's missing guard rather than a hoist;
+  - the `above` set is **`write_markdown_file`'s three arms plus `roundtrip_file`** *(D7 added round-10
+    fold: its frame carries no guard either, so it takes the default; the placement is free because its
+    gate call is handed an empty delta and can never refuse — which is also why `AC-2`/`AC-4` exclude
+    it, and it does NOT make D7 exempt from routing, which `AC-1` requires of every member)*. The hoist
+    changes no arm's identity — the three `write_markdown_file` bindings still converge on one
+    `write_frontmatter` call at `:266`, so the eight-arm floor and its `(qualname, arm)` assertion are
+    untouched.
+
+- **`AC-2` — the no-stray-directory clause STANDS AS SIGNED, and gains a fixture rider.** *(NEW,
+  round-9 fold; Dave's precondition 1 chose option (a) precisely so the clause would not have to
+  narrow.)* No wording change is owed. What IS owed is the discriminating power of the fixture that
+  proves it, and it is not free: with an absolute `OBSIDIAN_SCHEMAS_LOCK_DIR` set, `_sentinel_path`
+  puts the sentinel outside the vault entirely (`vault_io.py:_sentinel_path:349-351`) and no `@Dave/`
+  ever appears — **so a fixture that sets that variable passes against un-hoisted code while production
+  fails**. **Add, as a rider on the clause:** the no-stray-directory fixture runs under the DEFAULT lock
+  home and asserts `OBSIDIAN_SCHEMAS_LOCK_DIR` is unset; and its oracle is derived from what the test
+  itself holds — ~~**snapshot the vault root's full recursive listing immediately before the refused call
+  and assert it is unchanged afterwards**~~ **(struck and replaced below, round-12 fold)** — never "the
+  vault root's only child is X", which asserts a layout the test did not create (WI-149). The conductor's
+  executed scenario is the fixture's shape: `save(Person(name="Dave/Bob"))` against a tmp vault
+  (`## Conductor Booking`).
+
+  **And the clause is signed over seven arms while only three frames can keep it — plus a second
+  conjunct that is false at a fourth arm** *(NEW, round-12 fold; architect round 11 blocking with a
+  second leg, confirmed and sharpened by data-premise round 11, both re-derived from source in Finding
+  B's round-12 subsection).* `AC-2` conjoins **four** promises — *refused*, *target left byte-identical*,
+  *no stray directory is created*, *the refusal is a `LoudFailError` carrying the stable pattern key and
+  no note content* — and binds all four to every arm in `AC-1`'s derived set with the typed-pass
+  exclusion `{roundtrip_file}`: seven arms, D1a/D1b/D1c/D4/D5/D6/D8. Conjuncts 1 and 2 are properties of
+  the GATE and hold. Conjuncts 3 and 4 are properties of the FRAME:
+  - **Conjunct 3 reaches only where the hoist reaches.** Dave's precondition 1 hoists the gate above
+    `note_lock` at `write_markdown_file`'s three arms; at D4/D5/D6/D8 the placement rule REQUIRES
+    `in-lock`, and three of those four cannot be hoisted at all because their declaration is parsed
+    inside the lock (`writer.py:329`, `:381`; `lint_vault.py:821`). By the time the gate speaks there,
+    `note_lock`'s outermost acquisition has already run `ensure_dir(sentinel.parent)`
+    (`vault_io.py:note_lock:398-400`, before the `yield` at `:424`) on a home defaulting to
+    `target.parent` (`:350`, `_configured_lock_dir` returning `None` at `:137-152`) and created the
+    `.lock` (`:407-414`), with no compensating action anywhere (`vault_io.py:ensure_dir:618-638`).
+  - **Conjunct 4 is false at D8.** `apply_fixes` wraps its per-file body in `try:`
+    (`lint_vault.py:apply_fixes:816`) with `except Exception as exc: print(…, file=sys.stderr)` at
+    `:902-903`, INSIDE the loop at `:815`, so a `LoudFailError` from the gate is swallowed into a stderr
+    line. Every sibling frame carries `except LoudFailError: raise` (`writer.py:341-342`, `:393-394`);
+    `apply_fixes` does not, because it predates the gate.
+
+  **Add / replace, as three clauses. The first is the only one that needs a decision from Dave:**
+  - **SCOPE conjunct 3 to `{D1a, D1b, D1c}`, asserted BY EQUALITY, with the reason stated** — those are
+    the arms that bind what they serialize from their own ARGUMENTS rather than from a parse of the
+    target (`writer.py:257`, `:258-261`, `:262-263`), which is why they need no target to exist and are
+    the ones the hoist could reach. D4/D5/D6/D8 keep conjuncts 1, 2 and 4, which is what their frames can
+    actually promise. **This is the same one frame-local predicate `AC-3`'s new exclusion set uses and
+    the placement pin's `above` set is derived from — three criteria, one fact per frame, no
+    inter-procedural analysis.** It is also where the harm actually lives: a genuine stray DIRECTORY
+    needs a path-mangled parent, and the only frame that mints one is `base.py:381`'s filename derivation
+    (Finding F, executed — `## Conductor Booking`). *(The two rejected shapes, recorded so the choice
+    stays falsifiable: keeping the clause total and exempting the lock sentinel from the oracle re-installs
+    a shape proxy in the one oracle written to remove one, and — data-premise round 11 — it must exempt the
+    whole SUBTREE rather than the directory entry, because the per-note `.lock` is the artifact that is
+    always new; and moving the lock home off `target.parent` is precondition 1's already-rejected option
+    (b), a `vault_io`/WI-004 amendment and a different work item.)*
+  - **REPLACE the oracle — repaired here rather than staged, because the struck sentence is this brief's
+    own text.** The ambient *"full recursive listing unchanged"* forbids every artifact, including the
+    ones `note_lock` is required to create before the gate is reached, so it is RED against a correct
+    build at four of seven arms — and its verdict at those arms flips on whether the fixture planted its
+    note through a package door (identical sentinel digest, already in the before-snapshot, green) or
+    with `Path.write_text` (new digest, red), which is a fixture-construction choice with nothing to do
+    with the property. That is LESSONS #35 inside the oracle written to discharge WI-149. **The
+    replacement names the artifacts, each computed from a value the test holds** — and it is what
+    `### Examples of done` scenario 1 already says in Dave's own words (*"the vault contains no new
+    `@Dave/` directory and no `Bob.md` inside one"*): for `save(Person(name="Dave/Bob"))`, assert
+    `<vault>/@Dave` does not exist (which subsumes the lock home and the note inside it) and
+    `<vault>/@Dave.md` does not exist; for a direct `write_markdown_file(target, …)`, assert `target`,
+    `target.parent` (where the test did not create it) and `target.parent/".obsidian-schemas-locks"` do
+    not exist. Under the scoping above, the arms this oracle runs at are exactly the arms that need no
+    plant, so the flip has no precondition left. **Rider on conjunct 2, from the same sweep:** at those
+    three arms the create case has no target for *"left byte-identical"* to refer to, so state it as
+    *"a target that existed is unchanged; a target that did not is not created"* — a fixture sentence,
+    not a promise change.
+  - **STATE what conjunct 4 means at D8**, because a fixture asserting `raises(LoudFailError)` and one
+    asserting a recorded refusal are different criteria and the difference is visible. **This fold's
+    recommendation, with its reasoning in Finding E:** `apply_fixes` gains a dedicated refusal
+    arm above the broad one that records a structured per-file refusal (path plus the
+    exception's `pattern` attribute, never note content), prints a line distinguishable from `Fix error
+    on …`, CONTINUES to the next file, and reports a refusal count beside its `fixed` count — so the
+    criterion asserts a counted, typed refusal record at D8 and a raise at the six door
+    arms. The rejected alternative is plain `except LoudFailError: raise`, which matches the siblings
+    literally and turns one refused note into a vault-wide repair outage, because the handler is inside
+    the per-file loop.
+
+    **And the record must be asserted BY THE GATE'S OWN SIGNAL, which is the half-sentence this clause
+    was missing** *(round-13 fold; architect round 12 blocking, confirmed from source by data-premise
+    round 12)*. *"A counted, typed refusal record"* is satisfiable without the gate: `LoudFailError` is the
+    hierarchy's BASE (`errors.py:LoudFailError:37`) and `apply_fixes`'s per-file `try` already raises four
+    of its subclasses before this item touches the frame — `WriteFailedError` from `note_lock` at
+    `lint_vault.py:819`, `FrontmatterParseError` from `parse_frontmatter` at `:821`, and
+    `WriteFailedError`/`ExternalWriteConflict`/`NoteAlreadyExists` from `write_note` at `:882`/`:900` — so a
+    fixture handing `apply_fixes` an issue for a note whose frontmatter fence does not close produces
+    exactly that record, with `pattern=None`, on a build carrying **no gate call at D8 at all**. `AC-1`'s
+    wall cannot cover for it: the wall proves the arm CALLS, PASSES and sits `in-lock`, never which
+    exception the observable record came from. **So the criterion asserts a refusal record carrying the
+    gate's own `pattern` key — a record without one is RED** — and, since the design now mints
+    `NameGateRefusal(LoudFailError)` for exactly this purpose (unsigned text: Finding E, `## Approach`,
+    `## Carried Forward`), the oracle names that type at all seven arms rather than the root. The near-miss
+    control that makes it discriminating is one line: the same corrupt-fence note produces NO refusal
+    record and still prints `Fix error on …`. *(That last property is also a live diagnostics obligation
+    rather than only a fixture: under a root-level filter a lock timeout or an external-writer conflict —
+    `ExternalWriteConflict` names *"Obsidian, another process"* in its own docstring, `errors.py:92-95`, the
+    ordinary condition of linting an open vault — would be reported as "the package declined this note".)*
+
+  All three clauses sit inside an item already on Dave's list; **the round does not grow**, and the
+  scoping needs no decision beyond accepting on `AC-2` the shape `AC-1` and `AC-3` already carry. It goes
+  in *this* re-origination rather than the next because ac-red-team runs AFTER the re-sign — the argument
+  that held at rounds 9, 10 and 11 — and because the budget holds no twelfth gate round. *(Round-13 fold:
+  the third clause gains the pattern-key half-sentence above. Still one item, still one decision — the
+  conjunct-3 scoping — and the half-sentence is a tightening of an obligation Dave has not yet signed,
+  not a new promise.)*
+
+- **`AC-3` — the "historical" premise was concluded from a corpus that excludes this defect's own
+  output.** *(NEW this round — the one item that grows Dave's list; data-premise round 8, and the
+  conductor's execution is what makes it live rather than theoretical.)* `AC-3` promises a stored-dirty
+  note stays writable for every write that does not set the name, and it was signed against count 3's
+  finding that the legacy-dirty population is 79 total / 2 live, both intentional WI-083 sentinel stubs
+  — i.e. *"the premise is now historical"*. But `repo.save(Person(name="Dave/Bob"))` **succeeds today**
+  (executed, `## Conductor Booking`), and the note it mints sits at `<vault>/@Dave/Bob.md` carrying
+  `name: Dave/Bob`. That note is legacy-dirty and is invisible to every number anyone has run: count 1,
+  count 3 and G4 all walk `rglob("@*.md")` and its leaf is `Bob.md`; G1 misses it by one cell, because
+  it IS `type:`-declared and lands in G1's discarded cell (a). Worse, once the gate lands such a note is
+  **unrepairable through every door in this package** — the repair requires setting the name, which is
+  refused, and under the round-8 identity rule the package declines to normalize it either. **Add to
+  `AC-3`:** a scope sentence stating that the criterion speaks to notes the fix declines to create and
+  to stored-dirty notes it leaves writable, and that pre-existing path-forked notes are neither repaired
+  nor made writable-by-rename by this item. **Sign it against G5's number** (`## Grounding Still Owed`),
+  not against count 3's — G5 is one extra breakdown on G1's own walk plus one directory listing, and it
+  is the only owed query that touches a criterion's premise rather than its blast radius. It may well be
+  zero; zero is a measurement, and it is the measurement that makes the existing wording safe.
+
+  **And one of the four doors this criterion names cannot be exercised against the live population at
+  all** *(NEW, round-10 fold; data-premise round 9, decided from a constant in this tree with no query
+  owed).* `lint_vault --fix` fixes only what the lint pass found, the pass sees only what `read_vault`
+  returned, and `read_vault` drops every path `should_skip` matches (`lint_vault.py:1100-1103`, `:1069`,
+  `:109-113`, `:104-106`) — where `SKIP_DIRS` (`lint_vault.py:SKIP_DIRS:57`) contains both
+  `_merged_dupes` and `_quarantine`, the directories holding **77 of count 3's 79** Tier-1-dirty stored
+  names. The only ones that door can reach are the 2 live hits, which are the WI-083 sentinel stubs and
+  are dirty by design. So the `--fix` leg's fixture is necessarily a SYNTHETIC tmp-vault note. **Add to
+  `AC-3`:** state that leg's fixture as synthetic and say why — an oracle satisfied identically whether
+  or not the door works on the population the criterion was written for is the WI-235 shape, and it is
+  the same rider `AC-2`'s fixture carries one criterion over. This is a fixture sentence, not a promise
+  change: every door `AC-3` names still commits for a stored-dirty note, which is what the criterion
+  asserts. Derivation in Finding C's round-10 subsection.
+
+  **And the door list itself must go — `AC-3` is the last criterion still specified as a hand-list, and
+  the two arms it omits carry the whole of its live subject matter** *(NEW, round-11 fold; architect
+  round 10 blocking, confirmed and sharpened by data-premise round 10, both re-derived from source
+  here).* `AC-3`'s `desc` states its property over four named doors — *"`update_fields` on an unrelated
+  field, a body-section append, `roundtrip_file`, and `lint_vault --fix`"*. That is a hand-list, and it
+  is the shape `AC-4`'s own `why:` was written to close in ac-red-team round 1: a hand-list *"silently
+  exempts the doors it forgot … and exempts the next door by construction"*. `AC-2` and `AC-4` were both
+  re-based onto `AC-1`'s derived set for exactly that reason; `AC-3` never was, because rounds 1–5 of
+  the ac-red-team each recorded it as *"unchanged and still holds"* and the round-3 extent sweep swept
+  its PATTERN extent, never its DOOR extent. Two facts make it live rather than cosmetic:
+  - **The omitted arms are D5 and D6, and they are where the distinction is constructible.** At
+    `update_frontmatter_field` the introduced fields are two loose parameters (`writer.py:294-295`)
+    while the stored record sits bound one line above the natural call site (`:329`, mutated at `:332`),
+    so a build gating the merged record greens `AC-1`'s whole per-arm triple (the arm calls, passes the
+    declaration the table names for it — the note's own `type:` — and is `in-lock` as the placement rule
+    requires), greens `AC-2` (a whole-record gate refuses an introduced dirty name too, and a refusal
+    oracle cannot tell *refused because introduced* from *refused because stored*), greens `AC-4`, and
+    makes `update_frontmatter_field` **permanently refuse every legacy-dirty note**. `AC-3` does not name
+    D5, so nothing asks.
+  - **Those two arms are the ONLY doors in this package that can reach the population `AC-3` is about.**
+    Of count 3's 79 Tier-1-dirty stored names, 77 sit in `_merged_dupes/` and `_quarantine/`. `--fix` is
+    barred by `SKIP_DIRS`; `update_fields` and every body-section append resolve through a root-only
+    `glob` (`base.py:230`, `:195-197`, `:343-354`, raising at `:429-430`; `person.py:1538-1540`) and
+    never load them; `roundtrip_file` reaches them and introduces nothing. D5/D6 consult no walker at
+    all. So the criterion as signed has an empty live discriminating population at every door it names.
+    Derivation in Finding C's second round-11 subsection.
+
+  **Add / replace, and the shape is copied verbatim from two criteria in the same fence:** bind `AC-3`'s
+  preservation property to **`AC-1`'s derived set, iterated at ARM granularity**, with the exclusion set
+  asserted **BY EQUALITY** to be exactly `{write_markdown_file`'s `entity=` arm, its `frontmatter=` arm,
+  its `extra_fields`-only arm`}` — i.e. `{D1a, D1b, D1c}` — **with the reason stated rather than left to
+  a builder**: those are the arms whose delta IS the whole record (`writer.py:257`, `:258-263`), where a
+  note carrying a stored-dirty name cannot be written without re-introducing it and refusal is the
+  correct answer, which `AC-2`'s typed pass already asserts. D4, D5, D6, D7 and D8 remain in. Three
+  riders ride with it:
+  - **the body-section append stays as a named BEHAVIOURAL example, not a member** — it is a Class-2
+    pass-through and not an arm, and the criterion should say so rather than leave it to be inferred;
+  - **the fixture population is SYNTHETIC for the whole criterion**, not only for the `--fix` leg, and
+    for the same stated reason (count 3's two live Tier-1-dirty names are the WI-083 sentinel stubs, which
+    the payload rule permits anyway) — so the round-10 rider above widens rather than being duplicated;
+  - **a ninth arm added later joins `AC-3` automatically**, which is the whole reason `AC-2` and `AC-4`
+    were re-based.
+
+  This is a third clause inside an item already on Dave's list, it needs no decision from him beyond
+  accepting the shape his other two criteria already carry, and **it does not grow the round**. It goes in
+  *this* re-origination rather than the next because ac-red-team runs AFTER the re-sign, one step too
+  late — the same argument that held at round 9.
 - **`AC-2` and `AC-3` — the phone-sentinel exemption.** *(spec-writer round 3, confirmed independently
   by architect round 3; re-derived here as Finding H.)* `create_stub` sets `allow_phone_sentinel`
   from the payload at `person.py:1406-1407` and then calls `self.save(person, …)` at `:1475` — D3,
@@ -4000,6 +5242,32 @@ into the later spec rather than re-derived.
   any non-member (`:139-145`), so the refusal's new reason literal is chosen at SPEC time. The error
   carries the pattern key on a dedicated `pattern` attribute, never in `declared_type`, which
   `base._note_skip` feeds straight back into `_owns` (`base.py:266-274`).
+- **The refusal is its OWN hierarchy leaf — `NameGateRefusal(LoudFailError)` — and an ABSORBING handler
+  must filter on it, never on the root** *(added round 13, on the round-12 architectural review's blocking
+  finding, re-derived from source)*. Forced, not chosen: `LoudFailError` is the base (`errors.py:37`) and
+  `apply_fixes`'s per-file `try` already raises four of its subclasses before this item touches the frame —
+  `WriteFailedError` from `note_lock` (`lint_vault.py:819`; `vault_io.py:note_lock:387-388`, `:405-406`,
+  `:416-417`, `:419-420`), `FrontmatterParseError` from `parse_frontmatter` (`:821`;
+  `parser.py:parse_frontmatter:96`, `:107`), and `WriteFailedError`/`ExternalWriteConflict`/
+  `NoteAlreadyExists` from `write_note` (`:882`, `:900`) — and NONE of them can carry a `pattern`, because
+  `bounded_message`'s keyword set is `path`/`declared_type`/`cause` (`errors.py:bounded_message:134-136`)
+  over the hierarchy's one constructor (`:47-54`). **One rule, total over the surface:** a handler that
+  RE-RAISES may filter on the root — which is why all seven existing sites are correct unedited
+  (`writer.py:341`, `:393`; `person.py:1598`, `:1700`, `:1819`, `:1899`, `:1968`) — while a handler that
+  ABSORBS, and every oracle asserting the gate refused, names `NameGateRefusal` and its `pattern`. The new
+  class declares no `__init__`, exactly as `StaleEntityWrite` (`errors.py:84-89`) and `NoteAlreadyExists`
+  (`:98-103`) do not, so the message bound holds by construction; **its parent is `LoudFailError` directly
+  and never `NoteParseError`**, because that subtree is what `_skip_reason` maps to a skip reason and what
+  `_note_skip` files into the repository skip surface (`base.py:266-274`) — the note is loadable, a write
+  was declined; it costs one `REASONS` literal this item
+  already owed; and `base._skip_reason`'s type dispatch (`base.py:_skip_reason:40-46`) stays total, its
+  new member falling to *"unreadable"* on a LOAD path the write-side gate never reaches. **Its full price
+  is three lines and one paragraph:** the class in `errors.py`, the `REASONS` literal beside it, two lines
+  in `obsidian_schemas/__init__.py` (which imports the hierarchy's nine members at `:46-56` and re-exports
+  them in `__all__` at `:122-131`, so a consumer's `from obsidian_schemas import …` keeps working), and the
+  CLAUDE.md loud-fail note's *"six exported exception classes"* count, which is already stale at nine and
+  is a conductor-committed doc line rather than a builder write. Finding E's round-13 subsection carries the
+  derivation and the rejected attribute-probe shape.
 - **The phone normalization authority relocates to a leaf before the gate exists** *(added round 5)* —
   `obsidian_schemas/phone_normalization.py`, holding `normalize_phone`/`phones_match` verbatim, with
   a compat re-export from `repositories/person.py` and the two deferred imports at
@@ -4036,6 +5304,66 @@ into the later spec rather than re-derived.
   note it just wrote; and `lint_vault --fix`'s `person_missing_name` repair (`lint_vault.py:835-839`),
   which derives the name FROM the path, can no longer emit a name that disagrees with its own file.
   Finding B's round-8 subsection carries the derivation and the two rejected shapes.
+- **The gate runs ABOVE `note_lock` at `write_markdown_file`'s three arms — Dave's ruling, decided
+  against an execution** *(added round 9; `## Conductor Preconditions` precondition 1, on the round-8
+  architectural review's option (A), the round-8 data audit's confirmation and the conductor's run
+  recorded in `## Conductor Booking`)*. Forced, not chosen: `write_markdown_file` takes the note lock as
+  its FIRST action (`writer.py:209`), and `note_lock`'s outermost acquisition `mkdir`s the sentinel's
+  home (`vault_io.py:400`) at a path that DEFAULTS to the note's own parent (`vault_io.py:350`;
+  `_configured_lock_dir` returns `None` unless an absolute `OBSIDIAN_SCHEMAS_LOCK_DIR` is set,
+  `:137-152`), then creates a `.lock` file inside it (`:410-414`) — all before any fm exists. `ensure_dir`
+  carries no compensating action (`:621-624`), so a refusal at the convergence point leaves the debris.
+  The superseded argument — *"`ensure_dir` at `writer.py:273` is downstream of `:266`"* — is true of the
+  one `mkdir` written in that function's body and false of the frame, and it survived eight
+  architectural rounds, five red-team rounds, eight data audits and eight spec-writer rounds because
+  every one of them verified it by READING (LESSONS #42). **The hoist is legal because of DECLARE** —
+  the gate reads only the payload plus the handed type, so nothing it touches is lock-protected — and it
+  is **arm-specific**: D4/D5/D6/D8 keep their in-lock calls, and D5/D6/D8 parse the declaration they
+  pass inside that lock. Three consequences: `AC-2`'s clause stands as signed and becomes meetable; the
+  wall's per-arm assertion gains a placement argument, defaulting to `above`; and the fixture must run
+  under the DEFAULT lock home with a snapshot oracle, or it has no discriminating power. Finding B's
+  round-9 subsection carries the derivation and the whole-set sweep.
+  *(Round-10 correction, architect round 9: which arms may be `in-lock` is decided by ONE property of
+  the arm's OWN frame — it refuses on the target's non-existence above its first `vault_io` mutation
+  call. The superseded clause added "or walks notes already read", which is a property of a caller two
+  frames away (`lint_vault.py:808-815` vs the walk at `:111`) and left D8 required both `above` by
+  default and `in-lock` by parse. **This item adds D8's missing guard** above `lint_vault.py:819`, one
+  statement matching `base.py:432-433` / `writer.py:320-321` / `:374-375`, after which all four in-lock
+  arms resolve by the same local rule; D7 takes `above` by the default, free because its delta is
+  empty. `move_note` (`vault_io.py:move_note:721-750`) joins the enumeration of `vault_io`'s public
+  mutation surface — outside the class, since `quarantine_garbage` derives its destination from the
+  existing filename (`lint_vault.py:1044`), but a lower bound must not be stated as a census.)*
+- **Reachability in this package is THREE partitions, and they CROSS** *(added round 11, on the round-10
+  data audit's finding, re-derived from source)*. `should_skip` over `SKIP_DIRS` (`lint_vault.py:104-106`,
+  `:57`) binds **D8** only; `BaseRepository.load`'s **NON-RECURSIVE** `glob(self.file_pattern)`
+  (`base.py:230`, default `"@*.md"` at `:195-197`) binds **D4** and every Class-2 body writer, via
+  `get_file_path`/`_file_map` (`:343-354`, populated only at `:235`) which raises `ValueError` on a miss
+  (`:429-430`; same accessor and same raise at `person.py:1538-1540`); **D5, D6 and D7** are bound by
+  nothing at all — a `Union[str, Path]` whose only constraint is `.exists()` (`writer.py:292-296`,
+  `:320-321`; `:350-353`, `:374-375`; `:414`). A note at `<vault>/People/@Al.md` is `should_skip`-false
+  and unloadable; a note under `_quarantine/` is `should_skip`-true and writable through D5. Two
+  consequences that are now load-bearing: **D5/D6 are the only arms that can reach the 77 archived
+  Tier-1-dirty notes**, which is why `AC-3`'s door list is a re-origination item rather than a wording
+  nit; and **count 1 / count 3's `rglob("@*.md")` is a recursion the repositories do not have**, so 3,418
+  is a SUPERSET of `PersonRepository`'s corpus — harmless for fail-closed rule (ii), material for
+  `AC-3`'s "historical" reading, and resolved by G1's depth column. Finding C's second round-11
+  subsection carries the derivation.
+- **`note_lock` creates TWO artifacts, with DIFFERENT arities, and a negative assertion must name which**
+  *(added round 12, on the round-11 data audit's finding, re-derived from source)*. The
+  `<parent>/.obsidian-schemas-locks/` DIRECTORY is keyed on the target's PARENT
+  (`vault_io.py:_sentinel_path:350`, `SENTINEL_DIR_NAME` at `:58`) and is **one per directory, ever** —
+  `ensure_dir` is `mkdir(parents=True, exist_ok=True)` (`vault_io.py:ensure_dir:618-638`). The
+  `<sha256(str(target))[:32]>.lock` FILE is keyed on the RESOLVED TARGET (`:348`, `_resolved` at `:376`)
+  and is **one per note, ever**. Nothing in this package removes either (`:621-624`; the conductor's
+  artefact shows both surviving a successful call). Three consequences that are now load-bearing: at the
+  four in-lock arms — where the target must already exist for the frame to reach the gate — a refused
+  write leaves a new FILE and creates a new DIRECTORY only if that parent was never locked, so `AC-2`'s
+  signed directory conjunct HOLDS there and it is the round-9 ambient oracle that goes red; **a genuine
+  stray directory is creatable only at `{D1a, D1b, D1c}`**, because it needs the path-mangled parent
+  `base.py:381` mints; and an oracle that filters `SENTINEL_DIR_NAME` must filter the whole SUBTREE,
+  since the per-note `.lock` inside it is the artifact that is always new. Finding B's round-12
+  subsection carries the derivation and the four-conjunct sweep; the live size of the debris is G5(b)'s
+  new column.
 - **The consumer audit is still owed** and is the largest unstarted piece: the refusal is a breaking
   change for HAL9000, exocortex and orchestrator, all installed with `pip install -e`
   (`docs/backlog-campaign-2026-07-05.md:98`). Rule (ii) sharpens it rather than enlarging it — the
@@ -4060,7 +5388,27 @@ Carried from the round-3 hand-back, with the two this fold answered struck throu
    Threading a per-key record through every branch is the concrete cost. **Narrowed by this fold:**
    the `person_missing_name` branch (`:835-839`) is the one branch that genuinely introduces a name,
    derived from `fpath.stem.lstrip("@")` — so the delta at D8 is small in practice even though the
-   threading is not.
+   threading is not. **Two riders added round-10 fold, both landing in the same edit:** the frame gains
+   the existence guard above `note_lock` (`:819`) that makes its `in-lock` placement derivable, and the
+   declaration the gate is handed is `fm.get("type")` from the in-lock parse at `:821` — `apply_fixes`
+   is handed `issues` and `idx` (`:804-805`) and never the walk's `VaultFile`, so `vf.entity_type` is
+   not reachable from this frame and the earlier citation of it was wrong. **A third rider, added
+   round-12 fold, landing in the same edit:** the frame also gains a dedicated refusal
+   arm above its broad `except Exception` (`:902-903`) that records a structured per-file refusal and
+   continues rather than aborting the run, plus a refusal count reported beside `fixed` — without it the
+   gate's refusal at D8 is a stderr line and `AC-2`'s fourth conjunct has nothing to assert there
+   (Finding E). So this one function takes four changes in one sitting: the existence guard, the delta
+   threading, the gate call, and the refusal arm. **Two corrections to that third rider, round-13 fold.**
+   (a) The arm catches **`NameGateRefusal`**, not `LoudFailError`: this frame already raises four
+   `LoudFailError` subclasses today (`note_lock` at `:819`, `parse_frontmatter` at `:821`, `write_note` at
+   `:882`/`:900`), so a root-level filter would count a corrupt fence or a lock timeout as a gate refusal
+   and would let `AC-2`'s conjunct 4 green on a build with no gate here at all (Finding E's round-13
+   subsection; architect round 12). (b) **Price the change as five lines of INTERFACE, not four of body**
+   *(architect round-12 note 2)*: `apply_fixes` returns `int` (`lint_vault.py:apply_fixes:804-806`,
+   `return fixed` at `:905`), is called at `:1103` and has its value printed as `Fixed {fixed} issues` on
+   the next line (`:1104`), so reporting a refusal count beside it is a signature change on a `scripts/`
+   function and its one call site — decide the shape (a `(fixed, refused)` tuple or a small record) in the
+   same edit rather than after it.
 3. **What happens to `create_stub`'s existing refusal channel** once the same check fires from the
    write path? `NameValidationError` (`name_validation.py:125`) interpolates the offending name into
    its message and is a bare `ValueError` that `chainable_cause` suppresses (`errors.py:212`).
@@ -6728,12 +8076,3493 @@ promise intact, but the call belongs to the re-origination, made against this ex
    (ac-red-team → architect → data-premise → spec-writer). Dave's altitude ruling and the
    booked-not-bought directive continue to bound what rounds may be spent on.
 
+## Spec-Writer Fold — 2026-08-11 (round 9)
 
-## Conductor Precondition Amendment — 2026-08-11 (round-12 budget finding)
+**This round PRODUCED a fold, not a hand-back, and unlike round 8 it made no decision.** Dave made it.
+Both round-8 verdicts target `AC-2` (plus `AC-1`/`AC-3`/`#approach`/`#exploration-notes`), the architect
+scoped its finding as *"direction rather than design"* and offered three shapes, the conductor EXECUTED
+the scenario, and `## Conductor Preconditions` precondition 1 rules **option (a): the gate runs above
+`note_lock`**. What this round owes is the derivation, the scope, and the obligations the move creates —
+all of it in unsigned text I own (`## Approach`, Findings B and F, the parked defects, Constraints,
+`## Grounding Still Owed`, `## Carried Forward`, `## Re-origination Brief`).
 
-`round_budget: 12 → 16`. Rounds 9–12 spent pre-re-sign the four rounds precondition 2 reserved
-for the post-re-sign chain (architect/data-premise/spec-writer all reached 12/12). Dave's
-recorded decision — four fresh rounds per gate for the post-re-sign verification chain — is
-restored by 16, per the round-12 architect's own arithmetic. One of the architect's four will
-verify the round-12 fold (refusal-subclass repair) pre-sign; the reserve is otherwise for
-ac-red-team → architect → data-premise → spec-writer after the re-origination.
+Cold-start, read in role order: `spec-writer.yaml`, this document in full (five ac-red-team rounds, the
+`ac-signoff` fence, eight architectural reviews, eight data audits, eight prior spec-writer rounds,
+`## Conductor Rulings & Grounding`, `## Grounding Still Owed`, the re-origination brief, the conductor's
+booking and preconditions), the project `CLAUDE.md`, then the code every claim below turns on. Every
+citation re-derived from source this round, not inherited: `vault_io.py` (`note_lock`, `_sentinel_path`,
+`_configured_lock_dir`, `_resolved`, `ensure_dir`, `SENTINEL_DIR_NAME`, `record_snapshot`, `write_note`,
+`create_note`), `writer.py` (`write_markdown_file` end to end, both `update_frontmatter_*`,
+`roundtrip_file`), `repositories/base.py` (`save`, `update_fields`), `scripts/lint_vault.py` (the `--fix`
+lock/read/serialize frame). This cage has **no shell**; the live vault was not read — the counts used are
+the conductor's, cited as such, and G6's result is the conductor's execution, cited as such.
+
+### What this round wrote
+
+| Section | Change | Answers |
+|---|---|---|
+| **Finding B** — new subsection *"The gate runs ABOVE `note_lock`, because the frame's first filesystem-visible act is the LOCK's own `mkdir`"* | The eight-row source table (lock taken first at `writer.py:209`; `_resolved` non-strict at `vault_io.py:234-239`; `ensure_dir(sentinel.parent)` at `:400`; the home DEFAULTING to `target.parent` at `:350`; `_configured_lock_dir` → `None` at `:137-152`; `ensure_dir` = `mkdir(parents=True)` with no compensating action at `:618-638`/`:621-624`; the `.lock` file at `:410-414`; `BaseRepository.save` performing no filesystem act in its own frame). The traced scenario, the placement rule, **why DECLARE is what makes the hoist legal**, the mechanical-locality check (nothing between `:209` and `:263` feeds the arms), the seven-row whole-set placement sweep, the wall's third argument, the default-lock-home fixture rider, and D7 as a named parked adjacency. | architect round 8, blocking; data-premise round 8; Dave, precondition 1 |
+| **Finding B** — the D2 bullet | Its refusal leg is REPLACED rather than annotated: the removal now rests on the gate's PLACEMENT, with the superseded `writer.py:273`-is-downstream check quoted and marked false-of-the-frame. The membership ruling is explicitly unaffected. | architect round 8 |
+| **Finding B** — the round-8 subsection's opening | One sentence corrected: its parenthetical re-verification of the refusal leg pointed at the falsified check. Now points forward to the repair; nothing in that subsection turns on it. | contradiction scan |
+| **Finding F** | Rewritten to the EXECUTED evidence — the four artefacts on disk — plus the two corrections the execution forces: the first `mkdir` is `note_lock`'s, not `writer.py:273`'s, and the defect is not prophylactic, so it has a live population (G5) landing on `AC-3`. | data-premise round 8; `## Conductor Booking` |
+| **Parked defects — new item 4** | `roundtrip_file` locks a path it never existence-checks (`writer.py:414-417`), so it can leave the same debris one door over. Out of scope, recorded so the scoping note is not over-read. | architect round 8, note 1 |
+| **`## Approach`** | Round-9 header note; a new paragraph placing the gate above `note_lock` with the arm-specific scoping; the wall paragraph gains the placement argument and says what is green-in-the-wall/false-on-disk without it. | both round-8 gates; Dave |
+| **Constraints** | Effort: the hoist's actual cost (ten moved lines, one wall argument, no new call site). And *"WI-004 is the floor, not the home"* now states the ORDERING it always implied. | architect round 8, boundaries |
+| **`## Grounding Still Owed`** | **G5 added** (two parts, not person-scoped) and **G6 recorded as RUN with its finding** rather than deleted; preamble amended so the list's growth is legible as one in / one out. | data-premise round 8 |
+| **`## Re-origination Brief`** | Header note stating the list GROWS BY ONE and why. `AC-1` gains the placement pin (third per-arm argument, derived with `above` as the default). `AC-2` gains a fixture rider — the clause itself stands as signed per Dave. **`AC-3` is the new item**, to be signed against G5. The falsified `ensure_dir`-downstream sentence inside the `AC-1` entry is corrected in place. | all three |
+| **`## Carried Forward`** | New bullet carrying the gate-above-lock rule, its derivation, why DECLARE makes it legal, its arm-specificity and its three consequences. | all three |
+
+### Two things this round found that the reviews did not have
+
+1. **DECLARE is what makes option (a) available at all, and nobody has said so.** Both round-8 gates
+   argued the hoist on layering and blast-radius grounds. The load-bearing fact is narrower: the gate is
+   a pure function of the payload plus the handed type (Dave's ruling 1 — *"it never consults the
+   filesystem: no glob, no path shape, no sibling note"*), so nothing it reads is protected by the note
+   lock and nothing it decides can change while the lock is held. **A gate that inferred its type from
+   the filesystem would have had to run inside the lock to be sound, and option (a) would not have
+   existed.** Ruling 1 and precondition 1 are the same decision seen twice, six rounds apart — which is
+   also why the hoist costs ten lines rather than a redesign.
+2. **The `OBSIDIAN_SCHEMAS_LOCK_DIR` rider is not a caveat, it is the whole discriminating power of the
+   `AC-2` fixture.** The architect flagged it in one non-blocking sentence. Read against the code it is
+   sharper than that: with an absolute lock home configured, `_sentinel_path` puts the sentinel outside
+   the vault (`vault_io.py:349-351`) and **no `@Dave/` directory appears even with the gate left at
+   `writer.py:266`** — so that fixture is green against the exact defect it exists to catch. It is the
+   WI-235 shape (a check whose oracle is satisfied identically by a correct and an incorrect
+   implementation) arriving through an environment variable rather than through a matcher, and it is why
+   the brief now prescribes the oracle as a before/after snapshot of the vault root rather than as an
+   assertion about a layout the test did not create (WI-149).
+
+### What this round still deliberately did NOT write, and why — unchanged from rounds 4 through 8
+
+**No Design, Edge Cases, Implementation Plan, Write Targets, Verification, or `criteria` refinement.**
+The three reasons are unchanged and none has moved. `AC-1`–`AC-5` remain inside the `ac-signoff` hash
+span (`ac_hash: a76ebad54da2`), and this round adds obligations to three of them — `AC-1`'s placement
+pin, `AC-2`'s fixture rider, `AC-3`'s scope sentence — all inside signed text, which WI-061 routes to
+re-origination rather than refinement. The plan and the criteria are one object: a task-verify text
+pointing at `AC-1`'s wall or `AC-2`'s fixture would have to be rewritten the moment either is re-signed.
+And rule D3 refuses `→ specced` without a data-premise PROMOTE, which the standing verdict is not.
+
+### Class-shaped fold — declared, and still bounded by ruling 3
+
+Per WI-226 the finding in front of me is not "the lock `mkdir`s the parent". The architect named the
+generator and I adopt it verbatim rather than restating it in my own words:
+
+> **The gate sits at the LAST point where the payload's structure is decidable, but the item's promises
+> are about the FIRST point where the write's side effects begin — and those are not the same point.**
+
+Round 8's generator was *a property checked on one of the gate's two output channels*. This is its
+sibling on the other axis: a property checked at one of the frame's two boundaries. Both are consequences
+of the round-6 arm-set correction, and the document now names all three generators in sequence.
+
+**Enumerating what generates it and sweeping the class.** The class is *every filesystem-visible act the
+write path performs, on a path derived from a gate-judged field, between the caller's frame and the arm's
+`write_frontmatter` call*. The architect swept it for D1 and found two members. **I re-derived that sweep
+from source and then swept the next level — every arm, not just D1** — which is the level the rule
+requires and which the architect explicitly did not run:
+
+| Frame | Filesystem-visible acts before its `write_frontmatter` | Reachable on a non-existent path? | Disposition |
+|---|---|---|---|
+| `BaseRepository.save` (D2's frame, above D1) | **none** — binds a filename (`base.py:380-382`) and delegates (`:387-395`); no `mkdir`/`open`/`unlink`/`rename` in `:356-401` | n/a | **CLOSED** — nothing to order against |
+| `write_markdown_file` (D1a/b/c) | `note_lock` (`writer.py:209`) → `ensure_dir(sentinel.parent)` (`vault_io.py:400`) → `.lock` (`:410-414`); then `ensure_dir(file_path.parent)` (`writer.py:273`) | **YES** — no guard; create is its normal case | **CLOSED this round** by the hoist (Dave's option (a)) |
+| `update_fields` (D4) | `note_lock` (`base.py:437`) | no — `FileNotFoundError` at `:432-433` | **HOLDS** — gate stays in-lock |
+| `update_frontmatter_field` (D5) | `note_lock` (`writer.py:327`) | no — raise at `:320-321` | **HOLDS** — and must stay in-lock; declaration parsed at `:329` |
+| `update_frontmatter_fields` (D6) | `note_lock` (`writer.py:379`) | no — raise at `:374-375` | **HOLDS** — same, `:381` |
+| `roundtrip_file` (D7) | `note_lock` (`writer.py:417`) | **yes — unguarded** | **OUT OF SCOPE, PARKED** — no gate call, introduces nothing; parked defect 4 |
+| `lint_vault --fix` (D8) | `note_lock` (`lint_vault.py:819`) | no — `fpath` comes from the walk | **HOLDS** — gate stays in-lock; `fm` parsed at `:821` |
+| the D3 rider | none in its own frame (`person.py:1269-1272`) | n/a | **CLOSED** — already above D1's frame |
+
+**Sweeping the next level and declaring what it found.** The dimensions of this class are the KIND of
+filesystem-visible act. Read from `vault_io`'s own public surface: directory creation (`ensure_dir`, two
+call paths — the sentinel home and the note parent), lock-file creation (`filelock.FileLock.acquire`,
+`vault_io.py:410-414`), note creation and replacement (`create_note` `:701-709`, `write_note` `:670-678`)
+and snapshot registration (`record_snapshot` `:273-281`). Three of the four are downstream of the
+convergence point in every arm. The fourth — lock-file creation — is the one this round closes, and it is
+closed by the same hoist, at the same statement, as the sentinel `mkdir`, because both are performed by
+the one `note_lock` acquisition. `record_snapshot` is not in the class at all: `stat_stamp` is a read and
+`remember_snapshot` writes an in-process registry, not the filesystem. The intersection cell — *an act
+performed on a path derived from a gate-judged field by a frame OTHER than the arm's own* — is
+`BaseRepository.save`, and it is empty by inspection (row 1). **I find no further open member**, and the
+sweep is finite for a structural reason rather than an exhausted one: `vault_io` is the only module
+permitted to name a filesystem-mutation capability (`tests/derivations.py:686`, WI-004 R5), so the class's
+members are exactly the calls into that module's mutation surface, and those are enumerable per frame.
+
+**And here the sweep STOPS**, on Dave's ruling 3. The altitude declaration holds: the AC checking
+machinery is sufficiently specified, and findings of the checking-of-the-checking shape do not block.
+This round's finding is not one of those — it is a promise falsified by an executed artefact, which
+round 3's regress analysis holds outside the ladder and which the architect's round-8 review says so
+explicitly. Its AC consequences land in `AC-1`'s pin set, `AC-2`'s fixture and `AC-3`'s premise — the
+first two inside ruling 3's named set, the third booked as the one growth item and flagged as such.
+This round opens no further rung.
+
+### Contradiction scan — what this round's claims now disagree with
+
+Run over the whole document for every claim added or edited this round.
+
+- **The `ensure_dir`-at-`writer.py:273`-is-downstream check.** It appears in five LIVE places and all
+  five are fixed: Finding B's D2 bullet (replaced), Finding B's round-8 subsection opening (corrected
+  with a forward pointer), Finding F (rewritten to the execution), `## Approach`'s round-7 header note
+  (superseded by the round-9 header note directly beneath it), and the brief's Tier B `AC-1` entry
+  (corrected in place). It also appears inside prior gate sections and prior fold rounds' own records —
+  **those are append-only history and are deliberately NOT edited**; a reader who reaches them reaches
+  the round-9 correction first, because it is in every live section they cite.
+- **`## Approach`'s "eight arms across six functions" and `AC-1`'s floor** — unaffected. The hoist moves
+  a statement inside one function; it creates no branch and destroys none, so the three bindings remain
+  three members. Stated explicitly in the new subsection so a build does not read "hoisted" as "merged".
+- **The round-8 identity rule** — unaffected and, on inspection, complementary. It governs what the gate
+  EMITS; this round governs WHEN it runs. The two close the two halves of the same D2-removal argument,
+  which is why both are stated as consequences of it rather than as independent rulings.
+- **Finding C's delta rule and Finding I's arm-shape split** — unaffected. Neither says anything about
+  placement, and the hoist changes no arm's inputs: the three arms read only parameters
+  (`writer.py:256-263`), which is the check that makes the hoist local.
+- **Finding H's sentinel rule** — unaffected. The exemption is computed from the payload
+  (`person.py:1406`), so it is available above the lock exactly as it is below it.
+- **`### Examples of done` scenario 1** — *"the vault contains no new `@Dave/` directory and no `Bob.md`
+  inside one"*. Its first clause was FALSE under a gate at the convergence point and is TRUE under Dave's
+  option (a), so the scenario needs no re-wording and drops off the list of places the document is
+  buildable two ways. Two remain, unchanged: Tier A's undeclared clause, and scenario 3 versus the
+  arm-shape split. **No new one was created this round.**
+- **`AC-2`'s no-stray-directory clause** — no longer contradicted by the design. What it now needs is a
+  fixture rider, not a re-wording, and that is stated in the brief rather than asserted here.
+- **`AC-3`** — newly in tension, and the tension is with a NUMBER rather than with a design clause: its
+  "historical" premise was concluded from a corpus (`rglob("@*.md")`) that structurally excludes this
+  defect's own output. Booked as the brief's one new item and as G5. I do not claim the population is
+  non-empty; I claim nobody has looked.
+- **Citation-drift note, recorded rather than actioned.** The pre-spawn sweep now resolves nine
+  `identifier.py:MIN_DIGITS` citations naming no symbol, up from seven. Every one sits inside
+  gate-authored prose whose subject IS the slip — architect rounds 5–7 and the data audits of rounds
+  5–7, plus the round-7 and round-8 folds' own contradiction scans. The count grows because each round
+  adds another sentence ABOUT it, not because any live citation regressed; there is still exactly one
+  live `MIN_DIGITS` citation in the document, Finding G's `identifier.py:Phone:228`, which resolves.
+  Confirmed benign for the sixth time. **I introduce no tenth**: this round's new text cites
+  `Phone.parse`'s floor nowhere. Gate sections are theirs, not mine, so no edit is available to me.
+
+### Re-entry — unchanged in order and in length
+
+1. **Dave re-originates `AC-1`–`AC-4` in ONE round** (`AC-5` unchanged), now with: `AC-1`'s floor at
+   eight arms, the pass-what pin, the rider clause with its round-8 fixture pin, **and the round-9
+   placement pin**; `AC-2`'s directory clause standing as signed **plus its default-lock-home fixture
+   rider**; **`AC-3`'s scope sentence on pre-existing path-forked notes**; `AC-4`'s `aliases[]` clause
+   scoped by arm shape with its dict side priced against the deletion; and one yes/no on
+   `### Examples of done` scenario 3, where (b) closes the deletion and (a) does not.
+2. **One shell pass, alongside the re-origination:** **G1**, the twice-amended **G2**, the two columns of
+   **G4**, and the two parts of the new **G5**, plus the consumer audit's two greps. **G6 is DONE** — the
+   conductor ran it and the result is in `## Conductor Booking`. G3 stays withdrawn as moot. None of the
+   four remaining queries gates a shape; all four size, and G5 additionally decides whether `AC-3`'s
+   premise survives.
+3. **ac-red-team → architect → data-premise → spec-writer.** Every architect ruling carries forward and
+   needs no re-derivation: gate signature, splitter, DECLARE, the phone relocation, the output contract,
+   the arm-shape split, the name-identity rule, and now the gate-above-lock placement.
+4. **spec-writer.** With 1–3 done the spec is assembly: `## Carried Forward` plus the routing at eight
+   arms and one rider **with the D1 hoist**, the wall with its three per-arm arguments, the phone
+   relocation, the splitter consolidation and the subsumption, the Tier-1 branch-unit reification, and
+   the `lint_vault --fix` delta threading.
+
+## Architectural Review — 2026-08-11 (round 9)
+
+**Recommendation: REVISE — return to exploration**
+
+**Round 9, cold-start re-spawn.** Read in role order: `architect.yaml`, this document in full (five
+ac-red-team rounds, the `ac-signoff` fence, eight prior architectural reviews, eight data audits, nine
+spec-writer rounds, `## Conductor Rulings & Grounding`, `## Grounding Still Owed`, `## Conductor
+Booking`, `## Conductor Preconditions`, the re-origination brief), then the code every claim below
+turns on (`obsidian_schemas/writer.py`, `vault_io.py`, `repositories/base.py`,
+`scripts/lint_vault.py`), plus the project `CLAUDE.md` and `LESSONS.html`. No shell in this cage; the
+live vault was not read — the counts used are the conductor's, and G6's result is the conductor's
+execution, both cited as such.
+
+**My round-8 blocking issue is CLOSED, by Dave's ruling rather than by my analysis, and the round-9
+fold's derivation of it is correct in every leg I re-read.** The finding below is new, it is a
+consequence of the round-9 fold's own new text, and it is one sentence wide.
+
+### Trigger check
+
+Three fire, unchanged: **two** new modules (the gate and the phone leaf); a contract change crossing
+into three downstream repositories installed with `pip install -e`
+(`docs/backlog-campaign-2026-07-05.md:98`); a derived-wall enforcement mechanism that must be designed
+rather than copied. Effort stated at one to two sessions.
+
+### Round-8's blocking issue — verified closed from source
+
+Re-derived this round rather than accepted from the fold's account of itself. Every row confirms.
+
+| Claim the round-9 fold makes | Where I read it | Result |
+|---|---|---|
+| `write_markdown_file` takes the note lock as its FIRST act, before any fm is built | `writer.py:204`, `:209` (`with vault_io.note_lock(file_path) as resolved:`); arms at `:256-263`; convergence at `:266` | confirmed |
+| the outermost acquisition `ensure_dir`s the sentinel's parent before it yields | `vault_io.py:392-393`, `:398`, `:400`; `yield` at `:424` | confirmed |
+| the sentinel home DEFAULTS to the note's own parent | `vault_io.py:350` (`home = configured if configured is not None else target.parent / SENTINEL_DIR_NAME`), `:137-152` (`default=None`) | confirmed |
+| a `.lock` FILE is created inside it | `vault_io.py:410-414` | confirmed |
+| **the hoist is mechanically local — nothing between `:209` and `:263` feeds the arms** | `writer.py:210` (stamp lookup), `:214-215` (`unverified`), `:226` (`is_create`), `:236-239` (WI-126 read) are all downstream consumers; the arms read only the parameters `entity` / `frontmatter` / `extra_fields` | confirmed — this is the load-bearing check for option (a) and it holds |
+| `BaseRepository.save` performs no filesystem act in its own frame | `base.py:380-382`, `:387-395`; no `mkdir`/`open`/`unlink`/`rename` in `:356-401` | confirmed |
+| D4/D5/D6 refuse on a missing target ABOVE their lock | `base.py:432-433`; `writer.py:320-321`; `writer.py:374-375` | confirmed |
+| D7 locks a path it never existence-checks | `writer.py:414-417` — no guard between `:414` and `:417` | confirmed; correctly parked |
+
+The fold's own two additions the reviews did not have are both right and both matter. **DECLARE is
+what makes option (a) legal** — a gate that consulted the filesystem would have had to run inside the
+lock to be sound — is the sharpest sentence written about this item in three rounds. And the
+`OBSIDIAN_SCHEMAS_LOCK_DIR` rider is correctly upgraded from my one non-blocking sentence to the
+discriminating power of the whole `AC-2` fixture: `vault_io.py:349-351` puts the sentinel outside the
+vault when the variable is set, so that fixture is green against un-hoisted code. The snapshot oracle
+is the right instrument. I add nothing to any of it.
+
+### Blocking issue — the placement pin's required value is DERIVED, but one of its two disjuncts is a property of the CALLER, and the arm it exists for cannot be hoisted
+
+The round-9 fold widens the wall's per-arm assertion from a pair to a triple, and states the required
+placement value as derived rather than listed. Two places carry it, one signed-text-bound:
+
+- `## Approach`: *"the gate call's PLACEMENT is `above` the frame's first `vault_io` mutation call
+  **unless the frame provably cannot reach a non-existent path**, with `above` the default for any arm
+  the predicate does not recognise"*;
+- the brief's Tier B `AC-1` entry, which is the text Dave is being asked to sign: *"the required value
+  is **DERIVED, not listed**: an arm whose frame refuses on the target's non-existence before its first
+  such act (`base.py:432-433`, `writer.py:320-321`, `:374-375`), **or whose target is supplied by a walk
+  of notes already read** (`lint_vault.py:819-821`), may be `in-lock` … Every other arm requires
+  `above`, and `above` is the DEFAULT for an arm the predicate does not recognise."*
+
+**The first disjunct is derivable and the second is not, and they are not the same kind of fact.** Read
+from source: D4, D5 and D6 each carry an explicit refusal on the target's non-existence, in the same
+frame, textually above the `note_lock` call — `base.py:432-433` above `:437`, `writer.py:320-321` above
+`:327`, `:374-375` above `:379`. An AST predicate over the frame resolves all three. **D8 carries no
+such guard.** `apply_fixes` binds `fpath` from `by_file.items()` (`lint_vault.py:815`), and `by_file`
+is keyed on `issue.file_path` off the `issues` PARAMETER (`:808-811`); the walk that guarantees those
+paths exist is `vault_path.rglob("*.md")` at `lint_vault.py:111`, in a different function, reached
+through a list the frame is handed. **Nothing in `apply_fixes` is evidence the target exists.** So the
+same instrument that resolves D4/D5/D6 does not recognise D8, and under the pin's own default clause
+D8's required value is `above`.
+
+**And D8 cannot be hoisted.** Its gate delta is `fm`, parsed at `lint_vault.py:821` from the read at
+`:820` — both inside the lock at `:819` — and its declaration is `vf.entity_type`, which is the note's
+own `type:` (`lint_vault.py:93`, `:148`). Hoisting its gate call above `note_lock` means reading the
+note outside the lock, which is exactly the staleness WI-004 closed and which `writer.py:324-326`
+states as a structural property of these frames. The fold's own sweep table says so in the opposite
+direction — D8's row reads **"in-lock, unchanged"**, and two paragraphs later: *"D5/D6/D8's gate calls
+must STAY inside the lock."*
+
+So one pin, written this round, says both things about D8: it **must** be `in-lock`, and it **requires**
+`above` because the predicate does not recognise it. That is the WI-144 shape — the item is buildable
+two ways — and unlike the four already-known instances it is not staged in the brief for Dave to
+resolve; it is *inside* the clause the brief asks him to sign. The wall it describes is red against the
+design it exists to enforce, on an arm that cannot be moved to make it green.
+
+**Why this is worth a round rather than a booking, which is the opposite of my round-8 disposition.**
+Round 8's finding was correctly BOOKED (`ae05ab7`) because its resolution was a decision only Dave could
+make. This one is not a decision; it is a defect in the wording of an obligation, and the round it
+lands in is Dave's ONE re-origination round. The whole reason `## Re-origination Brief` exists is that
+signed text is expensive to change: if `AC-1` is re-signed carrying a placement pin no build can
+satisfy, the repair is a *second* Dave round, and the gate designed to catch unsatisfiable criteria —
+ac-red-team — runs *after* the re-sign, one step too late to save it. A fold round costs one sentence
+in `## Approach`, one in Finding B's round-9 table, and one bullet in the brief.
+
+**Direction, not design — two shapes, both cheap, and I am not choosing between them:**
+
+- **(A) Make D8 derivable rather than exempt.** One guard in `apply_fixes` — refuse on `fpath`'s
+  non-existence before `note_lock` at `lint_vault.py:819`, the same statement D4/D5/D6 already carry —
+  and the second disjunct is deleted outright. The predicate then has ONE rule, local and syntactic,
+  resolving all four in-lock arms identically, and "DERIVED, not listed" survives as written. This is
+  the shape I would take: it is a one-line change to a script this item already edits for the delta
+  threading, and it also closes D8's own (harmless today, unguarded in principle) exposure to the
+  sentinel `mkdir`.
+- **(B) State the placement table by EQUALITY, using this document's own established idiom.** `AC-2`
+  and `AC-4`'s exclusion sets are enumerated and asserted by equality precisely so that "excluded" is
+  never an implementation's choice; a placement table asserted the same way, with `above` the default
+  for any arm not in it, is fail-closed for the ninth arm and satisfiable for the eighth. It costs the
+  phrase "DERIVED, not listed", which is why I name it second — but it is not the hand-list shape
+  rounds 1–3 punished, because equality assertion is what distinguishes the two.
+
+### Why this is not a new rung of the LESSONS #38 ladder
+
+Stated because ruling 3 makes the distinction load-bearing. I ran no generator sweep and raised no
+altitude. This is not "the wall's unit is too coarse" or "the check needs checking" — it is two clauses
+of ONE pin, written in ONE round, that contradict each other about ONE named arm, verified from source
+in both directions. That is the "the thing is wrong" case round 3's regress analysis holds outside the
+ladder, and its AC consequence lands inside `AC-1`, which is already in ruling 3's named set. The pin
+itself is new this round, so this is not a re-raise of anything.
+
+### Rulings carried forward — settled, do not re-derive
+
+All eight stand, re-checked against the code this round. Nothing above reopens any of them — the
+finding is about how the wall EXPRESSES a placement requirement, not about the placement itself, which
+is Dave's and is correct.
+
+- **Gate signature:** no `existing` parameter; introduced fields plus the entity type; entity arms
+  project through `model_to_frontmatter` first.
+- **Splitter:** TOTAL, returns `(address | None, display)`, owns the parens form before delegating.
+- **DECLARE:** the gate is handed its semantic context and never consults the filesystem; `_owns` is
+  consulted nowhere — re-verified.
+- **The phone authority relocates to a leaf** (`obsidian_schemas/phone_normalization.py`).
+- **The gate's OUTPUT contract and the arm-shape split.**
+- **The eight-arm derived set plus the D3 rider.**
+- **The gate's NAME output is an IDENTITY.**
+- **The gate runs ABOVE `note_lock` at D1a/D1b/D1c** — Dave's precondition 1, derived correctly this
+  round, and unaffected by the finding above.
+
+### Review — only what changed
+
+**Fit / Duplication / Generalization / Prior art:** as rounds 2–8 recorded them. Approach F remains
+right; `tests/test_write_routing.py:1-18` remains the precedent `AC-1`'s battery copies; no cited
+execution is owed on the wall instrument — and the one execution that WAS owed has been run
+(`## Conductor Booking`), which is the single most valuable artefact added to this item.
+
+**Boundaries:** the round-8 layering question is resolved in the right direction. The semantic layer now
+runs before the mechanical floor is entered, which is what *"WI-004 is the floor, not the home"* always
+implied and now states. The residual boundary observation is the finding: the wall is an AST instrument
+over a FRAME, and the pin asks it to certify a fact about a CALLER two frames away.
+
+**Reversibility:** unchanged and good. The hoist is a ten-line move inside one function.
+
+**Determinism boundary (LLM vs code):** n/a for LLMs. The dimension's principle is again what the
+finding turns on — whether a gate call precedes a frame's first side effect is mechanically decidable
+*from that frame* for seven arms and not for the eighth, and the pin does not distinguish the two cases.
+
+**Cost & maintenance:** unchanged at one to two sessions. Shape (A) adds one line to
+`scripts/lint_vault.py` and removes a clause rather than adding one.
+
+**Build vs extend vs integrate:** extend, correctly, with one symbol moving first.
+
+### Notes (non-blocking)
+
+1. **`roundtrip_file` (D7) as parked defect 4 is correctly scoped** (`writer.py:414-417`, verified). If
+   shape (A) is taken, the same one-line guard closes D7 too, at no extra cost — worth one sentence in
+   the parked entry so a later reader knows the fix is shared rather than separate.
+2. **`AC-3`'s new brief item is right and its framing is right.** *"I do not claim the population is
+   non-empty; I claim nobody has looked"* is the correct standard, and G5's construction — one extra
+   breakdown on G1's own walk plus one directory listing — is genuinely cheap. Nothing to add.
+3. **Rounds 1–8's standing notes all carry:** the dedicated `pattern` attribute rather than overloading
+   `declared_type` (`base.py:266-274`); the new `REASONS` literal chosen at spec time (`errors.py:110-127`,
+   `bounded_message` raising on any non-member at `:139-145`); `lint_vault --fix`'s missing delta object;
+   the `book.py`/`meeting.py` `save` overrides that are correctly not arms; and the
+   three-functions-one-shape collapse, still a separate work item and still not recommended for absorption.
+4. **The document remains buildable two ways until Dave re-originates** — Tier A's undeclared clause,
+   `### Examples of done` scenario 3 vs the arm-shape split, and `AC-1`'s floor naming two non-members.
+   Scenario 1's directory clause correctly drops off that list this round. The finding above adds one,
+   and it is the only one not already staged in the brief.
+5. **The `identifier.py:MIN_DIGITS` citations are benign for the seventh time.** The pre-spawn sweep now
+   resolves nine; every one sits inside gate-authored prose whose subject IS the slip. Exactly one live
+   citation exists — Finding G's `identifier.py:Phone:228` — and it resolves. **I introduce no tenth**:
+   this round cites `Phone.parse`'s floor nowhere.
+
+### Arc note — convergence, and the shortest path to no round 10
+
+Nine rounds, nine distinct targets, none re-raised: Company annexation (1) → structural sharpening plus
+the missing Tier-1 table (2) → DECLARE plus the `AC-1` pass-what gap (3) → the phone authority (4) →
+the `aliases[]` migration's expressibility (5) → the door set's membership rule (6) → the filename bound
+above the set (7) → the directory created before the set can refuse (8) → the placement pin's own
+derivability (9). Round 8's target is closed and verified from source above.
+
+This is the tail of the same class rounds 7 and 8 belong to, and it is the last member: rounds 7, 8 and
+9 are all consequences of the round-6 arm-set correction, and this one is not about a new side effect —
+the fold's own sweep closed that enumeration structurally (`vault_io` is the only module permitted to
+name a filesystem-mutation capability, `tests/derivations.py:686`) and I re-read it and agree. It is
+about the ENFORCEMENT of the rule the sweep produced, which is the last unexamined half of round 8's
+answer.
+
+**What makes round 10 unnecessary rather than merely shorter:** the fix is one sentence and needs no
+decision from Dave — take (A), delete the second disjunct, and the pin has one local rule. The queued
+order does not lengthen and does not reorder: fold, then Dave re-originates `AC-1`–`AC-4` in ONE round,
+then one shell pass runs G1/G2/G4/G5 plus the consumer audit's greps, then ac-red-team → architect →
+data-premise → spec-writer. Three of the four rounds `round_budget: 12` reserved for the post-re-sign
+chain remain, which is what they were reserved for.
+
+```verdict
+gate: architect
+verdict: REVISE
+date: 2026-08-11
+model: claude-opus-5
+targets: AC-1, #approach, #exploration-notes
+note: Round 8's finding is closed and every leg of the gate-above-lock derivation re-derives from source (note_lock first at writer.py:209; ensure_dir(sentinel.parent) at vault_io.py:400 with the home defaulting to target.parent at :350; the three arms read only parameters, so the hoist is local) — but the placement pin this round adds to AC-1 is self-contradictory on D8: its second disjunct ("target supplied by a walk of notes already read") is a property of a CALLER two frames away (`fpath` comes from the `issues` parameter at lint_vault.py:808-815; the walk is at :111), so an AST predicate over `apply_fixes` cannot resolve it and the pin's own default makes D8 require `above`, while the same pin says D8 must stay in-lock and D8 cannot be hoisted (its `fm` is parsed at :821 inside the lock at :819, and hoisting means reading outside the lock, the staleness WI-004 closed) — one clause Dave is about to sign, red against the design it enforces, fixed either by giving `apply_fixes` the same existence guard D4/D5/D6 carry or by asserting the placement table by equality as AC-2/AC-4's exclusion sets already are.
+```
+
+## Data Audit — 2026-08-11
+
+**Recommendation: REVISE — return to exploration**
+
+**Round 9, cold-start re-spawn.** Read in role order: `data-premise.yaml`, this document in full (five
+ac-red-team rounds, the `ac-signoff` fence, nine architectural reviews, eight prior data audits, nine
+spec-writer rounds, `## Conductor Rulings & Grounding`, `## Grounding Still Owed`, `## Conductor
+Booking`, `## Conductor Preconditions`, the re-origination brief), then the code every premise below
+turns on. Same method bound as every prior round: **no shell — this spawn has no Bash tool — scope
+limited to this tree's files, and the live vault was not read.** Vault counts used are the
+conductor's, cited as such; G6's result is the conductor's execution, cited as such.
+
+**One thing is different this round, and it is why this section is not a reprint of round 8.** My
+round-6, -7 and -8 notes each predicted that a further gate spawn without a shell would reproduce the
+same section. That prediction was right about *vault* queries and wrong about one class I had not
+separated out: the round-9 fold's new text rests on claims about the **code corpus**, and those are
+Class-2 predicates I can run in-cage with Grep and Read over this tree. I ran them. Two returned a
+result no round has recorded, and the load-bearing one lands on `AC-3`.
+
+### Trigger check
+
+**Class 1 AND Class 2 — both still fire.**
+
+- Class 1 (data-distribution / field-presence): five quantified claims about live entries remain
+  unmeasured — G1's undeclared population, G2's per-field cells and deletion column, G4's two columns,
+  and G5's path-forked population. Unchanged from round 8; none has run.
+- Class 2 (rule-effect-against-existing-corpus): rule (ii)'s effect outside `@*.md` is still unrun; the
+  splitter consolidation is still a predicate never run over the entries it will judge; **and, new this
+  round, the round-9 fold's structural-closure claim and the round-9 placement pin's second disjunct
+  are both assertions about what exists in this repo today** — which I executed rather than reasoned
+  about, per this gate's own Step 2.3.
+
+### My round-8 findings — one DISCHARGED BY EXECUTION, one still owed
+
+| Round-8 ask | Status |
+|---|---|
+| **G6** — run `repo.save(Person(name="Dave/Bob"))` against a tmp vault under the default lock home and list the disk | **DISCHARGED — and it is the first grounding item this item has ever retired.** The conductor ran it (`## Conductor Booking`); the call SUCCEEDED and left `@Dave/`, `@Dave/.obsidian-schemas-locks/`, a `.lock` inside it, and `@Dave/Bob.md`. It settled what nine architectural rounds and eight data audits reasoned about and got wrong, and it is the evidence Dave's precondition 1 was decided against. LESSONS #42, paid off in one command. |
+| **G5** — the live population that same defect has already created | **STILL OWED, unchanged.** Correctly booked in `## Grounding Still Owed` with both parts and the not-person-scoped rider intact. |
+| `AC-2`'s no-stray-directory clause is FALSE as written | **CLOSED by Dave's precondition 1** (gate above `note_lock`), and the round-9 fold's derivation of it re-derives from source on every leg I re-read (`writer.py:209` first act; `vault_io.py:400` / `:350` / `:137-152` the sentinel `mkdir`; `writer.py:256-263` reading only parameters, which is what makes the hoist local). I withdraw it as a document defect. |
+
+I re-verified the round-9 fold's own two additions and both hold: `vault_io.py:349-351` does put the
+sentinel outside the vault when `OBSIDIAN_SCHEMAS_LOCK_DIR` is absolute, so the `AC-2` fixture is green
+against un-hoisted code without the default-lock-home rider. The snapshot oracle is the right
+instrument and I add nothing to it.
+
+### Verified from source this round
+
+Re-derived rather than inherited. The architect's round-9 D8 finding confirms on every leg.
+
+| Claim | Where I read it | Result |
+|---|---|---|
+| `apply_fixes` gets `fpath` from a dict keyed on the `issues` PARAMETER, with no existence check in the frame | `lint_vault.py:804` (signature), `:808-811` (`by_file[issue.file_path]`), `:815` (`for fpath, file_issues in by_file.items()`), lock at `:819` | **confirmed** — nothing in `apply_fixes` is evidence the target exists |
+| D8's gate delta is parsed INSIDE the lock, so it cannot be hoisted | `:819` `note_lock` → `:820` `read_note` → `:821` `parse_frontmatter` | confirmed |
+| the walk that would supply those paths is in a different function | `run_lint:1069` → `read_vault:109` → `rglob("*.md")` at `:111`; `apply_fixes` called at `:1100-1103` | confirmed — two frames away, exactly as the architect states |
+| `writer.py:273` delegates its `mkdir` to `vault_io` rather than naming it | `writer.py:271-273` (`vault_io.ensure_dir(file_path.parent)`, with the WI-004 R5 comment) | confirmed |
+| **no module outside `vault_io` names a filesystem-mutation capability** — the fold's closure argument | Grep for `mkdir`/`unlink`/`os.replace`/`shutil`/`write_text`/`open(`/`touch`/`rename` across `obsidian_schemas/` and `scripts/`: every live hit is in `vault_io.py`; the only hits elsewhere are string `.replace()` on non-paths and two WI-004 R5 comments (`writer.py:271`, `lint_vault.py:1040`) | **confirmed** — the closure argument holds, and I ran it rather than accepting it |
+
+### Finding — `lint_vault --fix` is one of the four repair doors `AC-3` names, and it is structurally forbidden from entering the directories where 77 of the 79 known dirty notes live
+
+This is the new thing this round adds. It needs no vault query — it is decided entirely by a constant
+in this tree, and it is the second half of the round-8 finding on a different mechanism.
+
+**The chain, every link read this round:**
+
+| Link | Source |
+|---|---|
+| `--fix` fixes only what the lint pass found | `lint_vault.py:1100-1103` — `apply_fixes(fixable, …)` where `fixable ⊆ all_issues` |
+| every issue comes from the files `read_vault` returned | `:1069` `all_files = read_vault(vault_path)`, `:1072-1093` |
+| `read_vault` walks `rglob("*.md")` and DROPS anything `should_skip` matches | `:111-113` |
+| `should_skip` is true if ANY path part is in `SKIP_DIRS` | `:104-106` |
+| `SKIP_DIRS = {".obsidian", "Templates", "src", ".trash", "_quarantine", "_merged_dupes"}` | **`lint_vault.py:57`** |
+
+**Now put that against count 3.** The conductor's count 3 is *"79 Tier-1-dirty stored names TOTAL, of
+which 2 live. The 77 others sit in archive directories (`_merged_dupes/` 61, `_quarantine/` 16)."*
+**Both of those directory names are members of `SKIP_DIRS`.** So `lint_vault --fix` — a door `AC-3`
+names by name, in the same breath as `update_fields`, a body-section append and `roundtrip_file` —
+provably never reads 77 of the 79 notes in the population `AC-3` exists to keep writable.
+
+**`SKIP_DIRS` appears NOWHERE in this document.** I grepped all 624KB for `SKIP_DIRS`, `should_skip`,
+`.trash` and `Templates`: zero hits across nine rounds. This is not a re-raise of anything; it is a
+constant no reader has looked at, sitting one function above a door four ACs iterate over.
+
+**Two consequences, both landing on signed text.**
+
+1. **`AC-3`'s `lint_vault --fix` leg has a live discriminating population of at most 2, and those 2 are
+   the sentinel stubs.** The only Tier-1-dirty notes `--fix` can reach are count 3's 2 live hits,
+   `@+12068523646.md` and `@447950289840.md` — the intentional WI-083 phone-sentinel records, which
+   carry the payload-derived sentinel exemption (`person.py:1406`, Finding H) and are therefore dirty
+   *by design*. The `AC-3` fixture for that door will necessarily be a synthetic tmp-vault note. That
+   is fine and normal — but it must be written knowing it is synthetic, or it is the WI-235 shape
+   again: an oracle satisfied identically whether or not the door works on the population it was
+   written for. This is exactly the rider the round-9 fold correctly demanded for `AC-2`'s fixture, one
+   criterion over, and for the same reason.
+2. **Count 3's "the premise is now historical" reading is scoped twice over, not once.** Round 8 showed
+   the measurement corpus (`rglob("@*.md")`) cannot see path-forked notes because their leaf is
+   `Bob.md` — that became G5. This round shows the other half: even for the dirt count 3 DID find, the
+   one repair door `AC-3` names that could clean it is barred from the directories it sits in. The
+   77 archived dirty names are not "historical" in the sense of *cleaned* or *reachable*; they are
+   historical in the sense of *out of the walker's scope*, which is a different fact and has a
+   different consequence for a criterion about writability. **Same target as round 8, deliberately
+   named as such** — but a structurally different clause of it: round 8 was about `AC-3`'s premise's
+   *corpus*, this is about `AC-3`'s enumerated *door list*. I say so plainly rather than let the
+   targets line imply a fresh target.
+
+**What I am NOT claiming.** I am not claiming `AC-3` is false — it is not. Every door it names does
+still commit for a stored-dirty note; that is a design property and it holds. I am claiming the
+criterion's fourth door cannot be exercised against the real population, that nobody has noticed, and
+that this is a scope sentence `AC-3` should carry deliberately rather than by omission — which is the
+same disposition round 8 asked for on `AC-2`'s directory clause and which Dave granted there.
+
+### Second, smaller, and cheapest to fix now: G1's path-class split names two directories; the code's own constant has six
+
+G1 asks for `|b|` and `|c|` *"split by path class (under `@*.md` / under `_merged_dupes/` or
+`_quarantine/` / neither)"*. That hand-written pair was correct as a description of where count 3's
+dirt turned out to sit. It is **not** the partition the only in-repo walker uses: `SKIP_DIRS`
+(`lint_vault.py:57`) also holds `.trash`, `Templates`, `src` and `.obsidian`. A note under `.trash/` or
+`Templates/` lands in G1's *"neither"* bucket — i.e. is reported as live — while no door in this repo
+that walks the vault will ever touch it. **G1 has not run yet, so this is a free correction**: state
+the archive class as `should_skip`'s own predicate rather than as a two-name list, and G1, G4 and G5(a)
+all inherit the right partition instead of three hand-copies of a wrong one. This is `## Grounding
+Still Owed`'s to amend, and it needs no round of its own.
+
+### Non-blocking correction — the round-9 fold's `vault_io` mutation-surface enumeration omits `move_note`
+
+The fold enumerates that surface as four things: `ensure_dir`, `filelock` acquisition, `create_note` /
+`write_note`, and `record_snapshot`. There is a fifth public mutation door — **`move_note`
+(`vault_io.py:721-750`, "Door 3"), which links-then-unlinks via `os.link`/`os.replace`/`os.unlink`
+(`:758`, `:765`, `:776`) and takes `note_lock` on BOTH source and target (`:749`)** — with a live
+caller in the very script this item edits: `quarantine_garbage` (`lint_vault.py:1021-1053`, calling
+`vault_io.ensure_dir(dest_dir)` at `:1043` and `vault_io.move_note` at `:1049`).
+
+**This opens no bypass and I do not block on it.** The fold's class requires the act be *on a path
+derived from a gate-judged field*, and `quarantine_garbage`'s `dest = dest_dir / src.name` (`:1044`) is
+derived from the existing filename, not from an introduced `name:` — so `move_note` is genuinely
+outside the class, and the fold's conclusion (*"I find no further open member"*) is right. What is
+wrong is the sentence that supports it: an enumeration offered as a complete read of `vault_io`'s
+public surface, which the architect then endorsed (*"the fold's own sweep closed that enumeration
+structurally … and I re-read it and agree"*), is missing a member. One sentence in the fold fixes it,
+and it is worth fixing because a lower bound presented as complete is the exact shape Finding D and
+count 1 were both punished for in this document. It is also the mechanism that produced the
+`_quarantine/` 16 in count 3 — which is how I found it.
+
+### Required grounding
+
+**Nothing is added to the shell pass this round.** This round's finding was decided in-cage and needs
+no query; one existing query gets a free correction. Four items carried, one amended, one retired.
+
+1. **G1 — unrun, and AMENDED (free):** state the archive path class as `lint_vault.py:104-106`'s
+   `should_skip` predicate over `SKIP_DIRS` (`:57`), not as the two-name `_merged_dupes/` /
+   `_quarantine/` list. G4 and G5(a) inherit the correction.
+2. **G2 — unchanged and still unrun,** all three parts.
+3. **G4 — unchanged and still unrun,** both columns, correctly demoted to sizing.
+4. **G5 — unchanged and still unrun,** both parts, not person-scoped.
+5. **G6 — RUN. Retired.** Result in `## Conductor Booking`.
+6. **The consumer audit** — unchanged, still owed, still not a vault query.
+
+### Conclusion
+
+The item moved this round, and it moved in the right direction: a criterion clause known false in round
+8 is now true by Dave's ruling, the derivation behind it re-derives from source on every leg, and the
+first grounding item in this item's history was retired by execution rather than by argument.
+
+What stops this being a PROMOTE is unchanged in kind and now has one more member. G1, G2, G4 and G5
+have still never run, and G5 decides whether `AC-3`'s premise survives at all. The architect holds a
+live blocking issue inside the very clause Dave is being asked to sign. And this round adds a fact
+about `AC-3`'s door list that was decidable from a constant in this repo all along and that nine rounds
+of readers walked past. Promoting now would release the D3 brake at the moment a criterion is about to
+be re-signed with an un-exercisable door and an unlooked-at population behind it. Stage stays at
+`exploring`.
+
+**Signal for the factory, stated because the targets line alone cannot carry it.** Read the arc: rounds
+1–3 named the untyped-dispatch premise (closed by ruling 1); round 4, count 1's scope (→ G1); round 5,
+the per-field split (→ G2); round 6, the dict-arm deletion (→ G2's third column); round 7, the blast
+radii (→ G4, then discharged by the fold's (b′) choice); round 8, `AC-2`'s false directory clause and
+`AC-3`'s invisible population (→ Dave's precondition 1, G5, and G6 which is now DONE). **This round
+re-uses the `AC-3` token and I want that read correctly rather than as a treadmill:** round 8 asked a
+question that needed a shell and it is still open; this round answers a *different* question about the
+same criterion, in full, from a constant in the tree, and closes it here — it adds no query, no
+decision for Dave beyond one scope sentence, and no round. **The one thing that has not moved in five
+rounds is still the same thing, and no gate spawn can move it:** G1, G2, G4 and G5 need a shell outside
+every cage. My round-6, -7 and -8 notes each predicted a further gate round would reproduce this
+section; this round found the exception (code-corpus predicates are runnable in-cage) and has now spent
+it. **A tenth data-premise round before the shell pass would buy nothing** — I have said what the tree
+can tell me. **The unblock is unchanged in order and does not lengthen:** Dave re-originates
+`AC-1`–`AC-4` in ONE round (with the architect's D8 pin repaired first — shape (A) also makes my
+`SKIP_DIRS` observation moot for the pin, since an existence guard in `apply_fixes` needs no claim
+about the walk's scope at all, which is one more argument for (A)); the same shell-holding actor runs
+G1 (as amended), G2, G4, G5 and the consumer audit's two greps alongside it.
+
+```verdict
+gate: data-premise
+verdict: REVISE
+date: 2026-08-11
+model: claude-opus-5
+targets: AC-1, AC-3, #exploration-notes
+note: Round 8's AC-2 finding is closed by Dave's precondition 1 and G6 is RUN (first grounding item retired — the conductor's execution, `## Conductor Booking`), and I re-derived the gate-above-lock legs plus the architect's D8 legs from source (fpath from the issues parameter at lint_vault.py:808-815 with no existence check; the walk two frames away at :111; the delta parsed in-lock at :821) — but a constant no round has read falsifies a scope reading of AC-3: `lint_vault --fix`, one of the four repair doors AC-3 names, is barred by SKIP_DIRS (lint_vault.py:57, applied at :104-106 via read_vault :111-113, feeding apply_fixes at :1100-1103) from `_quarantine/` and `_merged_dupes/`, which is where 77 of count 3's 79 Tier-1-dirty names sit — so that door's live discriminating population is at most the 2 sentinel stubs that are dirty by design, and count 3's "historical" reading is scoped by directory as well as by leaf pattern (round 8's G5); G1's hand-written two-name path class is correspondingly wrong against the code's six-member constant and is corrected for free before it runs; and, non-blocking, the round-9 fold's vault_io mutation-surface enumeration omits move_note (Door 3, vault_io.py:721-750, live caller quarantine_garbage at lint_vault.py:1049) — no bypass, but a lower bound presented as complete. G1/G2/G4/G5 still need a shell no cage has; no further data-premise round buys anything before that pass.
+```
+
+## Spec-Writer Fold — 2026-08-11 (round 10)
+
+**This round PRODUCED a fold, it made one decision, and that decision was explicitly delegated to it.**
+Both round-9 verdicts are REVISE. The architect's blocking issue is a defect in text THIS role wrote
+last round — the placement pin's required value is derived from two disjuncts, one of which is a
+property of a caller two frames away — and it scoped the repair as *"direction, not design — two
+shapes, both cheap, and I am not choosing between them"*. The round-9 data audit independently
+endorses the same shape from the other side (*"an existence guard in `apply_fixes` needs no claim about
+the walk's scope at all, which is one more argument for (A)"*). Choosing between two shapes of a rule I
+authored, in unsigned text I own, is this role's call and not Dave's; the data audit's own finding needs
+no decision at all, only a fixture sentence in the brief and a free correction to a query that has not
+run. **Nothing was escalated this round and Dave's one round did not grow.**
+
+Cold-start, read in role order: `spec-writer.yaml`, this document in full (five ac-red-team rounds, the
+`ac-signoff` fence, nine architectural reviews, nine data audits, nine prior spec-writer rounds,
+`## Conductor Rulings & Grounding`, `## Grounding Still Owed`, `## Conductor Booking`,
+`## Conductor Preconditions`, the re-origination brief), the project `CLAUDE.md`, then the code every
+claim below turns on. Every citation re-derived from source this round, not inherited:
+`scripts/lint_vault.py` (`SKIP_DIRS`, `should_skip`, `read_vault`, `apply_fixes` end to end,
+`quarantine_garbage`, `run_lint`'s fix leg), `obsidian_schemas/vault_io.py` (`note_lock`,
+`_sentinel_path`, `ensure_dir`, `write_note`, `create_note`, `move_note`, `_move_locked`,
+`record_snapshot`), `writer.py` (`write_markdown_file`, both `update_frontmatter_*`, `roundtrip_file`),
+`repositories/base.py` (`save`, `update_fields`), `identifier.py` (`Phone.MIN_DIGITS` and its
+consumers). This cage has **no shell**; the live vault was not read — the counts used are the
+conductor's, cited as such, and G6's result is the conductor's execution, cited as such.
+
+### What this round wrote
+
+| Section | Change | Answers |
+|---|---|---|
+| **Finding B** — new sub-subsection *"The placement value is DERIVED by one LOCAL rule, and D8 is made to satisfy it"* | The derivation of the defect from source (`apply_fixes(issues, vault_path, idx)` at `lint_vault.py:804-805`; `by_file` keyed on the `issues` parameter at `:808-811`; `fpath` bound at `:815`; the walk two frames away at `:111` via `run_lint:1069`, `apply_fixes` called at `:1100-1103`); the deletion of the second disjunct; the guard this item adds above `:819`; the three facts that make it a real correction rather than predicate plumbing; the consistency leg as a RED check rather than a second route to `in-lock`; the required value for all eight arms; and the rejected shape (B), named so the choice stays falsifiable. | architect round 9, blocking; data-premise round 9 |
+| **Finding B** — the round-9 placement rule block | The second disjunct struck through in place, with a pointer to the repair. The block is the pin's canonical statement, so leaving it standing would have left the item buildable two ways. | architect round 9 |
+| **Finding B** — the round-9 sweep table's D7 and D8 rows | **D8**: *"no — `fpath` comes from the vault walk"* corrected to **yes, today**, with the frame-local reason; disposition now names the guard. **D7**: *"no gate call at all"* corrected — D7 routes on an EMPTY delta and takes `above` by the default. | architect round 9; contradiction scan |
+| **Finding B** — the parked-adjacency paragraph | Same D7 correction, plus the shared-fix note: parked defect 4's one-line fix is the same statement this item adds to `apply_fixes`. | architect round-9 note 1 |
+| **Finding C** — new subsection *"One of the four repair doors cannot REACH most of the population count 3 measured"* | The five-link chain from `--fix` to `SKIP_DIRS` (`lint_vault.py:SKIP_DIRS:57`), the intersection with count 3 (77 of 79 unreachable, the reachable 2 being the sentinel stubs), and the three consequences — the synthetic fixture, the twice-scoped "historical" reading, and `should_skip` as the right partition for the owed queries. States what it does NOT claim: `AC-3` is not false. | data-premise round 9 |
+| **`## Approach`** | Round-10 header note; the arm-specific placement paragraph now carries the one local rule and the D8 guard; the wall paragraph's placement clause restated with the consistency leg; D8's declaration corrected from `vf.entity_type` to the in-lock `fm.get("type")`; new paragraph *"D7 routes, and what it passes is EMPTY"*. | both round-9 gates |
+| **Parked defects — item 4** | The D7 correction and the shared-fix sentence; explicitly still parked, with the reason (closing it would flip D7's required placement). | architect round-9 note 1 |
+| **Constraints — Effort** | The round-10 cost: one statement in a function the delta threading already opens, and a clause DELETED from the rule rather than added. | — |
+| **`## Grounding Still Owed`** | Preamble round-10 note (one item corrected, none added); **G1's path class restated as `should_skip`'s own predicate** over the six-member `SKIP_DIRS`; **G4** given the same definition of "live"; **G5(a)** bound to G1's corrected partition. | data-premise round 9 |
+| **`## Re-origination Brief`** | Header note: the list does NOT grow. `AC-1`'s placement pin restated with one local rule, the consistency leg, and the `above` set corrected to include D7. `AC-3` gains the synthetic-fixture clause beside its scope sentence. | both round-9 gates |
+| **`## Carried Forward`** | The gate-above-lock bullet's arm-specificity clause corrected to the one local rule, with the guard and the `move_note` addition to the mutation-surface enumeration. | both round-9 gates |
+| **`## Questions the later spec round still owes`** | Item 2 (D8's delta threading) gains the two riders that land in the same edit. | — |
+
+### Two things this round found that the reviews did not have
+
+1. **The guard is a real correction to `apply_fixes`, not predicate plumbing — and the frame already
+   handles it.** Both gates argued the guard as the cheapest way to make the pin derivable. Read
+   against the code it earns its place independently: `apply_fixes` runs AFTER the walk
+   (`run_lint:1069` → checks → `:1100-1103`), so a note deleted, renamed or quarantined in between
+   reaches `note_lock` on a path that no longer exists and takes the sentinel `mkdir`
+   (`vault_io.py:400`) and the `.lock` (`:410-414`) before `read_note` fails — Finding F's shape, one
+   door over, on a door this item is already opening. And it costs nothing in behaviour: the raise
+   lands inside the per-file `try/except Exception` at `lint_vault.py:902-903`, which already prints
+   `Fix error on <name>: …` and continues, which is exactly what a vanished file does today. A
+   guard that is *also* the right code is a different proposition from one that only satisfies a wall.
+2. **D8's declaration is not reachable the way three sections of this document said it was.** Every
+   prior round wrote `vf.entity_type` for D8's handed type. `apply_fixes` is passed `issues`,
+   `vault_path` and `idx` (`lint_vault.py:804-805`) — never the walk's `VaultFile` — and uses `idx`
+   for `meetings` alone (`:813`). The reachable value is `fm.get("type")` from the parse at `:821`,
+   inside the lock. That is a citation correction, and it STRENGTHENS the round-9 conclusion it was
+   used to support: D8's declaration is bound in-lock, which is precisely why D8 cannot be hoisted and
+   why the consistency leg names it.
+
+### What this round still deliberately did NOT write, and why — unchanged from rounds 4 through 9
+
+**No Design, Edge Cases, Implementation Plan, Write Targets, Verification, or `criteria` refinement.**
+The three reasons are unchanged and none has moved. `AC-1`–`AC-5` remain inside the `ac-signoff` hash
+span (`ac_hash: a76ebad54da2`); this round changes what two of them will be asked to say — `AC-1`'s
+placement pin and `AC-3`'s fixture sentence — which is signed text, and WI-061 routes that to
+re-origination rather than refinement. The plan and the criteria are one object. And rule D3 refuses
+`→ specced` without a data-premise PROMOTE, which the standing verdict is not.
+
+**One thing this round did NOT do that a reader might expect.** It did not add the same guard to
+`roundtrip_file`. The architect's note 1 says the fix is shared and asks for one sentence in the parked
+entry, which is what it got. Adding it would be free in lines and not free in the design: a guarded D7
+becomes an `in-lock` arm under the one rule, which moves a required placement value for an arm whose
+gate call is empty and whose defect this item does not cause. Parked, with the shared-fix note so the
+follow-on is cheap.
+
+### Class-shaped fold — declared, and still bounded by ruling 3
+
+Per WI-226 the finding in front of me is not "the pin's second disjunct is wrong about D8". The
+generator, stated as narrowly as it is true:
+
+> **An instrument that must decide a property of a FRAME was given a rule whose evidence lives in a
+> different frame — so the rule is unresolvable exactly where the property is hardest, and it defaults.**
+
+That is the third generator in this document's sequence and it is a sibling of the other two rather
+than a new rung: round 8's was *a property checked on one of the gate's two output channels*, round 9's
+*a property checked at one of the frame's two boundaries*, and this one *a property whose evidence is
+outside the unit the checker reads*. All three are consequences of the round-6 arm-set correction,
+which is what made the wall's unit the ARM and its reading window the FRAME.
+
+**Enumerating what generates it and sweeping the class.** The class is *every per-arm obligation the
+derived wall asserts, checked against whether its evidence is inside the arm's own frame*. There are
+now three such obligations, and this is the whole set, because the wall's per-arm assertion is a
+triple:
+
+| Obligation | Evidence the predicate needs | In the arm's frame? | Disposition |
+|---|---|---|---|
+| **Which arms CALL the gate** (`AC-1(a)/(b)/(c)`) | a call node in the function body | yes, by construction | **CLOSED** — this is what an AST sweep is |
+| **What each arm PASSES** (the round-3 pass-what pin) | the expression bound to the declaration argument at the call site — the model's `type`, `self.type_name`, the note's parsed `type:`, or nothing | yes for all eight: each is a name bound in the frame or a literal absence *(re-checked this round; D8's is `fm.get("type")` at `lint_vault.py:821`, in-frame, and the `vf.entity_type` citation that would have made it out-of-frame is corrected)* | **CLOSED** |
+| **WHERE each arm CALLS** (the round-9 placement pin) | whether the frame refuses on the target's non-existence above its first `vault_io` mutation call | yes for D4/D5/D6 today, **no for D8 under the round-9 wording** — the disjunct pointed at a walk in `read_vault` | **CLOSED this round**, by deleting the out-of-frame disjunct and giving D8 the in-frame guard |
+
+**Sweeping the next level and declaring what it found.** The dimension below "which obligation" is
+*what an arm's frame can be asked about at all*: a call it makes, an expression it binds, an ordering
+between two of its own statements, or a fact about a value handed to it. The first three are frame-local
+by definition and the wall now asks only those. The fourth is the cell this round emptied — no
+per-arm obligation now depends on a property of a caller, and the check that says so is mechanical:
+each of the three obligations resolves against a single function's AST with no inter-procedural
+analysis. **I find no further open member.** The sweep is finite for a structural reason rather than an
+exhausted one: the wall's per-arm assertion IS the triple, so the class has exactly three members and
+all three are now closed.
+
+**One correction to the round-9 sweep, owed and not folded into that section** *(data-premise round 9,
+non-blocking, and it is right)*. The round-9 fold enumerated `vault_io`'s public mutation surface as
+four things — `ensure_dir`, `filelock` acquisition, `create_note`/`write_note`, `record_snapshot`. There
+is a **fifth: `move_note`** (`vault_io.py:move_note:721-750`, Door 3, link-then-unlink at `:758`,
+`:765`, `:776`, taking `note_lock` on BOTH source and target at `:749`), with a live caller in the very
+script this item edits — `quarantine_garbage` (`lint_vault.py:quarantine_garbage:1021-1053`,
+`vault_io.ensure_dir(dest_dir)` at `:1043`, `vault_io.move_note` at `:1049`). Verified from source this
+round by listing every module-level `def` in `vault_io.py`: the public mutation surface is exactly
+`ensure_dir` (`:618`), `note_lock`'s acquisition (`:400`, `:410-414`), `write_note` (`:670`),
+`create_note` (`:701`) and `move_note` (`:721`). **The round-9 CONCLUSION is unaffected and I re-derived
+why rather than accepting it**: the class requires the act be on a path derived from a gate-judged
+field, and `quarantine_garbage` binds `dest = dest_dir / src.name` (`:1044`) from the existing filename,
+never from an introduced `name:` — so `move_note` is genuinely outside the class. What was wrong is a
+lower bound offered as a census, which is the exact shape Finding D and count 1 were both punished for
+in this document. Corrected in `## Carried Forward`; the round-9 fold's own record is append-only and
+is not edited.
+
+**And here the sweep STOPS**, on Dave's ruling 3. The altitude declaration holds. This round's finding
+is not a checking-of-the-checking finding: it is one pin, written in one round, saying two things about
+one named arm, verified from source in both directions — round 3's regress analysis holds that case
+outside the ladder and the architect's round-9 review says so explicitly. Its AC consequences land in
+`AC-1`'s pin set and `AC-3`'s fixture, both already inside ruling 3's named set. This round opens no
+further rung and adds no item to Dave's round.
+
+### Contradiction scan — what this round's claims now disagree with
+
+Run over the whole document for every claim added or edited this round.
+
+- **The placement pin's second disjunct** appears in exactly three LIVE places and all three are fixed:
+  Finding B's round-9 rule block (struck in place, with a forward pointer), `## Approach`'s wall
+  paragraph (restated), and the brief's Tier B `AC-1` entry (restated). It also appears inside the
+  round-9 fold's own record and inside gate sections — **append-only history, deliberately NOT edited**;
+  a reader who reaches them reaches the round-10 correction first, because it is in every live section
+  they cite.
+- **`vf.entity_type` as D8's declaration** appeared in SIX live places, and every one is fixed: Finding
+  B's per-arm declaration table row, Finding B's *"D8 is NOT in the undeclared cell"* paragraph, Finding
+  B's round-9 sweep-table row, `## Approach`'s per-arm list, the brief's Tier B `AC-1` pass-what pin,
+  and `## Questions the later spec round still owes` item 2. All six now say `fm.get("type")` from the
+  in-lock parse at `lint_vault.py:821`, with the reason (`apply_fixes` is passed `issues`, `vault_path`
+  and `idx` at `:804-805` and never the walk's `VaultFile`). The eleven-site dispatch-count argument the
+  D8 paragraph rests on is UNCHANGED — it is the same string by a different binding. Further occurrences
+  sit inside gate sections and the round-9 fold's own record: append-only, not edited.
+- **"D7 has no gate call"** appeared in two live places — Finding B's round-9 sweep-table row and parked
+  defect 4 — and contradicted `## Approach`'s *"route all eight arms"* and `AC-1`'s *"every member
+  routes"*. Both corrected: D7 routes on an empty delta. The same phrase in the round-9 fold's own sweep
+  table is history and stands. **This is a contradiction round 9 created and round 10 closes**; I am
+  naming it as mine rather than letting the correction read as a discovery.
+- **`AC-1`'s eight-arm floor and the arm set** — unaffected. The guard adds a statement to `apply_fixes`
+  above the lock; it binds no frontmatter dict, creates no branch, and D8 remains one member.
+- **`AC-2`'s no-stray-directory clause and its fixture rider** — unaffected and slightly strengthened:
+  the same guard means D8 cannot leave sentinel debris on a vanished target either, so the promise the
+  fixture pins is now true at four arms rather than three by accident.
+- **`AC-3`** — the round-9 tension (its "historical" premise concluded from a corpus that excludes this
+  defect's own output, booked as G5) is unchanged and still owed. This round adds a SECOND, independent
+  scoping of the same reading — by directory rather than by leaf pattern — and it needs no query. I do
+  not claim `AC-3` is false; I claim one of its four doors cannot be exercised against the live
+  population and that the fixture should say so.
+- **Finding C's delta rule** — unaffected. Its two surviving legs are about the repair tools' PURPOSE and
+  about where the delta lives in the call stack; neither turns on how many notes a tool's walker reaches.
+  Stated explicitly in the new subsection so *"`--fix` can't reach the dirt"* is not read as *"the delta
+  rule is unnecessary"*.
+- **The round-8 identity rule, Finding H's sentinel rule, Finding I's arm-shape split, the phone
+  relocation, DECLARE** — all unaffected; none says anything about placement or about `lint_vault`'s
+  walker.
+- **Citation-drift note, recorded rather than actioned.** The pre-spawn sweep now resolves eleven
+  `identifier.py:MIN_DIGITS` citations naming no symbol, up from nine. Every one sits inside
+  gate-authored prose whose subject IS the slip — the two new ones are in the round-9 architect review
+  and the round-9 data audit, both of which are *reporting* the count. The symbol is
+  `Phone.MIN_DIGITS`, a `ClassVar` at `identifier.py:228` (re-verified this round, consumers at
+  `:238-239` and `:274`); the one live citation in this document is Finding G's
+  `identifier.py:Phone:228`, which resolves. **I introduce no twelfth**: this round's new text cites the
+  floor nowhere. Gate sections are theirs, not mine, so no edit is available to me.
+
+### Re-entry — unchanged in order and in length
+
+1. **Dave re-originates `AC-1`–`AC-4` in ONE round** (`AC-5` unchanged), now with: `AC-1`'s floor at
+   eight arms, the pass-what pin, the rider clause with its round-8 fixture pin, and the placement pin
+   **as restated this round — one local rule, the consistency leg, and `above` for D7**; `AC-2`'s
+   directory clause standing as signed plus its default-lock-home fixture rider; **`AC-3`'s scope
+   sentence on pre-existing path-forked notes plus its synthetic-fixture sentence for the `--fix`
+   leg**; `AC-4`'s `aliases[]` clause scoped by arm shape with its dict side priced against the
+   deletion; and one yes/no on `### Examples of done` scenario 3, where (b) closes the deletion and (a)
+   does not. **No item was added this round.**
+2. **One shell pass, alongside the re-origination:** **G1 as amended** (the `should_skip` partition),
+   the twice-amended **G2**, the two columns of **G4**, and the two parts of **G5**, plus the consumer
+   audit's two greps. **G6 is DONE.** G3 stays withdrawn as moot. None of the four gates a shape; all
+   four size, and G5 additionally decides whether `AC-3`'s premise survives.
+3. **ac-red-team → architect → data-premise → spec-writer.** Every architect ruling carries forward and
+   needs no re-derivation: gate signature, splitter, DECLARE, the phone relocation, the output contract,
+   the arm-shape split, the name-identity rule, the gate-above-lock placement, and now its one-rule
+   derivation.
+4. **spec-writer.** With 1–3 done the spec is assembly: `## Carried Forward` plus the routing at eight
+   arms and one rider with the D1 hoist, the wall with its three per-arm arguments, the phone
+   relocation, the splitter consolidation and the subsumption, the Tier-1 branch-unit reification, and
+   the `lint_vault --fix` delta threading **with its existence guard**.
+
+## Architectural Review — 2026-08-11 (round 10)
+
+**Recommendation: REVISE — return to exploration**
+
+**Round 10, cold-start re-spawn.** Read in role order: `architect.yaml`, this document in full (five
+ac-red-team rounds, the `ac-signoff` fence, nine prior architectural reviews, nine data audits, ten
+spec-writer rounds, `## Conductor Rulings & Grounding`, `## Grounding Still Owed`, `## Conductor
+Booking`, `## Conductor Preconditions`, the re-origination brief), then the code every claim below
+turns on (`scripts/lint_vault.py`, `obsidian_schemas/writer.py`, `vault_io.py`,
+`repositories/base.py`, `identifier.py`), plus the project `CLAUDE.md` and `LESSONS.html`. No shell in
+this cage; the live vault was not read — the counts used are the conductor's and G6's result is the
+conductor's execution, both cited as such.
+
+**My round-9 blocking issue is CLOSED, and the round-10 fold's repair re-derives from source on every
+leg I re-read.** The finding below is new, it is in signed text, and it is the one criterion in this
+set that was never re-based on `AC-1`'s derived set — the hand-list shape rounds 1–3 of the
+ac-red-team spent four rounds removing from `AC-2` and `AC-4`, still standing in `AC-3`.
+
+### Trigger check
+
+Three fire, unchanged: **two** new modules (the gate and the phone leaf); a contract change crossing
+into three downstream repositories installed with `pip install -e`
+(`docs/backlog-campaign-2026-07-05.md:98`); a derived-wall enforcement mechanism that must be designed
+rather than copied.
+
+### Round-9's blocking issue — verified closed from source
+
+Re-derived rather than accepted from the fold's account of itself. Every row confirms.
+
+| Claim the round-10 fold makes | Where I read it | Result |
+|---|---|---|
+| `apply_fixes` binds `fpath` from a dict keyed on its `issues` PARAMETER, with no existence evidence in the frame | `lint_vault.py:804-805` (signature `(issues, vault_path, idx)`), `:808-811` (`by_file[issue.file_path]`), `:813` (`idx` used for `meetings` alone), `:815` (`for fpath, file_issues in by_file.items()`), lock at `:819` | confirmed |
+| the walk is two frames away | `read_vault:109-113` (`rglob("*.md")` at `:111`, `should_skip` drop at `:112`), reached from `run_lint:1069`; `apply_fixes` called at `:1100-1103` | confirmed |
+| the guard's raise lands in the existing per-file handler and changes no observable behaviour | `lint_vault.py:816` (`try:`) … `:902-903` (`except Exception as exc: print(f"  Fix error on {fpath.name}: {exc}")`) — a vanished file reaches the same handler today via `read_note` at `:820` | confirmed |
+| the three siblings the guard copies | `base.py:432-433` above `:437`; `writer.py:320-321` above `:327`; `:374-375` above `:379` | confirmed, all three, statement for statement |
+| D8's declaration is `fm.get("type")` from the in-lock parse, not `vf.entity_type` | `lint_vault.py:821` (`fm, body = parse_frontmatter(content)`); `VaultFile.entity_type` is declared at `:93` and bound in `read_vault` at `:140`/`:148`, in a frame `apply_fixes` never holds | confirmed — the six-site correction is right |
+| D7 introduces nothing, so its gate call is handed an empty delta | `writer.py:roundtrip_file:414-426` — `:418` read, `:419` parse, `:421` re-serialize, no mutation between | confirmed |
+| the hoist is mechanically local | `writer.py:209` lock; `:210` stamp, `:214-215` `unverified`, `:226` `is_create`, `:236-253` the WI-126 guard — **all four consume `file_path`/`stamp`/`body`, none touches `entity`/`frontmatter`/`extra_fields`**; the arms at `:256-263` read only those three parameters | confirmed independently, and it is the load-bearing check for Dave's option (a) |
+| `move_note` is the fifth public mutation door the round-9 enumeration missed | `vault_io.py:721` (`move_note`), beside `ensure_dir:618`, `note_lock:364` (`ensure_dir(sentinel.parent)` at `:400`, `.lock` at `:410-414`), `write_note:670`, `create_note:701`; live caller `lint_vault.py:1049` | confirmed — and I re-ran the module-level `def` listing rather than accepting it. The round-9 CONCLUSION is unaffected: `quarantine_garbage` binds `dest = dest_dir / src.name` (`:1044`) from the existing filename, never from an introduced `name:` |
+
+**And the repair is better than the wall requires, which is worth saying because it is rare.** Shape
+(A) does not merely make the placement value derivable — the guard is the right code independently.
+`apply_fixes` runs after the walk, so a note quarantined between the two passes (by
+`quarantine_garbage`, `lint_vault.py:1021-1053`, in the same run) reaches `note_lock` on a path that no
+longer exists and takes the sentinel `mkdir` before `read_note` fails. The fold found that and I
+re-derived it. The rejected shape (B) is correctly named and correctly second.
+
+**One property of the placement rule I checked that nobody has stated, and it holds in the design's
+favour.** The rule forces D7 to pass an empty delta rather than merely permitting it: above
+`note_lock` in `roundtrip_file` the only bound name is `file_path` (`writer.py:414-417`), so a builder
+who reaches for the parsed frontmatter at `:419` must put the call in-lock, which the rule makes RED.
+The natural wrong implementation at D7 — gate the whole re-serialized record, bricking the tool whose
+job is to normalize it — is structurally unavailable. That is the placement pin doing work beyond the
+directory promise it was written for.
+
+### Blocking issue — `AC-3` is the one criterion still specified as a hand-list of doors, and the two arms it omits are exactly where the delta rule is constructible and unpinned
+
+`AC-3` is the ONLY criterion that pins Finding C's delta rule — the load-bearing insight of this
+entire item, held on re-attack by every gate for ten rounds. Its `desc` states the property over four
+named doors:
+
+> *"…stays writable for every write that does not set the name — **`update_fields` on an unrelated
+> field, a body-section append, `roundtrip_file`, and `lint_vault --fix`** all still commit…"*
+
+That is a hand-list. `AC-2` and `AC-4` were both re-based onto `AC-1`'s derived set precisely because
+a hand-list *"silently exempts the doors it forgot… and exempts the next door by construction"*
+(`AC-4`'s own `why:`, written to close ac-red-team round 1's Finding 2). `AC-3` never got that
+treatment: rounds 1–5 of the ac-red-team each recorded it as *"unchanged and still holds"*, and the
+round-3 spec-writer's extent sweep classified `AC-3`'s container as *"same surface as `AC-2`, read
+from the other side"* — which swept its **pattern** extent (that is where the sentinel finding came
+from) and never its **door** extent.
+
+**Mapped against the corrected eight-arm set, `AC-3` covers three arms and omits five.** Read from
+source this round:
+
+| Arm | In `AC-3`'s list? | Is the record/delta distinction constructible there? |
+|---|---|---|
+| D1a `entity=` | no | **no** — an entity write rewrites the whole record from a typed model, so its name IS the delta (Finding C). Nothing to get wrong |
+| D1b `frontmatter=` | no | **no** — the caller's dict is wholly introduced (`writer.py:258-261`); record and delta are the same object |
+| D1c `extra_fields`-only | no | **no** — same, `extra_fields` is the whole record (`writer.py:262-263`) |
+| D4 `update_fields` | **yes** | yes — `updates` (parameter) vs the parsed `frontmatter` (`base.py:439`), merged only at `:451` |
+| D5 `update_frontmatter_field` | **no** | **YES — and it is the sharpest case in the tree** |
+| D6 `update_frontmatter_fields` | **no** | **YES** |
+| D7 `roundtrip_file` | yes | n/a — introduces nothing |
+| D8 `lint_vault --fix` | yes | yes — the threading `## Questions the later spec round still owes` item 2 prices |
+
+**D5 is the sharpest case because the delta is not a dict at all.** `update_frontmatter_field(file_path,
+field_name, field_value)` (`writer.py:292-296`) parses the stored record into `frontmatter` at `:329`
+and mutates it at `:332`. The introduced fields are **two loose parameters**; the only dict-shaped
+object anywhere in the frame is the note's own stored record. A builder routing this arm has to
+*construct* `{field_name: field_value}` to pass the delta, while `frontmatter` is sitting one line
+above the call site. D6 is the same shape with `updates` available as a parameter (`writer.py:381`,
+`:384`), so it is one degree safer and still unpinned.
+
+**The concrete failure, and every criterion stays green through it.** A build wires D5 as
+`gate(frontmatter, declared_type=frontmatter.get("type"))` after `writer.py:332` — the merged record,
+not the delta. Then:
+
+- **`AC-1`** is green: D5 calls the gate, passes the declaration this document's own table names for
+  that arm (the note's parsed `type:`, `writer.py:329`), and is `in-lock` as the placement rule
+  requires. All three arguments of the per-arm triple are satisfied. The wall has no fourth argument.
+- **`AC-2`** is green: a write that INTRODUCES a Tier-1 name through D5 is refused — the merged record
+  contains the introduced name, so a whole-record gate refuses it too. A refusal oracle cannot
+  distinguish "refused because introduced" from "refused because stored".
+- **`AC-4`** is green: identifiers introduced through D5 normalize.
+- **`AC-3`** does not name D5, so nothing asks whether a stored-dirty note stays writable through it.
+
+Result: `update_frontmatter_field(path, "company", "Acme")` — a documented public writer, no
+repository involved — becomes **permanently refused for every note whose stored name is Tier-1 dirty**,
+which is the exact "the remedy would be the disease" outcome Finding C exists to prevent, on two of the
+eight arms, with the full set green. This is `AC-4`'s round-1 defect (a hand-list read as total) in the
+one criterion that still carries it, and it lands on the rule this item is built around rather than on
+its checking machinery.
+
+**One corroboration from the document's own text, offered because it shows the looseness is already
+there rather than introduced by me.** Finding C states *"the delta only exists ONE FRAME ABOVE the
+seam"* and cites `base.py:437` **pre-merge**, `writer.py:329`, `:381`. At D4 that citation names the
+right object (the pre-merge frame). At D5 `writer.py:329` binds `frontmatter` — the **stored record** —
+and the introduced field is not on that line at all; at D6 `:381` is the same. The prose is right and
+the pointers name the parse. A build reading the citation as the instruction lands on exactly the wrong
+dict, which is the same failure mode the round-5 fold had to write a paragraph about for D1b
+(*"the citation names where the arm's dict is bound; the gate must read `fm` as it stands at the
+convergence point"*). The same paragraph is owed at D5/D6, in the other direction.
+
+**Why this is architectural and not spec-time.** `AC-3` is inside the `ac-signoff` hash span
+(`ac_hash_AC-3: 9e2bae0c2137`), and WI-061 routes a signed original that proves wrong to
+re-origination rather than refinement — the disposition this document has taken nine times. `AC-3` is
+**already on Dave's list**, having gained a scope sentence in round 9 and a synthetic-fixture sentence
+in round 10, so this is one more clause inside an item already there: **the round does not grow.** But
+it must go in *this* re-origination, because ac-red-team runs *after* the re-sign, one step too late —
+which is the argument I made in round 9 and which held.
+
+**Why this is not a new rung of the LESSONS #38 ladder, stated because ruling 3 makes the distinction
+load-bearing.** I ran no generator sweep at a higher altitude and raised no altitude. Ruling 3's named
+set includes `AC-3`, and this is not a finding about the checking-of-the-checking: it is a finding that
+one criterion's enumerated door list does not span the door set the same document derives, so a real
+corruption class — a public API refusing every legacy-dirty note — is greenable. That is "the thing is
+wrong", the case round 3's regress analysis holds outside the ladder. It is also not a re-raise: `AC-3`
+has been targeted twice (data-premise rounds 8 and 9), on its **premise's corpus** and on its
+**`--fix` leg's fixture**; this is its **door list**, a third and structurally different clause. I say
+so plainly rather than let the targets line imply a fresh target.
+
+**Direction, not design — and the shape is already written twice in this document.** Bind `AC-3`'s
+preservation property to `AC-1`'s derived set, iterated at arm granularity, with the exclusion set
+asserted **by equality** exactly as `AC-2` and `AC-4` already assert theirs — and with the same kind of
+stated reason rather than a builder's choice: the excluded arms are `{D1a, D1b, D1c}`, *the arms whose
+delta IS the whole record*, where a note carrying a stored-dirty name cannot be written without
+introducing it and refusal is the correct answer (`AC-2`'s typed pass already asserts that). D4, D5,
+D6, D7 and D8 remain. The body-section append stays as a named behavioural example; it is a Class-2
+pass-through and not an arm, which the criterion should say rather than leave the reader to infer. Two
+consequences worth naming so the fold does not have to rediscover them: the fixture population is
+**synthetic** for the same reason round 10 has already booked for the `--fix` leg (count 3's two live
+Tier-1-dirty names are the sentinel stubs, which the payload rule permits anyway), so the same rider
+applies; and a ninth arm added later joins `AC-3` automatically, which is the whole reason `AC-2` and
+`AC-4` were re-based.
+
+### Rulings carried forward — settled, do not re-derive
+
+All nine stand, re-checked against the code this round. Nothing above reopens any of them — the finding
+is about which arms one criterion asserts a rule over, not about the rule, the arm set, or the wall.
+
+- **Gate signature:** no `existing` parameter; introduced fields plus the entity type; entity arms
+  project through `model_to_frontmatter` first.
+- **Splitter:** TOTAL, returns `(address | None, display)`, owns the parens form before delegating.
+- **DECLARE:** the gate is handed its semantic context and never consults the filesystem; `_owns` is
+  consulted nowhere.
+- **The phone authority relocates to a leaf** (`obsidian_schemas/phone_normalization.py`).
+- **The gate's OUTPUT contract and the arm-shape split.**
+- **The eight-arm derived set plus the D3 rider.**
+- **The gate's NAME output is an IDENTITY.**
+- **The gate runs ABOVE `note_lock` at D1a/D1b/D1c** — Dave's precondition 1.
+- **The placement value is derived by ONE local rule, with D8 carrying the guard that makes it so** —
+  round 10's fold, verified above.
+
+### Review — only what changed
+
+**Fit / Duplication / Generalization / Reversibility / Prior art:** as rounds 2–9 recorded them.
+Approach F remains right; `tests/test_write_routing.py:1-18` remains the precedent `AC-1`'s battery
+copies; no cited execution is owed on the wall instrument, and the one that WAS owed has been run.
+
+**Boundaries:** improved this round rather than merely repaired. The wall is an AST instrument over a
+FRAME, and after the round-10 fold all three of its per-arm obligations resolve against one function's
+AST with no inter-procedural analysis — I re-checked each of the three and agree. The residual boundary
+observation is the finding above, and it is on the other side of the same seam: the wall now correctly
+pins everything that is *structural* about a gate call (that it exists, what declaration it carries,
+where it sits), and the one thing it cannot pin — *which object is passed as the delta* — is precisely
+what `AC-3` exists to pin behaviourally. That division of labour is right; the defect is that `AC-3`
+covers three of the five arms where it is the only thing standing.
+
+**Determinism boundary (LLM vs code):** n/a for LLMs. The dimension's principle is again what the
+finding turns on — at D5 the delta is mechanically available as two parameters and the stored record is
+the only dict in the frame, so "pass the delta" is a discipline nothing enforces, at the one arm where
+the wrong object is the more natural thing to write.
+
+**Cost & maintenance:** the estimate is the one number in this document that has not moved while its
+subject has. *"One to two sessions"* was written before the phone leaf module (round 5), the
+subsumption of `_normalize_address_fields` (round 6), the hoist (round 9), the D8 existence guard
+(round 10) and the wall's growth from a per-arm predicate to a per-arm triple. Each increment was
+priced honestly and small in its own round; nobody has re-added them. **Non-blocking** — it changes no
+design decision — but the spec's plan should re-derive the estimate from the current scope rather than
+carry this one forward, and the `lint_vault --fix` delta threading is still the piece three
+architectural rounds have called the largest.
+
+**Build vs extend vs integrate:** extend, correctly, with one symbol moving first.
+
+### Notes (non-blocking)
+
+1. **`## Approach`'s D5/D6 delta pointer.** Finding C's `writer.py:329` / `:381` citations name where
+   the stored record is bound, not where the delta lives; at D5 the delta has no dict form in the frame
+   at all. One sentence in Finding C, in the shape the round-5 fold already wrote for D1b, would stop a
+   build reading the citation as the instruction. This is the unsigned half of the blocking issue and
+   is free to fold in the same round.
+2. **Parked defect 4 remains correctly parked**, and the round-10 fold's reason for not closing it is
+   right and worth keeping: guarding `roundtrip_file` would flip D7 from `above` to `in-lock` under the
+   one rule, moving a required placement value for an arm whose gate call is empty and whose defect this
+   item neither causes nor fixes. The shared-fix sentence is the correct disposition.
+3. **Rounds 1–9's standing notes all carry:** the dedicated `pattern` attribute rather than overloading
+   `declared_type` (`base.py:266-274`); the new `REASONS` literal chosen at spec time
+   (`errors.py:110-127`, `bounded_message` raising on any non-member at `:139-145`); the
+   `book.py`/`meeting.py` `save` overrides that are correctly not arms; and the
+   three-functions-one-shape collapse, still a separate work item and still not recommended for
+   absorption.
+4. **The document remains buildable two ways until Dave re-originates** — Tier A's undeclared clause,
+   `### Examples of done` scenario 3 vs the arm-shape split, and `AC-1`'s floor naming two non-members.
+   The round-9 placement contradiction correctly drops off that list this round. The finding above adds
+   one, and like the other three it is staged rather than fixable here.
+5. **The `identifier.py:MIN_DIGITS` citations are benign for the eighth time.** The pre-spawn sweep now
+   resolves twelve, all inside gate-authored prose whose subject IS the slip. I re-read the symbol: it
+   is `Phone.MIN_DIGITS`, a `ClassVar` at `identifier.py:228`, with consumers at `:238-239` and `:274`.
+   The one live citation in this document is Finding G's `identifier.py:Phone:228`, which resolves.
+   **I introduce no thirteenth**: this round cites the floor nowhere.
+
+### Arc note — convergence, and what the next architect round is for
+
+Ten rounds, ten distinct targets, none re-raised: Company annexation (1) → the structural sharpening
+plus the missing Tier-1 table (2) → DECLARE plus the `AC-1` pass-what gap (3) → the phone authority (4)
+→ the `aliases[]` migration's expressibility (5) → the door set's membership rule (6) → the filename
+bound above the set (7) → the directory created before the set can refuse (8) → the placement pin's own
+derivability (9) → the one criterion never re-based on the derived set (10). Round 9's target is closed
+and verified from source above.
+
+Rounds 7–9 were a class — all three consequences of the round-6 arm-set correction — and the round-10
+fold closed that class with a structural argument I re-derived and accept. **This round is not a fourth
+member of it.** It is on the other axis entirely: not what the wall asserts, but which arms a
+behavioural criterion asserts the delta rule over, and the answer was fixed in Revision 1 of the ACs
+and never revisited while `AC-2` and `AC-4` were re-based around it three times.
+
+**What makes an eleventh architect round unnecessary rather than merely shorter.** The fix needs no
+decision from Dave beyond one clause on a criterion already on his list, and the shape is copied
+verbatim from two criteria in the same fence. The queued order does not lengthen and does not reorder:
+fold, then Dave re-originates `AC-1`–`AC-4` in ONE round, then one shell pass runs G1/G2/G4/G5 plus the
+consumer audit's two greps, then ac-red-team → architect → data-premise → spec-writer. Two of the four
+rounds `round_budget: 12` reserved for the post-re-sign chain remain, and the fold this round asks for
+is the cheapest of the ten.
+
+```verdict
+gate: architect
+verdict: REVISE
+date: 2026-08-11
+model: claude-opus-5
+targets: AC-3, #exploration-notes
+note: Round 9's finding is closed and the round-10 fold re-derives on every leg (apply_fixes binds fpath from the issues parameter at lint_vault.py:804-815 with the walk two frames away at :111; the guard's raise lands in the existing handler at :902-903; D8's declaration really is fm.get("type") at :821, not the unreachable vf.entity_type; nothing between writer.py:209 and :255 feeds the arms, so the hoist is local; move_note at vault_io.py:721 completes the mutation-surface enumeration) — but AC-3, the ONLY criterion pinning Finding C's delta rule, is still specified as the hand-list of four doors it was signed with, which is the exact shape AC-2 and AC-4 were re-based onto AC-1's derived set to escape: it omits update_frontmatter_field and update_frontmatter_fields, the two arms where the record/delta distinction is constructible and where the delta is not a dict in the frame at all (writer.py:292-296 passes field_name/field_value as loose parameters while the stored record sits bound at :329, one line above the natural call site), so a build gating the merged record at D5/D6 greens AC-1's whole per-arm triple, greens AC-2 (a whole-record gate refuses an introduced dirty name too) and greens AC-4 while making update_frontmatter_field permanently refuse every legacy-dirty note — the remedy-is-the-disease outcome the delta rule exists to prevent, unpinned on two of eight arms; the repair is one clause inside a criterion already on Dave's list: bind AC-3 to AC-1's derived set with the exclusion set asserted by equality as {D1a, D1b, D1c}, the arms whose delta IS the whole record.
+```
+
+## Data Audit — 2026-08-11
+
+**Recommendation: REVISE — return to exploration**
+
+**Round 10, cold-start re-spawn.** Read in role order: `data-premise.yaml`, this document in full (five
+ac-red-team rounds, the `ac-signoff` fence, ten architectural reviews, nine prior data audits, ten
+spec-writer rounds, `## Conductor Rulings & Grounding`, `## Grounding Still Owed`, `## Conductor
+Booking`, `## Conductor Preconditions`, the re-origination brief), then the code every premise below
+turns on. Same method bound as every prior round: **no shell — this spawn has no Bash tool — scope
+limited to this tree's files, and the live vault was not read.** Vault counts used are the
+conductor's, cited as such; G6's result is the conductor's execution, cited as such.
+
+**My round-9 note said a tenth data-premise round before the shell pass would buy nothing. That was
+wrong, and I am the one who has to say so.** It was right about *vault* queries and it remains right
+about them — G1, G2, G4 and G5 are exactly as unrun as they were. It was wrong about the in-cage
+class, because round 9 spent that exception on ONE constant (`SKIP_DIRS`) and concluded the class was
+exhausted. It was not: `SKIP_DIRS` is one of **three** independent reachability partitions in this
+package, the other two are in `repositories/base.py`, and the round-10 architectural review's blocking
+issue turns on which side of them two arms sit. I ran the predicate rather than reasoning about it.
+
+### Trigger check
+
+**Class 1 AND Class 2 — both still fire.**
+
+- Class 1 (data-distribution / field-presence): four quantified claims about live entries remain
+  unmeasured — G1's undeclared population, G2's per-field cells and deletion column, G4's two columns,
+  and G5's path-forked population. Unchanged from rounds 8 and 9; none has run.
+- Class 2 (rule-effect-against-existing-corpus): rule (ii)'s effect outside `@*.md` is still unrun; the
+  splitter consolidation is still a predicate never run over the entries it will judge; **and, new this
+  round, the round-10 architectural review's `AC-3` finding and round 10's own corrected archive
+  partition are both claims about which notes a door can reach, which is decidable from this tree** —
+  executed below, per this gate's Step 2.3.
+
+### My round-9 findings — carried status
+
+| Round-9 ask | Status |
+|---|---|
+| **G1 amended** to `should_skip`'s own predicate | **FOLDED** (round-10 fold), and G4/G5(a) inherited it. Correct as far as it goes — and **incomplete**, for the reason below. It is amended once more, still free, still before it runs. |
+| **`AC-3`'s `--fix` leg has a live discriminating population of at most 2** | **FOLDED** as Finding C's new subsection plus the synthetic-fixture clause in the brief. Re-derived from source this round; every link holds. |
+| **`move_note` missing from the mutation-surface enumeration** | **FOLDED** into `## Carried Forward`, non-blocking as raised. |
+| **G2, G4, G5, the consumer audit** | **STILL OWED, unchanged and unrun.** |
+
+### Verified from source this round
+
+Re-derived rather than inherited. Every row is a fresh read of this tree.
+
+| Claim | Where I read it | Result |
+|---|---|---|
+| `BaseRepository.load` walks `self.vault_path.glob(self.file_pattern)` — **`Path.glob`, not `rglob`** | `base.py:230`, with `file_pattern` defaulting to `"@*.md"` at `:195-197` | **confirmed — the walk is NON-RECURSIVE.** `PersonRepository`'s entire corpus is the vault ROOT's `@*.md` files |
+| `update_fields` can only reach a note that walk loaded | `base.py:427` (`self.get_file_path(name)`) → `:343-354` (`self._file_map.get(...)`, populated only by `load` at `:235`) → `:429-430` raises `ValueError` otherwise | confirmed — D4's reachable set IS the root-level glob |
+| the body-section append is the same | `person.py:append_to_timeline:1538-1540` (`self.get_file_path(person.name)`, `ValueError` if absent); `add_to_discuss_item:1766` and the other three body writers reach the same accessor | confirmed |
+| D5/D6/D7 take a path and consult **no** walker | `writer.py:292-296` / `:350-353` / `:414` — `file_path: Union[str, Path]`; the only constraint is `.exists()` (`:320-321`, `:374-375`) | confirmed — no glob, no repository, no depth or directory constraint |
+| `--fix` is barred from the archive dirs | `lint_vault.py:SKIP_DIRS:57` → `should_skip:104-106` → `read_vault:111-113` → `run_lint:1069`, `apply_fixes` at `:1100-1103` | confirmed (round 9, re-derived) |
+| the `MIN_DIGITS` floor is `Phone.MIN_DIGITS` | `identifier.py:228`, a `ClassVar[int] = 7` | confirmed; **I introduce no fourteenth citation** — the pre-spawn sweep now resolves thirteen, and the thirteenth is round 10's own note 5 saying it would introduce none. This round names the symbol without the module-qualified form. |
+
+### Finding — reachability is THREE partitions, not one, and `AC-3`'s four named doors sit on the wrong side of all but one of them
+
+This is the new thing this round adds, it needs no vault query, and it lands directly on the criterion
+the round-10 architectural review is asking Dave to re-originate.
+
+Round 9 established that `--fix` cannot reach `_merged_dupes/` or `_quarantine/`, where 77 of count 3's
+79 Tier-1-dirty stored names sit. Round 10 folded that and corrected G1's archive class to
+`should_skip`'s own predicate. **`should_skip` is `lint_vault`'s partition. It is not the package's,
+and it is not the repositories'.** Read from source, this tree has three:
+
+| Partition | Where | What it excludes | Which arms it binds |
+|---|---|---|---|
+| **`should_skip` over `SKIP_DIRS`** | `lint_vault.py:57`, `:104-106` | anything under `.obsidian`, `Templates`, `src`, `.trash`, `_quarantine`, `_merged_dupes` | **D8** |
+| **`glob(file_pattern)` — NON-RECURSIVE** | `base.py:230`, `:195-197` | **everything not at the vault ROOT**, whatever it is called | **D4**, and the four body-section pass-throughs |
+| **no partition at all** | `writer.py:292-296`, `:350-353`, `:414` | nothing — any path that exists | **D5, D6, D7** |
+
+**Now map `AC-3`'s four hand-listed doors onto count 3's population.**
+
+| `AC-3`'s door | Can it write one of the 77 archived dirty notes? | Why |
+|---|---|---|
+| `update_fields` on an unrelated field | **no** | `_file_map` is filled by a root-only `glob`; an archived note is never loaded, so `get_file_path` returns `None` and `base.py:429-430` raises before any write |
+| a body-section append | **no** | same accessor, same map, same raise (`person.py:1538-1540`) |
+| `roundtrip_file` | **yes** | raw path, no walker — but it INTRODUCES nothing (`writer.py:414-426`), so the delta rule is satisfied by an empty delta and the fixture discriminates nothing |
+| `lint_vault --fix` | **no** | `SKIP_DIRS` (round 9) |
+
+**So three of `AC-3`'s four named doors cannot reach the population `AC-3` exists to protect, and the
+fourth is the one arm where the property is trivially true.** The criterion's live discriminating
+population is empty at every door it names.
+
+**And here is the part that changes the round-10 architectural finding rather than merely agreeing with
+it.** That review found `AC-3` omits D5 and D6, and argued it structurally: a hand-list is the shape
+`AC-2` and `AC-4` were re-based to escape. That argument is right and I confirm every leg of it from
+source. What it does not say — and what the partition table above makes mechanical — is that **D5 and
+D6 are the ONLY two arms in the entire eight-arm set through which any of the 77 can be written at
+all.** `update_frontmatter_field(Path("<vault>/_merged_dupes/@X.md"), "company", "Acme")` is a legal
+call today on a documented public writer: no repository, no glob, no `SKIP_DIRS`, and the note's own
+`type:` supplies the declaration (`writer.py:329`). Under the failure the review describes — a build
+gating the merged record instead of the delta — that call becomes permanently refused, and there is no
+other door in this package through which those notes can be repaired or amended.
+
+So the two omitted arms are not two more members of a list. **They carry the whole of the criterion's
+live subject matter**, and the three arms the criterion does name carry none of it. The repair the
+review asks for (bind `AC-3` to `AC-1`'s derived set, exclusion set `{D1a, D1b, D1c}` by equality) is
+the right one and I endorse it unchanged — this finding raises its priority and supplies the reason its
+fixture rider is not optional.
+
+**What I am NOT claiming.** Not that `AC-3` is false — it is not, and Finding C's delta rule is not
+weakened; if anything the D5/D6 reading strengthens it, because those are the arms where a legacy-dirty
+note is genuinely reachable and genuinely brickable. Not that the fixture population must be real:
+round 10 already booked synthetic fixtures for the `--fix` leg, and the same rider now applies to the
+whole criterion for a *stated* reason rather than one door's accident. **Same target as rounds 8, 9 and
+the round-10 architect** — `AC-3` — and I name that plainly rather than let the targets line imply a
+fresh one. Round 8 was its premise's corpus, round 9 its `--fix` leg's fixture, round 10 its door list;
+this is the intersection of the door list with the population, which is the fact that decides whether
+the re-signed criterion has any discriminating power at all. It closes here and adds no round.
+
+### Second, and free: G1's corrected partition is right for one arm and wrong for four
+
+The round-10 fold restated G1's archive class as `should_skip` and had G4 and G5(a) inherit it. That
+replaced a hand-written two-name list with the code's own six-member constant, which was the right
+move — and it silently adopted `lint_vault`'s reachability notion as the package's.
+
+It is not. A note at `<vault>/People/@Al.md` is `should_skip`-FALSE — G1 would report it as live — while
+`PersonRepository` never loads it, `update_fields` raises `ValueError` on it, and every body-section
+writer raises the same. Conversely a note under `_quarantine/` is `should_skip`-TRUE — reported as
+archived — yet `update_frontmatter_field` writes it today without complaint. **The two partitions
+cross.** Reporting against either one alone mislabels one class of note in each direction.
+
+**G1 has still not run, so this is the second free correction in two rounds.** The fix is one more
+column, not one more query: report every bucket **additionally split by depth — at the vault root vs.
+in any subdirectory** — because root-vs-subdirectory is the reachability predicate for D4 and the four
+body pass-throughs exactly as `should_skip` is for D8. G4 and G5(a) inherit it as they inherited the
+last one. G5(b) already asks for `@`-prefixed directories and is unaffected.
+
+This also sharpens G5 rather than duplicating it. G5(a) asks for `type:`-declared notes whose leaf is
+not `@*.md` — the `<vault>/@Dave/Bob.md` shape Finding F produces. The depth column additionally
+catches the **correctly-named** note that has merely been filed into a folder, which is invisible to
+`PersonRepository` for a completely different reason and which no owed query currently counts.
+
+### Non-blocking — count 1 and count 3 were measured with a recursion the repositories do not have
+
+The conductor's method line is `rglob("@*.md")` (`## Conductor Rulings & Grounding`), giving 3,418
+notes. `PersonRepository`'s own corpus is `glob("@*.md")` (`base.py:230`) — root only. Those are the
+same number only if no `@*.md` note in the vault sits in a subdirectory, which nobody has checked.
+
+**This changes no ruling and I do not block on it.** Rule (ii) is fail-closed, so count 1 being a
+SUPERSET of the repository corpus is conservative in the safe direction, and ruling 2 stands
+undisturbed. But count 3 feeds `AC-3`'s "the premise is now historical" reading, and there the
+direction reverses: if any dirty note sits in a subdirectory, count 3 counted it while no repository
+door can touch it, and if the walk had been non-recursive the 79 would be a different number again.
+The depth column above resolves it as a by-product. Recorded so the next reader does not take
+"3,418" and "the repository's corpus" to be the same object — this document has been punished twice
+already (Finding D, count 1) for a number that answered a narrower question than the one asked of it.
+
+### Required grounding
+
+**Nothing is added to the shell pass this round.** One existing query gets a free correction; the rest
+carry unchanged. Four owed, one amended, one retired.
+
+1. **G1 — unrun, and AMENDED again (free):** keep round 10's `should_skip` partition and add a **depth**
+   split (vault root vs. any subdirectory) to every bucket, because `should_skip` binds D8 while depth
+   binds D4 and the body pass-throughs, and the two partitions cross. G4 and G5(a) inherit.
+2. **G2 — unchanged and still unrun,** all three parts.
+3. **G4 — unchanged and still unrun,** both columns, plus G1's depth split.
+4. **G5 — unchanged and still unrun,** both parts, not person-scoped; (a) inherits the depth split.
+5. **G6 — RUN. Retired.** Result in `## Conductor Booking`.
+6. **The consumer audit** — unchanged, still owed, still not a vault query. Its D5/D6 half is now the
+   load-bearing half: those are the two arms this round shows carry the live archived population.
+
+### Conclusion
+
+The item moved again this round and again in the right direction: round 9's finding is folded, its
+`--fix` chain re-derives from source, and the round-10 architectural finding on `AC-3`'s door list is
+correct on every leg I re-read.
+
+What stops this being a PROMOTE is unchanged in kind. G1, G2, G4 and G5 have never run, and G5 still
+decides whether `AC-3`'s premise survives at all. The architect holds a live blocking issue inside the
+very clause Dave is being asked to sign. And this round adds the fact that makes that issue urgent
+rather than tidy: mapped against the three reachability partitions this package actually has, `AC-3` as
+signed names four doors of which none has a live discriminating population, while the two arms it omits
+are the only ones in the whole set that can reach the 77 notes the criterion is about. Promoting now
+would release the D3 brake on a criterion whose fixtures would pass identically whether or not the
+delta rule was implemented for the population it was written for — the WI-235 shape, at the one
+criterion this item is built around. Stage stays at `exploring`.
+
+**Signal for the factory, stated because the targets line alone cannot carry it.** The arc: rounds 1–3
+named the untyped-dispatch premise (closed by ruling 1); round 4, count 1's scope (→ G1); round 5, the
+per-field split (→ G2); round 6, the dict-arm deletion (→ G2's third column); round 7, the blast radii
+(→ G4, discharged by (b′)); round 8, `AC-2`'s false directory clause and `AC-3`'s invisible population
+(→ precondition 1, G5, G6 now DONE); round 9, `AC-3`'s `--fix` leg against `SKIP_DIRS` (folded).
+**This round re-uses `AC-3` for the third consecutive time and I want that read as convergence, not as
+a treadmill:** each round has closed its clause and named the next, this one answers the population
+question the round-10 architect's structural finding leaves open, it needs no query and no decision
+from Dave beyond the clause already on his list, and it closes here. **My round-9 prediction that a
+tenth gate round would buy nothing was falsified by this round's own finding, so I will not make an
+eleventh prediction of the same shape.** What I will say is narrower and checkable: the in-cage
+reachability class is now enumerated — three partitions, all three read from source, mapped onto all
+eight arms — so a further gate spawn would have to find a *fourth* partition to add anything, and I
+listed every walker in the package to conclude there is none. **The unblock is unchanged in order and
+does not lengthen:** the fold takes the architect's `AC-3` repair with this round's population reason
+and G1's depth column; Dave re-originates `AC-1`–`AC-4` in ONE round; the same shell-holding actor runs
+G1 (as twice amended), G2, G4, G5 and the consumer audit's two greps alongside it.
+
+```verdict
+gate: data-premise
+verdict: REVISE
+date: 2026-08-11
+model: claude-opus-5
+targets: AC-3, #exploration-notes
+note: Round 9's SKIP_DIRS finding is folded and re-derives, and the round-10 architect's AC-3 door-list finding is correct on every leg — but it treats D5/D6 as two more omitted members when they are the ONLY two arms in the eight-arm set that can reach the population AC-3 exists to protect: this package has THREE reachability partitions, not one, and I read all three from source — `should_skip` over SKIP_DIRS binds D8 (lint_vault.py:57, :104-106), a NON-RECURSIVE `glob(file_pattern)` binds D4 and the four body pass-throughs (base.py:230 with the default at :195-197, reached via get_file_path/_file_map at :343-354 and the ValueError at :429-430, same accessor at person.py:1538-1540), and D5/D6/D7 consult no walker at all (writer.py:292-296, :350-353, :414 — the only constraint is .exists()); mapped onto count 3's 79 Tier-1-dirty names, three of AC-3's four hand-listed doors provably cannot write any of the 77 archived ones and the fourth (roundtrip_file) introduces nothing, so the criterion as signed has an EMPTY live discriminating population at every door it names while update_frontmatter_field on a `_merged_dupes/` note is a legal call today — the architect's repair (bind AC-3 to AC-1's derived set, exclusion {D1a,D1b,D1c} by equality) is right and this supplies the reason its synthetic-fixture rider is mandatory rather than incidental; separately and free, G1's round-10 `should_skip` partition is lint_vault's notion and CROSSES the repositories' (a note at <vault>/People/@Al.md is should_skip-false but unloadable; a `_quarantine/` note is should_skip-true but writable through D5), so G1/G4/G5(a) need one more column — depth, root vs subdirectory — before they run; and non-blocking, count 1/count 3's `rglob("@*.md")` is a recursion the repositories do not have (glob, base.py:230), so 3,418 is a superset of PersonRepository's actual corpus. G1/G2/G4/G5 still need a shell no cage has.
+```
+
+## Spec-Writer Fold — 2026-08-11 (round 11)
+
+**This round PRODUCED a fold and made NO decision, because the whole of the blocking issue lands in
+signed text.** Both round-10 verdicts are REVISE and both name the same target: `AC-3`, the one
+criterion pinning Finding C's delta rule, still specified as the hand-list of four doors it was signed
+with. `ac_hash_AC-3: 9e2bae0c2137` covers it, and WI-061 routes a signed original that proves wrong to
+re-origination rather than refinement — so the repair is STAGED in `## Re-origination Brief`, inside an
+`AC-3` item that has been on Dave's list since round 9. **Dave's one round does not grow: no item was
+added, no criterion joined the set.** The two unsigned halves — the architect's note-1 citation
+correction and the data audit's G1 column — are repaired in place here, where they belong.
+
+Cold-start, read in role order: `spec-writer.yaml`, this document in full (five ac-red-team rounds, the
+`ac-signoff` fence, ten architectural reviews, ten data audits, ten prior spec-writer rounds,
+`## Conductor Rulings & Grounding`, `## Grounding Still Owed`, `## Conductor Booking`,
+`## Conductor Preconditions`, the re-origination brief), the project `CLAUDE.md`, then the code every
+claim below turns on. Every citation re-derived from source this round, not inherited:
+`repositories/base.py` (`load`, `file_pattern`, `get_file_path`, `save`, `update_fields`, `_owns`),
+`writer.py` (`write_markdown_file` end to end, both `update_frontmatter_*`, `roundtrip_file`),
+`repositories/person.py` (`save`, `_normalize_address_fields`, `_writeback_identifier`, the six
+`get_file_path`-resolving body writers), `scripts/lint_vault.py` (`SKIP_DIRS`, `should_skip`,
+`read_vault`), `models.py` (`Person`'s field set). This cage has **no shell**; the live vault was not
+read — the counts used are the conductor's, cited as such.
+
+### What this round wrote
+
+| Section | Change | Answers |
+|---|---|---|
+| **Finding C** — new subsection *"Where the delta LIVES is arm-specific, and at D5 it has no dict form in the frame at all"* | The per-arm table of stored-record vs introduced-fields bindings, read from source (`base.py:406`/`:439`/`:451`; `writer.py:294-295`/`:329`/`:332`; `:352`/`:381`/`:384`; `:257`; `:258-263`; `lint_vault.py:821`), and why D5 is the sharpest case — the delta has to be CONSTRUCTED while the wrong object sits bound one line above the call site. Stated as the same correction the round-5 fold wrote for D1b, in the other direction. | architect round-10 note 1 |
+| **Finding C** — the re-dating blockquote's leg (b) | In-place correction: the `base.py:437` / `writer.py:329` / `:381` citations name each frame's PARSE, not its delta, with a forward pointer so they are not read as an instruction. | architect round-10 note 1 |
+| **Finding C** — new subsection *"Reachability is THREE partitions, not one"* | All three partitions read from source and mapped onto all eight arms; the door-by-door table showing `AC-3`'s four named doors have an EMPTY live discriminating population; D5/D6 as the only arms reaching the 77 archived notes; the two riders (synthetic fixtures for the whole criterion, the body append as a behavioural example not a member); the non-blocking `rglob`-vs-`glob` correction to count 1 / count 3; and what it does NOT claim. | data-premise round 10 |
+| **`## Approach`** | Round-11 header note (nothing in the shape moved); the delta paragraph now states WHERE the delta lives per arm and names the D5/D6 failure it forecloses. | both round-10 gates |
+| **Parked defects — new item 5** | `Person.whatsapp` (`models.py:Person:83`) is a fourth identifier-bearing field with its own typed parser (`identifier.py:WhatsAppJID.parse:264`) that nothing in this item's scope reads or writes (`person.py:1300-1343`, `:1204-1210`) — declared, with the reason it is genuinely outside, and parked. | this round's next-level sweep |
+| **Constraints — Effort** | The estimate RE-DERIVED from current scope as a six-row table: honest total **three to four sessions**, up from the round-3 *"one to two"* that never moved across six increments. Non-blocking, changes no design decision. | architect round-10 cost dimension |
+| **`## Grounding Still Owed`** | Preamble round-11 note (nothing added, one item corrected a second time); **G1 gains a DEPTH column** — every bucket split root vs. subdirectory — with the crossing derived; **G4** and **G5(a)** inherit it. | data-premise round 10 |
+| **`## Re-origination Brief`** | Header note: the list does NOT grow. The `AC-3` item gains a third clause — re-base onto `AC-1`'s derived set at arm granularity, exclusion `{D1a, D1b, D1c}` by equality with its reason stated, plus three riders. | architect round 10, blocking; data-premise round 10 |
+| **`## Carried Forward`** | New bullet: the three reachability partitions, their crossing, and the two consequences that are now load-bearing. | data-premise round 10 |
+
+### Two things this round found that the reviews did not have
+
+1. **`{D1a, D1b, D1c}` is not "the entity-shaped arms", and writing it that way would silently narrow it
+   to `{D1a}` and re-open the hole.** This matters because the phrase *"the entity-shaped arms"* is
+   already in the fence twice — `AC-2` and `AC-4` both partition these same eight arms by entity-vs-dict
+   SHAPE, and under that partition **D1b and D1c are DICT-shaped** and sit inside both criteria's
+   undeclared passes. `AC-3`'s exclusion is a DIFFERENT partition of the same set: *the arm's delta IS
+   the whole record*. Read from source, that property has a one-fact-about-the-frame statement, and it
+   is the same discipline the placement pin already uses: **an arm is excluded iff it binds what it
+   serializes from its own ARGUMENTS rather than from a parse of the target** — `fm =
+   model_to_frontmatter(entity, extra_fields)` (`writer.py:257`), `fm = frontmatter.copy()` (`:258-261`),
+   `fm = extra_fields or {}` (`:262-263`) — which is exactly `write_markdown_file`'s three arms and
+   nothing else. The corollary is worth having: that predicate is also why those three need no target to
+   exist and can therefore be hoisted, so **`AC-3`'s exclusion set is the placement pin's `above` set
+   minus D7**, the one arm that parses the target and introduces nothing. Three orthogonal partitions of
+   one eight-member set — shape (`AC-2`/`AC-4`), record-equals-delta (`AC-3`), placement (`AC-1`) — with
+   the last two derivable from the same frame-local fact. The brief states the set as
+   `write_markdown_file`'s three arms for that reason, not as "the entity-shaped ones".
+2. **The three-field container is not a hand-list with an unnoticed hole — the fourth candidate exists
+   and is genuinely outside.** Sweeping the level below this round's class (see below) turned up
+   `Person.whatsapp` (`models.py:Person:83`) and its typed parser
+   (`identifier.py:WhatsAppJID.parse:264`). Nothing in this item's scope reads or writes it: `_normalize_address_fields` walks `emails` and
+   `aliases` only (`person.py:1300-1343`), `_writeback_identifier` sets `emails`/`phones` only
+   (`:1204-1210`). A dict arm CAN introduce it and the gate will pass it through unnormalized — exactly
+   as every door does today, so preserving that is not a regression, and a JID is not an RFC 2822
+   address under Finding D's own job partition. **Declared and parked (item 5) rather than folded**,
+   because widening the container a fourth time would add an item to Dave's round for a defect this item
+   neither causes nor worsens.
+
+### What this round still deliberately did NOT write, and why — unchanged from rounds 4 through 10
+
+**No Design, Edge Cases, Implementation Plan, Write Targets, Verification, or `criteria` refinement.**
+The three reasons are unchanged and none has moved. `AC-1`–`AC-5` remain inside the `ac-signoff` hash
+span (`ac_hash: a76ebad54da2`); this round changes what ONE of them will be asked to say — `AC-3`'s
+door coverage — which is signed text, and WI-061 routes that to re-origination rather than refinement.
+The plan and the criteria are one object: a plan written now would prescribe fixtures for a criterion
+whose door set is about to change. And rule D3 refuses `→ specced` without a data-premise PROMOTE,
+which the standing verdict is not.
+
+**One thing this round did NOT do that a reader might expect.** It did not edit `AC-3` in place, even
+though the architect and the data audit agree on the exact replacement text and both call it cheap.
+Editing it would invalidate `ac_hash_AC-3` (D4b) and would be the *"silently rewrite a promise"* case
+WI-061 names, on the one criterion this item is built around. Staged, with the shape stated precisely
+enough that Dave's round is a yes/no.
+
+### Class-shaped fold — declared, and still bounded by ruling 3
+
+Per WI-226 the finding in front of me is not "`AC-3` forgot D5 and D6". The generator, stated as
+narrowly as it is true:
+
+> **A criterion that names its door coverage as a LITERAL LIST rather than deriving it from `AC-1`'s
+> set — so it exempts the doors it forgot, and exempts the next arm by construction.**
+
+That is not a new generator: it is the one ac-red-team round 1 named, and `AC-4`'s own `why:` still
+carries its sentence. What is new is that one member of the class was never treated.
+
+**Enumerating what generates it and sweeping the class.** The class is *every criterion asserting a
+property over the door set*. There are five criteria and this is the whole set:
+
+| Criterion | How it names its doors | Status |
+|---|---|---|
+| `AC-1` | it DERIVES the set — this is the set the others bind to | **n/a** — the generator's cure, not a member |
+| `AC-2` | bound to `AC-1`'s derived set, both passes, exclusion sets by equality | **CLOSED** — ac-red-team rounds 1 and 3 |
+| `AC-3` | **a hand-list of four doors** | **CLOSED this round**, by re-basing onto the derived set with `{D1a, D1b, D1c}` excluded by equality |
+| `AC-4` | bound to `AC-1`'s derived set, both passes, exclusion sets by equality | **CLOSED** — ac-red-team rounds 1 and 3 |
+| `AC-5` | its set is not the door set at all — it sweeps the JOB SHAPE (`_extract_email_and_name`-shaped functions), and Finding D already records it as a lower bound | **outside the class**, and recorded as an accepted known limit in Tier C |
+
+`AC-3` was the last untreated member and the class is now empty. That it survived five ac-red-team
+rounds is explained rather than excused: rounds 1–5 each recorded `AC-3` as *"unchanged and still
+holds"*, and the round-3 extent sweep classified its container as *"same surface as `AC-2`, read from
+the other side"* — which swept its PATTERN extent (that is where the sentinel finding came from) and
+never its DOOR extent.
+
+**Sweeping the next level and declaring what it found.** The dimension below "which criterion" is
+*which SET each criterion's property is quantified over* — the door set is one of several, and a
+hand-list is a defect in any of them. Four such sets exist across the fence:
+
+| Quantified set | Derived or listed? | Sweep result |
+|---|---|---|
+| the door / arm set | derived by `AC-1`, and after this round all four door-scoped criteria bind to it | **closed** |
+| the Tier-1 PATTERN set (`AC-2`) | derived — *"swept from that module's own pattern table, not sampled"*, with Finding H ordering the branch-unit reification that creates the table | **closed**; Tier C records that a key-unit sweep would miss `empty`, discharged by construction |
+| the identifier FIELD container (`AC-4`) | **listed** — `emails[]`, `phones[]`, `aliases[]` | **swept this round**: the only further identifier-bearing field on `Person` is `whatsapp` (`models.py:Person:83`), and it is reached by no path this item routes (`person.py:1300-1343`, `:1204-1210`). Declared and PARKED as adjacent defect 5 rather than folded — the list is complete for this item's scope, and the one non-member is named |
+| the splitter JOB set (`AC-5`) | derived by job shape, and Finding D states it is a LOWER bound | **known limit**, accepted under ruling 3, Tier C |
+
+**I find no further open member at either level.** The sweep is finite for a structural reason rather
+than an exhausted one: a criterion quantifies over exactly one set, there are five criteria, and each
+one's set is now either derived or explicitly declared complete-with-its-non-member.
+
+**And here the sweep STOPS**, on Dave's ruling 3. The altitude declaration holds and this round does not
+test it: the finding is not about the checking-of-the-checking but about which arms one criterion
+asserts a real behavioural rule over, with a real corruption class (a public API refusing every
+legacy-dirty note) greenable while every other criterion stays green — the *"the thing is wrong"* case
+round 3's regress analysis holds outside the ladder, and the round-10 architect says so in its own
+words. Its one AC consequence lands in `AC-3`, already inside ruling 3's named set. **This round opens
+no further rung and adds no item to Dave's round.**
+
+### Contradiction scan — what this round's claims now disagree with
+
+Run over the whole document for every claim added or edited this round.
+
+- **Finding C's *"the delta only exists ONE FRAME ABOVE the seam (base.py:437 pre-merge, writer.py:329,
+  :381)"*** — the citation appears in exactly ONE live place and it is corrected in place with a forward
+  pointer. The prose was always right; the pointers named the parse. The same phrasing inside gate
+  sections and prior folds is append-only history and is not edited — a reader who reaches them reaches
+  the round-11 subsection first, because it is in the live section they cite.
+- **`AC-3`'s four-door hand-list** appears in the signed `criteria` fence, in `### Examples of done`
+  scenario 2 (which illustrates it), in Finding C's round-10 subsection, and in the brief's `AC-3` item.
+  **Only the brief is repaired**, because the first two are inside the `ac-signoff` hash span and the
+  third is that subsection's own subject matter, correctly scoped to the `--fix` leg and now extended by
+  the round-11 subsection beside it. The document therefore states the door list two ways *deliberately*
+  until Dave re-originates — the same staged condition `AC-1`'s floor, `AC-2`'s exclusion sets and
+  `AC-4`'s container have been in for four rounds, and it is why `## Re-origination Brief` exists.
+- **`{D1a, D1b, D1c}` vs "the entity-shaped arms"** — these are NOT the same set, and conflating them
+  would contradict `AC-2`'s and `AC-4`'s undeclared passes, which include D1b and D1c as dict-shaped
+  arms. The brief states the exclusion as `write_markdown_file`'s three arms with the record-equals-delta
+  reason, so the two partitions coexist without disagreeing. Flagged explicitly because the wrong phrase
+  is the natural one to reach for.
+- **`AC-1`'s eight-arm floor, the arm set, the pass-what pin and the placement pin** — all unaffected.
+  Nothing this round says changes which arms exist, what they pass, or where they call; `AC-3` asserts a
+  behavioural property over a subset of the same set.
+- **`AC-2`'s refusal clause** — unaffected, and the relationship is worth stating so the two are not read
+  as competing: `AC-2` asserts a write that INTRODUCES a Tier-1 name is refused at every arm; `AC-3`
+  asserts a write that does not is not. Re-basing `AC-3` onto the same derived set makes them exact
+  complements over `{D4, D5, D6, D7, D8}` rather than one total criterion and one partial one.
+- **`AC-4`'s field container** — unaffected. The `whatsapp` sweep result is declared as a parked adjacent
+  defect and explicitly NOT added to the container; parked defect 5 says so in the same paragraph.
+- **Finding C's delta rule itself** — unaffected and slightly strengthened. Both round-11 subsections say
+  so explicitly, so *"`AC-3`'s doors can't reach the dirt"* is not read as *"the delta rule is
+  unnecessary"* — the rule's two surviving legs are about the repair tools' PURPOSE and about where the
+  delta lives in the call stack.
+- **G1's `should_skip` partition (round-10 fold)** — not withdrawn, EXTENDED. `should_skip` remains the
+  right archive predicate for D8; the depth column is a second axis for D4 and the body pass-throughs.
+  Stated as "one more column, not one more query" in both the preamble and the G1 row.
+- **Count 1 and count 3** — the `rglob`-vs-`glob` observation does NOT reopen ruling 2 (fail-closed, so a
+  superset is conservative) and does not withdraw count 3. It bounds how count 3 may be read for `AC-3`,
+  which is already the subject of G5, and G1's depth column resolves it as a by-product.
+- **The Effort re-derivation** — it contradicts the number in its own bullet, which is the point, and it
+  contradicts nothing else: no round priced a design decision against "one to two sessions", and the
+  ranking it preserves (the `--fix` threading is the largest single piece) is unchanged across four
+  architectural rounds.
+- **The round-8 identity rule, Finding H's sentinel rule, Finding I's arm-shape split, the phone
+  relocation, DECLARE, the hoist** — all unaffected; none says anything about which arms `AC-3` covers or
+  about any walker's scope.
+- **Citation-drift note, recorded rather than actioned.** The pre-spawn sweep now resolves **thirteen**
+  `identifier.py:MIN_DIGITS` citations naming no symbol, up from eleven. Every one sits inside
+  gate-authored prose whose subject IS the slip — the two new ones are the round-10 architect's note 5
+  and the round-10 data audit's verification row, both of which are *reporting* the count. The symbol is
+  `Phone.MIN_DIGITS`, a `ClassVar[int] = 7` at `identifier.py:228` (re-verified this round; consumers at
+  `:238-239` and `:274`); the live citations in this document are Finding G's `identifier.py:Phone:228`
+  and parked defect 5's `identifier.py:274`/`:228`, all of which resolve. **I introduce no fourteenth**:
+  this round's new text uses the qualified form only. Gate sections are theirs, not mine, so no edit is
+  available to me.
+
+### Re-entry — unchanged in order and in length
+
+1. **Dave re-originates `AC-1`–`AC-4` in ONE round** (`AC-5` unchanged), now with: `AC-1`'s floor at
+   eight arms, the pass-what pin, the rider clause with its round-8 fixture pin, and the placement pin as
+   restated at round 10; `AC-2`'s directory clause standing as signed plus its default-lock-home fixture
+   rider; **`AC-3`'s scope sentence on pre-existing path-forked notes, its synthetic-fixture sentence now
+   covering the whole criterion, and — new this round — its re-basing onto `AC-1`'s derived set with the
+   exclusion set `{D1a, D1b, D1c}` asserted by equality**; `AC-4`'s `aliases[]` clause scoped by arm
+   shape with its dict side priced against the deletion; and one yes/no on `### Examples of done`
+   scenario 3, where (b) closes the deletion and (a) does not. **No item was added this round.**
+2. **One shell pass, alongside the re-origination:** **G1 as twice amended** (the `should_skip` partition
+   plus the depth column), the twice-amended **G2**, the two columns of **G4**, and the two parts of
+   **G5**, plus the consumer audit's two greps — whose D5/D6 half is now the load-bearing half, since
+   those are the arms carrying the live archived population. **G6 is DONE.** G3 stays withdrawn as moot.
+   None of the four gates a shape; all four size, and G5 additionally decides whether `AC-3`'s premise
+   survives.
+3. **ac-red-team → architect → data-premise → spec-writer.** Every architect ruling carries forward and
+   needs no re-derivation: gate signature, splitter, DECLARE, the phone relocation, the output contract,
+   the arm-shape split, the name-identity rule, the gate-above-lock placement and its one-rule derivation.
+4. **spec-writer.** With 1–3 done the spec is assembly: `## Carried Forward` plus the routing at eight
+   arms and one rider with the D1 hoist, the wall with its three per-arm arguments, the phone relocation,
+   the splitter consolidation and the subsumption, the Tier-1 branch-unit reification, and the
+   `lint_vault --fix` delta threading with its existence guard — priced at the re-derived three to four
+   sessions rather than the round-3 estimate.
+
+## Architectural Review — 2026-08-11 (round 11)
+
+**Recommendation: REVISE — return to exploration**
+
+**Round 11, cold-start re-spawn.** Read in role order: `architect.yaml`, this document in full (five
+ac-red-team rounds, the `ac-signoff` fence, ten prior architectural reviews, ten data audits, eleven
+spec-writer rounds, `## Conductor Rulings & Grounding`, `## Grounding Still Owed`, `## Conductor
+Booking`, `## Conductor Preconditions`, the re-origination brief), then the code every claim below
+turns on (`obsidian_schemas/writer.py`, `vault_io.py`, `repositories/base.py`,
+`repositories/person.py`, `errors.py`, `models.py`, `scripts/lint_vault.py`), plus the project
+`CLAUDE.md` and `LESSONS.html`. No shell in this cage; the live vault was not read — the counts used
+are the conductor's and G6's result is the conductor's execution, both cited as such.
+
+**My round-10 blocking issue is CLOSED and the round-11 fold re-derives on every leg I re-read.** The
+finding below is new. It is in signed text, it is on a clause Dave's own precondition 1 deliberately
+preserved, and it lands on the fixture RIDER the round-9 fold wrote for that clause — a rider authored
+against one frame and about to be signed over seven.
+
+### Trigger check
+
+Three fire, unchanged: **two** new modules (the gate and the phone leaf); a contract change crossing
+into three downstream repositories installed with `pip install -e`
+(`docs/backlog-campaign-2026-07-05.md:98`); a derived-wall enforcement mechanism that must be designed
+rather than copied.
+
+### Round-10's blocking issue — verified closed from source
+
+Re-derived rather than accepted from the fold's account of itself. Every row confirms.
+
+| Claim the round-11 fold makes | Where I read it | Result |
+|---|---|---|
+| at D5 the introduced fields are two loose parameters while the only dict in the frame is the stored record | `writer.py:292-296` (signature), `:329` (`frontmatter, body = parse_frontmatter(content)`), `:332` (`frontmatter[field_name] = field_value`), `:335` (serialize) | confirmed — the delta has no dict form in the frame and must be CONSTRUCTED |
+| D6 is the same shape one degree safer | `writer.py:350-353`, `:381`, `:384` (`frontmatter.update(updates)`) | confirmed |
+| `AC-3`'s exclusion set is `{D1a, D1b, D1c}` by a frame-local predicate — *binds what it serializes from its own ARGUMENTS rather than from a parse of the target* | `writer.py:257` (`model_to_frontmatter(entity, extra_fields)`), `:258-261` (`frontmatter.copy()` + `update`), `:262-263` (`extra_fields or {}`) — and nothing else in the eight-arm set | confirmed, and it is the best sentence written this round: it resolves the set with one fact per frame and no inter-procedural analysis |
+| the three reachability partitions, and that they CROSS | `lint_vault.py:57` (six-member `SKIP_DIRS`), `:104-106`, `:111-113`; `base.py:230` (`self.vault_path.glob(...)` — **non-recursive**) with the default at `:195-197`, `get_file_path` at `:343-354`, the `ValueError` at `:429-430`; `person.py:1538-1540`; `writer.py:292-296`, `:350-353`, `:414` (path only, no walker) | confirmed on all three, including the non-recursion, which I re-read specifically because the whole `AC-3` population argument rests on it |
+| `Person.whatsapp` is a fourth identifier-bearing field that no path in scope touches | `models.py:83`; `person.py:_normalize_address_fields:1300-1343` walks `emails` and `aliases` only; `_writeback_identifier:1204-1210` sets `emails`/`phones` only | confirmed — parking it (item 5) rather than widening `AC-4` a fourth time is the right call |
+| `REASONS` is a closed frozenset of fifteen and `bounded_message` refuses any non-member | `errors.py:110-127` (I counted the members), `:139-145` | confirmed; and `bounded_message`'s keyword set is `path`/`declared_type`/`cause` (`:134-136`), which is the fact behind the standing note that `pattern` must be a NEW attribute rather than a reuse |
+
+The class-shaped fold is also right, and its stopping argument is structural rather than tired: a
+criterion quantifies over exactly one set, there are five criteria, and each set is now derived or
+declared complete-with-its-non-member. I checked that enumeration against the fence and agree.
+
+### Blocking issue — `AC-2`'s no-stray-directory clause, and the round-9 oracle written to prove it, are unmeetable at the four arms the hoist cannot reach
+
+`AC-2` conjoins four promises and binds them to **every** arm in `AC-1`'s derived set, typed-pass
+exclusion `{roundtrip_file}` asserted by equality — so **seven arms**: D1a, D1b, D1c, D4, D5, D6, D8.
+
+> *"…is refused at every ARM in `AC-1`'s derived set, the target is left byte-identical, **no stray
+> directory is created**, and the refusal is a `LoudFailError` carrying the stable pattern key and no
+> note content."*
+
+Precondition 1 kept that clause **as signed** and the round-9 fold added the fixture rider now staged
+in the brief (`## Re-origination Brief`, the `AC-2` item): default lock home, `OBSIDIAN_SCHEMAS_LOCK_DIR`
+asserted unset, and an oracle *"derived from what the test itself holds — snapshot the vault root's full
+recursive listing immediately before the refused call and assert it is unchanged afterwards"*. Its
+entire justification is one sentence: *"Under the hoist the refusal precedes `note_lock`, so even the
+lock home is not created and the snapshot comparison is exact."*
+
+**That sentence is true of the `above` set and of nothing else, and the placement rule forbids extending
+it.** Read from source this round:
+
+| Arm | Where its `note_lock` is | Gate placement the one rule REQUIRES | Can it be hoisted? |
+|---|---|---|---|
+| D1a / D1b / D1c | `writer.py:209` | `above` (Dave's precondition 1) | yes — done |
+| D4 `update_fields` | `base.py:437` | **`in-lock`** (guarded at `:432-433`) | mechanically yes — its delta is the `updates` parameter (`:406`) and its declaration is `self.type_name` — but the rule's required value is `in-lock`, so a hoist is RED |
+| D5 `update_frontmatter_field` | `writer.py:327` | **`in-lock`** (guarded at `:320-321`) | **no** — the declaration is the note's own `type:`, parsed at `:329`, inside the lock |
+| D6 `update_frontmatter_fields` | `writer.py:379` | **`in-lock`** (guarded at `:374-375`) | **no** — same, `:381` |
+| D8 `lint_vault --fix` | `lint_vault.py:819` | **`in-lock`** (guard added by this item) | **no** — `fm` is parsed at `:821`, inside the lock |
+
+At those four arms the gate is reached only **after** `note_lock`'s outermost acquisition has already
+mutated the filesystem. Re-derived, not inherited: `_sentinel_path` homes the sentinel on
+`target.parent / SENTINEL_DIR_NAME` whenever `OBSIDIAN_SCHEMAS_LOCK_DIR` is unset (`vault_io.py:350`,
+with `_configured_lock_dir` defaulting to `None` at `:137-152`) — which the rider itself REQUIRES the
+fixture to assert; `ensure_dir(sentinel.parent)` runs at `:400`, before the `yield` at `:424`; and the
+`.lock` file is created at `:410-414`. `ensure_dir` is `mkdir(parents=True, exist_ok=True)` and its own
+docstring states the ruling — *"carries NO precondition and NO lock … it is idempotent and has no loss
+mode"* (`vault_io.py:618-638`, ruling at `:621-624`) — so **nothing in this package removes what it
+creates**, which is the same fact the conductor's artefact records (`## Conductor Booking`: the
+`.obsidian-schemas-locks/` directory and the `.lock` file are both on disk after the call).
+
+**So a REFUSED write at D4/D5/D6/D8 leaves a new directory under the vault.** The recursive listing is
+not unchanged, and the rider's oracle is RED against a build that is entirely correct — at four of the
+seven arms the criterion binds.
+
+**And it is worse than merely strict, which is what makes it a defect rather than a tightening.** All
+four in-lock arms refuse on a non-existent target, so an `AC-2` fixture there must plant the note first
+— and the oracle's verdict depends on HOW:
+
+- plant it through a package door (`repo.save(...)`, `write_markdown_file(...)`) and that call's own
+  `note_lock` has already created `<parent>/.obsidian-schemas-locks/`, so the debris is in the *before*
+  snapshot and the comparison passes;
+- plant it with `Path.write_text(...)` — which is what `AC-2`'s own Tier-1 sweep needs, since the point
+  is a note whose STORED name is arbitrary, and which the round-10/11 riders now prescribe for the whole
+  of `AC-3` — and the directory appears only in the *after* snapshot, so the same correct build is red.
+
+One correct implementation, two verdicts, decided by a fixture-construction choice that has nothing to
+do with the property. **This is LESSONS #35 re-incurred one level down, in the oracle written to
+discharge it.** The round-9 fold cited WI-149 by name and correctly removed one environmental
+assumption (*"the vault root's only child is X"*); it installed another in its place — *the refusal
+precedes every filesystem-visible act* — which is a property of the frame it was authored against
+(`write_markdown_file`, hoisted) and false in four of the seven frames it will be scored in. #35's rule
+is that a negative assertion must name the exact artifact it forbids; *"the listing is unchanged"* names
+every artifact, including the one the package's own locking layer is required to create before the gate
+can speak.
+
+**A second, smaller leg on the same criterion and the same arm class, cheap to fix and worth stating in
+the same round because it has the same generator.** `AC-2`'s fourth conjunct is *"the refusal is a
+`LoudFailError`"*. At D8 the gate call is in-lock, hence inside `apply_fixes`'s per-file `try` at
+`lint_vault.py:816`, whose handler is `except Exception as exc: print(f"  Fix error on {fpath.name}:
+{exc}", file=sys.stderr)` (`:902-903`). A `LoudFailError` raised by the gate is **swallowed into a
+stderr line** — so at D8 the refusal is not observable as an exception at the door, and *"`except
+LoudFailError` remains the one idiom for 'this package refused'"* (`## Approach`'s closing paragraph) is
+false at exactly the arm the repair tool lives on. Every other frame in the derived set already carries
+the correct idiom — `except LoudFailError: raise` above the broad catch (`writer.py:341-342`, `:393-394`)
+— and `apply_fixes` does not, because it predates the gate. The repair is that one clause, but it is not
+free: `apply_fixes`'s handler is INSIDE the per-file loop, so re-raising aborts the whole `--fix` run on
+the first refused note. Whether a batch repair tool walking 3,418 notes should abort, or continue with a
+structured refusal count, is a decision — and whichever way it goes, `AC-2`'s refusal conjunct at D8 must
+say which, because a fixture asserting `raises(LoudFailError)` and a fixture asserting "printed and
+continued" are different criteria.
+
+**Why this is architectural and not spec-time.** The clause sits inside `ac_hash_AC-2: b6874ac5d7ef`,
+and WI-061 routes a signed original that proves wrong to re-origination rather than refinement. `AC-2`
+is **already on Dave's list**, carrying the round-9 fixture rider that is itself the defective text, so
+this is one clause inside an item already there: **the round does not grow.** It must go in *this*
+re-origination because ac-red-team runs *after* the re-sign — the argument rounds 9 and 10 both made and
+which held both times.
+
+**Why this is not a re-raise of round 8's target, said plainly rather than left to the targets line.**
+Round 8 found `AC-2`'s directory clause unmeetable by any gate *inside* `write_markdown_file`; Dave ruled
+the hoist and the clause became meetable **there**. This is the sweep of that repair to the arms the
+repair explicitly does not reach — the four the placement rule pins `in-lock`, three of which cannot be
+hoisted at all because their declaration is parsed inside the lock. It is the same relationship rounds
+7–9 had to the round-6 arm-set correction: a consequence of a fix, in a clause the fix's own author
+scoped to one frame. It is also not a new rung of the LESSONS #38 ladder and not a generator sweep at a
+higher altitude — I ran none. It is a criterion asserting a filesystem promise at arms whose frames
+cannot keep it, with a real consequence (an oracle red against correct code, or green by fixture
+accident), which is the *"the thing is wrong"* case round 3's regress analysis holds outside the ladder.
+Ruling 3's named set includes `AC-2`.
+
+**Direction, not design — and the predicate the repair needs was written in this document last round.**
+Three shapes; the call is Dave's, in the round he is already taking:
+
+- **(a) SCOPE the clause and its oracle to the arms whose frame can reach a non-existent path.** That set
+  is `write_markdown_file`'s three arms, and it needs no new predicate: it is exactly the round-11 fold's
+  own *"binds what it serializes from its own ARGUMENTS rather than from a parse of the target"* — the
+  fold already records the corollary that this is why those three need no target to exist and can be
+  hoisted. So `AC-2`'s directory clause applies precisely to `{D1a, D1b, D1c}`, the complement of the set
+  `AC-3` excludes, by one frame-local fact serving both criteria. D4/D5/D6/D8 keep *refused*, *byte-identical*
+  and the refusal clause, which is what they can actually promise. This is also where Finding F's defect
+  lives and nowhere else: only `base.py:381`'s filename derivation feeding an unguarded frame can `mkdir`
+  a path-mangled parent. Smallest, and it makes the criterion say what it means.
+- **(b) Keep the clause total and exempt the lock sentinel from the oracle** — compare recursive listings
+  with `SENTINEL_DIR_NAME` entries (`vault_io.py:58`) filtered out. Cheap, but it re-installs a shape
+  proxy in the one oracle written to remove one, and it blesses as invisible the same debris this item's
+  headline scenario counts as pollution.
+- **(c) Move the lock home off `target.parent`** — precondition 1's rejected option (b). Recorded so the
+  rejection stays falsifiable rather than merely made; it is a `vault_io`/WI-004 amendment with its own
+  blast radius and it is a different work item.
+
+I recommend (a) and would say so if asked, but the clause is signed and the choice belongs in the
+re-sign, made against the frames above rather than against the `save()` scenario alone.
+
+### Rulings carried forward — settled, do not re-derive
+
+All nine stand, re-checked against the code this round. Nothing above reopens any of them — the finding
+is about which arms one criterion asserts a filesystem promise over, and about one frame's exception
+handler, not about the gate, the arm set, the placement rule or the wall.
+
+- **Gate signature:** no `existing` parameter; introduced fields plus the entity type; entity arms
+  project through `model_to_frontmatter` first.
+- **Splitter:** TOTAL, returns `(address | None, display)`, owns the parens form before delegating.
+- **DECLARE:** the gate is handed its semantic context and never consults the filesystem; `_owns` is
+  consulted nowhere.
+- **The phone authority relocates to a leaf** (`obsidian_schemas/phone_normalization.py`).
+- **The gate's OUTPUT contract and the arm-shape split.**
+- **The eight-arm derived set plus the D3 rider.**
+- **The gate's NAME output is an IDENTITY.**
+- **The gate runs ABOVE `note_lock` at D1a/D1b/D1c** — Dave's precondition 1. Unchanged, and the finding
+  above is a consequence of its scope rather than a challenge to it.
+- **The placement value is derived by ONE local rule, with D8 carrying the guard that makes it so.**
+
+### Review — only what changed
+
+**Fit / Duplication / Generalization / Prior art:** as rounds 2–10 recorded them. Approach F remains
+right; `tests/test_write_routing.py:1-18` remains the precedent `AC-1`'s battery copies; the one cited
+execution that was owed has been run (G6).
+
+**Boundaries:** the finding is a boundary observation and a favourable one for the design. The gate is a
+pure function of payload plus handed type (ruling 1), so it can be hoisted wherever the frame's inputs
+allow — but a criterion asserting a property of the FRAME (*no directory appears*) is not a property of
+the gate and cannot be inherited by every arm the gate is routed through. The three arms that can keep
+it are exactly the three whose inputs are all arguments; the four that cannot are the four that must
+read the target first. That is a clean seam, and stating it is what the criterion is missing.
+
+**Reversibility:** unchanged and good — the gate module, the phone leaf and the wall are all additive,
+and the one deletion (`_normalize_address_fields`) is subsumption with its behaviour preserved at D1a
+and the rider.
+
+**Determinism boundary (LLM vs code):** n/a for LLMs. The dimension's principle does bear on the second
+leg: `apply_fixes`'s broad handler makes "did this package refuse?" a question answerable only by
+scraping stderr, where every sibling frame answers it structurally. Making the refusal observable is
+mechanical and belongs in code, not in a reader's inspection of a lint run's output.
+
+**Cost & maintenance:** round 10's non-blocking observation was taken — the round-11 fold re-derived the
+estimate as three to four sessions across a six-row table. I re-read the rows against the scope as it
+now stands and the ranking holds; the `lint_vault --fix` delta threading is still the largest single
+piece, and this round adds one clause to that same function (the `except LoudFailError: raise`), which
+does not move the row.
+
+**Build vs extend vs integrate:** extend, correctly, with one symbol moving first.
+
+### Notes (non-blocking)
+
+1. **`## Approach`'s rider write-back names three fields and cites two assignments.** *"The write-back is
+   the IDENTIFIER fields only — `emails[]`, `phones[]`, `aliases[]` … those are precisely the fields
+   `_normalize_address_fields` mutates in place today (`person.py:1317`, `:1343`)."* Read from source,
+   `_normalize_address_fields` never touches `person.phones` — `:1300-1343` walks `emails` and `aliases`
+   only, and the two citations are `person.emails = new_emails` and `person.aliases = new_aliases`. So
+   `phones[]` in the rider is a NEW in-place mutation a caller holding a `Person` will observe where it
+   does not today, not a preserved one. It is the behaviour `AC-4` wants and I do not block on it; the
+   sentence should say "adds one" rather than "precisely", because the consumer audit's blast radius is
+   one field wider than that clause implies.
+2. **`update_fields` introduces a field the gate is never handed.** On a name change the frame appends
+   the old filename stem to `aliases` (`base.py:443-448`) before merging `updates` at `:451` — a value
+   the write introduces that is not in the delta the design hands D4. Under the arm-shape split
+   `aliases[]` is passed through byte-identical on dict arms, so there is nothing the gate would have
+   done differently and I raise it only so the spec's D4 delta paragraph is written knowing the frame
+   contributes one key of its own. (The pre-existing ordering bug — `updates` carrying `aliases` at
+   `:451` overwrites the append at `:448` — is not this item's and should not be absorbed.)
+3. **Rounds 1–10's standing notes all carry:** the dedicated `pattern` attribute rather than overloading
+   `declared_type` (`base.py:266-274`, and `bounded_message`'s keyword set at `errors.py:134-136`); the
+   new `REASONS` literal chosen at spec time (`:110-127`, refused at `:139-145`); the `book.py`/`meeting.py`
+   `save` overrides that are correctly not arms; parked defect 4's shared fix with D8's guard; and the
+   three-functions-one-shape collapse, still a separate work item and still not recommended for absorption.
+4. **The document remains buildable two ways until Dave re-originates** — Tier A's undeclared clause,
+   `### Examples of done` scenario 3 vs the arm-shape split, `AC-1`'s floor naming two non-members, and
+   `AC-3`'s door list. Round 10's addition correctly stays on that list; the finding above adds one, and
+   like the other four it is staged rather than fixable here.
+5. **The `identifier.py:MIN_DIGITS` citations are benign for the ninth time.** The pre-spawn sweep
+   resolves fourteen, every one inside gate-authored prose whose subject IS the slip. The symbol is
+   `Phone.MIN_DIGITS`, a `ClassVar[int] = 7` at `identifier.py:228`. **I introduce no fifteenth**: this
+   round cites the floor nowhere.
+
+### Arc note — convergence, and the shortest path to no round 12
+
+Eleven rounds, eleven distinct targets, none re-raised: Company annexation (1) → the structural
+sharpening plus the missing Tier-1 table (2) → DECLARE plus the `AC-1` pass-what gap (3) → the phone
+authority (4) → the `aliases[]` migration's expressibility (5) → the door set's membership rule (6) →
+the filename bound above the set (7) → the directory created before the set can refuse (8) → the
+placement pin's own derivability (9) → the one criterion never re-based on the derived set (10) → the
+directory promise scored at the arms the hoist cannot reach (11). Round 10's target is closed and
+verified from source above.
+
+**What makes a twelfth architect round unnecessary rather than merely shorter.** The fix needs no
+decision from Dave beyond one scoping clause on a criterion already on his list, and the predicate it
+needs — *binds what it serializes from its own arguments rather than from a parse of the target* — was
+derived last round for `AC-3` and serves both criteria unchanged. The queued order does not lengthen and
+does not reorder: fold, then Dave re-originates `AC-1`–`AC-4` in ONE round, then one shell pass runs
+G1/G2/G4/G5 plus the consumer audit's two greps, then ac-red-team → architect → data-premise →
+spec-writer. **One of the four rounds `round_budget: 12` reserved for the post-re-sign chain remains on
+this gate**, and I say that plainly: this is the last architect round available before the re-sign, so a
+twelfth finding in signed text has nowhere to go. That is a reason to fold and re-sign now, not a reason
+to have withheld this one — an oracle that is red against correct code at four of seven arms would have
+been discovered by the build-runner, which is the "too lenient" failure this gate exists to prevent.
+
+```verdict
+gate: architect
+verdict: REVISE
+date: 2026-08-11
+model: claude-opus-5
+targets: AC-2, #exploration-notes
+note: Round 10's finding is closed and the round-11 fold re-derives on every leg (D5's delta is two loose parameters at writer.py:292-296 with the stored record at :329; the {D1a,D1b,D1c} exclusion resolves by one frame-local predicate at writer.py:257/:258-261/:262-263; all three reachability partitions confirmed, including base.py:230's NON-RECURSIVE glob; Person.whatsapp correctly parked) — but AC-2's signed "no stray directory is created" clause binds seven arms while the hoist Dave ruled reaches only three, and the round-9 fixture rider staged for his signature ("snapshot the vault root's full recursive listing and assert it is unchanged") is justified by one sentence true only of the above set: at D4/D5/D6/D8 the placement rule REQUIRES in-lock, so note_lock's outermost acquisition has already run ensure_dir(sentinel.parent) (vault_io.py:400) on a home defaulting to target.parent (:350, _configured_lock_dir None at :137-152 — which the rider itself makes the fixture assert) and created the .lock at :410-414, with ensure_dir carrying no compensating action by its own ruling (:618-638, :621-624) and the conductor's artefact showing both survive, so a refused write leaves a new directory and the oracle is RED against a correct build — worse, its verdict flips on whether the fixture planted its note through a locking door or with write_text, which is LESSONS #35 re-incurred inside the oracle written to discharge WI-149; second leg, same criterion and same arm class, AC-2's "the refusal is a LoudFailError" conjunct is false at D8 because apply_fixes's per-file except Exception at lint_vault.py:902-903 swallows it into a stderr line where every sibling frame carries `except LoudFailError: raise` (writer.py:341-342, :393-394), and re-raising aborts the whole --fix run, so which one AC-2 means is a decision; repair is one scoping clause inside an item already on Dave's list, using the predicate round 11 already derived — the directory promise applies to {D1a, D1b, D1c}, the exact complement of AC-3's new exclusion set.
+```
+
+## Data Audit — 2026-08-11
+
+**Recommendation: REVISE — return to exploration**
+
+**Round 11, cold-start re-spawn.** Read in role order: `data-premise.yaml`, this document in full (five
+ac-red-team rounds, the `ac-signoff` fence, eleven architectural reviews, ten prior data audits, eleven
+spec-writer rounds, `## Conductor Rulings & Grounding`, `## Grounding Still Owed`, `## Conductor
+Booking`, `## Conductor Preconditions`, the re-origination brief), then the code every premise below
+turns on. Same method bound as every prior round: **no shell — this spawn has no Bash tool — scope
+limited to this tree's files, and the live vault was not read.** Vault counts used are the conductor's,
+cited as such; G6's result is the conductor's execution, cited as such.
+
+**This is the last round `round_budget: 12` leaves before the re-sign**, and I have written this round
+to be spendable: the finding needs no decision beyond the one clause already going to Dave, it lands
+inside an item already on his list, and it costs one column on a query that has not run.
+
+### Trigger check
+
+**Class 1 AND Class 2 — both still fire.**
+
+- Class 1 (data-distribution / field-presence): the same four quantified claims about live entries are
+  unmeasured — G1's undeclared population, G2's per-field cells and deletion column, G4's two columns,
+  G5's path-forked population. Unchanged from rounds 8, 9 and 10; none has run. **And one joins this
+  round**, below: whether the lock home already exists in the live vault decides whether `AC-2`'s
+  directory clause describes a real production harm at four of the seven arms it binds.
+- Class 2 (rule-effect-against-existing-corpus): rule (ii)'s effect outside `@*.md` is still unrun; the
+  splitter consolidation is still a predicate never run over the entries it will judge; **and the
+  round-11 architectural review's `AC-2` finding is a claim about what a refused write leaves on disk,
+  which is decidable from this tree** — executed below, per this gate's Step 2.3.
+
+### My round-10 findings — carried status
+
+| Round-10 ask | Status |
+|---|---|
+| **The three reachability partitions, and that `AC-3`'s four named doors have an EMPTY live discriminating population** | **FOLDED** (round-11 fold, Finding C's new subsection) and endorsed from source by the round-11 architect. Re-read this round; every leg holds. **Closed — I do not re-raise it.** |
+| **G1's DEPTH column, inherited by G4 and G5(a)** | **FOLDED** into `## Grounding Still Owed`. Correct as written. |
+| **The non-blocking `rglob`-vs-`glob` correction to counts 1 and 3** | **FOLDED** into Finding C's round-11 subsection, resolved as a by-product of the depth column. |
+| **G1, G2, G4, G5, the consumer audit** | **STILL OWED, unchanged and unrun.** |
+
+### Verified from source this round
+
+Re-derived rather than inherited. Every row is a fresh read of this tree, and the first four are the
+round-11 architectural review's own legs, which I re-ran because my finding sharpens rather than
+disputes them.
+
+| Claim | Where I read it | Result |
+|---|---|---|
+| the sentinel home defaults to `target.parent / SENTINEL_DIR_NAME` | `vault_io.py:350`, `SENTINEL_DIR_NAME = ".obsidian-schemas-locks"` at `:58`, `_configured_lock_dir` defaulting to `None` at `:137-152` | confirmed |
+| `ensure_dir(sentinel.parent)` runs on the OUTERMOST acquisition, before the `yield` | `vault_io.py:398-400`, guarded by `if not reentrant:` at `:393`; `yield` at `:424` | confirmed |
+| the `.lock` file is created inside it one frame later, and nothing removes either | `vault_io.py:407-414`; release is `file_lock.release()` alone (`:431-433`); `ensure_dir`'s own docstring rules it carries no compensating action (`:618-638`, ruling at `:621-624`) | confirmed — and G6's artefact shows both surviving a SUCCESSFUL call, so persistence past release is settled by execution, not by reading `filelock` (`pyproject.toml:29`, `filelock>=3.12`) |
+| D4 refuses a missing target BEFORE the lock, so an `AC-2` fixture there must plant the note first | `base.py:427` → `:429-430` (`ValueError`) → `:432-433` (`FileNotFoundError`) → `note_lock` only at `:437` | confirmed; D5/D6 the same shape (`writer.py:320-321` → `:327`; `:374-375` → `:379`) |
+| at D8 a `LoudFailError` from an in-lock gate is swallowed | `lint_vault.py:816` (`try:`) wraps `:819-900`; handler at `:902-903` is `except Exception as exc: print(...)` with no re-raise, and it sits INSIDE the `for fpath, file_issues in by_file.items()` loop at `:815` | confirmed on both legs — swallowed, and a re-raise would abort the remaining files |
+| the `MIN_DIGITS` floor is `Phone.MIN_DIGITS` | `identifier.py:228`, a `ClassVar[int] = 7` | confirmed; **I introduce no sixteenth citation** — the pre-spawn sweep now resolves fifteen, all inside gate-authored prose whose subject IS the slip. This round uses the qualified form only |
+
+### Finding — the lock debris is TWO artifacts with DIFFERENT arities, and `AC-2`'s clause and its oracle land on different ones
+
+The round-11 architectural review is right that a refused write at D4/D5/D6/D8 runs after `note_lock`
+has already touched the filesystem, and right that the round-9 snapshot oracle is therefore red against
+a correct build. Its summary sentence — *"a REFUSED write at D4/D5/D6/D8 leaves a new directory under
+the vault"* — is the one leg I read differently, and the difference is the whole of this round.
+
+`note_lock` creates **two** things, and they are not created at the same rate:
+
+| Artifact | Keyed on | Arity | Created when |
+|---|---|---|---|
+| `<parent>/.obsidian-schemas-locks/` | the target's PARENT (`vault_io.py:350`) | **one per directory, ever** | only if that parent has never been locked — `ensure_dir` is `mkdir(parents=True, exist_ok=True)` (`:618-638`) |
+| `<parent>/.obsidian-schemas-locks/<sha256(str(target))[:32]>.lock` | the RESOLVED TARGET (`vault_io.py:348`, via `_resolved` at `:376`) | **one per note, ever** | only if that note has never been locked |
+
+Three consequences, and each moves a different piece of the re-sign.
+
+**1. `AC-2`'s literal clause is not what goes red — the ORACLE is.** The signed conjunct is *"no stray
+directory is created"*. At D4/D5/D6/D8 the target must already exist for the frame to reach the gate at
+all (`base.py:429-433`; `writer.py:320-321`, `:374-375`; `lint_vault.py` reaches `apply_fixes` only from
+`read_vault`'s walk). If the target's parent has ever been locked, the directory already exists and
+`ensure_dir` creates NOTHING — so the clause **holds** at those four arms. What a refused write leaves
+is a new zero-byte `.lock` FILE, which is not a directory and which the clause does not forbid. The
+architect's repair menu is priced against "the clause is unmeetable"; read this way, at D4/D5/D6/D8 the
+clause is meetable and it is the round-9 rider's oracle — *"snapshot the vault root's full recursive
+listing … and assert it is unchanged"* — that over-reaches, by forbidding every artifact rather than the
+one the criterion names. That is the architect's own LESSONS #35 diagnosis, applied one artifact finer:
+#35 says a negative assertion must name the exact artifact it forbids, and `.obsidian-schemas-locks/`
+and `<digest>.lock` are two artifacts, not one.
+
+**2. The fixture-construction flip is REAL and STRONGER than stated, and it is the file that causes it.**
+The review's two-verdicts argument turns on whether the plant created the directory. It survives at the
+file level and is unconditional there, because the `.lock` name is a digest of the target and a plant
+through a package door locks *that same target*:
+
+- plant with `repo.save(...)` / `write_markdown_file(...)` → `_sentinel_path` computes the **identical**
+  digest, so both the directory AND the exact `.lock` file are in the *before* snapshot, and the refused
+  call re-acquires an existing sentinel creating nothing. **Green.**
+- plant with `Path.write_text(...)` — which is what `AC-2`'s Tier-1 sweep needs (the point is a note whose
+  STORED name is arbitrary) and what the round-10/11 riders now prescribe for the whole of `AC-3` → the
+  digest is new, so the `.lock` appears only in the *after* snapshot. **Red**, in every vault, including
+  one where the directory already existed.
+
+So the flip does not depend on vault ancestry — one correct implementation still scores two ways on a
+fixture-construction choice unrelated to the property. The review's conclusion stands; its mechanism is
+the per-note file, which is the artifact a directory-shaped repair will miss.
+
+**3. Option (b) as written would not fix it.** The review offers *"compare recursive listings with
+`SENTINEL_DIR_NAME` entries (`vault_io.py:58`) filtered out"*. Filtering the directory ENTRY leaves the
+per-note `.lock` inside it in the listing, and that is the artifact that is always new. Option (b) has to
+filter the whole SUBTREE. Recorded so the build does not implement the sentence and ship a one-line
+`dirname` filter that is still red — this is the cheapest of the three shapes to get subtly wrong.
+
+**What this does to the recommendation.** It strengthens option (a) rather than competing with it. Under
+(a) the directory clause scopes to `{D1a, D1b, D1c}` — the three arms that bind what they serialize from
+their own arguments (`writer.py:257`, `:258-261`, `:262-263`) and can therefore refuse before any target
+exists — and that is **exactly and only where a stray DIRECTORY is genuinely creatable**, because it is
+the only place a path-mangled parent (`base.py:381`, Finding F) reaches an unguarded `mkdir`. At D4/D5/D6/D8
+the parent is an existing note's parent; the directory is at worst a one-time artifact of that parent's
+first lock, and the per-note file is not a directory at all. **I endorse (a) and, unlike the architect, I
+would say the data settles it rather than leaving it a three-way fork** — (b) solves a problem that at
+those four arms is a `.lock` file, and (c) is a different work item by precondition 1.
+
+**What I am NOT claiming.** Not that the debris is harmless — G6 shows `@Dave/.obsidian-schemas-locks/`
+is real pollution, and that case is D1a, inside (a)'s scope. Not that the round-9 rider should be dropped:
+its default-lock-home clause is right and load-bearing (`vault_io.py:137-152`), and only its oracle
+sentence needs replacing with one naming the artifact. Not that the second leg (D8's swallowed
+`LoudFailError`) is affected — I re-read it above, it confirms exactly as stated, and the abort-vs-count
+decision is genuinely Dave's.
+
+### Second, and free: G5(b) gains one column, and no query is added
+
+The claim *"the lock home already exists, so the clause holds at D4/D5/D6/D8 in production"* is an
+empirical claim about live corpus state and I cannot run it. It is also nearly free to answer: G5(b)
+already asks for a listing of every vault directory whose name begins with `@`, with its contents. Add to
+that same listing: **does `<vault>/.obsidian-schemas-locks/` exist at the vault root, and how many
+`<digest>.lock` files does it hold** — plus the same for every `@`-prefixed directory G5(b) finds, which
+it is already opening. One `.exists()` and one `iterdir` on a walk that is already happening; no new
+corpus, no parsing.
+
+What it decides: whether the stray-directory harm at the four in-lock arms is live or is a first-write
+artifact already spent. A non-empty root lock home confirms consequence 1 above and makes option (a) the
+measured answer rather than the argued one. **Zero is a measurement too** — an empty or absent root lock
+home would mean the package's own doors have never been run against this vault, which would itself be
+worth knowing before `AC-2` is signed against their behaviour.
+
+### Non-blocking — the sentinel debris is invisible to every owed query, and that is correct
+
+`.obsidian-schemas-locks` is not in `SKIP_DIRS` (`lint_vault.py:57`), so `should_skip` does not exclude it
+— but it contains no `.md` files, so G1's walk, G4's walk and G5(a) never see it and no bucket is
+distorted. Recorded only so a reader who adds the column above does not also "fix" `SKIP_DIRS` for a
+problem that does not exist.
+
+### Required grounding
+
+**Nothing is added to the shell pass this round.** One existing query gains one free column; the rest
+carry unchanged. Four owed, one amended, one retired.
+
+1. **G1 — unrun and unchanged this round** (the `should_skip` partition plus the round-11 depth split).
+   G4 and G5(a) still inherit.
+2. **G2 — unchanged and still unrun,** all three parts.
+3. **G4 — unchanged and still unrun,** both columns plus the depth split.
+4. **G5 — unrun; part (b) AMENDED (free):** to the `@`-prefixed-directory listing, add whether
+   `<vault>/.obsidian-schemas-locks/` exists at the vault root and how many `.lock` files it and each
+   `@`-prefixed directory hold. Part (a) unchanged.
+5. **G6 — RUN. Retired.** Result in `## Conductor Booking`.
+6. **The consumer audit** — unchanged, still owed, still not a vault query.
+
+### Conclusion
+
+The item moved again and again in the right direction: my round-10 finding is folded and re-derives, the
+round-11 fold's `{D1a, D1b, D1c}` predicate is the best sentence in the document, and the round-11
+architectural finding is correct in its consequence at every leg I re-read.
+
+What stops this being a PROMOTE has not changed in kind since round 4. **G1, G2, G4 and G5 have never
+run**, they need a shell no gate cage has, and G5 still decides whether `AC-3`'s premise survives at all
+— that is four OPEN data questions against this role's cap of two. The architect holds a live blocking
+issue inside signed text. And this round adds the fact that decides which repair that issue gets: the
+artifact `AC-2`'s clause names and the artifact its oracle forbids are two different objects with two
+different arities, so a build can satisfy the criterion and fail the fixture, or fail the criterion and
+pass the fixture, depending only on how the fixture planted its note. Promoting now would send a signed
+filesystem promise to a build with an oracle whose verdict is decided by fixture archaeology — the
+"too lenient" failure this gate exists to prevent, at the one criterion the conductor's own execution
+was spent on. Stage stays at `exploring`.
+
+**Signal for the factory, stated because the targets line alone cannot carry it.** The arc: rounds 1–3
+named the untyped-dispatch premise (closed by ruling 1); round 4, count 1's scope (→ G1); round 5, the
+per-field split (→ G2); round 6, the dict-arm deletion (→ G2's third column); round 7, the blast radii
+(→ G4, discharged by (b′)); round 8, `AC-2`'s false directory clause and `AC-3`'s invisible population
+(→ precondition 1, G5, G6 now DONE); round 9, `AC-3`'s `--fix` leg against `SKIP_DIRS` (folded); round 10,
+`AC-3`'s door list against the three reachability partitions (folded, and CLOSED — I do not touch `AC-3`
+this round). **This round's target is `AC-2`, which I have not raised since round 8, and it is not a
+re-raise of that one**: round 8 asked whether any gate inside `write_markdown_file` could meet the clause
+(answered by the hoist); this asks which ARTIFACT the clause and its oracle each name, at the arms the
+hoist does not reach. It closes here, it needs no query, and it adds nothing to Dave's round — it decides
+one fork already inside the `AC-2` item on his list.
+
+**The unblock is unchanged in order and does not lengthen**, and this is the last gate round the budget
+holds: the fold takes the architect's `AC-2` scoping with this round's artifact distinction and G5(b)'s
+column; Dave re-originates `AC-1`–`AC-4` in ONE round; the same shell-holding actor runs G1, G2, G4, G5
+and the consumer audit's two greps alongside it. **I make no prediction about what a further gate round
+would buy** — round 9 made one and round 10 falsified it. What I will say is checkable: the in-cage class
+this round drew from is `note_lock`'s artifact set, it has exactly two members and both are read above,
+so this particular seam is now exhausted.
+
+```verdict
+gate: data-premise
+verdict: REVISE
+date: 2026-08-11
+model: claude-opus-5
+targets: AC-2, #grounding-still-owed
+note: G1/G2/G4/G5 and the consumer audit are STILL unrun — four OPEN data questions against this role's cap of two, and G5 still decides whether AC-3's premise survives — so the premise is ungrounded for the eleventh round and no cage has the shell; separately, the round-11 architect's AC-2 finding confirms on every leg I re-read from source (note_lock's ensure_dir at vault_io.py:398-400 precedes the yield at :424 on a home defaulting to target.parent at :350 with _configured_lock_dir None at :137-152; the .lock at :407-414; no compensating action, :618-638; D4 refuses a missing target at base.py:429-433 BEFORE the lock at :437, D5/D6 likewise at writer.py:320-321/:327 and :374-375/:379; and at D8 apply_fixes's per-file `except Exception` at lint_vault.py:902-903 swallows a LoudFailError and re-raising aborts the remaining files, both confirmed) — but note_lock creates TWO artifacts with DIFFERENT arities, which this document has never separated: the `.obsidian-schemas-locks/` DIRECTORY is keyed on target.parent (:350) and is one-per-directory-ever, while the `<sha256(str(target))[:32]>.lock` FILE is keyed on the resolved target (:348, :376) and is one-per-note-ever, so at D4/D5/D6/D8 — where the target must already exist for the frame to reach the gate — a refused write leaves a new FILE and creates a new DIRECTORY only if that parent was never locked, meaning AC-2's signed conjunct ("no stray directory is created") HOLDS at those four arms while the round-9 rider's oracle ("full recursive listing unchanged") is what goes red; the fixture-construction flip the architect found is real and unconditional at the FILE level (a package-door plant computes the identical digest so both artifacts are in the before-snapshot and the oracle is green; a Path.write_text plant, which AC-2's Tier-1 sweep and AC-3's riders both require, makes the digest new and the same correct build red in every vault), which means option (b) as written — filter SENTINEL_DIR_NAME entries — must filter the whole SUBTREE or it still fails, and option (a) is the measured answer rather than an argued one because {D1a,D1b,D1c} is exactly and only where a path-mangled parent (base.py:381) can create a genuine stray directory; free and no new query, G5(b) gains one column (does <vault>/.obsidian-schemas-locks/ exist at the root, and how many .lock files does it and each @-prefixed directory hold) since that is the empirical half of this finding and I have no shell to run it.
+```
+
+## Spec-Writer Fold — 2026-08-11 (round 12)
+
+**This round PRODUCED a fold, made ONE decision in unsigned text, and repaired in place everything that
+was not signed.** Both round-11 verdicts are REVISE and both name the same target: `AC-2`. The blocking
+issue splits cleanly along the signature line, and the fold follows that line rather than the finding's
+outline — the **scoping of the signed conjunct** is staged in `## Re-origination Brief` (WI-061 routes a
+signed original that proves wrong to re-origination, and `ac_hash_AC-2: b6874ac5d7ef` covers it), while
+the **defective oracle** was this brief's own unsigned rider and is REPLACED here, and the **D8 refusal
+shape** is a design decision this role may make and does. **Dave's round does not grow: no item was
+added, no criterion joined the set** — the `AC-2` item has been on his list since round 9 and gains
+clauses inside itself.
+
+**This is the twelfth round, and `round_budget: 12` holds no thirteenth.** Both round-11 gates said so of
+their own seats; it is equally true of this one. So this fold is written to be the LAST document state
+before Dave's re-origination rather than a hand-off to another gate round, and it says plainly below what
+that means for the re-entry.
+
+Cold-start, read in role order: `spec-writer.yaml`, this document in full (five ac-red-team rounds, the
+`ac-signoff` fence, eleven architectural reviews, eleven data audits, eleven prior spec-writer rounds,
+`## Conductor Rulings & Grounding`, `## Grounding Still Owed`, `## Conductor Booking`,
+`## Conductor Preconditions`, the re-origination brief), the project `CLAUDE.md`, then the code every
+claim below turns on. Every citation re-derived from source this round, not inherited:
+`vault_io.py` (`_sentinel_path`, `_configured_lock_dir`, `note_lock` end to end, `ensure_dir`),
+`scripts/lint_vault.py` (`apply_fixes` end to end), `writer.py` (both `update_frontmatter_*` including
+their `except LoudFailError` arms, `write_markdown_file`'s three fm-building branches),
+`repositories/base.py` (`update_fields`, `_owns`, `_note_skip`), `repositories/person.py`
+(`_normalize_address_fields`), `errors.py` (`REASONS`, `bounded_message`). This cage has **no shell**; the
+live vault was not read — the counts used are the conductor's, cited as such, and G6's result is the
+conductor's execution, cited as such.
+
+### What this round wrote
+
+| Section | Change | Answers |
+|---|---|---|
+| **Finding B** — the fixture-rider paragraph | The ambient *"snapshot the vault root's full recursive listing"* oracle is STRUCK in place, with its one-sentence justification shown to be true of the `above` set and nothing else, and **replaced by an artifact-naming oracle** whose every path is computed from a value the fixture passed in. Plus the paragraph that makes the replacement more than weaker: plant-requirement and clause-scope are the same partition of the seven arms, so scoping removes the flip's precondition rather than narrowing around it. | architect round 11, blocking; data-premise round 11 |
+| **Finding B** — new subsection *"`AC-2`'s four conjuncts are FRAME properties asserted over a set derived for the GATE"* | The class-level derivation: all four conjuncts swept per arm from source; the two-artifact arity table (`note_lock` creates a DIRECTORY keyed on the parent, one-per-directory-ever, and a `.lock` FILE keyed on the resolved target, one-per-note-ever); the three consequences, including why filtering `SENTINEL_DIR_NAME` must filter the SUBTREE; the create-case sub-cell conjunct 2 leaves; and the level below that, declared. | architect round 11, blocking; data-premise round 11 |
+| **Finding E** | Two things. The stale `declared_type` channel is corrected to the **dedicated `pattern` attribute** the rest of the document has used since round 3 — a live contradiction, not a new decision. And the **D8 refusal-observability resolution**: `apply_fixes` gains a dedicated `except LoudFailError` arm that records a structured refusal and CONTINUES, with the rejected `raise` alternative named and priced. | architect round 11, second leg; this round's contradiction scan |
+| **`## Approach`** | Round-12 header note; the closing *"one idiom"* claim scoped to package DOORS with D8's shape stated; the D3 rider's *"precisely the fields"* sentence corrected (`_normalize_address_fields` walks `emails` and `aliases` only — `phones[]` is an ADDED in-place mutation, one field wider than the consumer audit was scoped against); the delta paragraph records that D4's frame contributes one `aliases` key of its own. | architect round-11 notes 1 and 2, second leg |
+| **`## Grounding Still Owed`** | Preamble round-12 note (nothing added, no query written); **G5(b) gains the lock-home column** — does `<vault>/.obsidian-schemas-locks/` exist at the root, and how many `.lock` files it and each `@`-prefixed directory hold — on a walk already opening those directories; the G5 decides-cell records what the column settles for `AC-2` as well as `AC-3`. | data-premise round 11 |
+| **`## Re-origination Brief`** | Header note: the list does NOT grow. The `AC-2` item gains **three clauses** — scope conjunct 3 to `{D1a, D1b, D1c}` by equality with its reason and its two rejected shapes; replace the oracle (repaired, not staged); state what conjunct 4 means at D8 — plus the conjunct-2 create-case rider. | architect round 11, blocking + second leg; data-premise round 11 |
+| **`## Carried Forward`** | New bullet: `note_lock`'s two artifacts, their arities, and the three consequences now load-bearing. | data-premise round 11 |
+| **`## Questions the later spec round still owes`** | Item 2 gains the fourth change landing in the same `apply_fixes` edit (the refusal arm), so the one function's cost is stated once and in full. | this round's decision |
+
+### Three things this round found that the reviews did not have
+
+1. **The replacement oracle is not an invention — it is a RETURN to what Dave already signed.**
+   `### Examples of done` scenario 1 reads *"the vault contains no new `@Dave/` directory and no `Bob.md`
+   inside one"*: two artifacts, both named, both computable from the name the caller passed. That
+   sentence is inside the `ac-signoff` hash span, so it is the most authoritative statement in the
+   document of what conjunct 3 means — and the round-9 rider replaced it, in unsigned text, with a
+   strictly stronger ambient assertion the frame cannot keep. Neither gate noticed that the signed text
+   already answers the question they were arguing about. It matters for two reasons: the repair carries
+   **zero risk of drifting from Dave's intent**, because it is his own wording; and it re-dates the
+   defect — the ambient oracle was never a tightening of the example, it was a substitution for it.
+2. **Option (a) does not narrow around the fixture-construction flip; it removes the flip's
+   precondition.** Both gates recommend scoping conjunct 3 to `{D1a, D1b, D1c}` and both price it as the
+   smallest repair. It is more than that. The flip exists only where the fixture must PLANT a note, and a
+   plant is required exactly where the frame refuses on a non-existent target — `base.py:429-433` above
+   `:437`, `writer.py:320-321` above `:327`, `:374-375` above `:379`, and (added by this item) the guard
+   above `lint_vault.py:819`. That set is `{D4, D5, D6, D8}`, whose complement over `AC-2`'s seven arms is
+   `{D1a, D1b, D1c}` — the same partition, by the same frame-local predicate. So after the scoping there
+   is no arm at which conjunct 3's oracle both runs and needs a plant. The two facts were derived
+   independently for different criteria and coincide because they are the same fact.
+3. **Finding E has contradicted `## Approach` and `## Carried Forward` since round 3, and eleven
+   architectural rounds restated the correct answer as a standing note without anyone editing the
+   paragraph that says otherwise.** Finding E said the pattern key *"rides in the `declared_type` slot"*;
+   every other live section says a **dedicated `pattern` attribute, never `declared_type`**, because
+   `base._note_skip` reads `declared_type` straight off the exception and hands it to `_owns`
+   (`base.py:_note_skip:266-274`, `_owns` at `:258-264`) — so a pattern id there makes every repository
+   disown the note it just refused. That is the *buildable two ways* failure this role's own contradiction
+   scan exists to catch, in the one Finding a builder reads to implement the refusal. Corrected in place;
+   no rule moved, because the rule was already decided everywhere else.
+
+### What this round still deliberately did NOT write, and why — unchanged from rounds 4 through 11
+
+**No Design, Edge Cases, Implementation Plan, Write Targets, Verification, or `criteria` refinement.**
+The three reasons are unchanged and none has moved. `AC-1`–`AC-5` remain inside the `ac-signoff` hash
+span (`ac_hash: a76ebad54da2`); this round changes what one of them will be asked to say — `AC-2`'s
+conjunct 3 scope and conjunct 4 meaning — which is signed text, and WI-061 routes that to re-origination
+rather than refinement. The plan and the criteria are one object: a plan written now would prescribe
+`AC-2` fixtures whose oracle and whose arm scope are about to change. And rule D3 refuses `→ specced`
+without a data-premise PROMOTE, which the standing verdict is not.
+
+**One thing this round did NOT do that a reader might expect.** It did not edit `AC-2` in place, even
+though both gates agree on the replacement and both call it cheap. Editing it would invalidate
+`ac_hash_AC-2` (D4b) and would be the *"silently rewrite a promise"* case WI-061 names — on a conjunct
+whose scope genuinely narrows from seven arms to three, which is the one shape a spec-writer must never
+take unilaterally. Staged, with the shape stated precisely enough that Dave's round is a yes/no.
+
+**And one thing it DID do that the previous eleven rounds did not.** It made a design decision inside a
+blocking finding — D8's refusal arm — rather than staging it. The line is the signature: the choice
+between *abort the run* and *record and continue* is a property of `apply_fixes`, which is unsigned code
+this item already opens, so it belongs to this role. What is signed is only which of the two `AC-2`'s
+fourth conjunct asserts, and that is what went to the brief.
+
+### Class-shaped fold — declared, and still bounded by ruling 3
+
+Per WI-226 the finding in front of me is not "`AC-2`'s directory clause forgot four arms". The generator,
+stated as narrowly as it is true:
+
+> **A criterion asserting a property of the FRAME over the set `AC-1` derives for the GATE.** The gate is
+> a pure function of payload plus handed type (the DECLARE ruling), so it can be routed wherever a
+> frame's inputs allow — but *no directory appears*, *the caller sees an exception* and *the target is
+> unchanged* are facts about the FRAME the gate was routed into, and a criterion cannot inherit them for
+> every arm merely by binding to the set the gate is routed through.
+
+This is a DIFFERENT generator from the one rounds 1–11 kept closing (*a criterion naming its door
+coverage as a literal list*), and that one stays closed — `AC-3` was its last member and the round-11
+sweep emptied it. The new one is what the eleventh round exposed by fixing the old one: once every
+criterion binds to the derived set, the question stops being *which arms are in* and becomes *which of
+this criterion's promises the arms in it can actually keep*.
+
+**Enumerating what generates it and sweeping the class.** The class is *every conjunct of every criterion
+that asserts a property of the frame rather than of the gate's return value*. Five criteria, swept:
+
+| Criterion | Frame-scoped conjuncts | Sweep result |
+|---|---|---|
+| `AC-1` | calls / passes / **placement** | **n/a — the generator's cure, not a member.** It is the one criterion that already DERIVES its frame property per arm, by one local rule with `above` as the fail-closed default (round-10 fold). Every repair below copies its discipline |
+| `AC-2` | **all four** — refused, byte-identical, no stray directory, refusal is a `LoudFailError` | **CLOSED this round, conjunct by conjunct:** 1 holds at all seven arms; 2 holds with one create-case sub-cell, stated as a fixture rider; 3 scoped to `{D1a, D1b, D1c}` by equality with the reason; 4 stated at D8 as a recorded refusal, with the design decided in Finding E |
+| `AC-3` | *"still commits"*, over `{D4, D5, D6, D7, D8}` after the round-11 re-basing | **holds, checked this round** — every one of those five frames performs a commit on a delta the gate passes, and none of them asserts an exception or a filesystem absence, so neither failure mode above is available to it |
+| `AC-4` | none — it asserts what LANDS in the fields, a property of the gate's return value read back off the note | **outside the class** |
+| `AC-5` | none — a structural sweep over the package's source | **outside the class** |
+
+**Sweeping the next level and declaring what it found.** The dimension below "which conjunct" is *which
+ARTIFACT each conjunct's oracle names*. Swept for `AC-2`'s four: conjunct 1 names the raised exception;
+conjunct 2 names the target, and that is where the **create-case sub-cell** turned up — *"left
+byte-identical"* has no referent when the target did not exist, so the criterion says nothing at the
+exact scenario it was written for, and a fixture is free to read it as vacuously true; conjunct 3 named
+**nothing** (an ambient listing), which is the defect; conjunct 4 names the exception's type and its
+rendered message, both derived from values the fixture passed. One defect, one sub-cell, two clean.
+
+**And the level below THAT — the artifacts no conjunct names — is declared rather than left to the next
+round.** At the four in-lock arms a refused write may leave a new `<digest>.lock` inside an existing lock
+home. That is permitted debris, declared with its reason: it is `note_lock`'s contract rather than this
+item's write, nothing in this package removes what `ensure_dir` creates (`vault_io.py:621-624`), and
+removing it is precondition 1's already-rejected option (b) — a `vault_io`/WI-004 amendment and a
+different work item. Its live size is G5(b)'s new column. **I find no further open member at any of the
+three levels**, and the sweep is finite for a structural reason rather than an exhausted one: a criterion
+has finitely many conjuncts, each conjunct's oracle names finitely many artifacts, and the frames
+contribute exactly two artifacts that no conjunct names — both read from source above.
+
+**And here the sweep STOPS**, on Dave's ruling 3. The altitude declaration holds and this round does not
+test it: the finding is not about the checking-of-the-checking but about which of one criterion's
+promises four real frames can keep, with a real consequence in both directions (an oracle red against a
+correct build at four of seven arms, or green by fixture accident) — the *"the thing is wrong"* case
+round 3's regress analysis holds outside the ladder, and both round-11 gates say so in their own words.
+Its consequences land in `AC-2`, already inside ruling 3's named set. **This round opens no further rung
+and adds no item to Dave's round.**
+
+### Contradiction scan — what this round's claims now disagree with
+
+Run over the whole document for every claim added or edited this round.
+
+- **The struck ambient oracle** appears in exactly TWO live places — Finding B's fixture-rider paragraph
+  and the brief's `AC-2` item — and **both are repaired**, struck in place with the replacement beside
+  them rather than deleted, so a reader who arrives from a gate section that quotes it lands on the
+  correction. The same sentence inside gate sections and prior folds is append-only history and is NOT
+  edited: those sections are theirs, not mine.
+- **The replacement oracle vs `### Examples of done` scenario 1** — they AGREE, and this is the one edit
+  this round that moves the document TOWARD signed text rather than away from it. Stated explicitly
+  because every other repair in this brief is a departure from something signed, and a reader is entitled
+  to know which kind each one is.
+- **Scoping conjunct 3 vs `AC-2`'s binding to `AC-1`'s derived set** — compatible, and the distinction is
+  load-bearing: the scope is PER-CONJUNCT, not per-criterion. Conjuncts 1, 2 and 4 stay total over all
+  seven arms; only the filesystem promise narrows. A build that reads the scoping as "`AC-2` now covers
+  three arms" is wrong and must be RED.
+- **`{D1a, D1b, D1c}` vs "the entity-shaped arms"** — the round-11 warning carries unchanged and applies
+  a second time now that a second criterion uses this set. They are NOT the same: `AC-2`'s and `AC-4`'s
+  undeclared passes partition these arms by SHAPE, under which D1b and D1c are dict-shaped. The scope is
+  the *binds-what-it-serializes-from-its-own-arguments* partition (`writer.py:257`, `:258-261`,
+  `:262-263`). The brief states it that way for exactly this reason.
+- **D8's new `except LoudFailError` arm vs Finding B's round-10 subsection**, which says the existence
+  guard *"changes no observable behaviour for callers: the raise lands inside the per-file
+  `try/except Exception` … which already prints and continues"*. **Still true and not withdrawn** — the
+  guard raises `FileNotFoundError`, which is an `OSError` and not a `LoudFailError`, so it passes the new
+  arm and lands in the broad handler exactly as that subsection describes. The two changes are in the
+  same function and do not interact. Flagged because they look like they should.
+- **The D8 refusal arm vs `## Approach`'s *"one idiom"* sentence** — that sentence is the thing that was
+  wrong, and it is scoped rather than deleted: `except LoudFailError` remains the idiom at every package
+  DOOR, and D8 is a batch CLI that has never propagated anything. `## Carried Forward`'s `REASONS` bullet
+  is unaffected — the refusal's reason literal is still chosen at spec time.
+- **Finding E's `pattern` correction** — now Finding E, `## Approach` and `## Carried Forward` all say
+  the same thing, and nothing else in the document names `declared_type` as the pattern channel. One
+  consequence recorded rather than decided: `bounded_message`'s keyword set is
+  `path`/`declared_type`/`cause` (`errors.py:bounded_message:134-136`), so whether `pattern` also renders
+  into the message needs a spec-time call on that signature. The attribute is the contract either way,
+  and `AC-2`'s conjunct 4 asserts the attribute.
+- **The `phones[]` correction** — it contradicts only the word *"precisely"* in its own sentence, which
+  is the point. `## Carried Forward`'s bullet says *"the rider writes back the identifier fields only"*
+  and is unaffected; the one thing that MOVES is the consumer audit's scope, which is one field wider
+  than that clause implied, and the audit paragraph in `## Grounding Still Owed` describes its greps
+  rather than enumerating fields, so it needs no edit — the widening is recorded at the sentence the
+  audit will be written against.
+- **D4's frame-contributed `aliases` key vs `AC-4`'s dict-arm byte-identity clause** — no disagreement.
+  The append happens on the parsed frontmatter inside the lock (`base.py:443-448`), after the gate has
+  judged the caller's `updates`, and the value is a filename stem already on disk rather than an
+  introduced identifier; under the arm-shape split `aliases[]` is passed through byte-identical anyway.
+  Nothing the gate would have done differently, which is why it is recorded in the delta paragraph rather
+  than folded into a rule.
+- **The two-artifact distinction vs `## Conductor Booking` and Finding F** — extends, does not withdraw.
+  The executed scenario is D1a, inside the scoped set, where both artifacts are genuinely new and the
+  directory is genuinely stray; the artefact record stands verbatim and remains the fixture's shape.
+- **G5(b)'s new column vs the round-11 depth split and the `should_skip` partition** — orthogonal. The
+  column counts directories and `.lock` files, which carry no `.md` and enter no bucket of G1, G4 or
+  G5(a); `.obsidian-schemas-locks` is deliberately NOT added to `SKIP_DIRS` (`lint_vault.py:SKIP_DIRS:57`),
+  because no walker in this repo is distorted by it.
+- **The hoist, DECLARE, the eight-arm set and its floor, the pass-what pin, the placement rule, the
+  arm-shape split, the name-identity rule, the phone relocation, `AC-3`'s re-basing** — all unaffected.
+  Nothing this round says changes which arms exist, what they pass, where they call, or what the gate
+  returns.
+- **Citation hygiene, recorded rather than actioned.** The pre-spawn sweep now resolves **fifteen**
+  `identifier.py:MIN_DIGITS` citations naming no symbol, up from thirteen; every one sits inside
+  gate-authored prose whose subject IS the slip, and the two new ones are the round-11 gates reporting
+  the count. The symbol is `Phone.MIN_DIGITS`, a `ClassVar[int] = 7` at `identifier.py:228`. **I
+  introduce no sixteenth** — this round cites the floor nowhere. Gate sections are theirs, so no edit is
+  available to me. Where this round touched a citation for another reason it was upgraded to the
+  symbol-anchored form WI-215 asks for (`vault_io.py:_sentinel_path:350`, `vault_io.py:ensure_dir:618-638`,
+  `lint_vault.py:apply_fixes:816`, `base.py:_note_skip:266-274`, `errors.py:bounded_message:134-136`,
+  `person.py:_normalize_address_fields:1300-1343`); untouched citations were left alone rather than swept,
+  which would have been an edit with no finding behind it.
+
+### Re-entry — unchanged in order, and the budget is now spent
+
+> **SUPERSEDED IN PART, round-13 fold** *(an in-place marker on a live contradiction, not a rewrite of the
+> round; the reasoning is in the round-13 re-entry)*. Two sentences below disagree with each other and a
+> conductor reads this paragraph to decide what to do next: the preamble says *"there is no thirteenth
+> round"* while step 3 sends the item through *"the four fresh rounds precondition 2 reserved"*. The
+> arithmetic settles it — rounds 9–12 were all spent PRE-re-sign, so after this cycle architect,
+> data-premise and spec-writer are each at 12/12 and only ac-red-team has budget (5/12). **Step 3 is
+> therefore not executable at `round_budget: 12`.** The round-13 fold books that as a conductor action
+> (raise the budget in the same action that carries the re-origination, or delete step 3 explicitly);
+> nothing else in the ordering below changed.
+
+**Say the last part plainly: there is no thirteenth round.** `round_budget: 12` was set by the conductor
+(precondition 2) to reserve four rounds per gate for the post-re-sign verification chain, and this fold
+is the twelfth. So step 1 below is not "the next gate round" — it is Dave, and the shell.
+
+1. **Dave re-originates `AC-1`–`AC-4` in ONE round** (`AC-5` unchanged), now with: `AC-1`'s floor at
+   eight arms, the pass-what pin, the rider clause with its round-8 fixture pin, and the placement pin as
+   restated at round 10; **`AC-2`'s conjunct 3 scoped to `{D1a, D1b, D1c}` by equality with its reason,
+   its oracle replaced by the artifact-naming form, its conjunct-2 create-case rider, and its conjunct 4
+   stated at D8 as a recorded refusal** — new this round, all inside the item already on his list;
+   `AC-3`'s scope sentence on pre-existing path-forked notes, its synthetic-fixture sentence covering the
+   whole criterion, and its re-basing onto `AC-1`'s derived set with `{D1a, D1b, D1c}` excluded by
+   equality; `AC-4`'s `aliases[]` clause scoped by arm shape with its dict side priced against the
+   deletion; and one yes/no on `### Examples of done` scenario 3, where (b) closes the deletion and (a)
+   does not. **No item was added this round.**
+2. **One shell pass, alongside the re-origination:** **G1 as twice amended** (the `should_skip` partition
+   plus the depth column), the twice-amended **G2**, the two columns of **G4**, and the two parts of
+   **G5 — part (b) now carrying the lock-home column** — plus the consumer audit's two greps, whose field
+   list is one field wider than round 8 recorded. **G6 is DONE.** G3 stays withdrawn as moot. None of the
+   four gates a shape; all four size, G5(a) additionally decides whether `AC-3`'s premise survives, and
+   G5(b)'s new column decides whether `AC-2`'s scoping is the measured answer or only the argued one.
+3. **ac-red-team → architect → data-premise → spec-writer**, on the four fresh rounds precondition 2
+   reserved. Every architect ruling carries forward and needs no re-derivation: gate signature, splitter,
+   DECLARE, the phone relocation, the output contract, the arm-shape split, the name-identity rule, the
+   gate-above-lock placement and its one-rule derivation.
+4. **spec-writer.** With 1–3 done the spec is assembly: `## Carried Forward` plus the routing at eight
+   arms and one rider with the D1 hoist, the wall with its three per-arm arguments, the phone relocation,
+   the splitter consolidation and the subsumption, the Tier-1 branch-unit reification, and the
+   `lint_vault --fix` work — which is now FOUR changes in one function (existence guard, delta threading,
+   gate call, refusal arm) and is still the largest single piece of the re-derived three-to-four-session
+   estimate.
+
+## Architectural Review — 2026-08-11 (round 12)
+
+**Recommendation: REVISE — return to exploration**
+
+**Round 12, cold-start re-spawn, and the last round `round_budget: 12` holds on this seat.** Read in
+role order: `architect.yaml`, this document in full (five ac-red-team rounds, the `ac-signoff` fence,
+eleven prior architectural reviews, eleven data audits, twelve spec-writer rounds,
+`## Conductor Rulings & Grounding`, `## Grounding Still Owed`, `## Conductor Booking`,
+`## Conductor Preconditions`, the re-origination brief), then the code every claim below turns on
+(`scripts/lint_vault.py` `apply_fixes` end to end, `obsidian_schemas/vault_io.py` `_sentinel_path` /
+`note_lock` / the `WriteFailedError` sites, `writer.py` `write_markdown_file` / both
+`update_frontmatter_*` / `roundtrip_file`, `repositories/base.py` `save` / `update_fields` /
+`_owns` / `_note_skip`, `repositories/person.py` `save` / `_normalize_address_fields`, `errors.py`
+`REASONS` / `bounded_message` / the hierarchy, `parser.py`), plus the project `CLAUDE.md` and
+`LESSONS.html`. No shell in this cage; the live vault was not read — the counts used are the
+conductor's and G6's result is the conductor's execution, both cited as such.
+
+**My round-11 blocking issue is CLOSED, on both legs, and the round-12 fold re-derives on every leg I
+re-read from source.** The two findings below are new. The first lands on the ONE design decision this
+round made in unsigned text; the second is the fact that makes the first unfixable as the document
+currently stands, which is why they are raised together.
+
+### Trigger check
+
+Three fire, unchanged: **two** new modules (the gate and the phone leaf); a contract change crossing
+into three downstream repositories installed with `pip install -e`
+(`docs/backlog-campaign-2026-07-05.md:98`); a derived-wall enforcement mechanism that must be designed
+rather than copied.
+
+### Round-11's blocking issue — verified closed from source
+
+Re-derived rather than accepted from the fold's account of itself. Every row confirms.
+
+| Claim the round-12 fold makes | Where I read it | Result |
+|---|---|---|
+| `note_lock` creates TWO artifacts with different arities — a directory keyed on `target.parent`, a `.lock` keyed on the resolved target | `vault_io.py:_sentinel_path:348` (digest of `str(target)`), `:350` (home = `target.parent / SENTINEL_DIR_NAME` when unconfigured), `_resolved` at `:376`; `ensure_dir(sentinel.parent)` at `:400` under `if not reentrant:` at `:393`, `yield` at `:424`; the `FileLock` bound at `:410-412` and acquired at `:414` | confirmed on every leg, including that the file is created by the **acquire** at `:414` rather than by the construction — which does not move the arity argument |
+| conjunct 4 is false at D8 — the gate's refusal is swallowed | `lint_vault.py:apply_fixes:804-805` (signature), `:815` (`for fpath, file_issues in by_file.items()`), `:816` (`try:`), `:819` (`note_lock`), `:821` (`parse_frontmatter`), `:902-903` (`except Exception as exc: print(…, file=sys.stderr)`) — the handler is INSIDE the loop | confirmed, and it is the finding this round's own blocking issue extends rather than disputes |
+| the replacement oracle is reachable — nothing filesystem-visible happens above the hoisted D1a gate on the `repo.save` path | `base.py:save:380-395` binds `name`, `filename`, `file_path` and calls `write_markdown_file` at `:387` with no filesystem act of its own; `_adopt` is at `:398`, after | confirmed — `<vault>/@Dave` genuinely does not exist after a refusal, so `### Examples of done` scenario 1's own wording is a sound oracle |
+| plant-requirement and clause-scope are the same partition | `base.py:429-433` above `:437`; `writer.py:320-321` above `:327`; `:374-375` above `:379`; `writer.py:257`, `:258-261`, `:262-263` for the three argument-bound arms | confirmed — the equality is real and it is the best structural argument in this round's fold |
+| `_normalize_address_fields` walks `emails` and `aliases` only | `person.py:_normalize_address_fields:1300-1317` (`person.emails = new_emails`), `:1321-1343` (`person.aliases = new_aliases`); `person.phones` appears nowhere in `:1277-1343` | confirmed — my round-11 note 1 is correctly folded, and `phones[]` in the rider is an ADDED in-place mutation |
+| the `pattern` correction is a repair of a contradiction, not a new rule | `base.py:_note_skip:266-274` reads `getattr(error, "declared_type", None)` at `:267` and hands it to `_owns` at `:269`; `_owns` at `:257-264` | confirmed — a pattern id in `declared_type` would make every repository disown the note it just refused. Correct in place |
+| D4's frame contributes one `aliases` key of its own | `base.py:update_fields:443-448` appends `file_path.stem.lstrip("@")`, `:451` merges the caller's `updates` | confirmed, including the pre-existing ordering bug at `:448` vs `:451`, correctly not absorbed |
+| `REASONS` is a closed frozenset of fifteen; `bounded_message`'s keyword set is `path`/`declared_type`/`cause` | `errors.py:110-127` (I counted the members again), `:134-136`, refusal at `:139-145` | confirmed |
+
+The class-shaped fold's three-level sweep is also right, and its stopping argument is structural: a
+criterion has finitely many conjuncts, each conjunct's oracle names finitely many artifacts, and the
+frames contribute exactly two artifacts no conjunct names. I checked the enumeration and agree.
+
+### Blocking issue — the D8 refusal arm this round designed fires for the WHOLE `LoudFailError` hierarchy, so `AC-2`'s fourth conjunct is satisfiable at D8 without the gate
+
+This is the one decision the round-12 fold made rather than staged, and it names its own authority for
+making it: *"the choice between abort the run and record and continue is a property of `apply_fixes`,
+which is unsigned code this item already opens, so it belongs to this role."* That reasoning is right.
+The mechanism it chose is not, and the defect is in the CATCH, not in the continue.
+
+Finding E, and the `AC-2` clause staged from it in `## Re-origination Brief`, both specify:
+
+> *"`apply_fixes` gains a dedicated `except LoudFailError` arm ABOVE the broad one, which records the
+> refusal in a structured per-file refusal list (path + the exception's `pattern` attribute, never note
+> content) … the criterion asserts a counted, typed refusal record at D8."*
+
+**`LoudFailError` is the BASE of the hierarchy, and the frame that arm would sit on already raises four
+of its subclasses today, before this item touches anything.** Read from source this round:
+
+| Source inside `apply_fixes`'s per-file `try` (`lint_vault.py:816-900`) | Raises | Class |
+|---|---|---|
+| `vault_io.note_lock(fpath)` at `:819` | `WriteFailedError` on thread-lock timeout, on `ensure_dir` failure, on `filelock.Timeout` and on `OSError` | `vault_io.py:387-388`, `:405-406`, `:416-417`, `:419-420` |
+| `parse_frontmatter(content)` at `:821` | `FrontmatterParseError` — fence opened but never closed, or YAML that does not parse | `parser.py:96`, `:107` |
+| `vault_io.write_note(...)` at `:882` and at `:900` | `WriteFailedError`, `ExternalWriteConflict`, `NoteAlreadyExists` | `vault_io.py:241`, `:262`, `:508`, `:518`, `:531`, `:542` |
+
+Every one of those is a `LoudFailError` subclass by declaration (`errors.py:37` base; `:65` via
+`NoteParseError:57`; `:80`; `:92`; `:98`). So the arm as specified records **"the gate refused this
+note"** for a lock timeout, for a corrupt frontmatter fence, and for a failed commit — none of which
+the gate was involved in, and none of which carries a `pattern` attribute, so the structured record's
+one typed field is `None` for all of them.
+
+**Two consequences, and the first is the one that makes this architectural rather than spec-time.**
+
+1. **`AC-2`'s fourth conjunct at D8 loses its discriminating power, in the same round it acquires it.**
+   The clause going to Dave asserts *a counted, typed refusal record at D8*. A fixture that plants a
+   note with a broken frontmatter fence — no dirty name anywhere — produces exactly that record, from
+   `parser.py:96`, on a build where **no gate call exists at D8 at all**. That is an oracle green for a
+   build that did not do the work, on the one arm `AC-1`'s wall cannot help with, because the wall
+   proves the arm CALLS and PASSES and is placed `in-lock` — it does not prove which exception the
+   observable record came from. This is the *control with no discriminating power* shape this document
+   has spent five ac-red-team rounds and three architectural rounds closing (round 3's entity-shaped
+   untyped fixtures; round 6's arm-set membership; round 10's `AC-3` door list), arriving one last time
+   through the criterion's oracle rather than through its quantifier.
+2. **It is also a live regression in the tool's diagnostics, independent of any fixture.** A lock
+   timeout or a failed commit prints `Fix error on <name>: …` today (`:902-903`) and would print a
+   refusal line afterwards, moving a real IO failure out of the channel an operator reads for IO
+   failures and into a count labelled "the package declined this note". `apply_fixes` returns `int`
+   (`:806`, `:905`), so the refusal count is a signature change on this function regardless; that is
+   the moment to get the discrimination right, not after.
+
+**Direction, not design, and the document already owns the mechanism.** The gate's refusal is
+distinguishable from every sibling in that frame by the very attribute Finding E rules it must carry:
+the dedicated `pattern` (the correction this same round made, `base.py:_note_skip:266-274`). So the arm
+must discriminate on the gate's own signal rather than on the hierarchy's root — either
+`except LoudFailError as exc:` with a `getattr(exc, "pattern", None) is None: raise` re-raise into the
+broad handler, or, cleaner and my recommendation, **a dedicated `LoudFailError` subclass minted for the
+gate's refusal**, which the `REASONS` obligation is already going to add a source literal for
+(`errors.py:110-127`, `bounded_message` refusing non-members at `:139-145`) and which makes the catch
+exact by construction instead of by an attribute probe. Either shape is one clause in unsigned text.
+What must NOT happen is that `AC-2`'s conjunct-4 clause be signed against *"a refusal record"* without
+naming what produced it: **the criterion should assert a refusal record carrying the gate's own
+pattern key**, so a record with no pattern is RED. That last half-sentence is inside the `AC-2` item
+already on Dave's list and does not grow the round.
+
+**Why this is not a re-raise of my round-11 second leg.** Round 11 found that conjunct 4 is FALSE at
+D8 because the broad handler swallows the exception, and asked which of *abort* and *record-and-continue*
+the criterion means. The fold answered that question correctly and I accept the answer. This is about
+the mechanism the answer chose: an exception filter one level too wide, in a frame with four
+pre-existing sources of the class it filters on. The round's own contradiction scan checked exactly one
+candidate for interaction with the new arm — the existence guard's `FileNotFoundError`, correctly
+cleared as an `OSError` — and did not sweep the frame for the exceptions that ARE `LoudFailError`s,
+which is where the interaction lives.
+
+### Second blocking issue — precondition 2's four reserved rounds were spent BEFORE the re-sign, so the verification chain every fold promises cannot run, and this round's finding has nowhere to land
+
+I raise this as a gate finding rather than as an aside because it is now load-bearing on the item's own
+re-entry, and because this is the last seat from which it can be said.
+
+`## Conductor Preconditions` precondition 2 reads: *"`round_budget: 12` set in frontmatter (was DEFAULT
+8; all three exploring gates were 8/8). **The four fresh rounds per gate are for the post-re-sign
+verification chain** (ac-red-team → architect → data-premise → spec-writer)."*
+
+Rounds 9, 10, 11 and 12 were all spent **pre**-re-sign — each for a defensible reason, each argued in
+its own round as *"it must go in THIS re-origination because ac-red-team runs AFTER the re-sign"*, and
+I made that argument myself twice. The reservation is nonetheless consumed. Counted from this
+document's own sections:
+
+| Gate | Rounds used | Left after this cycle |
+|---|---|---|
+| ac-red-team | 5 (`## AC Red-Team`, rounds 1–5) | 7 |
+| architect | **12** (this review) | **0** |
+| data-premise | 11, and its round-12 audit follows this one | **0** |
+| spec-writer | **12** (`## Spec-Writer Fold — round 12`) | **0** |
+
+So the re-entry step 3 that the round-12 fold, the round-11 architect and the round-11 data audit all
+state — *"ac-red-team → architect → data-premise → spec-writer, on the four fresh rounds precondition 2
+reserved"* — is **not executable**: three of its four legs have no budget. The same section says both
+things two paragraphs apart (*"there is no thirteenth round … the budget is now spent"* at step 1,
+*"the four fresh rounds precondition 2 reserved"* at step 3), which is a live contradiction in the one
+paragraph a conductor reads to decide what to do next.
+
+**This is not bookkeeping, because it decides whether the first finding above can be fixed at all.**
+The `except LoudFailError` repair is one clause in unsigned text that only the spec-writer may write,
+and the spec-writer is at 12/12. Left as it stands, the re-signed set reaches a build with a
+conjunct-4 oracle that a no-gate build can green, and with no gate round available to have caught it —
+the "too lenient" failure this seat exists to prevent, arriving through the budget rather than through
+a verdict.
+
+**Direction, and it is one line of frontmatter in the action Dave is already taking.** Raise
+`round_budget` in the same conductor action that carries the re-origination — to **16** if precondition
+2's four-per-gate reservation is to mean what it says after four have been spent — or, if the answer is
+that the chain does not re-run, say so explicitly and delete step 3, so the item does not carry a
+re-entry plan it cannot execute. I recommend the former: the re-sign changes `AC-1`'s floor, `AC-2`'s
+conjunct-3 scope and its oracle, `AC-3`'s whole door binding and `AC-4`'s arm-shape scoping — four
+criteria whose new text no gate has ever read — and an unverified re-signed set is precisely what
+rounds 9 through 12 each argued must not happen. The call is the conductor's and Dave's, not mine.
+
+### Rulings carried forward — settled, do not re-derive
+
+All nine stand, re-checked against the code this round. Nothing above reopens any of them: the first
+finding is about which exceptions one frame's handler catches, and the second is about the budget.
+
+- **Gate signature:** no `existing` parameter; introduced fields plus the entity type; entity arms
+  project through `model_to_frontmatter` first.
+- **Splitter:** TOTAL, returns `(address | None, display)`, owns the parens form before delegating.
+- **DECLARE:** the gate is handed its semantic context and never consults the filesystem; `_owns` is
+  consulted nowhere.
+- **The phone authority relocates to a leaf** (`obsidian_schemas/phone_normalization.py`).
+- **The gate's OUTPUT contract and the arm-shape split.**
+- **The eight-arm derived set plus the D3 rider.**
+- **The gate's NAME output is an IDENTITY.**
+- **The gate runs ABOVE `note_lock` at D1a/D1b/D1c** — Dave's precondition 1, and I re-verified this
+  round that `BaseRepository.save` performs no filesystem act above it (`base.py:380-395`).
+- **The placement value is derived by ONE local rule, with D8 carrying the guard that makes it so.**
+
+And one addition from this round's fold that I endorse and add to the carried set: **`note_lock`'s two
+artifacts and their arities**, with the corollary that a genuine stray DIRECTORY is creatable only at
+`{D1a, D1b, D1c}`. It re-derives from source and it is the fact that makes `AC-2`'s conjunct-3 scoping
+a measured answer rather than an argued one.
+
+### Review — only what changed
+
+**Fit / Duplication / Generalization / Prior art:** as rounds 2–11 recorded them. Approach F remains
+right; `tests/test_write_routing.py:1-18` remains the precedent `AC-1`'s battery copies; the one cited
+execution that was owed has been run (G6).
+
+**Boundaries:** the first finding is a boundary observation. `LoudFailError` is this package's
+*"this package refused"* boundary marker (`errors.py:37-42`), and it is deliberately wide — it spans
+parse, write and lock failures. Using it as the discriminator for *"the semantic gate declined this
+name"* borrows a boundary calibrated for one job to answer a narrower one, which is the class the
+round-2 hand-back named and the DECLARE ruling closed elsewhere in this design. The gate's refusal
+deserves its own type for the same reason `StaleEntityWrite` has one (`errors.py:84-89`): the
+distinction is visible to a caller and a caller acts on it.
+
+**Determinism boundary (LLM vs code):** n/a for LLMs. The principle bears on both findings: "did the
+gate refuse this note?" must be answerable structurally, and an attribute probe on a base-class catch
+is a detecting check where an exact type makes the miss impossible.
+
+**Reversibility:** unchanged and good — the gate module, the phone leaf and the wall are all additive;
+the one deletion (`_normalize_address_fields`) is subsumption with its behaviour preserved at D1a and
+the rider. A dedicated refusal subclass is additive too and costs one `REASONS` literal.
+
+**Cost & maintenance:** the three-to-four-session estimate holds; `lint_vault --fix` remains the
+largest single piece and now takes four changes in one function, none of which this round's finding
+adds to — it changes which exception the fourth one catches.
+
+**Build vs extend vs integrate:** extend, correctly, with one symbol moving first.
+
+### Notes (non-blocking)
+
+1. **The level-3 declaration understates by one case.** Finding B's round-12 subsection declares the
+   permitted debris as *"a new `<digest>.lock` inside an EXISTING lock home"*. At the four in-lock arms
+   a parent that has never been locked also acquires a new `.obsidian-schemas-locks/` **directory**
+   (`vault_io.py:400`) — which is exactly the fixture shape `AC-2`'s Tier-1 sweep produces, since a
+   `Path.write_text` plant into a fresh tmp vault has locked nothing. It scores nothing, because
+   conjunct 3 is being scoped out of those arms, and G5(b)'s new column sizes it in production. Worth
+   one clause of precision in the declaration so a future oracle does not rediscover it as a finding —
+   which is the stated purpose of that paragraph.
+2. **`apply_fixes`'s return type changes either way.** It returns `int` (`:806`, `:905`) and is called
+   at `:1100-1103`; reporting a refusal count beside `fixed` is a signature change in `scripts/`.
+   Booked under `## Questions the later spec round still owes` item 2 as part of the same edit; noted
+   only so the four changes in that function are priced as five lines of interface, not four of body.
+3. **Rounds 1–11's standing notes all carry:** the new `REASONS` literal chosen at spec time; the
+   `book.py`/`meeting.py` `save` overrides correctly not arms; parked defect 4's shared fix with D8's
+   guard; and the three-functions-one-shape collapse, still a separate work item and still not
+   recommended for absorption. The `pattern`-not-`declared_type` note is now folded and I retire it.
+4. **The document remains buildable two ways until Dave re-originates** — Tier A's undeclared clause,
+   `### Examples of done` scenario 3 vs the arm-shape split, `AC-1`'s floor naming two non-members,
+   `AC-3`'s door list, and `AC-2`'s conjunct-3 scope. The finding above adds the conjunct-4 half-clause
+   to that list; like the other five it is staged rather than fixable here.
+5. **The `identifier.py:MIN_DIGITS` citations are benign for the tenth time.** The pre-spawn sweep
+   resolves sixteen, every one inside gate-authored prose whose subject IS the slip; the symbol is
+   `Phone.MIN_DIGITS`, a `ClassVar[int] = 7` at `identifier.py:228`. **I introduce no seventeenth** —
+   this round cites the floor nowhere.
+
+### Arc note — the arc converged, and what ends it is not another round
+
+Twelve rounds, twelve distinct targets, none re-raised: Company annexation (1) → the structural
+sharpening plus the missing Tier-1 table (2) → DECLARE plus the `AC-1` pass-what gap (3) → the phone
+authority (4) → the `aliases[]` migration's expressibility (5) → the door set's membership rule (6) →
+the filename bound above the set (7) → the directory created before the set can refuse (8) → the
+placement pin's own derivability (9) → the one criterion never re-based on the derived set (10) → the
+directory promise scored at the arms the hoist cannot reach (11) → the refusal record that any
+`LoudFailError` can produce (12). Round 11's target is closed and verified from source above.
+
+**This is an audit fold, not a treadmill tick, and the distinction matters for what happens next.**
+Every ruling in `## Carried Forward` re-derives; the design has not moved since round 6 except by
+sharpening; the fold rounds have been closing consequences of earlier fixes rather than reopening
+decisions. What blocks PROMOTE is unchanged in kind since round 4 and is not a gate's to clear: four
+signed criteria contradict the design they are supposed to check, four grounding queries have never
+run and one of them decides whether `AC-3`'s premise survives, and no cage in this chain has a shell.
+Those need Dave's signature and one shell pass, in that order.
+
+So the shortest path is unchanged and short: **fold this round's one clause, raise the budget, re-sign,
+run the queries.** The finding above is small — an exception filter and half a sentence on a criterion
+already on Dave's list — but it is exactly the kind that reaches the build-runner if nobody says it,
+and the budget finding is what decides whether anyone can.
+
+```verdict
+gate: architect
+verdict: REVISE
+date: 2026-08-11
+model: claude-opus-5
+targets: AC-2, #exploration-notes, #conductor-preconditions
+note: Round 11's finding is closed and the round-12 fold re-derives on every leg I re-read from source (note_lock's two artifacts and their arities at vault_io.py:348/:350/:376 with ensure_dir at :400 above the yield at :424; the replacement oracle is reachable because base.py:380-395 performs no filesystem act above the hoisted D1a gate; plant-requirement and clause-scope are genuinely the same partition; _normalize_address_fields walks emails and aliases only, person.py:1300-1343, so the phones[] correction is right; the pattern-not-declared_type repair is confirmed by base.py:_note_skip:266-274 feeding _owns at :258-264; D4's own aliases append at base.py:443-448 before the merge at :451) — but the ONE design decision this round made, Finding E's D8 refusal arm, filters on `except LoudFailError`, which is the BASE of the hierarchy (errors.py:37), and apply_fixes's per-file try at lint_vault.py:816-900 already raises four of its subclasses today: WriteFailedError from note_lock at :819 (vault_io.py:387-388, :405-406, :416-417, :419-420), FrontmatterParseError from parse_frontmatter at :821 (parser.py:96, :107), and WriteFailedError/ExternalWriteConflict/NoteAlreadyExists from write_note at :882 and :900 — so the structured refusal record that AC-2's fourth conjunct is about to be signed against is produced, with pattern=None, by a lock timeout or a corrupt frontmatter fence on a build where NO gate call exists at D8 at all, which is the control-with-no-discriminating-power shape five ac-red-team rounds and three architect rounds have closed elsewhere in this set, plus a live diagnostics regression moving real IO failures out of the `Fix error on …` channel; the repair is to discriminate on the gate's own signal rather than on the hierarchy root — a dedicated LoudFailError subclass for the refusal, which the REASONS obligation (errors.py:110-127, :139-145) already mints a literal for — with AC-2's conjunct-4 clause stating that the record must carry the gate's pattern key so a record without one is RED, half a sentence inside an item already on Dave's list; and SECOND, raised here because it decides whether that repair can land at all: precondition 2 reserved four fresh rounds per gate for the post-re-sign chain, but rounds 9-12 were all spent PRE-re-sign, so after this cycle architect, data-premise and spec-writer are each 12/12 (only ac-red-team has budget, at 5/12) and the re-entry step 3 that this fold, the round-11 architect and the round-11 data audit all state is not executable — the round-12 fold says both things two paragraphs apart — so round_budget must be raised in the same conductor action as the re-origination (16 if the four-per-gate reservation is to survive) or step 3 deleted, because a re-signed AC-1/AC-2/AC-3/AC-4 that no gate has read is the too-lenient failure this seat exists to prevent, arriving through the budget rather than through a verdict.
+```
+
+## Data Audit — 2026-08-11
+
+**Recommendation: REVISE — return to exploration**
+
+**Round 12, cold-start re-spawn, and the last round `round_budget: 12` leaves on this seat.** Read in
+role order: `data-premise.yaml`, this document in full (five ac-red-team rounds, the `ac-signoff`
+fence, twelve architectural reviews, eleven prior data audits, twelve spec-writer rounds,
+`## Conductor Rulings & Grounding`, `## Grounding Still Owed`, `## Conductor Booking`,
+`## Conductor Preconditions`, the re-origination brief), then the code every premise below turns on
+(`scripts/lint_vault.py` `read_vault` / `should_skip` / all five `auto_fixable=True` producers /
+`apply_fixes` end to end, `obsidian_schemas/parser.py` `parse_frontmatter`, `errors.py` the hierarchy
+and `REASONS`). Same method bound as every prior round: **no shell — this spawn has no Bash tool —
+scope limited to this tree's files, and the live vault was not read.** Vault counts used are the
+conductor's, cited as such; G6's result is the conductor's execution, cited as such.
+
+Written to be spendable, on the same terms as round 11: the finding needs no decision, adds no query,
+lands as one bucket on a query that has not run, and grows Dave's round by nothing.
+
+### Trigger check
+
+**Class 1 AND Class 2 — both still fire.**
+
+- Class 1 (data-distribution / field-presence): the same four quantified claims about live entries are
+  unmeasured — G1's undeclared population, G2's per-field cells and deletion column, G4's two columns,
+  G5's path-forked population and its round-12 lock-home column. Unchanged from rounds 8 through 11;
+  none has run. **And one joins this round**, below: the size of the cell G1's own partition cannot
+  express.
+- Class 2 (rule-effect-against-existing-corpus): rule (ii)'s effect outside `@*.md` is still unrun; the
+  splitter consolidation is still a predicate never run over the entries it will judge; **and the
+  round-12 architectural review's `AC-2` conjunct-4 finding names a specific corpus state (a note whose
+  frontmatter fence does not parse) as its exhibit, which is decidable from this tree** — run below,
+  per this gate's Step 2.3.
+
+### My round-11 finding — carried status
+
+| Round-11 ask | Status |
+|---|---|
+| **`note_lock`'s two artifacts, their different arities, and that `AC-2`'s clause and its oracle name different objects** | **FOLDED** (round-12 fold, Finding B's new subsection + the brief's `AC-2` item) and endorsed from source by the round-12 architect, who adds it to `## Carried Forward`. Re-read this round; every leg holds, including that the `.lock` is created by the **acquire** at `vault_io.py:414` rather than by the construction, which does not move the arity argument. **Closed — I do not re-raise it.** |
+| **G5(b)'s free lock-home column** | **FOLDED** into `## Grounding Still Owed` verbatim, with the decides-cell stating what it settles for `AC-2` as well as `AC-3`. Correct as written. |
+| **G1, G2, G4, G5, the consumer audit** | **STILL OWED, unchanged and unrun.** |
+
+### Verified from source this round
+
+Re-derived rather than inherited. Rows 1–3 are the round-12 architectural review's own legs, re-run
+because my finding sizes rather than disputes them.
+
+| Claim | Where I read it | Result |
+|---|---|---|
+| `apply_fixes`'s per-file `try` already raises four `LoudFailError` subclasses today | `lint_vault.py:apply_fixes:816` (`try:`) spanning `:819-900`; `note_lock` at `:819`; `parse_frontmatter` at `:821`; `write_note` at `:882` and `:900`; broad handler at `:902-903` | **confirmed** — the architect's blocking finding is right on every leg, and `LoudFailError` is the hierarchy base (`errors.py:37`) with `FrontmatterParseError` reaching it via `NoteParseError` (`:57`, `:65`) |
+| `parse_frontmatter` raises on exactly two inputs, and a fence-LESS document is not one of them | `parser.py:79-80` (`not content.startswith("---")` → `({}, content)`), `:94-98` (fence opened, never closed), `:100-108` (YAML refused) | confirmed — and the two reasons are `REASONS` members (`errors.py:111-112`) |
+| `bounded_message`'s keyword set is `path`/`declared_type`/`cause`, so no pre-existing member of that frame can carry a `pattern` | `errors.py:134-136`, refusal at `:139-145`; `LoudFailError.__init__` at `:47-54` | confirmed — the structured record's one typed field is `None` for all four, exactly as the architect states |
+| every `auto_fixable=True` producer in the linter excludes a note whose frontmatter did not parse | `lint_vault.py:343`, `:359`, `:388`, `:532`, `:598` are the complete set of five; `check_structural` `continue`s at `:296-304`, `check_completeness` at `:371`, `check_links` at `:454`, `check_noise` at `:669`; `check_timeline:569-601` has no such guard but reads `idx["persons"]`/`idx["meetings"]`, keyed on `entity_type`, which is `""` when `fm` is `{}` (`:140`, `:146-148`) | confirmed, and the enumeration is complete rather than sampled |
+| `read_vault` treats an unparseable fence as a FOURTH state, not as any of G1's three | `lint_vault.py:124-128` (broad catch → `fm, body = {}, raw`), the dedicated `parse_error` field at `:96` and `:121`, the second-chance YAML probe at `:131-138` | confirmed |
+| the `MIN_DIGITS` floor is `Phone.MIN_DIGITS` | `identifier.py:228`, a `ClassVar[int] = 7` | confirmed; **I introduce no eighteenth citation** — the pre-spawn sweep now resolves seventeen, every one inside gate-authored prose whose subject IS the slip. This round uses the qualified form only |
+
+### Finding — G1's partition is not TOTAL over the corpus, and the cell it cannot express is exactly the population the round-12 conjunct-4 finding rests on
+
+The architect's blocking finding is correct and I endorse it without qualification: `except
+LoudFailError` at D8 filters on the hierarchy root in a frame that already raises four of its
+subclasses, so `AC-2`'s fourth conjunct would be signed against a record a no-gate build can produce.
+The repair — discriminate on the gate's own signal, ideally a dedicated subclass — is right, is one
+clause in unsigned text, and is not mine to write. What is mine is the **exhibit**, because it is a
+claim about corpus state, and it is the one leg of that finding nobody has measured or can.
+
+G1 classifies every `.md` in the vault into three buckets: *(a)* frontmatter carrying `type:`, *(b)*
+frontmatter, no `type:`, *(c)* no frontmatter fence. **A note whose fence opened and did not parse is
+none of the three.** It is not (c) — it HAS a fence — and it has no legible frontmatter to be (a) or
+(b) with. `parse_frontmatter` does not return a value for it at all; it raises (`parser.py:96`,
+`:107`), and it returns `({}, content)` only for the genuinely fence-less document (`:79-80`) that IS
+bucket (c). The partition has a fourth cell and the query as written has no name for it.
+
+This is not a hypothetical of my construction — **this repo's own whole-vault walker already needs the
+fourth state and carries a dedicated field for it.** `read_vault` catches the raise broadly
+(`lint_vault.py:124-128`), substitutes `fm, body = {}, raw`, and records `parse_error` separately
+(`:96`, `:121`, `:131-138`) precisely because `{}` alone cannot distinguish *"no frontmatter"* from
+*"frontmatter that would not parse"*. A shell-holding actor implementing G1 will do one of two things,
+and both are wrong in a way that is invisible in the output: call `parse_frontmatter` bare and have the
+whole pass abort on the first such note, or copy `read_vault`'s shape and file the note silently under
+(b) or (c). Under rule (ii) the *direction* survives either way — (ii) is fail-closed, so an
+unparseable note is treated as undeclared and a larger population is stricter, which is why this is a
+measurement defect rather than a rule defect. But every consumer of the number is affected: the
+consumer audit intersects it, build-start re-grounding re-runs it to detect rot, and G4 and G5(a)
+inherit the partition as they already inherit the `should_skip` correction and the depth split.
+
+**And here is why it is worth a data-premise round rather than a footnote.** At D8 those notes never
+reach the gate at all. `apply_fixes` calls `parse_frontmatter` at `:821` **above** any gate call the
+item would add, and independently every one of the five `auto_fixable=True` producers already excludes
+them — four by an explicit `if vf.parse_error: continue` (`:296-304`, `:371`, `:454`, `:669`) and the
+fifth, `check_timeline`, structurally, because its `persons`/`meetings` index is keyed on
+`entity_type` and that is `""` when `fm` is `{}` — with `apply_fixes` filtering to `auto_fixable` at
+`:810`. Two consequences, and they cut in opposite directions:
+
+1. **G1's undeclared count over-states the D8 target set by exactly this cell.** The gate's undeclared
+   population and the population that reaches the gate at D8 differ by the notes that die at `:821`.
+   That is the same *two partitions that cross* shape my round-10 finding found between `should_skip`
+   and `glob`, arriving one layer lower — and unlike that one it is invisible in the output rather than
+   merely uncorrected, because the cell has no bucket to be reported in.
+2. **The architect's exhibit is not reachable through the tool's own pipeline** — it needs a hand-built
+   `LintIssue(auto_fixable=True)`. This does **not** clear the finding, and I want that read the right
+   way round: a unit fixture over `apply_fixes` is a plain function call with a hand-built issue list,
+   which is exactly how `AC-2`'s D8 leg will be written, so consequence 1 of the architect's finding —
+   an oracle green on a build with no gate at D8 — stands at full strength at the level the fixture
+   actually lives. What moves is consequence 2, the **live** diagnostics regression: it does not rest on
+   `FrontmatterParseError` at all. It rests on `WriteFailedError` from `note_lock` at `:819`
+   (`vault_io.py:387-388`, `:405-406`, `:416-417`, `:419-420`) and on
+   `WriteFailedError`/`ExternalWriteConflict`/`NoteAlreadyExists` from `write_note` at `:882`/`:900`,
+   of which `ExternalWriteConflict` names an external writer landing mid-mutation — *"Obsidian, another
+   process"* — in its own docstring (`errors.py:92-95`), which is the ordinary condition of a vault
+   being linted while it is open. The architect's recommendation is unchanged and I second it; only its
+   worked example moves from the cheapest-to-plant source to the likeliest-to-fire one.
+
+### What this costs: one bucket, no new query
+
+**Nothing is added to the shell pass this round.** G1 gains a **fourth bucket — *(d)* a fence that
+opened and did not parse**, reported separately with the same path-class and depth splits its other
+three carry, on a walk that must already call the parser and must already decide what to do when it
+raises. G4 and G5(a) inherit it exactly as they inherited the `should_skip` partition and the depth
+column. Stated as an implementation obligation rather than as a preference: the runner must wrap the
+parse in `except FrontmatterParseError` (`errors.py:65`) and count, not swallow into `{}` — the shape
+`read_vault` already uses at `:124-128`, with the bucket named instead of the state being folded away.
+
+**Zero is a measurement here too**, and a load-bearing one in both directions: an empty (d) says the
+architect's exhibit has no live population and the conjunct-4 defect is fixture-only, which is the
+strongest available argument for the cheap repair; a non-empty (d) says `--fix` is meeting notes today
+whose refusal the new arm would mislabel, and says it before the criterion is signed.
+
+### Non-blocking — the fourth cell is a *lint* partition, and one number does not transfer
+
+`read_vault` walks with `rglob("*.md")` under `should_skip` (`:111-113`), so its `parse_error` count —
+if anyone has one from a past `lint_vault` run — is bucket (d) at `should_skip`-false only, and says
+nothing about the archived class or about the depth split. Recorded so the column is not considered
+discharged by an old lint report. It is one walk either way and the walk is already owed.
+
+### Required grounding
+
+Four owed, one amended, one retired, none added.
+
+1. **G1 — unrun; AMENDED (free): a fourth bucket** *(d)*, the fence that opened and did not parse,
+   reported separately with G1's existing path-class and depth splits. Everything else unchanged.
+2. **G2 — unchanged and still unrun,** all three parts.
+3. **G4 — unchanged and still unrun,** both columns plus the depth split; **inherits G1's bucket (d)**.
+4. **G5 — unrun and unchanged this round;** part (a) **inherits bucket (d)**, part (b) carries the
+   round-12 lock-home column.
+5. **G6 — RUN. Retired.** Result in `## Conductor Booking`.
+6. **The consumer audit** — unchanged, still owed, still not a vault query; its target set is the one
+   bucket (d) shrinks.
+
+### Conclusion
+
+The item moved in the right direction again: my round-11 finding is folded, re-derives from source, and
+the round-12 architect adds it to the carried set; the round-12 fold's return of `AC-2`'s oracle to
+Dave's own `### Examples of done` wording is the best repair in this document, because it is the only
+one that moves toward signed text rather than away from it.
+
+What stops this being a PROMOTE is unchanged in kind since round 4 and unchanged in fact since round 8.
+**G1, G2, G4 and G5 have never run** — four OPEN data questions against this role's cap of two — they
+need a shell no gate cage in this chain has, and G5(a) still decides whether `AC-3`'s signed
+"historical" premise survives at all. The architect holds a live blocking issue inside text about to be
+signed. And this round adds the fact that the largest of those four queries **cannot express the cell
+its own consumers now turn on**: the partition is not total, the missing cell is the exact corpus state
+the newest finding's exhibit is drawn from, and a runner implementing G1 as written will either abort
+or silently misfile it. Promoting now would send `AC-1`–`AC-4` to a build on numbers that have never
+been produced, from a query that would have produced the wrong ones — the "too lenient" failure this
+gate exists to prevent. Stage stays at `exploring`.
+
+**Signal for the factory, stated because the targets line alone cannot carry it.** The arc:
+rounds 1–3, the untyped-dispatch premise (closed by ruling 1); round 4, count 1's scope (→ G1);
+round 5, the per-field split (→ G2); round 6, the dict-arm deletion (→ G2's third column); round 7, the
+blast radii (→ G4); round 8, `AC-2`'s false directory clause and `AC-3`'s invisible population
+(→ precondition 1, G5, G6 now DONE); round 9, `AC-3`'s `--fix` leg against `SKIP_DIRS` (folded);
+round 10, the crossing of `should_skip` and `glob` (→ G1's depth column, folded); round 11, `note_lock`'s
+two artifacts (folded, closed above). **This round's target is the grounding list, and specifically G1's
+partition — which I have amended twice before (rounds 9 and 10) and have never before found
+NON-TOTAL.** Rounds 9 and 10 corrected which notes G1 counts as live; this finds a class of note it
+cannot place in any bucket at all. It closes here, needs no decision, and adds nothing to Dave's round.
+
+**Budget, said once because this is the last seat from which I can say it.** The round-12 architect is
+right that precondition 2's four reserved rounds were spent pre-re-sign and that data-premise is now
+12/12. I make no recommendation on the number — that is the conductor's and Dave's. What I will say is
+scoped to this gate: **nothing in this audit needs another data-premise round.** Bucket (d) is one line
+in a query that has not run, and the moment G1, G2, G4 and G5 come back with numbers, the premise is
+either grounded or it is not — that is a re-run against results, not a further round of reading. What a
+fresh data-premise round after the re-sign WOULD buy is the audit of `AC-1`–`AC-4`'s new text against
+those results, and no round of mine has ever read that text.
+
+**The unblock is unchanged in order and does not lengthen:** the `except LoudFailError` clause folded
+and `AC-2`'s conjunct 4 stated to require the gate's own pattern key; Dave re-originates `AC-1`–`AC-4`
+in ONE round; the same shell-holding actor runs G1 (now four buckets), G2, G4, G5 and the consumer
+audit's two greps alongside it.
+
+```verdict
+gate: data-premise
+verdict: REVISE
+date: 2026-08-11
+model: claude-opus-5
+targets: #grounding-still-owed
+note: G1/G2/G4/G5 and the consumer audit are STILL unrun for the twelfth round — four OPEN data questions against this role's cap of two, G5(a) still decides whether AC-3's signed "historical" premise survives, and no cage in this chain has a shell — and this round adds that the largest of them CANNOT EXPRESS the cell its newest consumer turns on: G1 partitions every vault .md into (a) frontmatter with type:, (b) frontmatter without, (c) no fence, but a note whose fence OPENED and did not parse is none of the three, because parse_frontmatter raises on it (parser.py:94-98 unclosed fence, :100-108 YAML refused) and returns ({}, content) only for the genuinely fence-less document at :79-80 that IS bucket (c) — this repo's own whole-vault walker already needs the fourth state and carries a dedicated field for it (lint_vault.py:read_vault:124-128 broad catch → fm={}, the parse_error field at :96/:121, the second-chance YAML probe at :131-138), so a runner implementing G1 as written either aborts the pass on the first such note or copies read_vault's shape and silently files it under (b) or (c), which leaves rule (ii)'s DIRECTION safe (it is fail-closed, so undeclared is the stricter read) but corrupts every number downstream, since the consumer audit intersects it, build-start re-grounding re-runs it, and G4/G5(a) inherit the partition; and that cell is exactly the population the round-12 architect's conjunct-4 exhibit is drawn from, which I endorse in full — except LoudFailError at lint_vault.py:816-900 does filter on the hierarchy root (errors.py:37, FrontmatterParseError reaching it via NoteParseError at :57/:65) in a frame already raising four subclasses, and none of them can carry a pattern because bounded_message's keyword set is path/declared_type/cause (errors.py:134-136, refusal at :139-145) — but the exhibit is NOT reachable through the tool's own pipeline: all five auto_fixable=True producers (lint_vault.py:343, :359, :388, :532, :598 — the complete set) already exclude a parse-error note, four by explicit continue (:296-304, :371, :454, :669) and check_timeline structurally (its persons/meetings index is keyed on entity_type, which is "" when fm is {}), with apply_fixes filtering to auto_fixable at :810 and parse_frontmatter at :821 sitting ABOVE any gate call, so consequence 1 (an oracle green on a no-gate build) stands at full strength because AC-2's D8 fixture is a hand-built issue list against a plain function, while consequence 2 (the LIVE diagnostics regression) rests not on FrontmatterParseError but on WriteFailedError from note_lock at :819 and WriteFailedError/ExternalWriteConflict/NoteAlreadyExists from write_note at :882/:900, of which ExternalWriteConflict names Obsidian landing mid-mutation in its own docstring (errors.py:92-95) — the ordinary condition of linting an open vault; the repair costs no new query, one bucket (d) on G1 with its existing path-class and depth splits, inherited by G4 and G5(a), and zero is a measurement in both directions: an empty (d) makes the conjunct-4 defect fixture-only and argues for the cheap repair, a non-empty (d) says --fix is meeting those notes today.
+```
+
+## Spec-Writer Fold — 2026-08-11 (round 13)
+
+**This round PRODUCED a fold, made ONE decision in unsigned text, staged HALF A SENTENCE, amended one owed
+query by one bucket, and BOOKED one thing that is neither a design question nor a data question — the
+round budget.** Both round-12 verdicts are REVISE. The architect holds two blocking issues and the second
+is explicitly not his to resolve; the data audit endorses the first in full and sizes its exhibit. The fold
+follows the signature line as rounds 9–12 did: the **mechanism** of D8's refusal arm is `apply_fixes` plus
+`errors.py`, unsigned code this item already opens, so it is fixed HERE; the **obligation** that `AC-2`'s
+fourth conjunct states is signed text, so its one new half-sentence is staged in `## Re-origination Brief`;
+G1's missing bucket is a query nobody has run, so it is amended in place. **Dave's round does not grow: no
+item was added, no criterion joined the set.**
+
+**On the budget, plainly, because it is the round-12 architect's second blocking issue and the one thing a
+fold cannot fix.** `round_budget: 12` is frontmatter, and frontmatter is the conductor's. This round does
+not edit it, does not advance the stage, and does not pretend the arithmetic away: after round 12,
+architect, data-premise and spec-writer are each at 12/12 and only ac-red-team has budget. The
+contradiction that arithmetic created inside the round-12 re-entry is MARKED IN PLACE (a `>` note under
+that heading) rather than left for a conductor to trip over, and the fork is stated below as a conductor
+action with a recommendation. **This fold is written as the last document state before Dave's
+re-origination**, exactly as round 12 was, and it is a smaller round than round 12 by design: one
+mechanism, one clause, one bucket.
+
+Cold-start, read in role order: `spec-writer.yaml`, this document in full (five ac-red-team rounds, the
+`ac-signoff` fence, twelve architectural reviews, twelve data audits, twelve prior spec-writer rounds,
+`## Conductor Rulings & Grounding`, `## Grounding Still Owed`, `## Conductor Booking`,
+`## Conductor Preconditions`, the re-origination brief), the project `CLAUDE.md`, then the code every claim
+below turns on. Every citation re-derived from source this round, not inherited: `errors.py` end to end
+(the hierarchy, `REASONS`, `bounded_message`, `bounded_detail`, `chainable_cause`), `parser.py`
+(`parse_frontmatter`'s three outcomes), `scripts/lint_vault.py` (`read_vault`, `should_skip`, `apply_fixes`
+end to end, its call site at `:1100-1103`), `obsidian_schemas/vault_io.py` (`_sentinel_path`, `note_lock`'s
+four raise sites), `writer.py` (`update_frontmatter_field(s)`' `except LoudFailError` arms),
+`repositories/base.py` (`_owns`, `_note_skip`, `_skip_reason`, `_load_file`), `repositories/person.py`
+(its five `except LoudFailError` sites), `obsidian_schemas/__init__.py` (the hierarchy's export block),
+`tests/derivations.py` and `tests/test_concurrent_access.py` (the WI-020 derivation pins). This cage has
+**no shell**; the live vault was not read — the counts used are the conductor's, cited as such, and G6's
+result is the conductor's execution, cited as such.
+
+### What this round wrote
+
+| Section | Change | Answers |
+|---|---|---|
+| **Finding E** — new round-13 subsection | The round-12 arm's filter is one level too WIDE. `LoudFailError` is the hierarchy base (`errors.py:LoudFailError:37`) and `apply_fixes`'s per-file `try` already raises four of its subclasses (table, each re-derived from source), none of which can carry a `pattern`. Both consequences stated — the conjunct-4 oracle greenable on a no-gate build, and the live diagnostics regression. **Decision: the refusal gets its own type, `NameGateRefusal(LoudFailError)`**, with the rejected attribute-probe shape named. Plus the ONE rule that closes the class: re-raising handlers may filter on the root, absorbing ones must not. | architect round 12, blocking; data-premise round 12 |
+| **Finding B** — the round-12 level-3 declaration | One clause of precision: at the four in-lock arms a parent that has never been locked acquires the `.obsidian-schemas-locks/` DIRECTORY too, because `ensure_dir` runs on every outermost acquisition (`vault_io.py:note_lock:398-400` under `if not reentrant:` at `:393`) — which is exactly the state a `Path.write_text` plant into a tmp vault reaches. It scores nothing under the conjunct-3 scoping; it is declared so a future oracle does not rediscover it. | architect round-12 note 1 |
+| **`## Approach`** | Round-13 header note; the refusal-conversion paragraph now names `NameGateRefusal` and carries the absorb-vs-re-raise rule with the seven existing sites enumerated as correct-unedited. | architect round 12, blocking |
+| **`## Carried Forward`** | New bullet: the refusal is its own hierarchy leaf, an absorbing handler must filter on it, the four pre-existing subclasses in that frame, the total rule, and the change's full price (the class, the `REASONS` literal, two lines in `__init__.py:46-56`/`:122-131`, and the stale *"six exported exception classes"* line in `CLAUDE.md`, which is already wrong at nine). | architect round 12 |
+| **`## Grounding Still Owed`** | Preamble round-13 note (nothing added, no query written); **G1 gains bucket (d)** — a fence that opened and did not parse — with its existing path-class and depth splits and an explicit `except FrontmatterParseError`-and-count obligation; the G1 decides-cell records both what (d) settles and that it over-states the D8 target set; **G4 and G5(a) inherit it**; the one-number-does-not-transfer caveat about a past `lint_vault` `parse_error` count. | data-premise round 12 |
+| **`## Re-origination Brief`** | Header note: the list does NOT grow. The `AC-2` item's conjunct-4 clause gains its half-sentence — **the record must carry the gate's own `pattern` key, a record without one is RED**, the oracle names `NameGateRefusal`, and the near-miss control is the same corrupt-fence note producing NO refusal record. | architect round 12, blocking |
+| **`## Questions the later spec round still owes`** | Item 2's third rider corrected on two points: the arm catches `NameGateRefusal`, not `LoudFailError`; and the function's cost is **five lines of interface**, because `apply_fixes` returns `int` (`:804-806`, `:905`), is called at `:1103`, and its value is printed on the next line (`:1104`). | architect round-12 notes 1–2 |
+| **The round-12 fold's `### Re-entry`** | A `>` marker resolving the live contradiction in place: step 3's four reserved rounds were spent pre-re-sign, so that step is not executable at `round_budget: 12`. | architect round 12, second blocking issue |
+
+### Three things this round found that the reviews did not have
+
+1. **All seven of the package's existing `except LoudFailError` sites RE-RAISE, which converts the fix from
+   a patch into a rule.** The architect's finding is about D8's arm. Swept from source, the package holds
+   seven such handlers — `writer.py:341`, `:393` and five in `person.py` (`:1598`, `:1700`, `:1819`,
+   `:1899`, `:1968`) — and every one is `except LoudFailError: raise`. A handler that re-raises everything
+   it catches has an unobservable filter width, so all seven are correct exactly as they stand and this
+   item edits none of them. **D8's is the first handler in this package that ABSORBS.** That is what makes
+   the total rule available instead of a per-site list: *re-raise may filter on the root; absorb must
+   filter on the exact type; every oracle asserting the gate refused names the exact type.* Stated that
+   way, the ninth handler someone writes next month is covered by a sentence rather than by a memory —
+   which is the WI-185 discipline this role is held to, applied to an exception filter.
+2. **Adding a hierarchy leaf touches exactly one type-dispatch elsewhere in the package, and it is
+   already total.** `base._skip_reason` (`base.py:_skip_reason:40-46`) is the only place that reads a
+   member of this hierarchy BY TYPE: an `isinstance` chain over `FrontmatterParseError` and
+   `SchemaDriftError` with an *"unreadable"* fallback, called from `_note_skip:273` inside `_load_file`'s
+   broad catch (`:288-306`) — the LOAD path, which the write-side gate never reaches. So the new class
+   costs nothing there and could not have silently changed a skip reason. Recorded because it is the
+   sub-cell where a new exception class usually DOES break something, and the honest answer is that this
+   one does not.
+3. **This item alters a countable corpus that carries five hardcoded pins, and twelve rounds have not
+   named it** *(WI-229's sweep, run here for the first time)*. The corpus is the package's own Python
+   files: `tests/derivations.py:python_files_under` discovers them ON DISK by `rglob("*.py")` under
+   `PACKAGE_ROOT = obsidian_schemas` (`tests/derivations.py:PACKAGE_ROOT:29`), deliberately so that a new
+   module is visible rather than hand-scoped. This item adds **two** modules there (the gate and
+   `phone_normalization.py`) and edits statements inside the very functions the pins are computed over.
+   The pins live in SIX test modules, not one *(corrected per architect round 13 + data-premise
+   round 13 — the sweep's grep-then-read method, run by the conductor)*: cardinality pins in
+   `tests/test_concurrent_access.py:test_wi020_derivations_survive_the_routing`; identity pins —
+   set EQUALITY, which a member-swap moves even when the count survives — in
+   `tests/test_loud_fail_parse.py:106-121` (four named FunctionIds = arms D4-D7),
+   `tests/test_loud_fail_write.py:127-149` (bidirectional eight-entry SiteId map over person.py),
+   `tests/test_loud_fail_load.py:97-123` (discovered==set(matrix)), and
+   `tests/test_write_routing.py:361-391` (derivers==loaders, the one walk including
+   `scripts/lint_vault.py`); and SIXTH, `tests/test_loud_fail_harness.py:96-108` — not a pin but a
+   PLACEMENT CONSTRAINT: `modules_using_ast(python_files_under(PACKAGE_ROOT, TESTS_ROOT))`
+   asserted == `{"tests/derivations.py"}`, so AC-1's arm sweep and AC-5's job-shape sweep have
+   exactly ONE legal home (`tests/derivations.py`) — a placement obligation whose answer belongs
+   in `## Write Targets`. The later spec's plan must name ALL SIX as task obligations, re-derive
+   each against the post-change tree, and state which the change is EXPECTED to move. The
+   cardinality pins in the first module:
+   `functions_reserializing_parsed_frontmatter` **== 4** (`:1077`), `functions_parsing_then_writing − writers`
+   **== `{"write_markdown_file"}`** (`:1081`), `non_completed_write_sites` **== 8** (`:1085`),
+   `base_repository_subclasses` **== 4** (`:1088`), `load_file_implementations` **== 3** (`:1089`).
+   **Stated as a predicate rather than as five numbers, because the pins move:** the later spec's plan must
+   name that test as a task obligation and as a `## Write Targets` entry, re-derive each pin against the
+   post-change tree, and state which of the five the change is EXPECTED to move and why — found by grepping
+   the declaring symbols (`python_files_under`, `non_completed_write_sites`,
+   `functions_reserializing_parsed_frontmatter`) and then READING every file the grep reaches, never by
+   grepping count literals. Two readings that are already available and worth carrying, so the sweep starts
+   from something: relocating `normalize_phone`/`phones_match` between two files INSIDE `PACKAGE_ROOT` is
+   invariant for every one of the five, since the walk is root-scoped rather than module-scoped; and
+   `tests/test_write_routing.py:526-531`'s `(1, 1, 2, 2)` expectations are computed over a PLANTED fixture
+   (`_plant(scratch, "wall_e_forms.py", …)` at `:521`), not over the live corpus, so they are noise for this
+   sweep and are discarded by reading — exactly the noise WI-229 warns the symbol grep returns.
+
+### What this round still deliberately did NOT write, and why — unchanged from rounds 4 through 12
+
+**No Design, Edge Cases, Implementation Plan, Write Targets, Verification, or `criteria` refinement.** The
+three reasons are unchanged and none has moved. `AC-1`–`AC-5` remain inside the `ac-signoff` hash span
+(`ac_hash: a76ebad54da2`); this round changes what one of them will be asked to say — `AC-2`'s conjunct-4
+obligation — which is signed text, and WI-061 routes that to re-origination rather than refinement. The
+plan and the criteria are one object: a plan written now would prescribe `AC-2` fixtures whose oracle, arm
+scope and now refusal TYPE are about to be signed. And rule D3 refuses `→ specced` without a data-premise
+PROMOTE, which the standing verdict is not.
+
+**One thing this round did NOT do that a reader might expect.** It did not edit `AC-2` in place. The
+pattern-key half-sentence is a TIGHTENING of an obligation whose surrounding clauses Dave has not yet
+signed — the conjunct-4 clause is itself round-12's staged text — so writing it into the criterion would
+both invalidate `ac_hash_AC-2` (D4b) and hide a strengthening inside a hash the next reader would trust.
+Staged, in the item already on his list, stated precisely enough to be a yes/no.
+
+**And one thing it DID do on the same authority round 12 claimed, narrowed.** Round 12 decided D8's
+refusal SHAPE (record-and-continue) because `apply_fixes` is unsigned code. This round decides its
+MECHANISM (a dedicated hierarchy leaf) on the same ground, and the ground now covers `errors.py` as well,
+because this item was already obliged to add a `REASONS` literal there (`## Carried Forward`). What is
+signed remains only which observable `AC-2`'s fourth conjunct asserts, and that is what went to the brief.
+
+### Class-shaped fold — declared, and still bounded by ruling 3
+
+Per WI-226 the finding in front of me is not "D8's arm catches one class too many". The generator, stated
+as narrowly as it is true:
+
+> **A handler or an oracle discriminating on a SUPERTYPE in a frame that already produces other members of
+> that supertype.** `LoudFailError` is this package's deliberately WIDE *"this package refused"* marker
+> (`errors.py:37-42`) — it spans parse, lock and commit failures on purpose. Borrowing it to answer the
+> narrower question *"did the semantic gate decline this name?"* makes the answer true of four conditions
+> the gate had no part in, and no amount of counting or recording repairs a filter that is wrong at the
+> type level.
+
+This is a DIFFERENT generator from round 12's (*a criterion asserting a property of the FRAME over the set
+`AC-1` derives for the GATE*), and that one stays closed — round 12's sweep emptied it conjunct by
+conjunct and the round-12 architect re-derived every leg from source. The new one is what round 12's own
+repair exposed: once conjunct 4 stops asserting `raises(...)` at a tool boundary and starts asserting a
+recorded observable, the question stops being *is the refusal visible* and becomes *is the visible thing
+the refusal*.
+
+**Enumerating what generates it and sweeping the class.** The class is *every site — handler, oracle or
+predicate — that decides "this package refused" or "the gate refused" by TYPE*. Swept exhaustively, by
+grepping the hierarchy's own name rather than by recollection:
+
+| Site class | Members found | Sweep result |
+|---|---|---|
+| Handlers that RE-RAISE | `writer.py:341`, `:393`; `person.py:1598`, `:1700`, `:1819`, `:1899`, `:1968` (seven, complete) | **outside the class.** A handler that re-raises everything it catches has no observable filter width. Correct unedited; this item touches none of them |
+| Handlers that ABSORB | `apply_fixes`'s new arm — **one, and it is new** | **the finding. CLOSED:** it catches `NameGateRefusal`, and the broad `except Exception` at `lint_vault.py:902-903` keeps every other failure in the `Fix error on …` channel it is read in today |
+| Type dispatches over the hierarchy | `base.py:_skip_reason:40-46` (isinstance chain, *"unreadable"* fallback); `errors.py:bounded_detail:196-202` (`isinstance(error, LoudFailError)` → the one permitted `str()`) | **both total and both safe.** `_skip_reason` is LOAD-path and falls back; `bounded_detail`'s root test is CORRECT at the root, because what it decides is *"was this message already bounded"*, which is true of every member by construction (`errors.py:47-54`) |
+| `__cause__` admission | `chainable_cause` (`errors.py:chainable_cause:212-218`) over `CHAINABLE = (LoudFailError, OSError)` (`errors.py:CHAINABLE:209`) | **correct at the root, and the root is the point** — the property is *"bounded at construction"*, which the new leaf inherits. No edit |
+| Criterion oracles | `AC-2` conjunct 4 (all seven arms); `AC-3`'s *"still commits"*; `AC-1`'s wall | **`AC-2`'s is the staged half-sentence** — it names `NameGateRefusal` and its `pattern`, with a corrupt-fence near-miss that must produce NO refusal record. `AC-3` asserts a commit, not an exception; `AC-1`'s wall asserts call/pass/placement and by construction cannot see which exception a record came from, which is precisely why the oracle had to be tightened rather than the wall |
+
+**Sweeping the next level and declaring what it found.** The dimension below "which type is named" is
+*which FIELD of the named object each site reads*. Swept: the absorbing handler reads `path` and `pattern`
+and nothing else (note content is what the whole M2 contract exists to exclude); the `AC-2` oracle reads
+the type plus `pattern`; `_skip_reason` reads only the type; `_note_skip` reads `declared_type`
+(`base.py:_note_skip:267`) and feeds it to `_owns` (`:257-264`) — **which is why `pattern` is a dedicated
+attribute and not `declared_type`, the correction round 12 landed**, and the two findings are therefore the
+same fact at two levels: the refusal's routing signal must be carried on a channel nothing else reads, and
+its identity must be carried by a type nothing else raises. One defect at each level, both closed.
+
+**And the level below THAT — the members no site names — is declared rather than left to a next round.**
+`bounded_message`'s keyword set is `path`/`declared_type`/`cause` (`errors.py:bounded_message:134-136`), so
+`pattern` is an ATTRIBUTE the constructor does not render into the message unless that signature is widened.
+**Declared as a spec-time call, with both answers stated so neither is a surprise:** if the signature is
+left alone the attribute is set after construction and the message carries the reason literal only; if it is
+widened, `pattern` renders and every existing message is unchanged because the keyword defaults to `None`.
+`AC-2`'s conjunct 4 asserts the ATTRIBUTE either way, which is what makes the choice free. **I find no
+further open member at any of the four levels**, and the sweep is finite for a structural reason rather than
+an exhausted one: the hierarchy has nine members and one constructor, the package names it at seven handlers
+plus two dispatches plus one admission list — all found by grepping the name, not by recall — and each site
+reads a finite set of fields.
+
+**And here the sweep STOPS**, on Dave's ruling 3. The altitude declaration holds and this round does not
+test it: the finding is *"the thing is wrong"* — an exception filter that is true of four conditions the
+gate did not cause, with a real consequence in both directions (an oracle green on a build with no gate,
+and a real IO failure relabelled as a refusal) — which round 3's regress analysis holds outside the ladder,
+and the round-12 architect says so in his own words. Its one signed consequence lands in `AC-2`, already
+inside ruling 3's named set. **This round opens no further rung and adds no item to Dave's round.**
+
+### Contradiction scan — what this round's claims now disagree with
+
+Run over the whole document for every claim added or edited this round.
+
+- **`NameGateRefusal` vs `## Approach`'s *"one idiom"* sentence** — no disagreement, and the scoping round
+  12 wrote is what makes them compatible: `except LoudFailError` remains the idiom at every package DOOR,
+  because every door RE-RAISES. The new type narrows what one absorbing handler catches; it does not narrow
+  what a door signals. A consumer's `except LoudFailError` still catches the refusal, which is the property
+  the consumer audit is scoped against and the reason the class is additive rather than breaking.
+- **`NameGateRefusal` vs `## Carried Forward`'s `REASONS` bullet** — the bullet is amended in place rather
+  than contradicted: the reason literal is still chosen at spec time, and the class is one more line beside
+  it. Nothing about the message bound moves; the new class declares no `__init__`.
+- **`NameGateRefusal` vs Finding E's own round-1 text** — Finding E's original paragraph argues that
+  `NameValidationError` cannot travel the write path because *"`except LoudFailError` is the documented
+  idiom and would not catch it"*. **Still true and now sharper**: the refusal is a `LoudFailError`
+  subclass, so every door-level catch still sees it, and only the absorbing handler discriminates further.
+  The original argument is unaffected.
+- **The absorb-vs-re-raise rule vs Finding B's round-10 existence-guard subsection**, which says the new
+  `FileNotFoundError` *"lands inside the per-file `try/except Exception` … which already prints and
+  continues"*. **Still true and re-checked**: `FileNotFoundError` is an `OSError`, is not a `LoudFailError`,
+  and therefore passes the narrowed arm exactly as it passed the wide one. The two changes sit in the same
+  function and still do not interact — flagged for the second round running because they look like they
+  should.
+- **Bucket (d) vs rule (ii)'s direction and vs count 1** — no disagreement. (ii) is fail-closed, so an
+  unparseable note reads as undeclared and a larger population is stricter; count 1's `rglob("@*.md")`
+  corpus is untouched. What (d) changes is that G1's number stops being a partition with an unnamed
+  remainder, and that its undeclared total is now known to over-state what reaches the gate at D8.
+- **Bucket (d) vs `AC-2`'s conjunct-4 fixture** — they agree, and the direction matters: the D8 leg is a
+  hand-built `LintIssue(auto_fixable=True)` against a plain function call, so the near-miss control is
+  buildable whatever (d) returns. **The fix does not wait on the query**, and the query is not weakened by
+  the fix — an empty (d) says the live half of the harm is only the lock/commit sources, a non-empty (d)
+  says `--fix` meets those notes today.
+- **The level-3 precision clause vs the conjunct-3 scoping** — compatible, and this is why the clause
+  scores nothing: the directory that a fresh-parent in-lock refusal creates is at an arm where conjunct 3
+  no longer applies. If Dave declines the scoping, that clause becomes load-bearing rather than
+  informational — stated so the dependency is visible at the fork rather than after it.
+- **The WI-229 pin sweep vs `## Carried Forward`'s battery bullet** — no disagreement. That bullet says
+  `AC-1`'s battery matches `tests/test_write_routing.py:1-18`, which imports the derivation functions
+  rather than re-implementing them; the pins found this round are in a DIFFERENT module
+  (`tests/test_concurrent_access.py`) and are WI-020's, not `AC-1`'s. The sweep adds a plan obligation, not
+  a criterion.
+- **The five-lines-of-interface note vs `## Questions…` item 2's "four changes"** — the count of CHANGES
+  is unchanged at four; what the note adds is that one of them crosses a function signature and its call
+  site. Recorded in the same item so the function's cost is stated once and in full.
+- **The hoist, DECLARE, the eight-arm set and its floor, the pass-what pin, the placement rule and its one
+  local derivation, the arm-shape split, the name-identity rule, the phone relocation, `AC-3`'s re-basing,
+  the two-artifact arities, `AC-2`'s conjunct-3 scoping and its replacement oracle** — all unaffected.
+  Nothing this round says changes which arms exist, what they pass, where they call, what the gate returns,
+  or what any criterion covers. The one thing that moved is the TYPE the refusal is raised as.
+- **Citation hygiene, recorded rather than actioned.** The pre-spawn sweep resolves **seventeen**
+  `identifier.py:MIN_DIGITS` citations naming no symbol, up from fifteen; every one sits inside
+  gate-authored prose whose subject IS the slip, and the two new ones are the round-12 gates reporting the
+  count. The symbol is `Phone.MIN_DIGITS`, a `ClassVar[int] = 7` at `identifier.py:228`. **I introduce no
+  eighteenth** — this round cites the floor nowhere. Gate sections are theirs, so no edit is available to
+  me. Every citation this round added is symbol-anchored where the symbol exists
+  (`errors.py:LoudFailError:37`, `errors.py:bounded_message:134-136`, `errors.py:REASONS:110-127`,
+  `parser.py:parse_frontmatter:94-98`, `lint_vault.py:apply_fixes:804-806`, `vault_io.py:note_lock:398-400`,
+  `base.py:_skip_reason:40-46`, `base.py:_note_skip:267`, `tests/derivations.py:PACKAGE_ROOT:29`), and
+  `NameGateRefusal` is written as a bare NAME with no anchor because this item CREATES it.
+
+### Re-entry — the same order as round 12's, with ONE step inserted that round 12 could not name
+
+**Step 1 has not changed and is still the whole blocker: Dave, and the shell.** What changed is that the
+gate chain now needs a budget decision before it can be executed at all, so that decision is a numbered
+step of its own rather than a sentence restating a reservation that has been spent.
+
+1. **Dave re-originates `AC-1`–`AC-4` in ONE round** (`AC-5` unchanged), now with: `AC-1`'s floor at eight
+   arms, the pass-what pin, the rider clause with its round-8 fixture pin, and the placement pin as
+   restated at round 10; **`AC-2`'s conjunct 3 scoped to `{D1a, D1b, D1c}` by equality with its reason, its
+   oracle replaced by the artifact-naming form, its conjunct-2 create-case rider, and its conjunct 4 stated
+   at D8 as a recorded refusal carrying the gate's OWN `pattern` key** — that closing clause is this
+   round's only addition to his list; `AC-3`'s scope sentence on pre-existing path-forked notes, its
+   synthetic-fixture sentence covering the whole criterion, and its re-basing onto `AC-1`'s derived set
+   with `{D1a, D1b, D1c}` excluded by equality; `AC-4`'s `aliases[]` clause scoped by arm shape with its
+   dict side priced against the deletion; and one yes/no on `### Examples of done` scenario 3, where (b)
+   closes the deletion and (a) does not. **No item was added this round.**
+2. **One shell pass, alongside the re-origination:** **G1 as three times amended** (the `should_skip`
+   partition, the depth column, and now bucket (d)), the twice-amended **G2**, the two columns of **G4**,
+   and the two parts of **G5** — part (a) inheriting (d), part (b) carrying the lock-home column — plus the
+   consumer audit's two greps, whose field list is one field wider than round 8 recorded. **G6 is DONE.**
+   G3 stays withdrawn as moot. None of the four gates a shape; all four size; G5(a) additionally decides
+   whether `AC-3`'s premise survives; G5(b)'s column decides whether `AC-2`'s scoping is measured or only
+   argued; and G1's bucket (d) decides whether the conjunct-4 exhibit has a live population.
+3. **CONDUCTOR ACTION, and it is a fork rather than a request** *(round-12 architect, second blocking
+   issue; the round-12 data audit declines to recommend a number and so do I on its behalf — but the
+   contradiction is mine to resolve because it is in my section)*. Precondition 2 reserved four fresh
+   rounds per gate for the post-re-sign chain. Rounds 9, 10, 11 and 12 were all spent PRE-re-sign, each for
+   a reason argued in its own round, and the reservation is nonetheless consumed:
+
+   | Gate | Rounds used | Left at `round_budget: 12` |
+   |---|---|---|
+   | ac-red-team | 5 | 7 |
+   | architect | 12 | **0** |
+   | data-premise | 12 | **0** |
+   | spec-writer | 13 — this fold | **0, and this round is already past it** |
+
+   So one of two things must happen **in the same conductor action that carries the re-origination**:
+   either **`round_budget` is raised** — to **16** if the four-per-gate reservation is to mean after the
+   re-sign what it meant before it — or **step 4 below is deleted explicitly**, so the item stops carrying
+   a re-entry plan it cannot execute. **My recommendation is to raise it**, and the reason is specific
+   rather than procedural: the re-sign changes `AC-1`'s floor and its three pins, `AC-2`'s conjunct-3
+   scope, its oracle and its conjunct-4 obligation, `AC-3`'s whole door binding and `AC-4`'s arm-shape
+   scoping — **four criteria whose new text no gate has ever read**, and every one of rounds 9 through 12
+   found its defect in exactly that kind of text. One thing narrows the ask if the answer is "not four
+   each": **ac-red-team is the FIRST leg of the chain and it alone still has budget (5/12)**, so the
+   re-signed set can be red-teamed today with no raise at all, and the raise is needed only for legs 2–4.
+   **This is not a spec-writer's call and I am not making it** — it is stated here because this is the last
+   seat that can state it, and because leaving it implicit is how a re-signed set reaches a build unread.
+4. **ac-red-team → architect → data-premise → spec-writer**, on whatever budget step 3 resolves to. Every
+   architect ruling carries forward and needs no re-derivation: gate signature, splitter, DECLARE, the
+   phone relocation, the output contract, the arm-shape split, the name-identity rule, the gate-above-lock
+   placement with its one-rule derivation, `note_lock`'s two artifacts and their arities, and — added this
+   round — the refusal's own type with the absorb-vs-re-raise rule.
+5. **spec-writer.** With 1–4 done the spec is assembly: `## Carried Forward` plus the routing at eight arms
+   and one rider with the D1 hoist, the wall with its three per-arm arguments, the phone relocation, the
+   splitter consolidation and the subsumption, the Tier-1 branch-unit reification, the new hierarchy leaf
+   with its `REASONS` literal and its two export lines, the WI-229 pin sweep over
+   `test_wi020_derivations_survive_the_routing`, and the `lint_vault --fix` work — still FOUR changes in
+   one function (existence guard, delta threading, gate call, refusal arm), one of which crosses the
+   function's signature, and still the largest single piece of the re-derived three-to-four-session
+   estimate.
+
+## Architectural Review — 2026-08-11 (round 13)
+
+**Recommendation: REVISE — return to exploration**
+
+**Round 13, cold-start re-spawn, on a seat whose `round_budget: 12` was already spent at round 12 and has
+not been raised.** Read in role order: `architect.yaml`, this document in full (five ac-red-team rounds,
+the `ac-signoff` fence, twelve prior architectural reviews, twelve data audits, thirteen spec-writer
+rounds, `## Conductor Rulings & Grounding`, `## Grounding Still Owed`, `## Conductor Booking`,
+`## Conductor Preconditions`, the re-origination brief), then the code every claim below turns on
+(`obsidian_schemas/errors.py` end to end, `repositories/base.py` `_skip_reason`, `obsidian_schemas/__init__.py`
+the export block, `scripts/lint_vault.py` `apply_fixes` end to end, and the five test modules that compute
+over `python_files_under`), plus the project `CLAUDE.md` and `LESSONS.html`. No shell in this cage; the
+live vault was not read — the counts used are the conductor's and G6's result is the conductor's
+execution, both cited as such.
+
+**My round-12 first blocking issue is CLOSED and the round-13 fold re-derives on every leg I re-read from
+source.** My round-12 SECOND blocking issue — the budget — is unresolved, correctly booked as a conductor
+fork the fold cannot execute, and this spawn is its demonstration. The one finding below is new and lands
+on the single new claim round 13 made.
+
+### Trigger check
+
+Three fire, unchanged: **two** new modules (the gate and the phone leaf); a contract change crossing into
+three downstream repositories installed with `pip install -e` (`docs/backlog-campaign-2026-07-05.md:98`);
+a derived-wall enforcement mechanism that must be designed rather than copied.
+
+### Round-12's first blocking issue — verified closed from source
+
+Re-derived rather than accepted from the fold's account of itself. Every row confirms.
+
+| Claim the round-13 fold makes | Where I read it | Result |
+|---|---|---|
+| `LoudFailError` is the hierarchy base and owns the ONE constructor; no subclass declares an `__init__` | `errors.py:LoudFailError:37-54`, and the nine-class block `:37-103` | confirmed — the new leaf inherits the message bound by construction, which is what makes it additive |
+| `bounded_message`'s keyword set is `path`/`declared_type`/`cause`, so `pattern` is an attribute no existing member renders | `errors.py:bounded_message:134-136`, refusal at `:139-145`; `__init__` sets `reason`/`path`/`declared_type` only at `:52-54` | confirmed — and the fold's declaration of BOTH spec-time answers (set after construction, or widen the signature with a `None` default) is right that the choice is free, because `AC-2` asserts the attribute either way |
+| all seven existing `except LoudFailError` sites RE-RAISE, so filter width is unobservable at every one | `writer.py:341-342`, `:393-394`; `person.py:1598-1599`, `:1700-1701`, `:1819-1820`, `:1899-1900`, `:1968-1969` — grepped over `obsidian_schemas/`, seven and only seven | confirmed, including that each is followed by a broad `except Exception` — so the absorb-vs-re-raise rule is a real total rule and not a per-site list |
+| D8's would be the package's FIRST absorbing handler, and the broad `except Exception` keeps every other failure in the operator's channel | `lint_vault.py:apply_fixes:816` (`try:`), `:819` `note_lock`, `:821` `parse_frontmatter`, `:882`/`:900` `write_note`, `:902-903` the broad handler INSIDE the loop, `return fixed` at `:905` | confirmed on every leg, and my round-12 diagnostics-regression consequence is repaired by the narrowing |
+| adding a hierarchy leaf touches exactly one type-dispatch elsewhere, and it is already total | `base.py:_skip_reason:40-46` — `FrontmatterParseError` → `SchemaDriftError` → `"unreadable"` fallback, LOAD path only | confirmed — the honest answer really is that the new class costs nothing there |
+| `bounded_detail`'s and `chainable_cause`'s root tests are CORRECT at the root | `errors.py:bounded_detail:196-202`; `CHAINABLE:209`, `chainable_cause:212-218` | confirmed — both decide "was this bounded at construction", which is true of every member including the new one |
+| the export block and the stale `CLAUDE.md` line | `__init__.py:46-56` exports nine; `CLAUDE.md` says *"six exported exception classes"* | confirmed — already wrong at nine before this item, correctly priced as one line of the change |
+| the five WI-020 pins exist where named | `tests/test_concurrent_access.py:1077`, `:1081`, `:1085`, `:1088`, `:1089` | confirmed — see the finding below for what is wrong about them |
+
+The class-shaped sweep's four levels are right and its stopping argument is structural. `NameGateRefusal`
+is the correct repair and I endorse it without qualification.
+
+### Blocking issue — the round-13 WI-229 pin sweep's CONCLUSION is false from source, and the pins it omits are the identity-shaped ones
+
+This is the one genuinely new claim round 13 made, and it is stated as a finding twelve rounds missed —
+so a later reader trusts it as swept. Its method is right and its conclusion is wrong, and the gap is
+load-bearing because the conclusion is the part that becomes a `## Write Targets` entry.
+
+The fold writes: *"The pins all live in one function,
+`tests/test_concurrent_access.py:test_wi020_derivations_survive_the_routing`."* Grepping the declaring
+symbol the fold itself names — `python_files_under` — returns **five** test modules, not one. Read from
+source this round:
+
+| Derivation | The pin the fold names | The pin(s) it omits |
+|---|---|---|
+| `functions_reserializing_parsed_frontmatter` | `len(...) == 4`, `test_concurrent_access.py:1077` | `tests/test_loud_fail_parse.py:106-121` — set **EQUALITY** against four named `FunctionId`s: `base.py:BaseRepository.update_fields`, `writer.py:update_frontmatter_field`, `writer.py:update_frontmatter_fields`, `writer.py:roundtrip_file` — which are exactly arms **D4, D5, D6, D7**, four of the eight this item inserts gate calls into |
+| `functions_parsing_then_writing − writers == {write_markdown_file}` | `:1081` | `tests/test_loud_fail_parse.py:127-137` — the same discrimination asserted three ways (`guard in loose`, `guard not in writers`, `loose − writers == {guard}`) |
+| `non_completed_write_sites` | `len(...) == 8`, `:1085` | `tests/test_loud_fail_write.py:127-149` — **bidirectional** equality against an eight-entry `SiteId` classification map over `person.py`; both an unclassified NEW site and a stale REMOVED one are red |
+| `base_repository_subclasses` | `len(...) == 4`, `:1088` | `tests/test_loud_fail_load.py:97-123` — `discovered == set(matrix)` against a four-class matrix; and `tests/test_write_routing.py:368-369` |
+| `load_file_implementations` | `len(...) == 3`, `:1089` | `tests/test_write_routing.py:361-391` — wall D's `derivers == loaders` equality, computed over `python_files_under(PACKAGE_ROOT, SCRIPTS_ROOT)` at `:370`: the one walk in the suite that includes `scripts/lint_vault.py`, which this item edits in four places |
+
+**Why this is architectural rather than a citation slip, and it is one property.** A **cardinality** pin
+and an **identity** pin are not the same instrument. `len(writers) == 4` survives a change that removes
+one member and adds another; `write_paths == expected` at `test_loud_fail_parse.py:117` does not. The
+fold's obligation — *"re-derive each pin against the post-change tree, and state which of the five the
+change is EXPECTED to move and why"* — is exactly the right method, and scoped to one module it re-derives
+the **weakest** pin of each pair and never looks at the stronger one. A plan that names one Write Target
+therefore discharges green while four identity assertions over the same derivations have never been read,
+and `test_loud_fail_parse.py`'s is an identity assertion over precisely the four arms this item modifies.
+
+**Two things keep this small, and I want both on the record so the fix is not over-priced.** First, I am
+NOT claiming any pin moves — that is a spec-time re-derivation and it may well come back all-green.
+Second, the fold's own stated method already reaches every one of these files: *"found by grepping the
+declaring symbols (`python_files_under`, `non_completed_write_sites`,
+`functions_reserializing_parsed_frontmatter`) and then READING every file the grep reaches."* The repair is
+to **delete the false conclusion sentence and let that grep's own output stand as the Write Targets list** —
+five modules and at least nine pins, four of them identity-shaped — booked in
+`## Questions the later spec round still owes` beside item 2's riders, which is where every other plan
+obligation of this shape already lives. It is unsigned text, it adds no criterion, and it grows Dave's
+round by nothing.
+
+### Second issue, carried not re-raised — the budget fork is unresolved and this spawn is the overrun
+
+My round-12 second blocking issue asked that `round_budget` be raised in the same conductor action that
+carries the re-origination, or that re-entry step 4 be deleted. The round-13 fold marked the contradiction
+in place, stated the fork as a conductor action, and recommended raising to **16** — correctly declining
+to make the call, because frontmatter is the conductor's. Nothing has changed: `round_budget: 12` stands
+in frontmatter, and this review is architect round **13**. I second the fold's recommendation on the same
+ground I gave at round 12 and will not re-argue it: the re-sign changes `AC-1`'s floor and its three pins,
+`AC-2`'s conjunct-3 scope, its oracle and its conjunct-4 obligation, `AC-3`'s whole door binding and
+`AC-4`'s arm-shape scoping — four criteria whose new text no gate has ever read. The fold's narrowing is
+the useful part and I endorse it: **ac-red-team is the first leg and alone still has budget (5/12)**, so
+the re-signed set can be red-teamed with no raise at all, and the raise is needed only for legs 2–4.
+
+### Rulings carried forward — settled, do not re-derive
+
+All ten stand, re-checked against the code this round; the finding above reopens none of them, being about
+which modules a plan's sweep names.
+
+- **Gate signature; splitter; DECLARE; the phone relocation to a leaf; the output contract and arm-shape
+  split; the eight-arm derived set plus the D3 rider; the NAME output is an IDENTITY; the gate runs ABOVE
+  `note_lock` at D1a/D1b/D1c; the placement value derived by ONE local rule with D8's guard;
+  `note_lock`'s two artifacts and their arities.**
+- **Added this round, endorsed from source: the refusal is its own hierarchy leaf (`NameGateRefusal`),
+  and the total rule that re-raising handlers may filter on the root while ABSORBING ones must filter on
+  the exact type.** It re-derives at all seven existing sites and it is a rule rather than a patch, which
+  is the property that makes the ninth handler someone writes next month covered by a sentence.
+
+### Review — only what changed
+
+**Fit / Duplication / Generalization / Prior art:** as rounds 2–12 recorded them. Approach F remains right;
+`tests/test_write_routing.py:1-18` remains the precedent `AC-1`'s battery copies; the one owed cited
+execution has been run (G6).
+
+**Boundaries:** the round-12 boundary finding is discharged exactly as asked — the gate's refusal now has
+its own type for the same reason `StaleEntityWrite` has one (`errors.py:84-89`), and the wide
+*"this package refused"* marker (`errors.py:37-42`) is left doing the job it was calibrated for. The new
+finding is a boundary observation one level out: a plan's Write Targets list is the boundary between what
+a build re-derives and what it inherits, and naming one module where the grep returns five puts four
+identity assertions on the inherited side.
+
+**Determinism boundary (LLM vs code):** n/a for LLMs, and the principle is now satisfied where round 12
+found it violated — "did the gate refuse this note?" is answered by an exact type rather than by an
+attribute probe on a base-class catch, which is the difference between a detecting check and a structural
+impossibility.
+
+**Reversibility:** unchanged and good. The gate module, the phone leaf, the wall and the new hierarchy
+leaf are all additive; the one deletion (`_normalize_address_fields`) is subsumption with its behaviour
+preserved at D1a and the rider.
+
+**Cost & maintenance:** the three-to-four-session estimate holds. `lint_vault --fix` remains the largest
+single piece at four changes in one function, one crossing the signature (`:804-806`, `:905`, called at
+`:1103` and printed at `:1104`). The finding above adds re-derivation over four more test modules — reading,
+not writing.
+
+**Build vs extend vs integrate:** extend, correctly, with one symbol moving first.
+
+### Notes (non-blocking)
+
+1. **The `CLAUDE.md` line is stale in a way this item is about to make worse.** It says *"six exported
+   exception classes"* and names six; `__init__.py:46-56` exports nine and `NameGateRefusal` makes ten.
+   The fold prices the edit correctly. Worth stating once that the count is not the contract — the
+   catch-`LoudFailError` idiom is — so the later spec's fix should be the idiom sentence, not a tenth
+   number that will be stale again.
+2. **Rounds 1–12's standing notes all carry:** the new `REASONS` literal chosen at spec time; the
+   `book.py`/`meeting.py` `save` overrides correctly not arms; parked defect 4's shared fix with D8's
+   guard; the level-3 declaration's precision clause, correctly folded and retired; and the
+   three-functions-one-shape collapse, still a separate work item and still not recommended for absorption.
+3. **The document remains buildable two ways until Dave re-originates** — Tier A's undeclared clause,
+   `### Examples of done` scenario 3 vs the arm-shape split, `AC-1`'s floor naming two non-members,
+   `AC-3`'s door list, `AC-2`'s conjunct-3 scope and its conjunct-4 half-clause. Unchanged; all six are
+   staged rather than fixable at any gate seat.
+4. **The `identifier.py:MIN_DIGITS` citations are benign for the eleventh time.** The pre-spawn sweep
+   resolves eighteen, every one inside gate-authored prose whose subject IS the slip; the symbol is
+   `Phone.MIN_DIGITS`, a `ClassVar[int] = 7` at `identifier.py:228`. **I introduce no nineteenth** — this
+   round cites the floor nowhere.
+
+### Arc note — the arc has converged, and what remains is not a gate's to clear
+
+Thirteen rounds, thirteen distinct targets, none re-raised: Company annexation (1) → the structural
+sharpening (2) → DECLARE plus the `AC-1` pass-what gap (3) → the phone authority (4) → the `aliases[]`
+migration (5) → the door set's membership rule (6) → the filename bound above the set (7) → the directory
+created before the set can refuse (8) → the placement pin's derivability (9) → the criterion never re-based
+on the derived set (10) → the directory promise scored at unreachable arms (11) → the refusal record any
+`LoudFailError` can produce (12) → the pin sweep that names one module where its own method reaches five
+(13). Round 12's target is closed and verified from source above.
+
+**This is an audit fold, not a treadmill tick, and it is the last one available.** Every ruling in
+`## Carried Forward` re-derives; the design has not moved since round 6 except by sharpening; round 13 was
+a smaller round than round 12 by design and it landed. What blocks PROMOTE is unchanged in kind since
+round 4 and is not a gate's to clear: four signed criteria contradict the design they check, four grounding
+queries have never run and G5(a) decides whether `AC-3`'s premise survives, and no cage in this chain has a
+shell. A PROMOTE here would send `AC-1`–`AC-4` to a build in their contradicted form on numbers that have
+never been produced — the "too lenient" failure this seat exists to prevent. Stage stays at `exploring`.
+
+**The unblock is unchanged in order and does not lengthen:** the Write-Targets sentence corrected in
+`## Questions the later spec round still owes`; `round_budget` raised (or step 4 deleted) in the same
+conductor action; Dave re-originates `AC-1`–`AC-4` in ONE round; the same shell-holding actor runs G1 (now
+four buckets), G2, G4, G5 and the consumer audit's two greps alongside it. **Nothing in this review needs
+another architect round to land** — it is one sentence in unsigned text, and after it this seat has nothing
+left to read that it has not read thirteen times.
+
+```verdict
+gate: architect
+verdict: REVISE
+date: 2026-08-11
+model: claude-opus-5
+targets: #questions-the-later-spec-round-still-owes, #conductor-preconditions
+note: My round-12 finding is CLOSED and the round-13 fold re-derives on every leg I re-read from source (LoudFailError owns the hierarchy's one constructor at errors.py:37-54 so the new leaf inherits the message bound; bounded_message's keyword set really is path/declared_type/cause at :134-136 with __init__ setting only reason/path/declared_type at :52-54, so both stated spec-time answers for `pattern` are genuinely free; all seven existing except-LoudFailError sites RE-RAISE — writer.py:341-342, :393-394 and person.py:1598, :1700, :1819, :1899, :1968, grepped over the package and seven exactly — so the absorb-vs-re-raise rule is a real total rule and D8's would be the first absorbing handler; base.py:_skip_reason:40-46 is a total isinstance chain on the LOAD path and costs nothing; bounded_detail:196-202 and chainable_cause:212-218 are correct AT the root because both decide "bounded at construction"; __init__.py:46-56 exports nine against CLAUDE.md's stale six) — but the ONE new claim round 13 made, the WI-229 pin sweep, concludes that "the pins all live in one function" (tests/test_concurrent_access.py:1077/:1081/:1085/:1088/:1089), and grepping the declaring symbol the fold itself names, python_files_under, returns FIVE test modules: functions_reserializing_parsed_frontmatter is pinned a second time by set EQUALITY against four named FunctionIds at tests/test_loud_fail_parse.py:106-121 — base.update_fields, writer.update_frontmatter_field, writer.update_frontmatter_fields, writer.roundtrip_file, i.e. arms D4/D5/D6/D7, four of the eight this item inserts gate calls into — with the same loose-minus-writers discrimination re-asserted three ways at :127-137; non_completed_write_sites is pinned by BIDIRECTIONAL equality against an eight-entry SiteId map over person.py at tests/test_loud_fail_write.py:127-149, red on both a new unclassified site and a stale removed one; base_repository_subclasses by discovered==set(matrix) at tests/test_loud_fail_load.py:97-123; and load_file_implementations inside wall D's derivers==loaders equality at tests/test_write_routing.py:361-391, computed at :370 over python_files_under(PACKAGE_ROOT, SCRIPTS_ROOT), the one walk that includes scripts/lint_vault.py which this item edits in four places — so a cardinality pin and an identity pin are not the same instrument (len(writers)==4 survives swapping one member for another; write_paths==expected at :117 does not), and the fold's obligation to "re-derive each pin and state which the change is EXPECTED to move" scoped to one module re-derives the WEAKEST pin of each pair while four identity assertions over the same derivations go unread; I claim no pin moves — the repair is to delete the false conclusion sentence and let the fold's own stated grep-then-read method supply the Write Targets list, booked in `## Questions the later spec round still owes` beside item 2's riders, unsigned text adding no criterion; and SECOND, carried not re-raised: the round-12 budget fork is unresolved, round_budget:12 still stands in frontmatter and this review is architect round 13, so I second the round-13 fold's recommendation to raise it to 16 in the same conductor action as the re-origination (or delete re-entry step 4), with its correct narrowing that ac-red-team alone still has budget at 5/12 and can red-team the re-signed set with no raise at all.
+```
+
+## Data Audit — 2026-08-11
+
+**Recommendation: REVISE — return to exploration**
+
+**Round 13, cold-start re-spawn, on a seat whose `round_budget: 12` was spent at round 12 and has not
+been raised — this spawn is the data-premise half of the same overrun the round-13 architect
+demonstrated.** Read in role order: `data-premise.yaml`, this document in full (five ac-red-team
+rounds, the `ac-signoff` fence, thirteen architectural reviews, twelve prior data audits, thirteen
+spec-writer rounds, `## Conductor Rulings & Grounding`, `## Grounding Still Owed`,
+`## Conductor Booking`, `## Conductor Preconditions`, the re-origination brief), then the code this
+round's claim turns on (`tests/derivations.py` `python_files_under` / `modules_using_ast` /
+`PACKAGE_ROOT` / `TESTS_ROOT` / `SCRIPTS_ROOT`, `tests/test_loud_fail_harness.py` end to end,
+`tests/test_loud_fail_parse.py`'s two pinned blocks, `tests/test_write_routing.py:1-100` and
+`:361-391`, `tests/test_concurrent_access.py:1064-1090`). Same method bound as every prior round:
+**no shell — this spawn has no Bash tool — scope limited to this tree's files, and the live vault was
+not read.** Vault counts used are the conductor's, cited as such; G6's result is the conductor's
+execution, cited as such.
+
+Written to be spendable on the same terms as rounds 11–12: the finding needs no decision, adds no
+query, adds no criterion, lands as one correction in unsigned text the round-13 architect has already
+opened, and grows Dave's round by nothing.
+
+### Trigger check
+
+**Class 1 AND Class 2 — both still fire.**
+
+- Class 1 (data-distribution / field-presence): the same four quantified claims about live vault
+  entries are unmeasured — G1's undeclared population with its round-12 bucket (d), G2's per-field
+  cells and deletion column, G4's two columns, G5's path-forked population and its lock-home column.
+  Unchanged from rounds 8 through 12; none has run. **And one joins this round on a DIFFERENT corpus:**
+  the round-13 fold introduced a countable claim about *this repo's own Python-file corpus*, the
+  round-13 architect corrected it, and the corrected number is still wrong.
+- Class 2 (rule-effect-against-existing-corpus): rule (ii)'s effect outside `@*.md` is still unrun; the
+  splitter consolidation is still a predicate never run over the entries it will judge; **and this
+  round's finding is a live, currently-GREEN equality assertion over a corpus that this item's own new
+  files JOIN** — decidable from this tree without a shell, so it is run below, per this gate's Step 2.3.
+
+### My round-12 finding — carried status
+
+| Round-12 ask | Status |
+|---|---|
+| **G1's partition is not TOTAL — the fence that opened and did not parse is in none of buckets (a)/(b)/(c)** | **FOLDED** (round-13 fold: `## Grounding Still Owed` G1 gains bucket (d) with the path-class and depth splits, the explicit `except FrontmatterParseError`-and-count obligation, the decides-cell recording both what (d) settles and that G1's undeclared total over-states the D8 target set, G4 and G5(a) inheriting it, and the one-number-does-not-transfer caveat). Re-read this round; every leg holds. **Closed — I do not re-raise it.** |
+| **My endorsement of the round-12 conjunct-4 finding, and the correction that its LIVE consequence rests on `note_lock`/`write_note`, not on `FrontmatterParseError`** | **FOLDED** into Finding E's round-13 subsection and `## Re-origination Brief`'s `AC-2` item as `NameGateRefusal` plus the `pattern`-key half-sentence; endorsed from source by the round-13 architect. **Closed.** |
+| **G1, G2, G4, G5, the consumer audit** | **STILL OWED, unchanged and unrun.** |
+
+### Verified from source this round
+
+Re-derived, not inherited. Rows 1–2 re-run the round-13 architect's own legs because my finding
+extends rather than disputes them.
+
+| Claim | Where I read it | Result |
+|---|---|---|
+| the round-13 fold's *"the pins all live in one function"* is false, and `test_loud_fail_parse.py` pins `functions_reserializing_parsed_frontmatter` by set EQUALITY over four named `FunctionId`s | `tests/test_loud_fail_parse.py:106-121` — `write_paths == expected` against `base.py:BaseRepository.update_fields`, `writer.py:update_frontmatter_field`, `writer.py:update_frontmatter_fields`, `writer.py:roundtrip_file`; the three-way discrimination at `:127-137` | **confirmed** — the architect's blocking finding is right on every leg I re-read, and those four are arms D4–D7 |
+| `python_files_under` is imported and called in more than the one module the fold names | `tests/derivations.py:python_files_under:137`; call/import sites at `test_loud_fail_load.py:26`/`:86`, `test_loud_fail_write.py:27`/`:113`, `test_write_routing.py:35`/`:91`/`:369-370`/`:466`, `test_loud_fail_parse.py:51`/`:94`/`:204`, `test_concurrent_access.py:1071`/`:1074`, `test_loud_fail_harness.py:25`/`:73`/`:96`/`:124` | confirmed that the fold is wrong — **and the count is SIX test modules, not the five the architect names** |
+| the sixth module's walk is the only one that includes `tests/` | `tests/derivations.py:TESTS_ROOT:30`; `TESTS_ROOT` is referenced at exactly ONE test-module site, `test_loud_fail_harness.py:96` | confirmed — `PACKAGE_ROOT:29` is `obsidian_schemas/` and `SCRIPTS_ROOT:31` is `scripts/`; no other sweep in the suite walks `tests/` |
+| that module's assertion is an EQUALITY on module identity, not a count | `test_loud_fail_harness.py:96-106`: `live = modules_using_ast(python_files_under(PACKAGE_ROOT, TESTS_ROOT))`, then `homes == {SHARED_MODULE_PATH}` where `SHARED_MODULE_PATH = "tests/derivations.py"` (`:31`), plus a non-vacuity assert at `:107-108` | confirmed |
+| the wall is GREEN today, at exactly one home | grepped `import ast` / `from ast import` over every `.py` in the tree: three hits — `tests/derivations.py:24` (the real one) and `test_loud_fail_harness.py:42`/`:50`, both inside the `PLANT_IMPORT`/`PLANT_FROM_IMPORT` **string literals**, which `modules_using_ast` cannot see because it reads parsed syntax and a literal is a `Constant` (`tests/derivations.py:modules_using_ast:584-628`, its docstring at `:593-596`) | confirmed — one home, live, non-vacuous |
+| the `MIN_DIGITS` floor is `Phone.MIN_DIGITS` | `identifier.py:228`, a `ClassVar[int] = 7` | confirmed; the pre-spawn sweep now resolves **nineteen** citations naming no symbol, every one inside gate-authored prose whose subject IS the slip. **I introduce no twentieth** — this round uses the qualified form only |
+
+### Finding — the pin-sweep corpus is SIX modules, and the sixth is the only one whose corpus this item's own new files JOIN
+
+The round-13 architect's finding is correct and I endorse it without qualification: a cardinality pin
+and an identity pin are not the same instrument, four identity assertions over the same derivations
+were on the inherited side of the plan's boundary, and the repair — delete the false conclusion
+sentence and let the fold's own grep-then-read method supply the Write Targets list — is right, is
+unsigned text, and adds no criterion. What is mine is the **corpus**, because the repair's whole
+mechanism is *"let that grep's own output stand as the Write Targets list"*, and the architect states
+that output as **five** modules. **Grepping the declaring symbol returns six.** The missing one is
+`tests/test_loud_fail_harness.py`, and it is not a sixth of the same kind.
+
+Every one of the architect's five walks `PACKAGE_ROOT`, or `PACKAGE_ROOT + SCRIPTS_ROOT`. Those are
+`obsidian_schemas/` and `scripts/` (`tests/derivations.py:29`, `:31`) — shipped code. `TESTS_ROOT`
+(`:30`) is referenced by exactly **one** test-module site in the whole suite,
+`test_loud_fail_harness.py:96`, and what it computes there is:
+
+    live = modules_using_ast(python_files_under(PACKAGE_ROOT, TESTS_ROOT))
+    homes = {use.module for use in live}
+    assert homes == {"tests/derivations.py"}
+
+**So this is not a pin whose number might move. It is a placement constraint on where this item's own
+new code may be written, and it is the only assertion in the suite whose universe GROWS when the item
+adds a test file.** The module says so in its own words at `:92-95`: *"tests/ as well as
+obsidian_schemas/, because a private copy in a test module nobody imports is precisely the target."*
+
+**Why it binds THIS item specifically, from the criteria as signed.** `AC-1` requires its arm set to be
+*"DERIVED by an AST sweep (never enumerated)"*, and `AC-1(b)` requires the planted battery to be driven
+*"through the same derivation function the live wall calls, never a re-implementation"*. `AC-5`
+requires a second new sweep, *"keyed on the JOB SHAPE"*, with its own planted positive controls per
+implementation shape. Both are new syntax-traversing predicates. Under the equality above there is
+exactly **one legal home for either of them — `tests/derivations.py`** — and three placements that are
+each natural, each currently un-forbidden by anything written in thirteen rounds, and each of which
+turns a green test RED on the build's first run:
+
+1. **The obvious one: writing AC-1's sweep in the new wall's own test module** (the shape a builder
+   copies from, since `tests/test_write_routing.py` is the precedent `AC-1`'s `why` names). That module
+   gets away with it today only because it imports every predicate from `tests/derivations.py` and
+   names `ast` nowhere — `_single_sourced` at `:49-55` asserts the import discipline, and the harness
+   wall is what makes the discipline unevadable.
+2. **Shipping the sweep inside the package** — plausible because this item is already adding two
+   modules under `obsidian_schemas/` (the gate and the phone leaf), and a derivation used by a wall can
+   look like library code. `PACKAGE_ROOT` is inside the walk; this is red.
+3. **A new shared test helper** — `tests/ast_arms.py` or similar, the tidiest-looking answer for two
+   new sweeps. Also inside the walk; also red. The assertion is an equality on the home SET, so a
+   second home is a failure even if it is shared, imported and non-duplicative.
+
+**And the direction matters, which is why I am not asking for a number.** The wall is fail-loud in the
+right direction — a builder cannot silently violate it, the suite goes red — so this is not a
+correctness hole in the item. It is a **cost and design fact that is currently on the inherited side of
+the plan's boundary**, which is precisely the property the architect's own finding is about, one module
+further out. A plan whose Write Targets list is the architect's five reaches a build that discovers, at
+the moment it first runs the suite, that the placement of its two central new predicates was decided
+for it three years ago by a WI-020 criterion nobody in this document has cited.
+
+**One further reading, recorded because it bounds the claim rather than extends it.** `PACKAGE_ROOT`
+excludes `scripts/`, so `modules_using_ast`'s universe is `obsidian_schemas/` + `tests/` and NOT
+`scripts/lint_vault.py` — the one file this item edits in four places. A sweep homed in `scripts/`
+would be invisible to this wall. I name that only so the boundary is stated, not as a route: no
+criterion puts a derivation there, and using it would be evading a wall rather than satisfying one.
+
+### What this costs: one number in one sentence, in a section already being edited
+
+**Nothing is added to the shell pass this round, no criterion changes, and no new query is written.**
+The architect's repair already books a corrected Write-Targets sentence in
+`## Questions the later spec round still owes`. This finding changes that sentence's number from five to
+**six**, and adds one clause to it: the sixth entry is `tests/test_loud_fail_harness.py:96-106`, it is a
+**placement obligation rather than a pin to re-derive**, and the later spec's plan must state where
+`AC-1`'s arm sweep and `AC-5`'s job-shape sweep are homed — `tests/derivations.py`, per the equality —
+as a `## Write Targets` entry rather than as an implementation choice. Stated as a predicate rather than
+as a rule the next reader has to trust: the sweep is *grep `python_files_under`, then READ every file it
+reaches* — the fold's own method, which reaches all six; what failed twice was stopping at the table
+rather than at the grep.
+
+### Non-blocking — two staleness notes on the same module, neither actionable here
+
+`tests/test_loud_fail_harness.py:8-9` and `tests/derivations.py:modules_using_ast:587` both say *"three
+of the six derivations"*; the local `six` dict at `:72-81` is asserted as a **required subset**, not a
+cardinality bound (its own comment at `:69-71` says a seventh extends the list), so two new derivations
+leave it green and only the two prose counts go stale. That is the same class as the `CLAUDE.md`
+*"six exported exception classes"* line the round-13 architect priced — worth one line in the plan, and
+worth the architect's own note-1 advice: fix the sentence to state the rule, not a number that will be
+stale again.
+
+### Required grounding
+
+Four owed, none amended, none added, none retired.
+
+1. **G1 — unrun,** as three times amended (the `should_skip` partition, the depth column, bucket (d)).
+2. **G2 — unchanged and still unrun,** all three parts.
+3. **G4 — unchanged and still unrun,** both columns plus the depth split; inherits bucket (d).
+4. **G5 — unrun and unchanged;** part (a) inherits bucket (d), part (b) carries the lock-home column.
+5. **G6 — RUN. Retired.** Result in `## Conductor Booking`.
+6. **The consumer audit** — unchanged, still owed, still not a vault query.
+
+**This round's finding is NOT a seventh grounding item and must not be booked as one.** It is decided,
+from this tree, above. It costs a corrected number and one clause in a sentence the architect already
+asked for.
+
+### Conclusion
+
+The item moved in the right direction again: my round-12 finding is folded verbatim into G1, the
+round-13 fold's `NameGateRefusal` decision is the correct repair and re-derives at every leg the
+round-13 architect re-read, and the WI-229 sweep the fold ran for the first time is a real instrument
+that found real pins.
+
+What stops this being a PROMOTE is unchanged in kind since round 4 and unchanged in fact since round 8.
+**G1, G2, G4 and G5 have never run** — four OPEN data questions against this role's cap of two — they
+need a shell no gate cage in this chain has, and G5(a) still decides whether `AC-3`'s signed
+"historical" premise survives at all. Four signed criteria still contradict the design they check. And
+this round adds that the one corpus claim the last two rounds DID make about this tree has now been
+stated wrong twice — one module by the fold, five by the architect, six from the grep — and that the
+sixth is the only one of them that constrains where `AC-1`'s and `AC-5`'s central new code may be
+written. Promoting now would send `AC-1`–`AC-4` to a build on vault numbers that have never been
+produced, with a Write Targets list that omits the one assertion the build's own new files fall inside
+— the "too lenient" failure this gate exists to prevent. Stage stays at `exploring`.
+
+**Signal for the factory, stated because the targets line alone cannot carry it.** The arc, thirteen
+distinct targets, none re-raised: the untyped-dispatch premise (1–3, closed by ruling 1) → count 1's
+scope (4 → G1) → the per-field split (5 → G2) → the dict-arm deletion (6 → G2's third column) → the
+blast radii (7 → G4) → `AC-2`'s false directory clause and `AC-3`'s invisible population (8 →
+precondition 1, G5, G6 now DONE) → `AC-3`'s `--fix` leg against `SKIP_DIRS` (9, folded) → the crossing
+of `should_skip` and `glob` (10 → G1's depth column, folded) → `note_lock`'s two artifacts (11, folded)
+→ G1's partition non-total (12 → bucket (d), folded) → **the pin-sweep corpus, and specifically the one
+member of it whose universe includes this item's own new files (13)**. **This is an audit fold, not a
+treadmill tick.** At round 12 I wrote that nothing in that audit needed another data-premise round, and
+that stands: this round found something only because round 13 introduced a NEW empirical claim about
+this tree, and a new corpus claim is exactly what this seat exists to check. It closes here, needs no
+decision, and adds nothing to Dave's round.
+
+**Budget, and I make no recommendation on the number — that is the conductor's and Dave's.** This is
+data-premise round **13** against `round_budget: 12`; like the round-13 architect, this spawn is itself
+the overrun. Scoped to this gate, unchanged from round 12: **nothing in this audit needs another
+data-premise round before the re-origination.** The moment G1, G2, G4 and G5 come back with numbers the
+premise is either grounded or it is not, and that is a re-run against results rather than a further
+round of reading. What a data-premise round AFTER the re-sign would buy is the audit of `AC-1`–`AC-4`'s
+new text against those results — text no round of mine has ever read.
+
+**The unblock is unchanged in order and does not lengthen:** the Write-Targets sentence corrected in
+`## Questions the later spec round still owes` — now to SIX modules, with the sixth named as a
+placement obligation; `round_budget` raised (or re-entry step 4 deleted) in the same conductor action;
+Dave re-originates `AC-1`–`AC-4` in ONE round; the same shell-holding actor runs G1 (four buckets), G2,
+G4, G5 and the consumer audit's two greps alongside it.
+
+```verdict
+gate: data-premise
+verdict: REVISE
+date: 2026-08-11
+model: claude-opus-5
+targets: #questions-the-later-spec-round-still-owes, #grounding-still-owed
+note: G1/G2/G4/G5 and the consumer audit are STILL unrun for the thirteenth round — four OPEN data questions against this role's cap of two, G5(a) still decides whether AC-3's signed "historical" premise survives, and no cage in this chain has a shell — and this round adds that the ONE corpus claim rounds 12-13 made about this tree has now been stated wrong twice: the round-13 fold said the WI-229 pins "all live in one function" (test_concurrent_access.py:1077/:1081/:1085/:1088/:1089), the round-13 architect correctly refuted that and I endorse his finding on every leg I re-read from source (test_loud_fail_parse.py:106-121 really is set EQUALITY over four named FunctionIds — base.update_fields, writer.update_frontmatter_field/_fields, writer.roundtrip_file, i.e. arms D4-D7 — with the three-way discrimination at :127-137, and a cardinality pin is not an identity pin), but his repair is "let that grep's own output stand as the Write Targets list" and he states that output as FIVE modules when grepping python_files_under returns SIX: the omitted one is tests/test_loud_fail_harness.py, and it is not a sixth of the same kind — all five of his walk PACKAGE_ROOT (obsidian_schemas/, derivations.py:29) or PACKAGE_ROOT+SCRIPTS_ROOT (:31), while TESTS_ROOT (:30) is referenced at exactly ONE test-module site in the whole suite, test_loud_fail_harness.py:96, where it computes modules_using_ast(python_files_under(PACKAGE_ROOT, TESTS_ROOT)) and asserts homes == {"tests/derivations.py"} (:96-106, non-vacuity assert at :107-108) — an EQUALITY on module identity over a universe that INCLUDES tests/, by the module's own stated intent at :92-95 ("a private copy in a test module nobody imports is precisely the target"), and it is GREEN today at exactly one home: grepping every .py in the tree returns three ast imports, tests/derivations.py:24 plus test_loud_fail_harness.py:42/:50 which sit inside the PLANT_IMPORT/PLANT_FROM_IMPORT string literals and are invisible because modules_using_ast reads parsed syntax where a literal is a Constant (derivations.py:584-628, docstring :593-596); so this is NOT a pin whose number might move, it is a PLACEMENT CONSTRAINT on where this item's own new code may be written — AC-1 requires its arm set "DERIVED by an AST sweep (never enumerated)" driven through "the same derivation function the live wall calls, never a re-implementation", and AC-5 requires a second job-shape sweep, and under that equality there is exactly ONE legal home for either (tests/derivations.py) against three natural placements that are each red on first run: in the new wall's own test module (the shape AC-1's why points at, which only passes today because test_write_routing.py imports every predicate and names ast nowhere, _single_sourced at :49-55), inside the package (plausible since the item already adds two modules under obsidian_schemas/), or in a new shared tests/ helper (an equality on the home SET, so a second home is red even when shared); the wall is fail-loud so this is a cost-and-design fact rather than a correctness hole, but it is on the INHERITED side of the plan's boundary, which is the architect's own finding one module further out — the repair is his sentence with its number corrected from five to SIX and one clause added naming the sixth as a placement obligation whose answer belongs in ## Write Targets, unsigned text in a section already being edited, no new query, no criterion, and nothing added to Dave's round; bounding note, PACKAGE_ROOT excludes scripts/ so a sweep homed there would be invisible to this wall, stated only so the boundary is named and not as a route.
+```
+
+
+## Conductor Shell Pass — 2026-08-11 (G1/G2/G4/G5 + consumer audit: RUN)
+
+The pass the data-premise seat has owed since round 4, run by the conductor (read-only, live
+vault, `SKIP_DIRS`/`should_skip` per the amended definitions; script preserved in session
+scratchpad `wi021_shellpass.py`). Every owed query is now executed.
+
+### G1 — the undeclared population, total census (5,459 `.md` files)
+
+| bucket | path class | depth | count |
+|---|---|---|---|
+| (a) declared | at-leaf-@ | root | 1,786 |
+| (a) declared | other-live | root | 328 |
+| (a) declared | other-live | subdir | 1,565 |
+| (a) declared | skip | subdir | 1,639 |
+| (b) fm, no `type:` | other-live | root | 2 |
+| (b) fm, no `type:` | other-live | subdir | 2 |
+| (c) no fence | other-live | root/subdir | 62 / 68 |
+| (c) no fence | skip | subdir | 4 |
+| (d) fence opened, did not parse | other-live | root | 3 |
+
+Rule (ii)'s live undeclared population: **4 (b) + 130 live (c) + 3 (d)** — none under `@*.md`
+(count 1's zero stands at its own scope). Bucket (d) is non-empty: the round-12 conjunct-4
+exhibit has a live population of 3 (all book notes, listed under G5(a-d) below).
+
+### G2 — identifier cells, per field (live `@*.md` person notes)
+
+- `emails[]`: **952 agree, 0 extracted-but-refused, 0 not-extracted-but-parsed, 0 neither**;
+  case-only-diff within agree: **19** (forces the splitter's return contract to be stated —
+  raw slice vs `Email.parse(...).value`).
+- `aliases[]`: **520 agree** (the address-bearing-alias population AC-4's scoped clause is
+  signed against), 170 neither (plain display names — correct), 5 case-only.
+- **Deletion column: 0.** No live `emails[]` entry has a display half missing from that note's
+  `aliases[]` — the population the dict-arm rule deletes is EMPTY; scenario 3's (a)/(b) choice
+  has no live consequence.
+
+### G4 — Tier-2 / path-divergence (live root `@*.md`, 1,786 parseable; subdir: 0)
+
+- **(a) Tier-1-clean / Tier-2-dirty names: 11** — all double-space collapse (`Dave  Naomi
+  Pavie` shape). The population shape (b′) declines to repair; parked defect 1's scope.
+- **(b) filename stem ≠ stored name: 3** (`@Dave Martin Right to Left.md` ≠ `…Right To Left`,
+  `@Maritza.md` ≠ `Maritza Bonano`, `@Owen OLoan.md` ≠ `Owen O'Loan`) — parked defect 1's
+  standing size; forks on next save under every shape.
+
+### G5 — Finding F's already-created population: **ZERO where it matters**
+
+- **(b) directories named `@*`: 0.** Finding F's defect has NEVER fired in the live vault.
+  **AC-3's "the legacy-dirt premise is historical" reading SURVIVES** — the count that makes
+  AC-3 safe is measured, not assumed.
+- Root lock home `<vault>/.obsidian-schemas-locks/` exists with **22** `.lock` files — this
+  package's doors demonstrably run against this vault (bounds how every count is read); no
+  `@`-dir lock homes exist (there are no `@`-dirs).
+- (a) typed notes at non-`@*.md` leaves: 3,532 — overwhelmingly OTHER entity types (meeting
+  1,555, company 1,501, book 277) whose file conventions are simply not `@*.md`; person-typed:
+  131, all but one in skip dirs (`_merged_dupes/`). The one live curiosity:
+  `The New York Trilogy - Paul Auster.md` carries `type: person`, `name: Nicole Stocker` — a
+  mis-typed note, booked for hand-repair, not a rule input.
+- (a-d) path-forked unparseable fences: 3 (all book notes: `American Gods…`, `anything You
+  Want…`, `tomorrow, and tomorrow…`).
+
+### Consumer audit — the two greps (non-test, non-venv)
+
+- **Write callers beyond `create_stub`**: HAL9000 `routers/introductions.py`,
+  `routers/entities.py`, `services/notifications/service.py`, `services/notifications/state.py`;
+  exocortex `ingestion/transcript.py`, `jobs/validate_data.py`; orchestrator
+  `bin/repair-field-rfc2822.py`, `bin/wi120-merge-dups.py`, `src/executor.py`. Nine files —
+  the finite set the build's refusal semantics must be checked against.
+- **`normalize_phone`/`phones_match` importers**: HAL9000 `core/contact_resolver.py:13`,
+  exocortex `clients/contacts.py:14`; orchestrator none. **The compat re-export is
+  load-bearing in two consumers** — it must survive the relocation, as the round-5 fold
+  committed.
