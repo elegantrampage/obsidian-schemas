@@ -33,6 +33,7 @@ vips = repo.get_by_role("vip")
 | `obsidian_schemas/models.py` | All entity schemas |
 | `obsidian_schemas/parser.py` | Markdown → typed models |
 | `obsidian_schemas/writer.py` | Models → markdown files |
+| `obsidian_schemas/vault_io.py` | THE write door (WI-004): atomic commit, per-file locking, stamp preconditions — every vault write routes here |
 | `obsidian_schemas/repositories/person.py` | PersonRepository (incl. resolve cascade + WI-125 identity engine) |
 | `obsidian_schemas/repositories/company.py` | CompanyRepository |
 | `obsidian_schemas/identifier.py` | Typed Identifier union + EntityRef (identity core, WI-125) |

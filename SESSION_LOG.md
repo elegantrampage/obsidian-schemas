@@ -1,5 +1,23 @@
 # Session Log
 
+## 2026-08-11 (later)
+
+### Queue review + curation (post-WI-004)
+
+Full staleness pass at Dave's word: every queued premise re-verified against the post-WI-004
+tree, live-vault load as reality test. Queue reordered by value: **WI-021 head** (semantic
+write-door layer; premise verified live, unblocked), WI-016 promoted (fixture vault enabler),
+WI-026 currency-noted as HALF-CLOSED by WI-004's routing (re-scope at spec time), WI-011
+noted partially superseded by WI-020. **7 parked with written un-park criteria**
+(WI-001/002/003/012/013 perf speculation — measured baseline 1.27s / 1,129 people; WI-010
+first-real-migration; WI-006 owner-elsewhere = exocortex graph). Linter 0 errors; the 150
+stale-suffix warnings are WI-004's frozen build-time citations, deliberately unrefreshed
+(fence-tamper lesson). **Live-vault finding: ~70 identity-reconciliation conflicts + 2
+invalid person notes** — minted as **orchestrator/WI-173** (gated 0-driver mint, at-rest
+verified). Ship: `821bc67`, pushed.
+
+---
+
 ## 2026-08-11
 
 ### WI-004 shipped idea→done (dark-factory drive #3) — the write-safety primitive
