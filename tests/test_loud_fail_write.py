@@ -63,7 +63,8 @@ def _check_body_guard_refuses_when_unverifiable(tmp_path, monkeypatch):
     a.write_text(MALFORMED, encoding="utf-8")
     original = a.read_text(encoding="utf-8")
     with pytest.raises(UnverifiableBodyError) as caught:
-        write_markdown_file(a, entity=entity, body="", overwrite=True)
+        write_markdown_file(a, entity=entity, body="", overwrite=True,
+                            allow_unverified_overwrite=True)
     # Distinguishable BY TYPE: BodyTruncationError subclasses Exception and
     # UnverifiableBodyError subclasses ValueError, with neither in the other's
     # ancestry. "Could not verify" and "verified, and it would truncate" are
@@ -86,7 +87,8 @@ def _check_body_guard_refuses_when_unverifiable(tmp_path, monkeypatch):
 
     monkeypatch.setattr(Path, "read_text", deny)
     with pytest.raises(UnverifiableBodyError) as caught:
-        write_markdown_file(b, entity=entity, body="", overwrite=True)
+        write_markdown_file(b, entity=entity, body="", overwrite=True,
+                            allow_unverified_overwrite=True)
     monkeypatch.setattr(Path, "read_text", real_read_text)
     assert not isinstance(caught.value, BodyTruncationError)
     assert b.read_text(encoding="utf-8") == original
@@ -149,12 +151,16 @@ def _check_write_failure_raises_and_noops_keep_their_return(tmp_path, monkeypatc
     # --- P1: a genuine I/O failure at a blanket-except writer RAISES ---------
     repo, person, path = _seed(tmp_path / "p1")
     boom = OSError(28, "No space left on device")
-    real_write_text = Path.write_text
-    monkeypatch.setattr(Path, "write_text",
-                        lambda self, *a, **k: (_ for _ in ()).throw(boom))
+    # WI-004 Table 3a row 2: the fault is injected AT THE DOOR, because
+    # Path.write_text is no longer where package code commits bytes. The
+    # asserted outcome is unchanged.
+    from obsidian_schemas import vault_io
+    real_write_note = vault_io.write_note
+    monkeypatch.setattr(vault_io, "write_note",
+                        lambda *a, **k: (_ for _ in ()).throw(boom))
     with pytest.raises(WriteFailedError):
         repo.append_to_timeline(person, "### new\n")
-    monkeypatch.setattr(Path, "write_text", real_write_text)
+    monkeypatch.setattr(vault_io, "write_note", real_write_note)
 
     # --- P2: every fence case RAISES, at each of the four writers ------------
     for fence_case in ("## Notes\n\n- no fence at all\n", "---\ntype: person\n"):

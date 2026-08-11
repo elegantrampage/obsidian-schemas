@@ -2,15 +2,15 @@
 id: WI-004
 title: "Concurrent & external write safety (atomic writes, locking, stale-read protection)"
 project: obsidian-schemas
-stage: building
+stage: done
 created: 2026-03-22
-last_touched: 2026-08-09
-stage_changed: 2026-08-09
+last_touched: 2026-08-11
+stage_changed: 2026-08-11
 touched_by: spec-writer
 tags: [repository, write-safety, corruption-class]
 round_budget: 10
 depends_on: ["WI-020"]
-transitions: ["idea>exploring@2026-07-08@fable-explore", "exploring>specced@2026-08-09@session", "specced>ready@2026-08-09@session", "ready>building@2026-08-09@session"]
+transitions: ["idea>exploring@2026-07-08@fable-explore", "exploring>specced@2026-08-09@session", "specced>ready@2026-08-09@session", "ready>building@2026-08-09@session", "building>done@2026-08-11@session"]
 ---
 
 # Concurrent & external write safety
@@ -2788,7 +2788,7 @@ deriving anything from it — a prefix, a substring, a layout — is the WI-149 
 .venv/bin/python -m pytest tests -q
 ```
 
-- [ ] **Task 1 — Precondition gate and baseline capture.** Run
+- [x] **Task 1 — Precondition gate and baseline capture.** Run
       `.venv/bin/python -c "import filelock; print(filelock.__version__)"`. If it fails, **ABORT
       the build** and hand back to the conductor with the D0.1 precondition text — do NOT substitute
       `fcntl`, do NOT edit `pyproject.toml`, do NOT `pip install`. Then run THE FLOOR and record the
@@ -2797,7 +2797,7 @@ deriving anything from it — a prefix, a substring, a layout — is the WI-149 
       *Verify:* the import prints a version, and the Build Log contains a line
       `baseline: N passed` with a concrete N.
 
-- [ ] **Task 0 — Land the harness predicates and RUN them against the untouched tree.** *Numbered 0
+- [x] **Task 0 — Land the harness predicates and RUN them against the untouched tree.** *Numbered 0
       because it is the plan's zeroth substantive edit — it lands the measuring instruments before
       anything they measure — and written below Task 1 because Task 1 is an abort gate that must
       occupy the build's first minute. Execute in checkbox order, top to bottom: Task 1, then Task 0,
@@ -2837,7 +2837,7 @@ deriving anything from it — a prefix, a substring, a layout — is the WI-149 
       derivation, not the prediction, that `DOOR_NAMES` is additive against a tree with no door calls
       in it.
 
-- [ ] **Task 2 — Mint the three exceptions and de-pin the REASONS count.** In
+- [x] **Task 2 — Mint the three exceptions and de-pin the REASONS count.** In
       `obsidian_schemas/errors.py`: add `StaleEntityWrite`, `ExternalWriteConflict` and
       `NoteAlreadyExists`, each subclassing `LoudFailError` and **declaring no `__init__`**; add
       their three reason literals to `REASONS` (`obsidian_schemas/errors.py:REASONS:88`) in the SAME
@@ -2864,7 +2864,7 @@ deriving anything from it — a prefix, a substring, a layout — is the WI-149 
       ExternalWriteConflict, NoteAlreadyExists as N; raise N('a note already exists at the
       destination')"` raises with a bounded message; the floor is GREEN.
 
-- [ ] **Task 3 — Build `obsidian_schemas/vault_io.py`.** Implement D1–D5: `NoteStamp`, `note_lock`,
+- [x] **Task 3 — Build `obsidian_schemas/vault_io.py`.** Implement D1–D5: `NoteStamp`, `note_lock`,
       `read_note`, `write_note`, `create_note`, `move_note`, `ensure_dir`, the snapshot registry and
       its accessors — `stat_stamp`, `remember_snapshot`, `record_snapshot`, `snapshot_stamp`,
       `forget_snapshot`, `clear_snapshots` — `guard_mode`, and the three env-var readers of D6.
@@ -2940,7 +2940,7 @@ deriving anything from it — a prefix, a substring, a layout — is the WI-149 
       and every one of them is a value the check itself wrote — the exact mode it chmod-ed, the exact
       path it created, the exact bytes it planted.
 
-- [ ] **Task 4 — Route door 1: `writer.py` and `base.update_fields`.** Convert
+- [x] **Task 4 — Route door 1: `writer.py` and `base.update_fields`.** Convert
       `obsidian_schemas/writer.py:update_frontmatter_field:283`, `:update_frontmatter_fields:333`,
       `:roundtrip_file:365` and `obsidian_schemas/repositories/base.py:update_fields:390` to the
       `vault_io.note_lock` / `vault_io.read_note` / `vault_io.write_note` form of D7, keeping each
@@ -2967,7 +2967,7 @@ deriving anything from it — a prefix, a substring, a layout — is the WI-149 
       conductor** (D12.4's fourth branch) — never a further edit to that module, and never a weakened
       assertion.
 
-- [ ] **Task 5 — Route door 1: the six `person.py` body-writer sites.** Convert `:1543`, `:1554`
+- [x] **Task 5 — Route door 1: the six `person.py` body-writer sites.** Convert `:1543`, `:1554`
       (`append_to_timeline`), `:1652` (`append_to_body_section`), `:1769` (`add_to_discuss_item`),
       `:1845` (`update_to_discuss_item`), `:1912` (`remove_to_discuss_item`). Every dedup check and
       every `return False` stays in its current function's own body — moving one into a nested
@@ -2993,7 +2993,7 @@ deriving anything from it — a prefix, a substring, a layout — is the WI-149 
       HAND-BACK to the conductor (D12.4's fourth branch) — never a further edit to
       `tests/test_loud_fail_write.py`, and never a weakened assertion.
 
-- [ ] **Task 6 — Route door 1: the two script sites.** Convert `scripts/lint_vault.py:876` and `:894`
+- [x] **Task 6 — Route door 1: the two script sites.** Convert `scripts/lint_vault.py:876` and `:894`
       (one enclosing `with vault_io.note_lock(fpath):` spanning both; each write carries its own
       freshly-read stamp) and `scripts/migrate_person_to_discuss.py:104`. Both scripts gain
       `from obsidian_schemas import vault_io` and call every door as a module attribute (D7).
@@ -3001,7 +3001,7 @@ deriving anything from it — a prefix, a substring, a layout — is the WI-149 
       `.venv/bin/python scripts/migrate_person_to_discuss.py --help` exits 0 (import-time
       sanity; the script's real run is a close-out step, not a plan task — it writes vault state).
 
-- [ ] **Task 7 — Install door 2 inside `write_markdown_file`.** Implement D8 (a)–(e) at
+- [x] **Task 7 — Install door 2 inside `write_markdown_file`.** Implement D8 (a)–(e) at
       `obsidian_schemas/writer.py:write_markdown_file:154`: the lock, the stamp lookup, the zero-case
       create, the 2u precondition, the WI-126 guard read moved inside the lock, deletion of the
       `overwrite=False` guard at `:186-187`, `allow_unverified_overwrite` threaded through
@@ -3100,7 +3100,7 @@ deriving anything from it — a prefix, a substring, a layout — is the WI-149 
       and all four in `tests/test_writer.py:432-441`, are `PersonRepository` — ten in total, per the
       corrected count in `## Verified Diagnosis` claim 8).
 
-- [ ] **Task 16 — RUN the whole floor against the routed tree and pin its COMPLETE red set.**
+- [x] **Task 16 — RUN the whole floor against the routed tree and pin its COMPLETE red set.**
       *Executed here, immediately after Task 7 and before Task 8; the ordinal is 16 so that no
       `Task N` cross-reference in this document drifts.* This task **edits nothing**. Run THE FLOOR
       with failures listed rather than summarised:
@@ -3124,7 +3124,7 @@ deriving anything from it — a prefix, a substring, a layout — is the WI-149 
       recorded baseline minus one, reported as a property against that baseline rather than as a
       hardcoded number.
 
-- [ ] **Task 8 — Door 2c's consumer recovery in `create_stub`.** Wrap the `self.save(...)` at
+- [x] **Task 8 — Door 2c's consumer recovery in `create_stub`.** Wrap the `self.save(...)` at
       `obsidian_schemas/repositories/person.py:1466` per D9: catch `NoteAlreadyExists`, re-read that
       one path via `base.py:_load_file:226`, re-register the stamp, **adopt the re-read entity by
       calling `self._adopt(self._get_cache_key(entity), entity, file_path)` — the door Task 7
@@ -3159,7 +3159,7 @@ deriving anything from it — a prefix, a substring, a layout — is the WI-149 
       (D9), surfaces `NoteAlreadyExists` to the caller and leaves the winner's note byte-identical.
       Oracle values are the exact strings the test wrote, never a substring or a shape.
 
-- [ ] **Task 9 — Door 3 at `quarantine_garbage`.** Replace `scripts/lint_vault.py:1036-1038` per D9:
+- [x] **Task 9 — Door 3 at `quarantine_garbage`.** Replace `scripts/lint_vault.py:1036-1038` per D9:
       delete the `dest.exists()` guard, call `vault_io.move_note(src, dest)`, catch
       `NoteAlreadyExists` and
       `continue`. Replace `dest_dir.mkdir(parents=True, exist_ok=True)` at `:1034` with
@@ -3173,7 +3173,7 @@ deriving anything from it — a prefix, a substring, a layout — is the WI-149 
       `test_quarantine_skips_on_collision_without_clobbering` in `tests/test_concurrent_access.py`,
       the latter asserting the destination's bytes are byte-identical to what the test wrote there.
 
-- [ ] **Task 10 — Observe-only mode.** Implement D6/D9's `OBSIDIAN_SCHEMAS_WRITE_GUARD`: `enforce`
+- [x] **Task 10 — Observe-only mode.** Implement D6/D9's `OBSIDIAN_SCHEMAS_WRITE_GUARD`: `enforce`
       (default), `observe` (WARNING + today's semantics), any other value raises `WriteFailedError`
       at first write. Applies to `ExternalWriteConflict`, `StaleEntityWrite` and `NoteAlreadyExists`;
       never to Layers 1 and 2. **And emit ONE INFO line at the first write of a process whose mode is
@@ -3198,7 +3198,7 @@ deriving anything from it — a prefix, a substring, a layout — is the WI-149 
       `level=logging.INFO` (its default is `WARNING`, which would see nothing) rather than by reading
       stderr.
 
-- [ ] **Task 11 — RE-RUN the predicates against the routed tree and pin Table 2.** No new predicate
+- [x] **Task 11 — RE-RUN the predicates against the routed tree and pin Table 2.** No new predicate
       is written here: Task 0 landed them all, and `tests/derivations.py` should need no further edit.
       Re-execute the same read-only one-liners Task 0 used, now over the post-routing tree, plus the
       four WI-020 sweeps D7 derives, and paste every result into the Build Log beside D10.6's
@@ -3230,7 +3230,7 @@ deriving anything from it — a prefix, a substring, a layout — is the WI-149 
       already permitted to name `ast`, so it stays green — and the Build Log
       carries every Table-2 row with its actual output.
 
-- [ ] **Task 12 — The routing wall.** New `tests/test_write_routing.py`: Walls A, B, C, **D and E**
+- [x] **Task 12 — The routing wall.** New `tests/test_write_routing.py`: Walls A, B, C, **D and E**
       of D10, plus **one match-shape fixture battery per wall predicate — and the battery list is
       DERIVED from D10.1's predicate set, not hand-written (round 10).** The obligation is D10.5's
       opening rule, stated over the source rather than per wall: the predicate set is
@@ -3325,7 +3325,7 @@ deriving anything from it — a prefix, a substring, a layout — is the WI-149 
       on its own — the mutation is authored from the same mental model as the matcher — which is why
       the shape fixtures above exist.
 
-- [ ] **Task 13 — The behavioural battery.** `tests/test_concurrent_access.py` — Tasks 3, 7, 8, 9 and
+- [x] **Task 13 — The behavioural battery.** `tests/test_concurrent_access.py` — Tasks 3, 7, 8, 9 and
       10 each author their own named checks into this module as they land (Task 3 creates the file,
       so no task's verify depends on a later one); Task 13 completes the remainder and is where
       the module is finished. Covering:
@@ -3456,7 +3456,7 @@ deriving anything from it — a prefix, a substring, a layout — is the WI-149 
       read-only from the repository root, writing nothing.
       *Verify:* `.venv/bin/python -m pytest tests/test_concurrent_access.py -q` GREEN.
 
-- [ ] **Task 14 — Close Table 3a row 7, the last expected RED, and sweep for siblings.** Update
+- [x] **Task 14 — Close Table 3a row 7, the last expected RED, and sweep for siblings.** Update
       `tests/test_writer.py:test_no_overwrite_by_default:146-156` to expect `NoteAlreadyExists`
       (D8b), and re-run the axis-γ sweep — `grep -rn 'FileExistsError' tests/ obsidian_schemas/
       scripts/` — updating each hit or recording in the Build Log why it stands. Today that sweep
@@ -3465,7 +3465,7 @@ deriving anything from it — a prefix, a substring, a layout — is the WI-149 
       *Verify:* THE FLOOR GREEN with zero known failures — the first fully green floor since Task 7,
       and the row that closes Table 3b.
 
-- [ ] **Task 15 — Full regression and the derived enumeration.** Run the floor. Then, per WI-238,
+- [x] **Task 15 — Full regression and the derived enumeration.** Run the floor. Then, per WI-238,
       DERIVE the regression enumeration rather than inheriting it: for each path in
       `## Write Targets`, sweep `tests` for modules naming that path or the symbols it
       declares, and name every module the sweep returns in the Build Log alongside its result. Assert
@@ -8864,7 +8864,7 @@ One phrasing looseness, not drift, under non-blocking notes below.
 Walked every check of `docs/spec-quality-bar.md` (the doc's own list is the count). Spec satisfies the
 bar. What I re-derived rather than inherited:
 
-- **Check 5 / task shape.** Seventeen canonical `- [ ] **Task N — …**` definitions, ordinals unique
+- **Check 5 / task shape.** Seventeen canonical `- [x] **Task N — …**` definitions, ordinals unique
   (0–16), execution order stated where it differs from the ordinals. `landed: Task 3` resolves.
 - **Fold records (WI-216).** All three `desc` values are byte-identical to the latest speaking
   `## Threat Model` round (round 4), so the records are fresh. I found each `design` and `work` quote
@@ -8984,4 +8984,780 @@ verdict: PROMOTE
 date: 2026-08-09
 model: claude-opus-5
 note: The audit fold I proposed last round LANDED, and I verified each of its four surfaces at its declaring source in code rather than reading the round-10 narrative — D10.5 now states the battery obligation ONCE over D10.1's five-predicate set with Task 12 deriving its list from it and Walls B and C written out shape by shape (their invisibility is measured, not argued: I confirmed zero `from os import` bindings and zero shutil/tempfile/fcntl/filelock/mmap imports under either root, the only os imports being plain `import os` at base.py:9, lint_vault.py:22 and migrate_person_to_discuss.py:23); the cache-adoption surface is total BY CONSTRUCTION through one BaseRepository._adopt door with functions_calling(files,"_adopt") pinned as a set-equality Table-2 row and a Table-1 empty row making it a measured delta, and I confirmed the four replaced sites are the identical three-part shape (base.py:331-334, :412-414, book.py:173-176, meeting.py:195-198) with load correctly excluded as a bulk rebuild (:176-178, :186-193), and that Task 8's _file_map argument holds end to end (person.py:1436 -> _writeback_identifier:1189/:1214 -> update_fields -> get_file_path base.py:363/:292 -> ValueError at :366 before the phone is written back); the acceptance set is closed by a DERIVED authoring map, and my own independent walk of all eighteen criteria fences found every check name authored by a named task into a declared write-target module, with AC-5 and AC-9 renamed to the AC's name AND widened to their full desc rather than the criterion narrowed to what a check happened to cover; and the count-pin surface is widened to corpora this item GROWS, with tests/derivations.py's exports named and the pin at test_loud_fail_harness.py:72-81 ruled GREEN-and-untouched on that check's own comment at :70-71, which I read. The round-9 citation defect is fixed to the real name and anchors (test_derivations_are_single_sourced:58, _check_derivations_are_single_sourced:66, modules_using_ast at :96), all three fold records are fresh (desc byte-identical to the latest speaking round 4) with their design and work quotes read in place and faithful and each mitigation carrying an oracle that distinguishes it from its near-miss, every plan task's target is a declared write target with no verify command writing outside write_authority, and both of the round-3 threat model's notes are closed correctly. Four description-level notes remain and none changes what a builder builds — chiefly `## Verification`'s _adopt row saying "six adopting functions / a seventh site" where Table 2, Task 11, Task 7, Edge Cases and Risk row 18 all say five and name them — so a fifth round would be the regress signature rather than progress.
+```
+
+## Build Log — 2026-08-10
+
+Executed cold-start by the build-runner gate. **Shell liveness probe FIRST** (WI-228 P4): `echo hi`
+→ `hi`, so `Bash` execs and nothing below is written from source-reads.
+
+### Task 1 — precondition gate and baseline
+
+`.venv/bin/python -c "import filelock; print(filelock.__version__)"` → **`3.32.2`**. The D0.1
+precondition landed as the conductor committed it; no abort.
+
+**`baseline: 617 passed`** — THE FLOOR (`.venv/bin/python -m pytest tests -q`) against the untouched
+tree, captured before the first edit that moves it. Every later "the count did not go down" claim
+below is measured against this number and not against `CLAUDE.md`'s drift-prone anchor.
+
+### Task 0 — the harness predicates, EXECUTED against the untouched tree
+
+`tests/derivations.py` gained `SCRIPTS_ROOT`, the provenance-partitioned vocabulary
+(`DOOR_NAMES`, `PATH_MUTATION_NAMES`, `MODULE_MUTATION_NAMES`, `FS_MODULES`, `OS_READONLY_NAMES`,
+`COMMIT_FUNCTION_NAMES`) and the five predicates. `_is_write_call` was widened to
+`{"write_text", "write_bytes"} | DOOR_NAMES` and **nothing else about it moved** — its
+`isinstance(node.func, ast.Attribute)` gate is intact. `load_file_implementations` and
+`base_repository_subclasses` were consumed as-is.
+
+**Table 1, every row RUN rather than predicted:**
+
+| Predicate | Returned | vs Table 1 |
+|---|---|---|
+| `filesystem_mutation_uses` | **exactly 17** — `writer.py:233,236,283,333,365`; `base.py:390`; `person.py:1543,1554,1652,1769,1845,1912`; `lint_vault.py:876,894,1034,1038`; `migrate_person_to_discuss.py:104` (14 `write_text` + 2 `mkdir` + 1 `rename`) | **MATCH** |
+| …`str.replace` / `dict.copy` nodes | **`[]`** — zero, both | **MATCH** — the row that proves the discriminator |
+| `os_module_attribute_uses` | 3, all `environ` — `base.py:97`, `lint_vault.py:52`, `migrate_person_to_discuss.py:160`; zero `from os import` bindings | **MATCH** |
+| `module_import_uses(…{shutil,tempfile,fcntl,filelock,mmap})` | `[]` | **MATCH** |
+| `functions_calling("stat_stamp")` | `set()` | **MATCH** (RED, expected) |
+| `functions_calling("_adopt")` | `set()` | **MATCH** |
+| `functions_calling("parse_markdown_file")` | exactly the three loaders, and `== load_file_implementations(...)` → `True` | **MATCH** |
+| `falsy_returns_in(PACKAGE_ROOT, COMMIT_FUNCTION_NAMES)` | `[]` (vacuous — `vault_io.py` does not exist) | **MATCH** |
+| THE FLOOR with `DOOR_NAMES` already inside `_is_write_call` | **617 passed** = Task 1's baseline | **MATCH** — the widening is DERIVED additive, not hoped |
+
+`tests/test_loud_fail_harness.py`'s `six = {...}` / `assert len(six) == 6` **stays GREEN and
+unedited**, exactly as Task 0's count-pin ruling requires: it is a required SUBSET of six named
+exports, not a cardinality bound, and this task added a seventh through eleventh.
+
+### DEVIATION — Table 1's Wall B row vs D10.5's Wall B battery (raised, not resolved by me)
+
+The two disagree about **where `os_module_attribute_uses` filters `OS_READONLY_NAMES`**, and no
+implementation satisfies both:
+
+- **D10.6 Table 1** pins the predicate as returning "3 uses, all `environ`", and three independent
+  data-audit groundings read it the same way — most explicitly at the round-10 spec review, "an
+  `os_module_attribute_uses` that never implements the `ast.ImportFrom` collection **returns the
+  identical three `environ` uses**". D10.3 matches this too: it states the filter only on the
+  `ImportFrom` arm ("where `n ∉ OS_READONLY_NAMES`") and states Wall B's own assertion as "returns
+  only attributes in `OS_READONLY_NAMES`" — a live, non-vacuous claim against those three reads.
+- **D10.5's Wall B NOT-matched table** instead pins `os.environ.get("X")`, `os.getenv`, `os.getcwd`,
+  `os.sep`, `os.path.join` and `os.fspath` as **NOT matched by the predicate**, which requires the
+  attribute arm to filter — under which Table 1's row returns `[]` and D10.3's assertion is vacuous.
+
+**Resolved toward Table 1**, because Task 0's abort trigger is a Table-1 mismatch and Table 1 is the
+pinned artifact three gates executed. The attribute arm returns every `os.<attr>` use; the
+`ImportFrom` arm filters. So Task 0's Wall B row **matches exactly** and no hand-back was owed there.
+
+Task 12's battery is then authored against the predicate as pinned: Wall B's rule
+(membership of `OS_READONLY_NAMES`) is written ONCE as `_os_violations` in
+`tests/test_write_routing.py` and **the live wall and its battery both call it**, so the battery
+still drives the same code path the wall takes rather than a second copy of the matching logic. Every
+shape in both D10.5 tables is driven; only the layer at which the readonly members are asserted
+"not a violation" differs from D10.5's literal wording. **This is a spec-internal contradiction, not
+a defect I introduced, and it is the one thing in this build a reviewer should rule on.**
+
+### Task 2 — the three exceptions
+
+`StaleEntityWrite`, `ExternalWriteConflict`, `NoteAlreadyExists` in `obsidian_schemas/errors.py`,
+each a `LoudFailError` **declaring no `__init__`**, with their three reason literals added to
+`REASONS` in the SAME edit. The `:84` comment is de-pinned to a predicate with no number in it. All
+three exported from `obsidian_schemas/__init__.py`.
+
+*Count-pin sweep, all three corpora:* (i) `REASONS` — grepped its declaring symbol across the tree
+and read every file it reached; the only pin is the prose one, and **no test asserts
+`len(REASONS)`** (confirmed by the sweep, not assumed); (ii) the `BaseRepository` subclass corpus —
+`tests/test_loud_fail_parse.py:300` (`== 4`) and `:301` (`== 3`) **stay true and unedited**, verified
+at Tasks 0, 11 and 15; (iii) `tests/derivations.py`'s exports — ruled in Task 0.
+
+*Verify:* the `NoteAlreadyExists` construction raised with a bounded message; floor GREEN at 617.
+
+### Task 3 — `obsidian_schemas/vault_io.py`
+
+D1–D6 built: `NoteStamp`, `note_lock`, `read_note`, `write_note`, `create_note`, `move_note`,
+`ensure_dir`, the registry and its six accessors, `guard_mode`, and the three env readers.
+
+Hard constraints **verified by grep rather than by intent**: no `expanduser`, no `Path.home()`, no
+`/Users/` literal (D12.5 item 2a — the file joins
+`tests/test_vault_path_required.py:test_no_implicit_vault_path_defaults`'s universe); no `import ast`;
+and **exactly ONE real `os.environ` access** (M2) — `grep -n "os.environ"` returns three lines, of
+which two are prose and one is `_env_setting`'s own `os.environ.get(name)`.
+
+All three `kind: required` mitigations landed here:
+- **M1** — `os.stat` (with the `st_nlink > 1` refusal) → `os.open(…, 0o600)` → **`os.fchmod(fd, mode)`
+  as the first operation on the descriptor** → write → `fsync` → close → terminal form. There is no
+  `os.chmod` after the write. A fresh create opens at `0o666` so umask masking reproduces exactly
+  what `Path.write_text` gives today.
+- **M2** — one `_env_setting(name, parse, validate, default)` helper.
+- **M3** — one `Path(path).resolve()` per door, keying the sentinel's hash **and its directory**, the
+  registry, the temp directory, the precondition and the terminal syscall; `move_note` refuses a
+  symlinked source.
+
+Four checks authored into `tests/test_concurrent_access.py`, each taking its scratch vault from
+`tests/support.py:temp_dir`.
+
+**Two design corrections found by running the checks, not by reading:**
+1. **`_FILE_LOCKS` was keyed on the note path**, so a changed `OBSIDIAN_SCHEMAS_LOCK_DIR` was masked
+   by an instance cached under the old home — AC-17(c) caught it. The cache is now keyed on the
+   SENTINEL path, the sentinel is re-derived on every outermost acquisition, and release goes through
+   the instance that acquisition actually took (a thread-local `_held_locks` map).
+2. **`move_note` self-acquires** both locks in sorted resolved-posix order rather than requiring a
+   caller-held lock, because Task 9 calls it bare with no surrounding `note_lock`. D3's
+   "refuses when the lock is not held" survives as a post-acquire invariant in `_move_locked`.
+
+*Deviation, small and named:* AC-16 requires each refusal's message to carry **the variable's name
+and not its value**. `bounded_message` renders `path=` as the VALUE and `bounded_cause` projects a
+cause to its class name only, so neither slot can carry the name — and Task 3 forbids minting a
+fourth `REASONS` literal. The name therefore rides in `declared_type`, the one slot rendered
+verbatim, via a single `_bad_setting` helper. A cleaner home would be a reason literal per setting,
+which is a Task-2-shaped edit this task is explicitly forbidden to make.
+
+*Verify:* `tests/test_concurrent_access.py` GREEN except AC-15's door-2 half, which **cannot** be
+green before Task 7 — that is the Task-3-authors / Task-13-owns-the-oracle split the plan describes,
+not a failure. Floor: 620 passed, 1 failed (that half).
+
+### Tasks 4–6 — door-1 routing, 13 sites
+
+Every door call is a **module attribute** (`from obsidian_schemas import vault_io`, then
+`vault_io.write_note(...)`), which is the whole of D7's call-form ruling and what keeps
+`_is_write_call`'s `ast.Attribute` gate matching. Each site keeps its `FileNotFoundError` guard,
+its parse, its dedup no-ops, its falsy returns and its `LoudFailError` re-raise exactly where they
+were; nothing moved into a nested function.
+
+- **Task 4** — `writer.py:update_frontmatter_field/_fields/roundtrip_file`, `base.update_fields`.
+  Table 3a row 1 landed: `tests/test_loud_fail_parse.py` part 3 injects at `vault_io.write_note`,
+  **every assertion byte-identical** including `caught.value.__cause__ is boom`. Part 4 NOT edited —
+  `read_note` wraps nothing, so the `UnicodeDecodeError` still reaches the site's own `except`.
+  *Verify:* the three named modules GREEN (211 passed). **The derivation half was measured:**
+  `functions_reserializing_parsed_frontmatter` = 4, `loose − write` = `{write_markdown_file}`.
+- **Task 5** — the six `person.py` body-writer sites. Table 3a row 2 landed the same way. Before the
+  row, the module failed at exactly P1 and nowhere else, with the `SiteId` classification map already
+  showing no unclassified and no stale entries — i.e. the expected pre-edit failure and nothing more.
+  *Verify:* the three named modules GREEN.
+- **Task 6** — `lint_vault.py:876,894` under ONE reentrant `with vault_io.note_lock(fpath):` spanning
+  both, each write carrying its own freshly-read stamp; `migrate_person_to_discuss.py:104`.
+  *Verify:* floor GREEN; `migrate_person_to_discuss.py --help` exits 0.
+
+### Task 7 — door 2, the adoption door, the loaders, the cache lock
+
+D8 (a)–(e) installed inside `write_markdown_file`: the lock spans the stamp lookup, the WI-126
+guard's read and the commit; the `overwrite=False` guard at `:186-187` is deleted; the `mkdir` at
+`:233` is `vault_io.ensure_dir`; `allow_unverified_overwrite` threaded through all four `save()`s.
+
+`BaseRepository._adopt(name_key, entity, file_path)` is the ONE adoption door. All four existing
+single-entity sites converted; `load` deliberately does NOT call it (a bulk rebuild — it fills fresh
+local mappings across the walk and rebinds ONCE, and the live `self._cache.clear()` is deleted rather
+than locked); `update_fields`' removal half, `refresh`, `_note_skip` and the two `_skipped` readers
+take the lock. The lock never spans a filesystem write, so no thread holds it while acquiring
+`note_lock`.
+
+Stamp recording landed in **all three** loaders — `base.py`, `book.py`, `meeting.py` — with the stat
+as the first statement INSIDE each existing `try` and above that function's first read, and
+`remember_snapshot` only on the entity-returning branch. Nothing recorded on the wrong-`type` early
+returns, nothing in the `except` branches. Table 3a rows 3–6 landed.
+
+*Scope correction made during the task:* an earlier pass added `_clear_indexes()` calls to `load()`
+that `load()` never had. Reverted — the spec's rule for `load` says nothing about indexes, and Edge
+Cases explicitly declares the subclass indexes OUT of AC-18's scope. Behaviour is unchanged from
+today there.
+
+*Two check-fixture corrections, both mine and both instructive:* AC-15's and AC-11's door-2 fixtures
+originally SHRANK the body, so `BodyTruncationError` fired before the stamp precondition could. That
+is D8 step 6 running before step 7 exactly as specified — the escape does not surrender the WI-126
+guard — so the fixtures were rewritten to grow the body. AC-11's meeting note also had to be named
+`Meeting 20260809 - Standup.md`, the filename `MeetingRepository._get_file_name` derives, or `save()`
+would mint a sibling rather than write back the note it loaded.
+
+### Task 16 — the whole floor RUN, complete red set pinned
+
+`.venv/bin/python -m pytest tests -q -rf`:
+
+```
+=========================== short test summary info ============================
+FAILED tests/test_writer.py::TestWriteMarkdownFile::test_no_overwrite_by_default
+1 failed, 622 passed in 2.65s
+```
+
+**Exactly the one check Table 3b names** (Table 3a row 7, owned by Task 14), raising
+`NoteAlreadyExists` where the test still expected `FileExistsError`. Passing count 622 ≥ baseline
+617 − 1. **No additional failing check, and no Table-3b row green that should have been red — so no
+hand-back was owed.** Both WI-020 acceptance modules GREEN.
+
+### Tasks 8–10 — door 2c, door 3, observe mode
+
+- **Task 8** — `create_stub` catches `NoteAlreadyExists`, re-reads that one path via `_load_file`,
+  and adopts through **`self._adopt(...)`, the fifth caller of the door** — not a hand-written
+  `self._cache[key] = entity`, because the reuse branch's `_writeback_identifier` routes through
+  `update_fields` → `get_file_path` → `self._file_map`, and a `_cache`-only recovery would raise
+  `ValueError` before the phone was written back. Re-raises if the re-read yields no entity.
+  AC-5 covers all three halves.
+- **Task 9** — door 3 replaces the `dest.exists()` + `rename` TOCTOU; `:1034`'s `mkdir` →
+  `vault_io.ensure_dir`. `"mkdir"` was NOT dropped from the vocabulary.
+- **Task 10** — `observe` needed no new code (Task 3 built it); AC-9 covers both halves, including
+  that exactly ONE INFO line naming the mode is emitted across TWO writes.
+
+### Task 11 — the predicates RE-RUN, Table 2 pinned
+
+| Predicate | Returned | vs Table 2 |
+|---|---|---|
+| `filesystem_mutation_uses` | modules = `['obsidian_schemas/vault_io.py']` — and nowhere else | Wall A **GREEN**, MATCH |
+| `os_module_attribute_uses` outside the door | the same 3 `os.environ` (lines shifted to `base.py:100`, `lint_vault.py:55`, `migrate:165` by this item's own edits) | Wall B **GREEN**, MATCH |
+| `module_import_uses` | `[('obsidian_schemas/vault_io.py', 'filelock')]` | Wall C **GREEN**, MATCH |
+| `functions_calling("stat_stamp")` / `…("remember_snapshot")` | each ⊇ the three loaders → `True` | Wall D(i) **GREEN**, MATCH |
+| `functions_calling("parse_markdown_file")` | `== loaders` → `True` | Wall D(ii) **GREEN**, MATCH |
+| `functions_calling("_adopt")` | **EXACTLY** `base.py:save`, `base.py:update_fields`, `book.py:save`, `meeting.py:save`, `person.py:create_stub` — `base.py:load` deliberately absent | MATCH (set equality) |
+| `falsy_returns_in(…, COMMIT_FUNCTION_NAMES)` | `[]`, now over a REAL `vault_io.py` | Wall E **GREEN**, MATCH — the non-vacuous green |
+| `functions_reserializing_parsed_frontmatter` | 4 | MATCH |
+| `functions_parsing_then_writing − …` | `{write_markdown_file}` | MATCH |
+| `non_completed_write_sites` | 8 | MATCH |
+| `base_repository_subclasses` / `load_file_implementations` | 4 / 3 | MATCH, both pins unedited |
+
+**No row differed, so no hand-back.** `tests/test_loud_fail_harness.py` still GREEN — the new
+predicates live in the module already permitted to name `ast`.
+
+### Task 12 — the routing wall
+
+`tests/test_write_routing.py`: Walls A–E and **five** batteries, the list derived from D10.1's
+predicate set. Each battery plants a scratch module (parsed, never imported — outside
+`python_files_under(PACKAGE_ROOT, SCRIPTS_ROOT)` by construction) and drives it through the same
+function the live wall calls. Wall C's MATCHED imports are GENERATED by iterating the module set;
+Wall E's MATCHED functions are GENERATED by iterating `COMMIT_FUNCTION_NAMES` with **set equality**
+asserted. The three round-5 near-misses ship, `p.replace(q)` carrying its R10/D10.3 comment, as does
+`snapshot_stamp`'s deliberate `None` and the implicit-fall-off-the-end declared limit.
+
+*One battery-fixture correction:* Wall E's nested-function near-miss initially planted a function
+NAMED `write_note` inside a differently-named parent, which the predicate matched — correctly, since
+`FunctionId.name` is the last dotted segment. D10.5's actual claim is the inverse (a falsy return in
+a nested function **of** `write_note`), and the fixture now plants that shape.
+
+**Three mutate-and-observe probes, each RUN and each reverted:**
+
+| Probe | Result |
+|---|---|
+| `Path('x').unlink()` **inside `write_markdown_file`'s body** (never module scope — a module-scope unlink raises on import and would take Wall D down alongside Wall A) | Wall A **RED**: `obsidian_schemas/writer.py:205 (unlink)` |
+| delete `vault_io.remember_snapshot` from `book.py:_load_file` | Wall D(i) **RED**, naming `book.py:BookRepository._load_file` |
+| `return None` in `vault_io.write_note` | Wall E **RED**, naming `vault_io.py:write_note#0` |
+
+All three probe targets are declared `## Write Targets` paths, as the plan requires. *Note for the
+conductor:* `git checkout` is not available inside the cage (`.git` is outside the sandbox's write
+set — `Unable to create ... index.lock`), so the three probes were reverted by direct edit and the
+revert was verified by re-running the floor rather than by `git status`.
+
+### Tasks 13–15 — the battery, row 7, regression
+
+Task 13 completed `tests/test_concurrent_access.py` (AC-1, 2, 3, 4, 8, 10, 14). **17 checks, all
+GREEN.** AC-1 observes at `os.fsync` — the instant a truncate-in-place writer would be exposing a
+half-written note — and asserts the target holds the complete old bytes.
+
+**The AC → authoring-task walk was DERIVED, not remembered.** The read-only command Task 13
+prescribes returns `checks found: 18`, `MISSING: []` — every `check` in every `criteria` fence
+resolves to a top-level `def` in a `## Write Targets` module, so nothing is left to fail the exam at
+`building → done`.
+
+Task 14 closed row 7 and re-ran the axis-γ sweep (`grep -rn 'FileExistsError' tests/
+obsidian_schemas/ scripts/`). It now returns: this test (updated); `writer.py:199`, a docstring
+naming the break; and `vault_io.py:519,686`, which are the door's own kernel-`FileExistsError` →
+`NoteAlreadyExists` conversion sites. The two `writer.py:180,187` hits the plan predicted are gone,
+removed with the `overwrite=False` guard in Task 7.
+
+**Task 15 — THE FLOOR: `637 passed` in 3.36s, ZERO failures.** Against Task 1's captured baseline of
+617, that is +20 and never a decrease. The WI-238 derived sweep over `## Write Targets` paths and
+their declared symbols returned 13 modules: `test_concurrent_access`, `test_identity_index`,
+`test_loud_fail_harness`, `test_loud_fail_load`, `test_loud_fail_parse`, `test_loud_fail_write`,
+`test_name_cleaning`, `test_repositories`, `test_resolve_or_create`, `test_vault_path_required`,
+`test_wi126_body_preservation`, `test_write_routing`, `test_writer`. The floor runs all 20 test
+modules regardless, and the asserted property is the floor's own zero-failure exit.
+
+### What a reviewer should look at first
+
+1. **The Wall B filter-placement contradiction above** — the one open spec question, resolved toward
+   the pinned table with the reasoning written out.
+2. **`declared_type` carrying a config variable's name** in `vault_io._bad_setting` — a small,
+   deliberate misuse of a WI-020 slot, forced by Task 3's ban on minting a fourth `REASONS` literal.
+3. `move_note`'s self-acquisition and the sentinel-keyed `_FILE_LOCKS` cache — both are departures
+   from the literal text of D3, both forced by behaviour the checks caught.
+
+### NOT done here — conductor close-out, outside the cage
+
+The five `## Verification` CLOSE-OUT steps are untouched by design: the live disposable-vault
+concurrency exercise, the widened Obsidian sentinel re-check, the three consumer-audit sweeps (3a
+`FileExistsError`, 3b the permission assumption, 3c R12's one-process sequence), `CLAUDE.md` +
+`SESSION_LOG.md`, and `README.md:317-338`'s round-trip recipe. All five are project-root or
+cross-repo paths outside `write_authority`; a caged edit to any of them is reverted at the merge
+boundary, which is exactly why they are close-out steps and not plan tasks. **`README.md`'s
+documented recipe now raises `NoteAlreadyExists` until step 5 lands** — AC-14 pins both that break
+and its `allow_unverified_overwrite=True` answer.
+
+### Revision 1 — 2026-08-10, closing the code-review REVISE
+
+Shell liveness re-probed first (`echo hi` → `hi`). Baseline for this round: the floor at
+**`637 passed`**, the number Task 15 landed.
+
+**The blocking finding, and it was real.** `_commit` discarded `os.write`'s return. `os.write` is
+`write(2)` and returns the count actually written; a volume filling mid-write writes what fits and
+returns that count rather than raising `ENOSPC`. The fragment was then `fsync`ed, `os.replace`d
+over the target and its directory entry fsynced — a truncated note committed atomically and
+durably, with `write_markdown_file` stamping a fresh snapshot over the corrupted bytes and nothing
+raised. That is a **regression against pre-WI-004 behaviour**: `Path.write_text`, what all 17
+routed sites called before this build, loops on short writes inside `io.BufferedWriter` and is loud
+at flush. It falsifies AC-1, which certifies a commit is a COMPLETE note and not merely an
+indivisible rename.
+
+**The fix.** A new `vault_io._write_all(fd, payload)` loops until the payload is exhausted and
+raises on a zero-byte return (no progress). It raises a plain `OSError` **deliberately**, so
+`_commit`'s existing handler — the one place that closes the descriptor, discards the temp file and
+re-raises as `WriteFailedError` — is the single exit. The refusal therefore never reaches
+`os.replace`: the target keeps its old bytes and no temp file survives. Layer 1's module-docstring
+claim was widened to say so rather than left to be inferred.
+
+**The check, authored FAILING-TEST-FIRST (WI-029) rather than alongside.** AC-1's own check
+`test_every_door_commits_atomically` gained the property, so the criterion the finding falsified is
+the one that now pins it. Its oracle is the target's own OLD bytes, written by the check.
+**Mutate-and-observe, RUN:** reverting `_write_all(fd, payload)` to the reviewed
+`os.write(fd, payload)` takes the check RED at the exact assertion —
+`AssertionError: a write that never delivered its whole payload must raise WriteFailedError, not
+commit what landed` — and restoring it takes it green. The defect is pinned to falsifiable code,
+not to a reading.
+
+Both arms of the shape are driven, and the **near-miss is load-bearing**: the first stub goes short
+*and then makes no progress* (the fill-up shape — proving the loop resumes from the offset AND that
+it refuses instead of spinning), while a second stub returns short but keeps progressing 64 bytes at
+a time and must still commit the COMPLETE note. Without that second half, a naive
+"raise whenever `os.write` returns `< len(payload)`" would pass the first assertion while breaking
+every real write on a short-returning descriptor.
+
+**Recommended finding 2 — `ensure_dir` breaking the door contract — taken, not narrowed.**
+`ensure_dir` is a member of `COMMIT_FUNCTION_NAMES`, i.e. the spec's own wall already treats it as a
+door, so weakening the docstring instead of the code would have been the wrong direction. Its
+`mkdir` now refuses as `WriteFailedError`, which makes `except LoudFailError` total over the doors
+for `write_markdown_file` (`writer.py:273`) and `quarantine_garbage` (`lint_vault.py:1043`) — both
+of which carry no `OSError` handler, so this is a refusal-type change and nothing else.
+
+*The coupling this exposed, and why both internal callers moved with it.* `_configured_lock_dir`
+and `note_lock` each caught `OSError` around their `ensure_dir` call; left alone, `ensure_dir`'s new
+`WriteFailedError` would have escaped **carrying the directory in `path`** — and `path` renders the
+VALUE, which is precisely what M2 keeps out of a message when the lock dir can carry a person's
+name. Both excepts widened to `(OSError, WriteFailedError)`: `_configured_lock_dir` re-raises
+through `_bad_setting` (name in `declared_type`, cause projected to a class name), and `note_lock`
+re-homes onto the NOTE path. Verified by execution, not by reading —
+`OBSIDIAN_SCHEMAS_LOCK_DIR=<a regular file>` yields
+`write did not complete; declared_type='OBSIDIAN_SCHEMAS_LOCK_DIR'; cause=WriteFailedError`, with
+the name present and the value absent; AC-16's `refuses("OBSIDIAN_SCHEMAS_LOCK_DIR", str(a_file))`
+row drives exactly that path and stays GREEN.
+
+**Notes 3 and 4 taken as stated.** `_fsync_dir`'s two `except OSError: pass` arms and `_discard`'s
+one now `logger.debug(..., exc_info=True)`, so a directory entry that never became durable leaves a
+trace at some level; both still run after the commit and still cannot turn a failure into a success.
+`read_note`'s docstring now states the asymmetry with the doors below it explicitly — "requires the
+lock" is a CALLER contract there, and the reason it is not enforced (an unlocked read cannot lose a
+note; the worst it does is mint a stamp that fails its own precondition later, which is the refusal
+direction) is written down rather than left to be rediscovered.
+
+**Notes 5, 6 and 7 need no change** — 5 and 6 ratify rulings the Build Log already recorded (the
+Wall B filter placement, and `declared_type` carrying a setting's name), and 7 is a clean bill.
+
+*Verify, all RE-RUN after the fix:*
+
+| Check | Result |
+|---|---|
+| `tests/test_concurrent_access.py` | **17 passed** — AC-1 now carries both halves |
+| THE FLOOR, `.venv/bin/python -m pytest tests -q` | **`637 passed` in 3.29s, ZERO failures** — equal to Task 15's landed count, never a decrease |
+| Wall A — `filesystem_mutation_uses` modules | `['obsidian_schemas/vault_io.py']`, GREEN |
+| Wall B — `os_module_attribute_uses` outside the door | the same three `os.environ` (`base.py`, `lint_vault.py`, `migrate_person_to_discuss.py`); the new `os.write` is INSIDE the door, GREEN |
+| Wall C — `module_import_uses` | `[('obsidian_schemas/vault_io.py', 'filelock')]`, GREEN |
+| Wall E — `falsy_returns_in(PACKAGE_ROOT, COMMIT_FUNCTION_NAMES)` | `[]`, GREEN — `_write_all` returns None but is deliberately OUTSIDE the set (a private helper, not a path-, payload- or stamp-returning door), and `ensure_dir` still returns its directory |
+
+No acceptance criterion changed: AC-1's `check:` still resolves to
+`test_every_door_commits_atomically`, and no fence was edited. No file outside `write_authority` was
+written, and the five close-out steps above remain untouched by design.
+
+## Code Review — 2026-08-10
+
+**Trigger check: FIRES.** The post-build diff is not doc-only — one new package module
+(`obsidian_schemas/vault_io.py`, 711 lines), five modified package modules, two modified scripts,
+two new test modules, three modified test modules, and a dependency change (`filelock>=3.12` in
+`pyproject.toml`). No skip pattern applies.
+
+Reviewed against the working tree, not against the Build Log's claims: Wall A's live property was
+re-derived by grep (no `write_text`/`mkdir`/`unlink`/`rename`/write-mode `open` outside
+`vault_io.py` under `obsidian_schemas/` or `scripts/`), Wall B's by grep (`os.<attr>` outside the
+door is three `os.environ` reads at `base.py:100`, `lint_vault.py:55`,
+`migrate_person_to_discuss.py:165`; the `os.link` at `errors.py:100` is inside a docstring and
+therefore invisible to a syntax-reading predicate, and `errors.py` imports no `os` at all), and
+Wall C's by grep (no `shutil`/`tempfile`/`fcntl`/`mmap` import outside the door; `filelock` only in
+`vault_io.py`). The Build Log's shell-liveness probe, its measured baseline (`617`), its
+intermediate reds (`620 passed, 1 failed` at Task 3; `622 passed, 1 failed` at Task 16) and the two
+design corrections it attributes to *running* the checks rather than reading them are consistent
+with a build that executed — the WI-228 P4 dead-shell condition does not apply.
+
+### Blocking
+
+**1. `obsidian_schemas/vault_io.py:503` — `os.write`'s return value is discarded, so a short write
+commits a truncated note atomically, durably, and silently.**
+
+```python
+        os.write(fd, payload)
+        os.fsync(fd)
+```
+
+`os.write` is the raw `write(2)` syscall and returns the number of bytes actually written. On a
+regular file it can return short — the realistic trigger is a volume filling mid-write, where
+POSIX `write()` writes what fits and returns that count rather than failing with `ENOSPC`. Nothing
+here compares the return against `len(payload)`. The truncated temp file is then `fsync`ed,
+`os.replace`d over the target, and the parent directory is fsynced: the partial note is committed
+*and made durable*, `_commit` returns `target`, `write_note` returns it to the caller, and
+`write_markdown_file` records a fresh snapshot over the corrupted bytes. No exception, no WARNING,
+no readback.
+
+Failure scenario, concrete: the vault volume has 2 KB free. `repo.save(person, body=…)` builds an
+8 KB payload. `os.write` writes 2048 bytes and returns 2048. The note commits as a 2 KB fragment —
+frontmatter plus a severed body — and `record_snapshot` stamps it as good. The next `load()` either
+parses the fragment as a valid entity with a shorter body (silent Timeline loss, the WI-015/WI-126
+class) or raises `FrontmatterParseError` into the WI-020 skip surface. Either way the original note
+is gone and nothing signalled.
+
+This is a **regression against pre-WI-004 behaviour** in the exact class this item exists to close.
+`Path.write_text` — what every one of these sites called before this build — goes through
+`io.BufferedWriter`, which loops on short writes and surfaces `ENOSPC` as an `OSError` at flush;
+the old code was loud here and the new code is silent. It is also the Step 2c check-7 shape (a
+faster-than-expected/under-length completion passing by default) and the check-6 shape (a completed
+write with no readback asserting the result matches intent).
+
+The `## Verification` table already promises the opposite — *"`os.stat`, `os.open` or `os.fchmod`
+failing while carrying the mode onto the temp descriptor → `WriteFailedError` — never a commit at a
+mode nobody chose"* — and AC-1 certifies that every commit is atomic in the sense of a complete
+note, not merely of an indivisible rename. A short write satisfies the rename and falsifies AC-1.
+
+Required fix, inside `_commit`'s existing `try`, before the `fsync`: loop `os.write` until the
+payload is exhausted (raising `WriteFailedError` if a call returns `0`), or assert the single call
+wrote `len(payload)` and raise `WriteFailedError(_WRITE_INCOMPLETE, path=target, cause=…)`
+otherwise. Either shape also closes the readback gap. A check belongs with it — the natural home is
+`tests/test_concurrent_access.py`, patching `os.write` to a short-writing stub and asserting the
+target still holds the complete OLD bytes and `WriteFailedError` was raised.
+
+### Recommended
+
+**2. `obsidian_schemas/vault_io.py:563-573` — `ensure_dir` breaks the module's own stated door
+contract.** The module docstring at `:588-589` says of the doors, *"they are this package's own
+refusal surface, and every failure on them is a LoudFailError subclass."* `ensure_dir` calls
+`directory.mkdir(parents=True, exist_ok=True)` with no handler, so a permission or `ENOSPC` failure
+escapes as a raw `OSError`. That escapes `write_markdown_file` (`writer.py:273`) and
+`quarantine_garbage` (`lint_vault.py:1043`) as a non-`LoudFailError`, so a consumer's
+`except LoudFailError` — the documented "this package refused" idiom — does not catch it. Wrap it
+like the other doors, or narrow the docstring's claim to exclude the namespace cell.
+
+### Notes
+
+**3. `obsidian_schemas/vault_io.py:545-556, 538-542` — two post-commit `except OSError: pass`
+swallows.** `_fsync_dir` silently swallows both the `open` and the `fsync` failure, and `_discard`
+swallows the temp `unlink`. Both are genuinely best-effort and both run *after* the commit
+succeeded, so neither can turn a failure into a success — but a directory entry that was not made
+durable is exactly the class this item's Layer 1 exists to bound, and it currently leaves no trace
+at any level. A `logger.debug`/`logger.warning` on the `_fsync_dir` arm would cost nothing.
+
+**4. `obsidian_schemas/vault_io.py:576-594` — `read_note`'s docstring says "Requires the lock" and
+nothing enforces it.** Every write door calls `_require_lock`; `read_note` does not. The claim is a
+caller contract rather than an enforced one, and the six `person.py` body writers plus the two
+script sites all honour it — but the asymmetry with the doors immediately below is worth stating in
+the docstring rather than leaving a future reader to discover it.
+
+**5. The Wall B filter-placement contradiction the Build Log raises (`### DEVIATION`) is resolved
+correctly.** D10.6's Table 1 is the pinned artifact three gates executed against; D10.5's
+NOT-matched table would make Table 1's row `[]` and D10.3's own assertion vacuous. Resolving toward
+Table 1 and homing the membership rule once in `tests/test_write_routing.py:_os_violations` — where
+the live wall at `:110` and the battery at `:265`/`:296` both call it — preserves the property
+D10.5 was reaching for (the battery drives the wall's own code path, not a second copy) while
+keeping the live claim non-vacuous against the three `os.environ` reads. No hand-back was owed and
+none is owed now. This is a spec-internal contradiction the spec should be reconciled on at
+close-out, not a build defect.
+
+**6. `declared_type` carrying a config variable's NAME in `_bad_setting` (`vault_io.py:86-98`) is
+acceptable as built.** It is a deliberate, documented misuse of a WI-020 slot, forced by Task 3's
+ban on minting a fourth `REASONS` literal, and the alternative slots genuinely cannot carry it
+(`path` renders the value, `bounded_cause` projects to a class name). The bounded property AC-16
+needs — the name reaches the message and the value never does — holds, and
+`tests/test_concurrent_access.py:196-203` asserts both halves. A reason literal per setting is the
+cleaner home whenever a future item is allowed to touch `errors.py`.
+
+**7. No new cross-project reach, no new dependence on deprecated code, no idiom regression, and no
+`CLAUDE.md` claim made false by this diff.** `CLAUDE.md`'s only count claim is already de-pinned
+("never trust a number written here"), the Key Files table addition for `vault_io.py` is correctly
+deferred to conductor close-out step 4 (project root is outside `write_authority`), and every door
+call site uses the `vault_io.<door>` module-attribute form D7 requires. No `<<< cage-reverted
+writes >>>` block was supplied with this build, so there is nothing to check for an
+applied-but-not-shipped claim; the Build Log's `### NOT done here` section correctly declines to
+claim the five close-out paths were touched.
+
+**Summary.** The design is sound and the routing is exhaustively verified — Layer 1's ordering,
+Layer 2's two-tier lock with `thread_local=False`, Layer 3's origin-decided exception, M1's
+`fchmod`-first ordering, M3's single resolved path, and the declared residual are all built as
+specified and driven by real oracles. One line falsifies AC-1: the commit does not verify that all
+of the payload reached the temp descriptor, which turns a full disk from a loud `OSError` (today's
+behaviour) into a silently committed truncated note.
+
+```verdict
+gate: code-reviewer
+verdict: REVISE
+date: 2026-08-10
+model: claude-opus-5
+targets: AC-1, Task 3
+note: vault_io._commit discards os.write's return, so a short write (ENOSPC) commits a truncated note atomically and silently — a regression against Path.write_text's loud flush, in the exact loss class AC-1 certifies against.
+```
+
+## Test & Observability Review — 2026-08-10
+
+**Trigger check: APPLIES.** This build adds a new production code path — the package's single write
+door, through which every vault mutation in three consumer repos now travels. Not a refactor, not
+test-only, so no `N/A` self-declaration.
+
+**1. Tests exist — comfortably.** `tests/test_concurrent_access.py` ships 17 zero-argument
+top-level checks covering the happy path (`create_note` → `read_note` → `write_note` → `save()` →
+`move_note`) and, for each door, at least one failure mode with a distinct type:
+`ExternalWriteConflict` (`:797`), `StaleEntityWrite` (`:839`), `NoteAlreadyExists` (`:475`, `:566`),
+`WriteFailedError` for the unheld lock (`:971`), for every invalid setting on the whole
+configuration surface (`:178`), and for the symlinked move source (`:271`).
+`tests/test_write_routing.py` ships the five walls plus a match-shape battery per wall.
+
+Two properties are worth calling out because they are the difference between a suite that looks
+green and one that means something:
+
+- **The oracles are values the check itself wrote.** AC-15 compares against the mode it `chmod`ed
+  and, for the fresh-create case, against the umask-derived mode it measured from a sibling in the
+  same run (`:99-105`) rather than a hardcoded `0o644`. AC-18 asserts `set(observed) == {12}`
+  against the twelve notes it planted, never a count read back from the repository under test.
+- **The zero-count walls carry reach batteries.** Walls B, C and E are all green against a matcher
+  that resolves nothing on this tree, and each ships a battery that plants and drives the shapes it
+  claims (`_wall_b_battery` plants the `from os import` arm that has no live instance; `_wall_c_battery`
+  GENERATES its matched imports by iterating `WALL_C_MODULES`; `_wall_e_battery` generates one
+  falsy-returning function per member of `COMMIT_FUNCTION_NAMES` and asserts SET EQUALITY). The
+  near-miss halves are equally load-bearing — `s.replace`/`frontmatter.copy`/`p.replace` and
+  `snapshot_stamp`'s deliberate `None` are each pinned NOT matched, with the declared blind spots
+  written out so a later reader meets the ruling instead of "fixing" the wall red.
+
+The three mutate-and-observe probes the Build Log records (Wall A red on a planted `unlink`, Wall
+D(i) red on a deleted `remember_snapshot`, Wall E red on a planted `return None`) are the right
+instrument for proving a wall can go red, and all three targets are declared `## Write Targets`
+paths.
+
+**2. Logging at WARN/ERROR per failure mode — present and specific.** Every refusal is a typed
+`LoudFailError` carrying its resolved path and, by `bounded_message`'s construction, no note
+content — asserted directly at `tests/test_concurrent_access.py:678-696` against a planted sentinel
+string rather than against an assumed absence. `observe` mode emits a WARNING naming the exception
+class that *would* have been raised (`vault_io.py:188-191`), the create-race recovery WARNs with
+the loser's `created_by` (`person.py:1484-1487`), and `allow_unverified_overwrite` WARNs at every
+use (`writer.py:217-220`). The once-per-process `observe` announcement (`_announce_mode_once`) is a
+good call — a security-relevant mode that is silent while nothing collides is how a consumer leaves
+it set for a month believing the item shipped — and AC-9 pins "exactly ONE INFO line across TWO
+writes" rather than merely "at least one".
+
+**3. Alerts wired — N/A, correctly.** This is an importable library with no daemon, cron entry or
+launchd job of its own; there is no automated system here for Dave to be alerted about. The
+operational signal is the exception surfacing in whatever consumer made the call, which is the
+right seam.
+
+**4. Invariant registration — N/A (skipped, not failed).** `obsidian-schemas` ships no invariant
+registry; `src/invariants.py` does not exist in this project (v1 registry scope is orchestrator-only
+per this role's checklist). The grep target does not resolve, so this dimension is noted N/A rather
+than counted a finding, and no `## Observability Waiver` is owed.
+
+**Residual, non-blocking:** `_fsync_dir` (`vault_io.py:545-556`) swallows both its `open` and its
+`fsync` failure with no log at any level, so a directory entry that never became durable leaves no
+trace. It runs after the commit and cannot turn a failure into a success, which is why it is a note
+here rather than a finding — see Code Review note 3.
+
+**One defect is deliberately NOT double-counted here.** The unchecked `os.write` return at
+`vault_io.py:503` is a silent failure mode in a new production path and would ordinarily be this
+pass's finding too; it is attributed once, to the Code Review fence, which already blocks
+`building → done`. Recording it twice would read as two independent findings across rounds and
+would muddy exactly the converging-arc signal the `targets:` line exists to carry. It is named here
+so that a reader does not mistake this fence's PROMOTE for a pass that missed it.
+
+**Summary.** Test coverage and observability are the strongest part of this build: real behavioural
+oracles over a running filesystem, reach batteries behind every zero-count wall, red-probes proving
+the walls can fail, and a loud, bounded, mode-governed refusal surface. Nothing in this dimension
+blocks.
+
+```verdict
+gate: test-observability-checker
+verdict: PROMOTE
+date: 2026-08-10
+model: claude-opus-5
+note: 17 behavioural checks with self-written oracles plus reach batteries behind all three zero-count walls; refusals are typed, bounded and mode-governed, alerts are N/A for a library, and no invariant registry exists in this project.
+```
+
+## Code Review — 2026-08-11
+
+**Trigger check: FIRES.** Same diff surface as round 1 plus `### Revision 1`'s edits — one new
+package module, five modified package modules, two modified scripts, two new and three modified test
+modules, and a dependency change. No skip pattern applies.
+
+**Reviewer's own constraint, stated rather than implied.** This cage exposes no `Bash` tool
+(confirmed by `ToolSearch`, which resolves only `TaskOutput`), so I could not re-run the floor
+myself. Every claim below is from reading the working tree; where a number could only be measured,
+I say so and attribute it to the Build Log rather than asserting it. The Build Log's own executions
+are not in doubt — it opens with a liveness probe, records two intermediate RED states (`620 passed,
+1 failed`; `622 passed, 1 failed`) and two corrections it attributes to running checks rather than
+reading them, so the WI-228 P4 dead-shell condition does not apply to the build.
+
+### The round-1 Blocking finding is CLOSED, and closed at the right level
+
+`obsidian_schemas/vault_io.py:548-581` — `_write_all(fd, payload)` loops from the written offset over
+`memoryview(payload)[written:]` and raises when a call returns `<= 0`. Three properties make this the
+fix rather than a patch over the symptom:
+
+1. **It resumes from the offset**, so a short-but-progressing descriptor still commits the complete
+   note. A naive `raise if os.write(...) != len(payload)` would have satisfied the round-1 finding
+   while breaking every real write on a short-returning fd.
+2. **It raises plain `OSError`, deliberately** (`:567-571`), so `_commit`'s existing handler at
+   `:515-518` — the one place that closes the descriptor, discards the temp file and re-raises as
+   `WriteFailedError` — remains the single exit. I traced the path: the refusal cannot reach
+   `os.replace` at `:537`, so the target keeps its old bytes and no temp file survives. That is the
+   structural version of the fix, not a second cleanup site.
+3. **The claim moved with the code.** Layer 1's module docstring (`:10-17`) now says the commit
+   "writes EVERY byte of the payload — a short `write(2)` refuses rather than committing a fragment,
+   so 'atomic' means a COMPLETE note and not merely an indivisible rename", which is exactly what
+   AC-1 certifies and exactly what round 1 found the code not doing.
+
+The pinning check is real: `tests/test_concurrent_access.py:806-865` drives the fill-up shape (short,
+then no progress), asserts `WriteFailedError`, asserts the target still holds **the old bytes the
+check itself wrote**, asserts no temp file survived, and then drives the near-miss (64 bytes at a
+time, must commit the complete note). The Build Log records the mutate-and-observe both ways —
+reverting to `os.write(fd, payload)` takes it RED at the named assertion. I could not re-run that,
+but the assertion it names is present at `:832-835` and would fail as described.
+
+### Round-1 Recommended and Notes — all taken, none narrowed
+
+- **Finding 2 (`ensure_dir` breaking the door contract)** was taken at the code level, which is the
+  right direction given `ensure_dir` is already inside `COMMIT_FUNCTION_NAMES`
+  (`tests/derivations.py:76-79`). It now refuses as `WriteFailedError` (`vault_io.py:633-638`). I
+  checked the coupling this exposes rather than trusting the Build Log's account of it: the two
+  internal callers widened to `(OSError, WriteFailedError)` (`:156`, `:401`) and each re-homes the
+  message off the configured value — `_configured_lock_dir` through `_bad_setting` (name in
+  `declared_type`), `note_lock` onto the note path — which preserves M2. The two external callers,
+  `writer.py:273` and `lint_vault.py:1043`, I read directly: **neither carries an `OSError` or
+  `LoudFailError` handler**, so this is a refusal-*type* change and nothing else, and no consumer
+  path silently swallows the new exception.
+- **Notes 3 and 4** taken: `_discard` (`:584-588`) and both `_fsync_dir` arms (`:591-611`) now log
+  at DEBUG with `exc_info=True`; `read_note`'s docstring (`:642-662`) now states the asymmetry with
+  the doors below and *why* the lock is a caller contract there (an unlocked read cannot lose a note;
+  the worst case is a stamp that fails its own precondition later — the refusal direction).
+- **Notes 5, 6, 7** needed no change and still need none.
+
+### Re-checked independently this round
+
+The walls still hold with `os.write` added: `write` is provenance-matched via `MODULE_MUTATION_NAMES`
+so Wall A resolves it, and both walls exclude `DOOR_MODULE` only — the new syscall is inside the door
+(`tests/test_write_routing.py:95`, `:110`). `os.write` was already a driven shape in Wall A's matched
+battery (`:162`, `:186`). `_write_all` returns `None` but is correctly outside
+`COMMIT_FUNCTION_NAMES`, which is a set of path-, payload- and stamp-returning surfaces, so Wall E's
+green is not bought by a widened exemption. I also re-walked all 13 door-1 routing sites: every one
+takes `note_lock`, reads **inside** it, and preconditions on that read; `person.py:1582` and `:1593`
+share a stamp but are mutually exclusive branches (`:1584` returns); `lint_vault.py:886` re-reads
+before its second write rather than reusing `:820`'s stamp. AC-1's `check:` still resolves to
+`test_every_door_commits_atomically`.
+
+### Notes (non-blocking, none owed a fix)
+
+**1. `vault_io.py:156-162, 401-406` — the re-homed message is bounded, but the `__cause__` chain is
+not.** `raise _bad_setting(...) from exc` keeps the original `WriteFailedError` (whose `path` renders
+the configured lock-dir VALUE) as `__cause__`, so a consumer logging with `exc_info=True` still
+renders it. M2's own claim — the refusal's message carries the name and never the value — holds, and
+this is unchanged in kind from before Revision 1 (an `OSError`'s `filename` carried it too). Worth
+knowing, not worth a fix.
+
+**2. `vault_io.py:520` — `os.close(fd)` on the success path is outside a handler.** A failure there
+escapes a door as a raw `OSError` and leaves the temp file. Vanishingly unlikely after a successful
+`fsync`, and it cannot commit anything, so it is a note.
+
+**3. The precondition token is `(mtime_ns, size, exists)`.** Two writes of identical length within
+one mtime tick compare equal. On the APFS volume the data-premise gate confirmed, `st_mtime_ns` is
+genuine nanosecond resolution, so this is unreachable in practice and is fairly read as inside R1's
+declared window — but the residual list R1–R14 is otherwise exhaustive enough that this is the one
+shape not named in it. A line in R1 at close-out would complete the set.
+
+**4. `_THREAD_LOCKS`, `_FILE_LOCKS` and `_SNAPSHOT_STAMPS` never shrink.** One small entry per path
+ever locked or stamped, bounded by vault size, in a library whose main consumer is a long-lived
+FastAPI process. Bounded and cheap; noted so a future reader meets it deliberately.
+
+**Summary.** The one line that falsified AC-1 is fixed at the level the finding pointed at, the fix
+cannot reach `os.replace`, and the criterion it falsified is the criterion that now pins it — with
+both arms and a load-bearing near-miss driven by oracles the check wrote itself. The Recommended
+finding was taken as code rather than as a narrowed docstring, and I verified by reading both
+external callers that its refusal-type change swallows nothing. Nothing in this round's diff is
+Blocking; the four notes are all bounded and none is owed a fix before `done`.
+
+```verdict
+gate: code-reviewer
+verdict: PROMOTE
+date: 2026-08-11
+model: claude-opus-5
+note: Revision 1 closes round 1's blocking short-write defect structurally — _write_all resumes from the offset and refuses through _commit's single cleanup exit, so a refusal cannot reach os.replace — and AC-1's own check now pins it with both arms plus the short-but-progressing near-miss.
+```
+
+## Test & Observability Review — 2026-08-11
+
+**Trigger check: APPLIES.** Still a new production code path — the package's single write door, which
+every vault mutation in three consumer repos now travels through. Not a refactor, not test-only, so
+no `N/A` self-declaration is available.
+
+**1. Tests exist — and this round's addition is the strongest check in the module.** Round 1's fence
+PROMOTEd on 17 checks; the count is unchanged, but AC-1's own check grew the property the code-review
+finding falsified. That placement is the point: the criterion that was falsified is the criterion
+that now pins the fix, rather than a new check bolted alongside it. Three properties I verified by
+reading `tests/test_concurrent_access.py:806-865`:
+
+- **The oracle is the target's own OLD bytes**, written by the check at `:808` and compared at
+  `:839-842`. Not a length, not a substring, not an assumed absence.
+- **Both arms of the shape are driven, and the second is load-bearing.** `short_then_stuck`
+  (`:812-820`) takes half and then makes no progress — proving the loop resumes from the offset AND
+  refuses instead of spinning — while `chunked_write` (`:853-854`) returns short but keeps
+  progressing and must still commit the COMPLETE note. Drop the second and a naive
+  "raise on any short return" passes the first assertion while breaking every real write.
+- **The probe asserts it actually ran.** `:836-838` asserts `len(calls) >= 2`, so a patch that never
+  reached `os.write` cannot read as a pass — the exact silent-PASS-on-empty shape this project's
+  Data Quality Discipline names.
+
+Authored failing-test-first per WI-029, with the mutate-and-observe recorded both directions. I could
+not re-run it (no `Bash` in this cage — see the Code Review section), so I read the assertions
+instead; the one the Build Log names as the RED anchor is present at `:832-835` and would fail as
+described.
+
+**2. Logging at WARN/ERROR per failure mode — improved this round.** Round 1's residual is closed:
+`_fsync_dir`'s two arms (`vault_io.py:591-611`) and `_discard` (`:584-588`) now leave a DEBUG trace
+with `exc_info=True` where they previously left none at any level. DEBUG rather than WARNING is the
+right call and not a narrowing — both run *after* the commit succeeded and neither can turn a failure
+into a success, so a WARNING would be noise on a path that has no operational action attached. The
+loud surface is unchanged and still correct: every refusal is a typed `LoudFailError` carrying its
+resolved path and no note content (asserted at `:678-696` against a planted sentinel rather than an
+assumed absence), `observe` mode WARNs per conflict and announces itself exactly once per process,
+and `allow_unverified_overwrite` WARNs at every use.
+
+The new refusal carries its diagnostic in the chain rather than the message —
+`WriteFailedError("write did not complete", path=…, cause=OSError)`, with
+`"write made no progress: N of M bytes written"` on `__cause__`. That is `bounded_cause` working as
+designed (a cause projects to its class name), and the byte counts survive for a debugger via the
+chain, so the failure is both loud and reconstructable.
+
+**3. Alerts wired — N/A, correctly.** An importable library with no daemon, cron entry or launchd job
+of its own. The operational signal is the exception surfacing in whatever consumer made the call,
+which is the right seam. Nothing about Revision 1 changes this.
+
+**4. Invariant registration — N/A (skipped, not failed).** Re-verified this round rather than carried
+forward: a glob for `**/invariants.py` across the tree returns nothing, so `obsidian-schemas` ships no
+invariant registry and v1 registry scope is orchestrator-only. The grep target does not resolve, so
+this dimension is noted N/A and no `## Observability Waiver` is owed.
+
+**Round-1 attribution, discharged.** Last round this fence deliberately declined to double-count the
+unchecked `os.write` return, attributing it once to the Code Review so the `targets:` series would
+read as one converging finding rather than two. That defect is now fixed and pinned, so there is
+nothing outstanding under that attribution and no finding is being carried silently.
+
+**Summary.** Test and observability readiness remains the strongest dimension of this build, and this
+round improved it in both halves: the fix landed inside the acceptance criterion it falsified with a
+self-written oracle and a load-bearing near-miss, and the one logging gap round 1 named is closed at
+the level appropriate to a best-effort post-commit path. Nothing in this dimension blocks.
+
+```verdict
+gate: test-observability-checker
+verdict: PROMOTE
+date: 2026-08-11
+model: claude-opus-5
+note: Revision 1's fix is pinned inside AC-1's own check with the target's old bytes as oracle, both arms plus the short-but-progressing near-miss, and an assertion that the probe ran; round 1's _fsync_dir logging residual is closed and alerts/invariants remain correctly N/A.
 ```

@@ -70,11 +70,14 @@ from ..body_sections import (
 from ..errors import (
     FrontmatterParseError,
     LoudFailError,
+    NoteAlreadyExists,
     WriteFailedError,
     bounded_message,
     chainable_cause,
 )
 from .base import BaseRepository
+# Module attribute call form throughout (WI-004 D7) — see writer.py's note.
+from obsidian_schemas import vault_io
 
 logger = logging.getLogger(__name__)
 
@@ -1250,7 +1253,8 @@ class PersonRepository(BaseRepository[Person]):
         ]
 
     def save(self, entity, body: str = "", extra_fields=None, overwrite: bool = True,
-             allow_body_replacement: bool = False):
+             allow_body_replacement: bool = False,
+             allow_unverified_overwrite: bool = False):
         """Override BaseRepository.save() to normalize field-level RFC 2822
         corruption (WI-109).
 
@@ -1263,8 +1267,12 @@ class PersonRepository(BaseRepository[Person]):
         Dedup-aware: identical clean emails after normalization collapse to one.
         """
         self._normalize_address_fields(entity)
+        # Delegates and adopts nothing of its own, so it calls _adopt nowhere —
+        # a consequence of the door rather than a per-file exemption.
         return super().save(entity, body=body, extra_fields=extra_fields,
-                            overwrite=overwrite, allow_body_replacement=allow_body_replacement)
+                            overwrite=overwrite,
+                            allow_body_replacement=allow_body_replacement,
+                            allow_unverified_overwrite=allow_unverified_overwrite)
 
     @staticmethod
     def _normalize_address_fields(person: Person) -> None:
@@ -1463,7 +1471,35 @@ class PersonRepository(BaseRepository[Person]):
         extra_fields = {"created_by": created_by}
         if auto_created:
             extra_fields["auto_created"] = True
-        self.save(person, body=get_default_body("person"), extra_fields=extra_fields)
+        try:
+            self.save(person, body=get_default_body("person"),
+                      extra_fields=extra_fields)
+        except NoteAlreadyExists:
+            # WI-004 door 2c: we LOST a cross-process create race. The winner's
+            # note is on disk; re-read that ONE path (never refresh(), whose
+            # whole-vault zero-entity restore guard is the wrong instrument for
+            # a single note), adopt it, and take the reuse branch above — so the
+            # cross-process race produces the same outcome the in-process
+            # collision already produces.
+            logger.warning(
+                "create_stub: lost a create race for '%s' — reusing the winner's "
+                "note (created_by=%r)", clean_name, created_by,
+            )
+            file_path = self.vault_path / f"@{clean_name}.md"
+            winner = self._load_file(file_path)
+            if winner is None:
+                # A note that exists and does not load is not a reuse
+                # candidate; WI-020's skip surface is where it belongs.
+                raise
+            # Through the ADOPTION DOOR, not a bare `self._cache[key] = winner`:
+            # the reuse branch's _writeback_identifier routes through
+            # update_fields, which resolves the path via get_file_path ->
+            # self._file_map. A recovery populating _cache alone leaves
+            # _file_map empty for that key, and update_fields raises ValueError
+            # before the phone is ever written back.
+            self._adopt(self._get_cache_key(winner), winner, file_path)
+            self._writeback_identifier(winner, email=email, phone=phone)
+            return winner
 
         return person
 
@@ -1504,57 +1540,60 @@ class PersonRepository(BaseRepository[Person]):
             raise ValueError(f"Person file not found: {person.name}")
 
         try:
-            content = file_path.read_text(encoding="utf-8")
+            # Door 1 (WI-004): one lock spans the read, the transform and
+            # every write below; each write carries the stamp of that read.
+            with vault_io.note_lock(file_path):
+                content, _stamp = vault_io.read_note(file_path)
 
-            # Check for duplicate if key provided
-            if deduplicate_key and deduplicate_key in content:
-                logger.debug(f"Timeline entry already exists for {person.name}: {deduplicate_key}")
-                return False
+                # Check for duplicate if key provided
+                if deduplicate_key and deduplicate_key in content:
+                    logger.debug(f"Timeline entry already exists for {person.name}: {deduplicate_key}")
+                    return False
 
-            # Find the Timeline section
-            timeline_marker = "## Timeline"
+                # Find the Timeline section
+                timeline_marker = "## Timeline"
 
-            # Ensure entry starts with newline for clean formatting
-            formatted_entry = entry if entry.startswith("\n") else f"\n{entry}"
+                # Ensure entry starts with newline for clean formatting
+                formatted_entry = entry if entry.startswith("\n") else f"\n{entry}"
 
-            # WI-020 AC-5 Predicate 3 — ACCOMMODATE, with PRESERVATION.
-            #
-            # A missing "## Timeline" used to drop the caller's entry into the
-            # same silent False the dedup no-op returns. A raw-content check
-            # cannot tell "corrupted since creation by this package" from
-            # "legitimately never had one" (hand-created in Obsidian, or
-            # predating the template), so refusing would manufacture a failure
-            # out of a structural variant. The section is created instead,
-            # mirroring append_to_body_section's create_if_missing default.
-            #
-            # The mechanism is STRING INSERTION at end of file, NOT the
-            # sibling's parse_body_sections/write_body_sections round-trip:
-            # that round-trip keeps only `^## `-delimited spans, so it deletes
-            # any preamble above the first heading and destroys a heading-less
-            # body outright — on a raw write_text that writer.py deliberately
-            # exempts from the WI-126 shrink guard. The note least likely to
-            # have `##` headings is exactly the hand-created note this
-            # accommodation exists for. End-of-file placement is the only
-            # placement that preserves content without parsing structure, and
-            # it makes the oracle fall out: new_content.startswith(content).
-            if timeline_marker not in content:
-                suffix = "" if content.endswith("\n") else "\n"
-                new_content = content + suffix + "\n" + timeline_marker + formatted_entry
-                file_path.write_text(new_content, encoding="utf-8")
-                logger.info(f"Created Timeline section for {person.name}")
+                # WI-020 AC-5 Predicate 3 — ACCOMMODATE, with PRESERVATION.
+                #
+                # A missing "## Timeline" used to drop the caller's entry into the
+                # same silent False the dedup no-op returns. A raw-content check
+                # cannot tell "corrupted since creation by this package" from
+                # "legitimately never had one" (hand-created in Obsidian, or
+                # predating the template), so refusing would manufacture a failure
+                # out of a structural variant. The section is created instead,
+                # mirroring append_to_body_section's create_if_missing default.
+                #
+                # The mechanism is STRING INSERTION at end of file, NOT the
+                # sibling's parse_body_sections/write_body_sections round-trip:
+                # that round-trip keeps only `^## `-delimited spans, so it deletes
+                # any preamble above the first heading and destroys a heading-less
+                # body outright — on a raw write_text that writer.py deliberately
+                # exempts from the WI-126 shrink guard. The note least likely to
+                # have `##` headings is exactly the hand-created note this
+                # accommodation exists for. End-of-file placement is the only
+                # placement that preserves content without parsing structure, and
+                # it makes the oracle fall out: new_content.startswith(content).
+                if timeline_marker not in content:
+                    suffix = "" if content.endswith("\n") else "\n"
+                    new_content = content + suffix + "\n" + timeline_marker + formatted_entry
+                    vault_io.write_note(file_path, new_content, precondition=_stamp)
+                    logger.info(f"Created Timeline section for {person.name}")
+                    return True
+
+                # Insert after "## Timeline" marker. No split guard: str.split(sep, 1)
+                # on a string containing sep returns exactly two parts, and the marker
+                # was confirmed present above — the old `len(parts) != 2` branch was
+                # structurally unreachable.
+                parts = content.split(timeline_marker, 1)
+
+                new_content = parts[0] + timeline_marker + formatted_entry + parts[1]
+                vault_io.write_note(file_path, new_content, precondition=_stamp)
+
+                logger.info(f"Updated timeline for {person.name}")
                 return True
-
-            # Insert after "## Timeline" marker. No split guard: str.split(sep, 1)
-            # on a string containing sep returns exactly two parts, and the marker
-            # was confirmed present above — the old `len(parts) != 2` branch was
-            # structurally unreachable.
-            parts = content.split(timeline_marker, 1)
-
-            new_content = parts[0] + timeline_marker + formatted_entry + parts[1]
-            file_path.write_text(new_content, encoding="utf-8")
-
-            logger.info(f"Updated timeline for {person.name}")
-            return True
 
         except LoudFailError:
             raise                   # our own signal — never re-wrapped, never swallowed
@@ -1620,40 +1659,43 @@ class PersonRepository(BaseRepository[Person]):
             raise ValueError(f"Person file not found: {person.name}")
 
         try:
-            content_raw = file_path.read_text(encoding="utf-8")
+            # Door 1 (WI-004): one lock spans the read, the transform and
+            # every write below; each write carries the stamp of that read.
+            with vault_io.note_lock(file_path):
+                content_raw, _stamp = vault_io.read_note(file_path)
 
-            # Split frontmatter and body (body-safe pattern, mirrors To-Discuss).
-            frontmatter, body_raw = _split_frontmatter_fence(content_raw, file_path)
-            body = body_raw.lstrip("\n")
+                # Split frontmatter and body (body-safe pattern, mirrors To-Discuss).
+                frontmatter, body_raw = _split_frontmatter_fence(content_raw, file_path)
+                body = body_raw.lstrip("\n")
 
-            # None ⇒ section absent; "" / text ⇒ present (possibly empty).
-            existing_section = get_section(body, section)
+                # None ⇒ section absent; "" / text ⇒ present (possibly empty).
+                existing_section = get_section(body, section)
 
-            # create_if_missing=False + absent section → genuine no-op.
-            if existing_section is None and not create_if_missing:
-                return False
+                # create_if_missing=False + absent section → genuine no-op.
+                if existing_section is None and not create_if_missing:
+                    return False
 
-            # Section-scoped dedup (NOT whole-file — same key may live in
-            # Timeline AND Notes).
-            if deduplicate_key and existing_section and deduplicate_key in existing_section:
-                return False
+                # Section-scoped dedup (NOT whole-file — same key may live in
+                # Timeline AND Notes).
+                if deduplicate_key and existing_section and deduplicate_key in existing_section:
+                    return False
 
-            if operation == "prepend":
-                new_body = prepend_to_section(
-                    body, section, content, create_if_missing=create_if_missing
+                if operation == "prepend":
+                    new_body = prepend_to_section(
+                        body, section, content, create_if_missing=create_if_missing
+                    )
+                else:
+                    new_body = append_to_section(
+                        body, section, content, create_if_missing=create_if_missing
+                    )
+
+                # Re-assemble carrying frontmatter through verbatim.
+                new_content = f"---{frontmatter}---\n{new_body}"
+                vault_io.write_note(file_path, new_content, precondition=_stamp)
+                logger.info(
+                    f"append_to_body_section: {operation} to '{section}' for {person.name}"
                 )
-            else:
-                new_body = append_to_section(
-                    body, section, content, create_if_missing=create_if_missing
-                )
-
-            # Re-assemble carrying frontmatter through verbatim.
-            new_content = f"---{frontmatter}---\n{new_body}"
-            file_path.write_text(new_content, encoding="utf-8")
-            logger.info(
-                f"append_to_body_section: {operation} to '{section}' for {person.name}"
-            )
-            return True
+                return True
 
         except LoudFailError:
             raise                   # our own signal — never re-wrapped, never swallowed
@@ -1748,28 +1790,31 @@ class PersonRepository(BaseRepository[Person]):
             raise ValueError(f"Person file not found: {person.name}")
 
         try:
-            content = file_path.read_text(encoding="utf-8")
+            # Door 1 (WI-004): one lock spans the read, the transform and
+            # every write below; each write carries the stamp of that read.
+            with vault_io.note_lock(file_path):
+                content, _stamp = vault_io.read_note(file_path)
 
-            # Split frontmatter and body
-            frontmatter, body_raw = _split_frontmatter_fence(content, file_path)
-            body = body_raw.lstrip("\n")
+                # Split frontmatter and body
+                frontmatter, body_raw = _split_frontmatter_fence(content, file_path)
+                body = body_raw.lstrip("\n")
 
-            # Get existing items and add new one
-            section_content = get_section(body, "To Discuss")
-            items = parse_to_discuss_items(section_content) if section_content else []
-            new_item = ToDiscussItem.create(text)
-            items.append(new_item)
+                # Get existing items and add new one
+                section_content = get_section(body, "To Discuss")
+                items = parse_to_discuss_items(section_content) if section_content else []
+                new_item = ToDiscussItem.create(text)
+                items.append(new_item)
 
-            # Update section
-            new_section_content = write_to_discuss_items(items)
-            new_body = update_section(body, "To Discuss", new_section_content, create_if_missing=True)
+                # Update section
+                new_section_content = write_to_discuss_items(items)
+                new_body = update_section(body, "To Discuss", new_section_content, create_if_missing=True)
 
-            # Write back
-            new_content = f"---{frontmatter}---\n{new_body}"
-            file_path.write_text(new_content, encoding="utf-8")
+                # Write back
+                new_content = f"---{frontmatter}---\n{new_body}"
+                vault_io.write_note(file_path, new_content, precondition=_stamp)
 
-            logger.info(f"Added To Discuss item for {person.name}: {text[:50]}")
-            return True
+                logger.info(f"Added To Discuss item for {person.name}: {text[:50]}")
+                return True
 
         except LoudFailError:
             raise                   # our own signal — never re-wrapped, never swallowed
@@ -1811,42 +1856,45 @@ class PersonRepository(BaseRepository[Person]):
             raise ValueError(f"Person file not found: {person.name}")
 
         try:
-            content = file_path.read_text(encoding="utf-8")
+            # Door 1 (WI-004): one lock spans the read, the transform and
+            # every write below; each write carries the stamp of that read.
+            with vault_io.note_lock(file_path):
+                content, _stamp = vault_io.read_note(file_path)
 
-            # Split frontmatter and body
-            frontmatter, body_raw = _split_frontmatter_fence(content, file_path)
-            body = body_raw.lstrip("\n")
+                # Split frontmatter and body
+                frontmatter, body_raw = _split_frontmatter_fence(content, file_path)
+                body = body_raw.lstrip("\n")
 
-            # Get existing items
-            section_content = get_section(body, "To Discuss")
-            if not section_content:
-                return False
+                # Get existing items
+                section_content = get_section(body, "To Discuss")
+                if not section_content:
+                    return False
 
-            items = parse_to_discuss_items(section_content)
+                items = parse_to_discuss_items(section_content)
 
-            # Find and update the item
-            found = False
-            for item in items:
-                if item.text == text:
-                    item.completed = completed
-                    found = True
-                    break
+                # Find and update the item
+                found = False
+                for item in items:
+                    if item.text == text:
+                        item.completed = completed
+                        found = True
+                        break
 
-            if not found:
-                logger.debug(f"To Discuss item not found for {person.name}: {text[:50]}")
-                return False
+                if not found:
+                    logger.debug(f"To Discuss item not found for {person.name}: {text[:50]}")
+                    return False
 
-            # Update section
-            new_section_content = write_to_discuss_items(items)
-            new_body = update_section(body, "To Discuss", new_section_content)
+                # Update section
+                new_section_content = write_to_discuss_items(items)
+                new_body = update_section(body, "To Discuss", new_section_content)
 
-            # Write back
-            new_content = f"---{frontmatter}---\n{new_body}"
-            file_path.write_text(new_content, encoding="utf-8")
+                # Write back
+                new_content = f"---{frontmatter}---\n{new_body}"
+                vault_io.write_note(file_path, new_content, precondition=_stamp)
 
-            status = "completed" if completed else "uncompleted"
-            logger.info(f"Marked To Discuss item as {status} for {person.name}: {text[:50]}")
-            return True
+                status = "completed" if completed else "uncompleted"
+                logger.info(f"Marked To Discuss item as {status} for {person.name}: {text[:50]}")
+                return True
 
         except LoudFailError:
             raise                   # our own signal — never re-wrapped, never swallowed
@@ -1882,37 +1930,40 @@ class PersonRepository(BaseRepository[Person]):
             raise ValueError(f"Person file not found: {person.name}")
 
         try:
-            content = file_path.read_text(encoding="utf-8")
+            # Door 1 (WI-004): one lock spans the read, the transform and
+            # every write below; each write carries the stamp of that read.
+            with vault_io.note_lock(file_path):
+                content, _stamp = vault_io.read_note(file_path)
 
-            # Split frontmatter and body
-            frontmatter, body_raw = _split_frontmatter_fence(content, file_path)
-            body = body_raw.lstrip("\n")
+                # Split frontmatter and body
+                frontmatter, body_raw = _split_frontmatter_fence(content, file_path)
+                body = body_raw.lstrip("\n")
 
-            # Get existing items
-            section_content = get_section(body, "To Discuss")
-            if not section_content:
-                return False
+                # Get existing items
+                section_content = get_section(body, "To Discuss")
+                if not section_content:
+                    return False
 
-            items = parse_to_discuss_items(section_content)
-            original_count = len(items)
+                items = parse_to_discuss_items(section_content)
+                original_count = len(items)
 
-            # Filter out the item to remove
-            items = [item for item in items if item.text != text]
+                # Filter out the item to remove
+                items = [item for item in items if item.text != text]
 
-            if len(items) == original_count:
-                logger.debug(f"To Discuss item not found for {person.name}: {text[:50]}")
-                return False
+                if len(items) == original_count:
+                    logger.debug(f"To Discuss item not found for {person.name}: {text[:50]}")
+                    return False
 
-            # Update section
-            new_section_content = write_to_discuss_items(items)
-            new_body = update_section(body, "To Discuss", new_section_content)
+                # Update section
+                new_section_content = write_to_discuss_items(items)
+                new_body = update_section(body, "To Discuss", new_section_content)
 
-            # Write back
-            new_content = f"---{frontmatter}---\n{new_body}"
-            file_path.write_text(new_content, encoding="utf-8")
+                # Write back
+                new_content = f"---{frontmatter}---\n{new_body}"
+                vault_io.write_note(file_path, new_content, precondition=_stamp)
 
-            logger.info(f"Removed To Discuss item for {person.name}: {text[:50]}")
-            return True
+                logger.info(f"Removed To Discuss item for {person.name}: {text[:50]}")
+                return True
 
         except LoudFailError:
             raise                   # our own signal — never re-wrapped, never swallowed

@@ -16,6 +16,7 @@ from obsidian_schemas.writer import (
 )
 from obsidian_schemas.parser import parse_frontmatter, parse_markdown_file
 from obsidian_schemas.models import Person, Company, Book
+from obsidian_schemas.errors import NoteAlreadyExists
 
 
 class TestModelToFrontmatter:
@@ -149,7 +150,14 @@ class TestWriteMarkdownFile:
             file_path = Path(tmpdir) / "test.md"
             file_path.write_text("original content")
 
-            with pytest.raises(FileExistsError):
+            # WI-004 Table 3a row 7 (axis γ): a create collision is now refused
+            # with NoteAlreadyExists, a LoudFailError — because
+            # `except LoudFailError` is how this package tells consumers it
+            # refused. The two cannot be unified: LoudFailError derives from
+            # ValueError and FileExistsError from OSError, and a class
+            # inheriting both fails at class creation with an instance
+            # lay-out conflict.
+            with pytest.raises(NoteAlreadyExists):
                 write_markdown_file(
                     file_path,
                     frontmatter={"type": "person"},
@@ -173,6 +181,7 @@ class TestWriteMarkdownFile:
                 frontmatter={"type": "person", "name": "New Person"},
                 overwrite=True,
                 allow_body_replacement=True,
+                allow_unverified_overwrite=True,
             )
 
             content = file_path.read_text()
@@ -324,6 +333,7 @@ Some notes here.
                 entity=doc.entity,
                 body=doc.body,
                 extra_fields=doc.extra_fields,
+                allow_unverified_overwrite=True,
                 overwrite=True,
             )
 

@@ -50,6 +50,9 @@ from obsidian_schemas.errors import (
     SchemaDriftError,
     UnverifiableBodyError,
     WriteFailedError,
+    StaleEntityWrite,
+    ExternalWriteConflict,
+    NoteAlreadyExists,
 )
 from obsidian_schemas.body_sections import (
     parse_body_sections,
@@ -122,6 +125,10 @@ __all__ = [
     "SchemaDriftError",
     "UnverifiableBodyError",
     "WriteFailedError",
+    # Concurrent & external write safety (WI-004)
+    "StaleEntityWrite",
+    "ExternalWriteConflict",
+    "NoteAlreadyExists",
     # Body Sections
     "parse_body_sections",
     "write_body_sections",

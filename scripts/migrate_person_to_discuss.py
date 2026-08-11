@@ -28,6 +28,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from obsidian_schemas import PersonRepository
+# Module attribute call form throughout (WI-004 D7).
+from obsidian_schemas import vault_io
 from obsidian_schemas.body_sections import (
     parse_body_sections,
     ensure_sections_exist,
@@ -53,59 +55,62 @@ def migrate_person_file(file_path: Path, dry_run: bool = True) -> dict:
     }
 
     try:
-        content = file_path.read_text(encoding='utf-8')
+        # Door 1 (WI-004): the read and the write share one lock, and the
+        # write is preconditioned on that read.
+        with vault_io.note_lock(file_path):
+            content, _stamp = vault_io.read_note(file_path)
 
-        # Check if it's a person file
-        if 'type: person' not in content:
-            result['status'] = 'skipped'
-            result['message'] = 'Not a person file'
+            # Check if it's a person file
+            if 'type: person' not in content:
+                result['status'] = 'skipped'
+                result['message'] = 'Not a person file'
+                return result
+
+            # Split frontmatter and body
+            if not content.startswith('---'):
+                result['status'] = 'error'
+                result['message'] = 'No frontmatter found'
+                return result
+
+            parts = content.split('---', 2)
+            if len(parts) < 3:
+                result['status'] = 'error'
+                result['message'] = 'Invalid frontmatter format'
+                return result
+
+            frontmatter = parts[1]
+            body = parts[2].lstrip('\n')
+
+            # Check if To Discuss already exists
+            if '## To Discuss' in body:
+                result['status'] = 'unchanged'
+                result['message'] = 'To Discuss section already exists'
+                return result
+
+            # Get expected sections for person
+            expected_sections = get_expected_sections('person')
+
+            # Use ensure_sections_exist to add missing sections in correct order
+            new_body = ensure_sections_exist(body, expected_sections)
+
+            # Check if anything changed
+            if new_body == body:
+                result['status'] = 'unchanged'
+                result['message'] = 'No changes needed'
+                return result
+
+            # Build new content
+            new_content = f"---{frontmatter}---\n{new_body}"
+
+            if dry_run:
+                result['status'] = 'would_update'
+                result['message'] = 'Would add To Discuss section'
+            else:
+                vault_io.write_note(file_path, new_content, precondition=_stamp)
+                result['status'] = 'updated'
+                result['message'] = 'Added To Discuss section'
+
             return result
-
-        # Split frontmatter and body
-        if not content.startswith('---'):
-            result['status'] = 'error'
-            result['message'] = 'No frontmatter found'
-            return result
-
-        parts = content.split('---', 2)
-        if len(parts) < 3:
-            result['status'] = 'error'
-            result['message'] = 'Invalid frontmatter format'
-            return result
-
-        frontmatter = parts[1]
-        body = parts[2].lstrip('\n')
-
-        # Check if To Discuss already exists
-        if '## To Discuss' in body:
-            result['status'] = 'unchanged'
-            result['message'] = 'To Discuss section already exists'
-            return result
-
-        # Get expected sections for person
-        expected_sections = get_expected_sections('person')
-
-        # Use ensure_sections_exist to add missing sections in correct order
-        new_body = ensure_sections_exist(body, expected_sections)
-
-        # Check if anything changed
-        if new_body == body:
-            result['status'] = 'unchanged'
-            result['message'] = 'No changes needed'
-            return result
-
-        # Build new content
-        new_content = f"---{frontmatter}---\n{new_body}"
-
-        if dry_run:
-            result['status'] = 'would_update'
-            result['message'] = 'Would add To Discuss section'
-        else:
-            file_path.write_text(new_content, encoding='utf-8')
-            result['status'] = 'updated'
-            result['message'] = 'Added To Discuss section'
-
-        return result
 
     except Exception as e:
         result['status'] = 'error'

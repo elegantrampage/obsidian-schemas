@@ -26,6 +26,11 @@ from obsidian_schemas.errors import (
 )
 from obsidian_schemas.models import BaseEntity, EntityType
 from obsidian_schemas.parser import parse_frontmatter
+# Imported as a MODULE and every door called as a module attribute (WI-004 D7):
+# `tests/derivations.py:_is_write_call` gates on `ast.Attribute`, so a bare
+# `write_note(...)` would match nothing and WI-020's four sweeps would go red
+# against correct code.
+from obsidian_schemas import vault_io
 
 logger = logging.getLogger(__name__)
 
@@ -159,6 +164,7 @@ def write_markdown_file(
     extra_fields: Optional[dict[str, Any]] = None,
     overwrite: bool = False,
     allow_body_replacement: bool = False,
+    allow_unverified_overwrite: bool = False,
 ) -> Path:
     """
     Write a complete Obsidian markdown file with frontmatter.
@@ -172,68 +178,113 @@ def write_markdown_file(
         overwrite: If True, overwrite existing file
         allow_body_replacement: If True, bypass the WI-126 body-shrink guard
             (the explicit escape for an intentional body replacement/clear).
+        allow_unverified_overwrite: If True, commit an overwrite of a note this
+            process never derived an entity from (WI-004 D8d). It says in the
+            call what the caller actually knows — "I read this myself, outside
+            the package's observation, and I accept that the package cannot
+            verify it" — and it degrades door 2u to door-1 strength rather than
+            to no protection: the write is still atomic, still mutually
+            excluded, and still preconditioned on the door's own in-lock stat.
+            It does NOT surrender the WI-126 body-shrink guard, which still
+            runs; `allow_body_replacement` remains separately required to drop
+            body content.
 
     Returns:
         Path to the written file
 
     Raises:
-        FileExistsError: If file exists and overwrite is False
+        NoteAlreadyExists: If the target exists and this is a create — either
+            because overwrite is False, or because no entity was derived from
+            those bytes in this process (WI-004 D8's zero case). This REPLACES
+            the FileExistsError this function used to raise.
+        StaleEntityWrite: If the target changed since the entity was derived.
         BodyTruncationError: If overwriting would silently drop existing body
             content lines and allow_body_replacement is False (WI-126 / R1).
     """
     file_path = Path(file_path)
 
-    if file_path.exists() and not overwrite:
-        raise FileExistsError(f"File already exists: {file_path}")
+    # Door 2 (WI-004 D8). The lock spans the stamp lookup, the WI-126 guard's
+    # read and the commit, so the guard verifies the SAME bytes the precondition
+    # asserts — today those two reads had nothing held between them.
+    with vault_io.note_lock(file_path) as resolved:
+        stamp = vault_io.snapshot_stamp(resolved)
 
-    # WI-126 (R1) — the body-shrink guard. On an overwrite of an existing file,
-    # refuse to silently drop existing body content. This makes the silent-wipe
-    # class (save() with an empty/template body over a rich note) impossible for
-    # every caller. Body-preserving paths (update_fields, the section writers) do
-    # their own read+write and never reach here, so they are guard-exempt. New
-    # files have no existing body, so the guard is a no-op on create.
-    if file_path.exists() and overwrite and not allow_body_replacement:
-        try:
-            _, existing_body = parse_frontmatter(
-                file_path.read_text(encoding="utf-8")
+        # The named escape forces the 2u branch for a caller that read the note
+        # itself, outside this package's observation.
+        unverified = (allow_unverified_overwrite and overwrite
+                      and file_path.exists())
+        if unverified:
+            logger.warning(
+                "allow_unverified_overwrite: committing an overwrite of a note "
+                "this process did not observe, path=%s", file_path,
             )
-        except (FrontmatterParseError, OSError, UnicodeDecodeError) as e:
-            # C3 (WI-020): the one mechanism protecting against a body wipe must
-            # not disable itself exactly when it cannot verify. Assuming the body
-            # empty here is what let a note whose frontmatter no longer parses be
-            # overwritten with no guard at all.
-            raise UnverifiableBodyError(
-                "refusing to overwrite: the existing body could not be read, so "
-                "the WI-126 body-shrink guard cannot verify this write is safe",
-                path=file_path, cause=e,
-            ) from chainable_cause(e)
-        existing_lines = _body_content_lines(existing_body)
-        if existing_lines:
-            dropped = existing_lines - _body_content_lines(body)
-            if dropped:
-                raise BodyTruncationError(file_path, len(dropped))
 
-    # Build frontmatter from entity or raw dict
-    if entity is not None:
-        fm = model_to_frontmatter(entity, extra_fields)
-    elif frontmatter is not None:
-        fm = frontmatter.copy()
-        if extra_fields:
-            fm.update(extra_fields)
-    else:
-        fm = extra_fields or {}
+        # THE ZERO CASE. An absent stamp is the STRICTEST case, never the
+        # loosest: a write whose bytes derive from no read of the target is
+        # preconditioned on the target's NON-EXISTENCE, enforced atomically by
+        # the kernel rather than by a check-then-mutate guard.
+        is_create = not unverified and (stamp is None or overwrite is False)
 
-    # Serialize to YAML
-    yaml_content = write_frontmatter(fm)
+        # WI-126 (R1) — the body-shrink guard. On an overwrite of an existing
+        # file, refuse to silently drop existing body content. This makes the
+        # silent-wipe class (save() with an empty/template body over a rich
+        # note) impossible for every caller. Body-preserving paths
+        # (update_fields, the section writers) do their own read+write and never
+        # reach here, so they are guard-exempt. It does NOT run on the zero
+        # case: there, non-existence IS the precondition, so there is no
+        # existing body to shrink.
+        if not is_create and file_path.exists() and not allow_body_replacement:
+            try:
+                _, existing_body = parse_frontmatter(
+                    file_path.read_text(encoding="utf-8")
+                )
+            except (FrontmatterParseError, OSError, UnicodeDecodeError) as e:
+                # C3 (WI-020): the one mechanism protecting against a body wipe
+                # must not disable itself exactly when it cannot verify.
+                raise UnverifiableBodyError(
+                    "refusing to overwrite: the existing body could not be read, so "
+                    "the WI-126 body-shrink guard cannot verify this write is safe",
+                    path=file_path, cause=e,
+                ) from chainable_cause(e)
+            existing_lines = _body_content_lines(existing_body)
+            if existing_lines:
+                dropped = existing_lines - _body_content_lines(body)
+                if dropped:
+                    raise BodyTruncationError(file_path, len(dropped))
 
-    # Build full content
-    content = f"---\n{yaml_content}---\n\n{body}"
+        # Build frontmatter from entity or raw dict
+        if entity is not None:
+            fm = model_to_frontmatter(entity, extra_fields)
+        elif frontmatter is not None:
+            fm = frontmatter.copy()
+            if extra_fields:
+                fm.update(extra_fields)
+        else:
+            fm = extra_fields or {}
 
-    # Ensure parent directory exists
-    file_path.parent.mkdir(parents=True, exist_ok=True)
+        # Serialize to YAML
+        yaml_content = write_frontmatter(fm)
 
-    # Write file
-    file_path.write_text(content, encoding="utf-8")
+        # Build full content
+        content = f"---\n{yaml_content}---\n\n{body}"
+
+        # Ensure parent directory exists. `mkdir` is a filesystem-mutation
+        # capability, so it is named in vault_io and nowhere else (WI-004 R5).
+        vault_io.ensure_dir(file_path.parent)
+
+        if is_create:
+            vault_io.create_note(resolved, content)
+        else:
+            vault_io.write_note(
+                resolved, content, origin="entity",
+                precondition=stamp if not unverified
+                else vault_io.stat_stamp(resolved),
+            )
+
+        # The bytes this call just committed become the new stamp, so a process
+        # that creates a note and then saves it again is a 2u update rather than
+        # a refused create.
+        vault_io.record_snapshot(resolved)
 
     return file_path
 
@@ -270,17 +321,21 @@ def update_frontmatter_field(
         raise FileNotFoundError(f"File not found: {file_path}")
 
     try:
-        content = file_path.read_text(encoding="utf-8")
-        frontmatter, body = parse_frontmatter(content)
+        # Door 1 (WI-004): the read happens INSIDE the lock and the write is
+        # preconditioned on it, so this site structurally cannot commit from a
+        # stale snapshot. The parse and the transform are unchanged.
+        with vault_io.note_lock(file_path):
+            content, stamp = vault_io.read_note(file_path)
+            frontmatter, body = parse_frontmatter(content)
 
-        # Update the field
-        frontmatter[field_name] = field_value
+            # Update the field
+            frontmatter[field_name] = field_value
 
-        # Rebuild and write
-        yaml_content = write_frontmatter(frontmatter)
-        new_content = f"---\n{yaml_content}---\n{body}"
+            # Rebuild and write
+            yaml_content = write_frontmatter(frontmatter)
+            new_content = f"---\n{yaml_content}---\n{body}"
 
-        file_path.write_text(new_content, encoding="utf-8")
+            vault_io.write_note(file_path, new_content, precondition=stamp)
         return True
 
     except LoudFailError:
@@ -320,17 +375,19 @@ def update_frontmatter_fields(
         raise FileNotFoundError(f"File not found: {file_path}")
 
     try:
-        content = file_path.read_text(encoding="utf-8")
-        frontmatter, body = parse_frontmatter(content)
+        # Door 1 (WI-004) — see update_frontmatter_field.
+        with vault_io.note_lock(file_path):
+            content, stamp = vault_io.read_note(file_path)
+            frontmatter, body = parse_frontmatter(content)
 
-        # Update all fields
-        frontmatter.update(updates)
+            # Update all fields
+            frontmatter.update(updates)
 
-        # Rebuild and write
-        yaml_content = write_frontmatter(frontmatter)
-        new_content = f"---\n{yaml_content}---\n{body}"
+            # Rebuild and write
+            yaml_content = write_frontmatter(frontmatter)
+            new_content = f"---\n{yaml_content}---\n{body}"
 
-        file_path.write_text(new_content, encoding="utf-8")
+            vault_io.write_note(file_path, new_content, precondition=stamp)
         return True
 
     except LoudFailError:
@@ -356,12 +413,14 @@ def roundtrip_file(file_path: Union[str, Path]) -> str:
     """
     file_path = Path(file_path)
 
-    content = file_path.read_text(encoding="utf-8")
-    frontmatter, body = parse_frontmatter(content)
+    # Door 1 (WI-004) — see update_frontmatter_field.
+    with vault_io.note_lock(file_path):
+        content, stamp = vault_io.read_note(file_path)
+        frontmatter, body = parse_frontmatter(content)
 
-    yaml_content = write_frontmatter(frontmatter)
-    new_content = f"---\n{yaml_content}---\n{body}"
+        yaml_content = write_frontmatter(frontmatter)
+        new_content = f"---\n{yaml_content}---\n{body}"
 
-    file_path.write_text(new_content, encoding="utf-8")
+        vault_io.write_note(file_path, new_content, precondition=stamp)
 
     return new_content

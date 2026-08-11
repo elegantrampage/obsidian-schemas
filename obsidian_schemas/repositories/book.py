@@ -14,6 +14,8 @@ from ..models import Book
 from ..parser import parse_markdown_file, parse_frontmatter
 from ..writer import write_markdown_file
 from .base import BaseRepository
+# Module attribute call form throughout (WI-004 D7).
+from obsidian_schemas import vault_io
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +65,9 @@ class BookRepository(BaseRepository[Book]):
         """
         try:
             # Parse without expected_type first to check actual type in frontmatter
+            # WI-004 D5: stat INSIDE the try and ABOVE the first read of
+            # these bytes; record only on the branch that derives an entity.
+            stamp = vault_io.stat_stamp(file_path)
             content = file_path.read_text(encoding="utf-8")
             frontmatter, _ = parse_frontmatter(content)
 
@@ -73,6 +78,7 @@ class BookRepository(BaseRepository[Book]):
             # Now parse with the Book model
             doc = parse_markdown_file(file_path, self.entity_type)
             if doc.entity and isinstance(doc.entity, self.entity_type):
+                vault_io.remember_snapshot(file_path, stamp)
                 return doc.entity
         except Exception as e:
             # Broad on purpose — load()'s loop has no try, so this clause is the
@@ -142,6 +148,7 @@ class BookRepository(BaseRepository[Book]):
         extra_fields: Optional[dict] = None,
         overwrite: bool = True,
         allow_body_replacement: bool = False,
+        allow_unverified_overwrite: bool = False,
     ) -> Path:
         """
         Save a book to the vault.
@@ -167,13 +174,11 @@ class BookRepository(BaseRepository[Book]):
             extra_fields=extra_fields,
             overwrite=overwrite,
             allow_body_replacement=allow_body_replacement,
+            allow_unverified_overwrite=allow_unverified_overwrite,
         )
 
-        # Update cache
-        name_key = self._get_cache_key(entity)
-        self._cache[name_key] = entity
-        self._file_map[name_key] = file_path
-        self._index_entity(entity, name_key)
+        # Update cache — through the one adoption door (WI-004 AC-18).
+        self._adopt(self._get_cache_key(entity), entity, file_path)
 
         logger.info(f"Saved book: {filename}")
         return file_path

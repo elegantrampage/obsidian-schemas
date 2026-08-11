@@ -81,7 +81,29 @@ class WriteFailedError(LoudFailError):
     """A write path did not complete. Wraps the original error as __cause__."""
 
 
-# Exactly the twelve literals of the construction table below — nothing else.
+class StaleEntityWrite(LoudFailError):
+    """A door-2 entity write whose payload derives from a snapshot older than the
+    target. Distinguishable from WriteFailedError on purpose: a caller may
+    refresh() and retry this, while a genuine IO failure must not be retried.
+    Adds NO __init__ — the hierarchy's one constructor is what bounds the
+    message, and a note's bytes are exactly what must not reach it."""
+
+
+class ExternalWriteConflict(LoudFailError):
+    """A door-1 content write whose target changed between the in-lock read and
+    the commit — an external writer (Obsidian, another process) landed
+    mid-mutation. Retryable: the retry's fresh in-lock read picks up their edit."""
+
+
+class NoteAlreadyExists(LoudFailError):
+    """A write with no derivation read found the target already present. The zero
+    case of the precondition rule, refused by the kernel (`os.link` EEXIST)
+    rather than by a check, so there is no check-then-mutate gap. NOT retryable:
+    it is a resolution outcome, and the caller either reuses the existing note or
+    surfaces it."""
+
+
+# Exactly the literals of the construction table below — nothing else.
 # Extended only by editing this set alongside that table; bounded_message
 # refuses anything else at first construction. Enumerated, not derived, so that
 # the set is readable at the choke point rather than assembled at import.
@@ -99,6 +121,9 @@ REASONS: frozenset = frozenset({
     "failed to add To Discuss item",                      # person.py WARNING
     "failed to update To Discuss item",                   # person.py WARNING
     "failed to remove To Discuss item",                   # person.py WARNING
+    "entity write derives from a stale snapshot",         # StaleEntityWrite, WI-004 door 2u
+    "target changed since it was read",                   # ExternalWriteConflict, WI-004 door 1
+    "a note already exists at the destination",           # NoteAlreadyExists, WI-004 doors 2c/3
 })
 
 # LoudFailError.__init__ — the hierarchy's ONE constructor and the sole caller of

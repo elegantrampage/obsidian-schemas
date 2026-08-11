@@ -7,6 +7,7 @@ entities from markdown files with YAML frontmatter.
 
 import logging
 import os
+import threading
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,6 +17,8 @@ from ..errors import FrontmatterParseError, SchemaDriftError, bounded_detail
 from ..models import BaseEntity
 from ..parser import parse_markdown_file, parse_frontmatter
 from ..writer import write_markdown_file, write_frontmatter
+# Module attribute call form throughout (WI-004 D7) — see writer.py's note.
+from obsidian_schemas import vault_io
 
 logger = logging.getLogger(__name__)
 
@@ -143,6 +146,38 @@ class BaseRepository(ABC, Generic[T]):
         self._file_map: dict[str, Path] = {}  # lowercase name -> file path
         self._skipped: List[SkippedNote] = []
         self._loaded = False
+        # WI-004 AC-18 (the item's original March scope). Guards MUTATION of
+        # _cache, _file_map and _skipped. Every mutation of the two mappings
+        # REPLACES the container rather than mutating a live one, which is what
+        # makes the lock-free read side true rather than aspirational: a lock
+        # the reader does not take buys nothing while a writer clears and
+        # repopulates in place.
+        self._cache_lock = threading.RLock()
+
+    def _adopt(self, name_key: str, entity: T, file_path: Path) -> None:
+        """The ONE door through which a single entity enters the cache.
+
+        Takes the lock, copies both mappings, sets the key in each copy, rebinds
+        both attributes, and indexes — the identical three-part adoption every
+        call site used to perform inline, written once.
+
+        This is a DOOR rather than a nine-site list because a list derived over
+        the pre-change tree cannot reach a site the change itself creates:
+        WI-004's own create_stub recovery is the fifth caller, in the one file a
+        pre-build sweep declared needed none.
+
+        `load` deliberately does NOT call this: it is a bulk rebuild, and a
+        per-note adoption would publish a half-built vault once per note instead
+        of never, and copy the whole mapping N times.
+        """
+        with self._cache_lock:
+            new_cache = dict(self._cache)
+            new_file_map = dict(self._file_map)
+            new_cache[name_key] = entity
+            new_file_map[name_key] = file_path
+            self._cache = new_cache
+            self._file_map = new_file_map
+            self._index_entity(entity, name_key)
 
     @property
     @abstractmethod
@@ -173,24 +208,36 @@ class BaseRepository(ABC, Generic[T]):
         Returns:
             Number of entities loaded.
         """
-        self._cache.clear()
-        self._file_map.clear()
-        self._skipped.clear()
+        # A BULK rebuild, held across the whole walk: fresh local mappings are
+        # filled key-by-key and both attributes are rebound ONCE at the end, so
+        # a concurrent get_all() sees the complete pre- or post-refresh mapping
+        # and never a half-built vault reported as the whole one. The live
+        # `self._cache.clear()` this replaced is what made a writers-only lock
+        # worthless to a lock-free reader (WI-004 AC-18).
+        with self._cache_lock:
+            new_cache: dict[str, T] = {}
+            new_file_map: dict[str, Path] = {}
+            self._skipped.clear()
 
-        if not self.vault_path.exists():
-            logger.warning(f"Vault path does not exist: {self.vault_path}")
-            self._loaded = True
-            return 0
+            if not self.vault_path.exists():
+                logger.warning(f"Vault path does not exist: {self.vault_path}")
+                self._cache = new_cache
+                self._file_map = new_file_map
+                self._loaded = True
+                return 0
 
-        count = 0
-        for file_path in self.vault_path.glob(self.file_pattern):
-            entity = self._load_file(file_path)
-            if entity:
-                name_key = self._get_cache_key(entity)
-                self._cache[name_key] = entity
-                self._file_map[name_key] = file_path
-                self._index_entity(entity, name_key)
-                count += 1
+            count = 0
+            for file_path in self.vault_path.glob(self.file_pattern):
+                entity = self._load_file(file_path)
+                if entity:
+                    name_key = self._get_cache_key(entity)
+                    new_cache[name_key] = entity
+                    new_file_map[name_key] = file_path
+                    self._index_entity(entity, name_key)
+                    count += 1
+
+            self._cache = new_cache
+            self._file_map = new_file_map
 
         logger.info(f"Loaded {count} {self.type_name} entities from vault")
         self._loaded = True
@@ -199,11 +246,13 @@ class BaseRepository(ABC, Generic[T]):
     @property
     def skipped_notes(self) -> List[SkippedNote]:
         """Notes this repository owns and could NOT load, since the last load()."""
-        return list(self._skipped)
+        with self._cache_lock:
+            return list(self._skipped)
 
     @property
     def skipped_count(self) -> int:
-        return len(self._skipped)
+        with self._cache_lock:
+            return len(self._skipped)
 
     def _owns(self, declared_type: Optional[str]) -> bool:
         """Can this repository PROVE the file is its own? Decided on the raw
@@ -220,7 +269,8 @@ class BaseRepository(ABC, Generic[T]):
         if not self._owns(declared):
             logger.debug(f"Not ours, not skipped: {file_path}: {detail}")
             return
-        self._skipped.append(SkippedNote(file_path, _skip_reason(error), detail))
+        with self._cache_lock:
+            self._skipped.append(SkippedNote(file_path, _skip_reason(error), detail))
         logger.warning(f"Skipped {self.type_name} note {file_path}: {detail}")
 
     def _load_file(self, file_path: Path) -> Optional[T]:
@@ -236,8 +286,20 @@ class BaseRepository(ABC, Generic[T]):
         by propagation.
         """
         try:
+            # WI-004 D5: stat BEFORE the bytes are read, record only on the
+            # branch that actually derives an entity. Stat-first makes the stamp
+            # OLDER than the payload under a race, and an older stamp fails the
+            # precondition — the failure direction is refusal. Stat-after would
+            # make it newer and the failure direction a silent lost update.
+            #
+            # INSIDE the try, never above it: load()'s loop carries no try of
+            # its own, so this broad except IS WI-020's no-abort guarantee, and
+            # a stat raising above it would abort the whole vault walk on one
+            # unreadable note.
+            stamp = vault_io.stat_stamp(file_path)
             doc = parse_markdown_file(file_path, self.entity_type)
             if doc.entity and isinstance(doc.entity, self.entity_type):
+                vault_io.remember_snapshot(file_path, stamp)
                 return doc.entity
         except Exception as e:
             self._note_skip(file_path, e)
@@ -298,6 +360,7 @@ class BaseRepository(ABC, Generic[T]):
         extra_fields: Optional[dict] = None,
         overwrite: bool = True,
         allow_body_replacement: bool = False,
+        allow_unverified_overwrite: bool = False,
     ) -> Path:
         """
         Save an entity to the vault.
@@ -318,6 +381,9 @@ class BaseRepository(ABC, Generic[T]):
         filename = f"@{name}.md"
         file_path = self.vault_path / filename
 
+        # NOT under _cache_lock: the repository lock spans the cache mutation
+        # only, never the filesystem write, so no thread ever holds it while
+        # acquiring note_lock (WI-004's lock-ordering ruling).
         write_markdown_file(
             file_path,
             entity=entity,
@@ -325,13 +391,11 @@ class BaseRepository(ABC, Generic[T]):
             extra_fields=extra_fields,
             overwrite=overwrite,
             allow_body_replacement=allow_body_replacement,
+            allow_unverified_overwrite=allow_unverified_overwrite,
         )
 
-        # Update cache
-        name_key = self._get_cache_key(entity)
-        self._cache[name_key] = entity
-        self._file_map[name_key] = file_path
-        self._index_entity(entity, name_key)
+        # Update cache — through the one adoption door.
+        self._adopt(self._get_cache_key(entity), entity, file_path)
 
         logger.info(f"Saved {self.type_name}: {filename}")
         return file_path
@@ -368,26 +432,28 @@ class BaseRepository(ABC, Generic[T]):
         if not file_path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
 
-        # Read current file content
-        content = file_path.read_text(encoding="utf-8")
-        frontmatter, body = parse_frontmatter(content)
+        # Door 1 (WI-004): read INSIDE the lock, write preconditioned on that
+        # read. The transform below is unchanged.
+        with vault_io.note_lock(file_path):
+            content, stamp = vault_io.read_note(file_path)
+            frontmatter, body = parse_frontmatter(content)
 
-        # If name is changing, preserve old filename stem as alias so the
-        # entity remains resolvable by its former name / wikilink target.
-        if "name" in updates and updates["name"] != frontmatter.get("name", ""):
-            old_stem = file_path.stem.lstrip("@")
-            aliases = frontmatter.get("aliases", [])
-            if old_stem not in aliases:
-                aliases.append(old_stem)
-                frontmatter["aliases"] = aliases
+            # If name is changing, preserve old filename stem as alias so the
+            # entity remains resolvable by its former name / wikilink target.
+            if "name" in updates and updates["name"] != frontmatter.get("name", ""):
+                old_stem = file_path.stem.lstrip("@")
+                aliases = frontmatter.get("aliases", [])
+                if old_stem not in aliases:
+                    aliases.append(old_stem)
+                    frontmatter["aliases"] = aliases
 
-        # Update frontmatter with new values
-        frontmatter.update(updates)
+            # Update frontmatter with new values
+            frontmatter.update(updates)
 
-        # Rebuild and write file
-        yaml_content = write_frontmatter(frontmatter)
-        new_content = f"---\n{yaml_content}---\n{body}"
-        file_path.write_text(new_content, encoding="utf-8")
+            # Rebuild and write file
+            yaml_content = write_frontmatter(frontmatter)
+            new_content = f"---\n{yaml_content}---\n{body}"
+            vault_io.write_note(file_path, new_content, precondition=stamp)
 
         # Reload entity from file to get updated model
         updated_entity = self._load_file(file_path)
@@ -400,18 +466,24 @@ class BaseRepository(ABC, Generic[T]):
 
         # Remove old cache entry and indexes
         old_entity = self._cache.get(old_name_key)
+        # The REMOVAL half: copies, deleted from, rebound under the lock — never
+        # a live mapping mutated in place. The _adopt call below closes the same
+        # critical section (WI-004 AC-18).
         if old_entity:
-            self._remove_entity_from_indexes(old_entity, old_name_key)
-            del self._cache[old_name_key]
-            self._file_map.pop(old_name_key, None)
+            with self._cache_lock:
+                self._remove_entity_from_indexes(old_entity, old_name_key)
+                new_cache = dict(self._cache)
+                new_file_map = dict(self._file_map)
+                new_cache.pop(old_name_key, None)
+                new_file_map.pop(old_name_key, None)
+                self._cache = new_cache
+                self._file_map = new_file_map
 
         # Also clean up new key if it already existed (shouldn't, but defensive)
         if new_name_key != old_name_key and new_name_key in self._cache:
             self._remove_entity_from_indexes(self._cache[new_name_key], new_name_key)
 
-        self._cache[new_name_key] = updated_entity
-        self._file_map[new_name_key] = file_path
-        self._index_entity(updated_entity, new_name_key)
+        self._adopt(new_name_key, updated_entity, file_path)
 
         logger.info(f"Updated {self.type_name} fields: {name} -> {list(updates.keys())}")
         return updated_entity
@@ -431,8 +503,9 @@ class BaseRepository(ABC, Generic[T]):
             Number of entities loaded, or -1 if the reload was refused to
             avoid clobbering a non-empty cache.
         """
-        cache_snapshot = dict(self._cache)
-        file_map_snapshot = dict(self._file_map)
+        with self._cache_lock:
+            cache_snapshot = dict(self._cache)
+            file_map_snapshot = dict(self._file_map)
         had_entries = len(cache_snapshot) > 0
 
         self._loaded = False
@@ -447,10 +520,11 @@ class BaseRepository(ABC, Generic[T]):
                 self.type_name,
                 len(cache_snapshot),
             )
-            self._cache = cache_snapshot
-            self._file_map = file_map_snapshot
-            for cache_key, entity in self._cache.items():
-                self._index_entity(entity, cache_key)
+            with self._cache_lock:
+                self._cache = cache_snapshot
+                self._file_map = file_map_snapshot
+                for cache_key, entity in cache_snapshot.items():
+                    self._index_entity(entity, cache_key)
             self._loaded = True
             return -1
 

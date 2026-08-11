@@ -28,6 +28,55 @@ from typing import Iterable, NamedTuple, Optional
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 PACKAGE_ROOT = _REPO_ROOT / "obsidian_schemas"
 TESTS_ROOT = _REPO_ROOT / "tests"
+SCRIPTS_ROOT = _REPO_ROOT / "scripts"
+
+
+# --------------------------------------------------------------------------
+# WI-004's routing vocabulary, PARTITIONED BY RESOLVABILITY (D10.1).
+#
+# The partition is not cosmetic. An attribute-NAME oracle over a vocabulary of
+# stdlib verbs cannot separate a filesystem receiver from a str/dict receiver,
+# and this tree exercises the non-filesystem side of two of those verbs today
+# (fourteen `str.replace` call nodes, three `dict.copy` ones). So a name is
+# matched on its own ONLY when it has no homonym; everything else is matched
+# through IMPORT PROVENANCE, which is a discriminator syntax can decide.
+# --------------------------------------------------------------------------
+
+DOOR_NAMES = frozenset({"write_note", "create_note", "move_note"})
+
+# (1) pathlib.Path mutator methods with NO str/dict/list/set homonym. Safe to
+#     match on ATTRIBUTE NAME alone, on any receiver -- and the MUST-NOT-MATCH
+#     battery in tests/test_write_routing.py is what keeps that claim honest.
+PATH_MUTATION_NAMES = frozenset({
+    "write_text", "write_bytes", "mkdir", "rmdir", "unlink", "rename",
+    "symlink_to", "hardlink_to", "link_to", "touch", "chmod", "lchmod",
+})
+
+# (2) names that are filesystem verbs ONLY as members of a filesystem module.
+#     Matched ONLY through import provenance, never on attribute name, because
+#     each has (or could have) a live non-filesystem homonym: `replace` is
+#     str.replace, `copy` is dict.copy, `write` is any file object's.
+MODULE_MUTATION_NAMES = frozenset({
+    "replace", "remove", "removedirs", "makedirs", "renames", "rename",
+    "unlink", "rmdir", "link", "symlink", "truncate", "chown", "fdopen",
+    "open", "write", "move", "copy", "copy2", "copyfile", "copytree",
+    "rmtree", "mkstemp", "mkdtemp", "NamedTemporaryFile", "TemporaryFile",
+})
+
+FS_MODULES = frozenset({"os", "shutil", "tempfile", "fcntl", "filelock", "mmap"})
+OS_READONLY_NAMES = frozenset({"environ", "getenv", "sep", "path", "fspath", "getcwd"})
+
+# The vault_io surface whose returns a caller ACTS ON -- its path-, payload- and
+# stamp-returning functions. `ensure_dir` returns the directory a caller then
+# writes into and `read_note`/`stat_stamp` return the payload and the
+# precondition a caller then commits on, so a falsy return from any of them is
+# the same silent-noop class as one from `write_note`. `snapshot_stamp` is
+# deliberately OUTSIDE the set: its None IS the zero case the whole precondition
+# rule is built on.
+COMMIT_FUNCTION_NAMES = frozenset({
+    "write_note", "create_note", "move_note", "read_note",
+    "stat_stamp", "record_snapshot", "ensure_dir",
+})
 
 
 # --------------------------------------------------------------------------
@@ -187,11 +236,18 @@ def _names_in(node) -> set:
 
 
 def _is_write_call(node) -> bool:
-    """A call that commits bytes to the filesystem."""
+    """A call that commits bytes to the filesystem.
+
+    WI-004 widened the attr set by DOOR_NAMES and changed NOTHING else -- in
+    particular the `ast.Attribute` gate stays. After that item the way package
+    code commits bytes is by calling a vault_io door AS A MODULE ATTRIBUTE
+    (`vault_io.write_note(...)`), so the meaning is unchanged and the extension
+    carries over to the three sweeps that consume this predicate.
+    """
     return (
         isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
-        and node.func.attr in {"write_text", "write_bytes"}
+        and node.func.attr in ({"write_text", "write_bytes"} | DOOR_NAMES)
     )
 
 
@@ -570,3 +626,237 @@ def modules_using_ast(files: Iterable[Path]) -> list:
                     uses.append(AstUse(module, f"{node.value.id}.{node.attr}",
                                        node.lineno))
     return uses
+
+
+# --------------------------------------------------------------------------
+# 10. WI-004's routing wall predicates (Walls A-E)
+#
+# All five read PARSED SYNTAX, never source text -- the modules_using_ast
+# lesson: a text matcher matches the test that plants its own fixtures as
+# string literals and goes red on a correct harness.
+# --------------------------------------------------------------------------
+
+def _fs_module_bindings(tree) -> tuple:
+    """The two provenance maps a file's imports establish.
+
+    Returns (module_bindings, member_bindings):
+      module_bindings: local name -> FS_MODULES member, from `import m` /
+                       `import m as a`.
+      member_bindings: local name -> the ORIGINAL member name, from
+                       `from m import n` / `from m import n as a`.
+
+    Provenance is the IMPORT, so a local alias is irrelevant to either map --
+    which is what makes `from os import replace as _r; _r(a, b)` resolvable
+    while `s.replace("-", "")` is not.
+    """
+    module_bindings = {}
+    member_bindings = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                root = alias.name.split(".")[0]
+                if root in FS_MODULES:
+                    module_bindings[alias.asname or root] = root
+        elif isinstance(node, ast.ImportFrom):
+            if node.module and node.module.split(".")[0] in FS_MODULES:
+                for alias in node.names:
+                    member_bindings[alias.asname or alias.name] = alias.name
+    return module_bindings, member_bindings
+
+
+def _write_mode_argument(node):
+    """The mode argument of an `open`-shaped call, or None if it is not one.
+
+    Two call forms carry the mode in different positions: `open(p, "w")` is a
+    bare-name call whose mode is the SECOND positional argument, while
+    `p.open("w")` is an attribute call whose mode is the FIRST. A `mode=`
+    keyword beats both.
+    """
+    for kw in node.keywords:
+        if kw.arg == "mode":
+            return kw.value
+    f = node.func
+    if isinstance(f, ast.Name) and f.id == "open":
+        return node.args[1] if len(node.args) > 1 else None
+    if isinstance(f, ast.Attribute) and f.attr == "open":
+        return node.args[0] if node.args else None
+    return None
+
+
+def filesystem_mutation_uses(files: Iterable[Path]) -> list:
+    """Wall A. Every USE of a filesystem-MUTATION capability, by four arms.
+
+    (a) attribute call whose attr is a homonym-free Path mutator;
+    (b) attribute call on a name bound by an FS_MODULES import, whose attr is in
+        either vocabulary -- `os.replace`, `shutil.move`, `tempfile.mkstemp`;
+    (c) bare-name call on a name bound by `from <fs-module> import <n>` where the
+        ORIGINAL n is in either vocabulary;
+    (d) an `open`-shaped call whose mode literal contains w, a, x or +.
+
+    What no arm resolves is `p.replace(q)` on a Path variable: `replace` is the
+    one Path mutator whose attribute name collides with a builtin's method, so
+    it is provenance-matched only. That blind spot is declared (WI-004 R10) and
+    bounded by os_module_attribute_uses, which makes any `os` member outside
+    OS_READONLY_NAMES red wherever it is named.
+    """
+    uses = []
+    for path in files:
+        tree = _parse(path)
+        module = module_id(path)
+        module_bindings, member_bindings = _fs_module_bindings(tree)
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            f = node.func
+
+            if isinstance(f, ast.Attribute):
+                # (b) module-qualified -- checked before (a) so the reported
+                # capability names the module it came through.
+                receiver = f.value
+                if (isinstance(receiver, ast.Name)
+                        and receiver.id in module_bindings
+                        and f.attr in (MODULE_MUTATION_NAMES | PATH_MUTATION_NAMES)):
+                    uses.append(AstUse(
+                        module, f"{module_bindings[receiver.id]}.{f.attr}",
+                        node.lineno))
+                    continue
+                # (a) homonym-free Path mutator, any receiver
+                if f.attr in PATH_MUTATION_NAMES:
+                    uses.append(AstUse(module, f.attr, node.lineno))
+                    continue
+
+            # (c) aliased import of a mutating member
+            if isinstance(f, ast.Name) and f.id in member_bindings:
+                original = member_bindings[f.id]
+                if original in (MODULE_MUTATION_NAMES | PATH_MUTATION_NAMES):
+                    uses.append(AstUse(module, original, node.lineno))
+                    continue
+
+            # (d) write-mode open
+            mode = _write_mode_argument(node)
+            if (isinstance(mode, ast.Constant)
+                    and isinstance(mode.value, str)
+                    and any(c in mode.value for c in "wax+")):
+                uses.append(AstUse(module, f'open(mode={mode.value})',
+                                   node.lineno))
+    return uses
+
+
+def os_module_attribute_uses(files: Iterable[Path]) -> list:
+    """Wall B. Every reach into the `os` module outside OS_READONLY_NAMES,
+    IN EITHER ACCESS FORM.
+
+    This is a rule over the ATTRIBUTE, not a list of exempt files: three live
+    sites need `os.environ` and all three pass by predicate. The discriminator
+    is the MODULE rather than the member, so a name no vocabulary ever
+    anticipated -- `os.fchmod` -- is caught with no vocabulary at all.
+
+    The `from os import <n>` arm collects the BINDING, not the call: an unused
+    mutator import is still a mutation capability sitting outside the door.
+
+    FILTER PLACEMENT, because the two arms differ and that asymmetry is ruled
+    (D10.3, and pinned by D10.6's Table 1): the ATTRIBUTE arm returns every
+    `os.<attr>` access and Wall B asserts that everything it returns outside
+    `vault_io.py` is in `OS_READONLY_NAMES` -- which is what makes that
+    assertion a live, non-vacuous claim against the three `os.environ` reads
+    this tree carries. The `ImportFrom` arm filters inside the predicate, per
+    D10.3's "where `n` is not in `OS_READONLY_NAMES`".
+    """
+    uses = []
+    for path in files:
+        tree = _parse(path)
+        module = module_id(path)
+
+        bound = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name == "os":
+                        bound.add(alias.asname or "os")
+            elif isinstance(node, ast.ImportFrom):
+                if node.module == "os":
+                    for alias in node.names:
+                        if alias.name not in OS_READONLY_NAMES:
+                            uses.append(AstUse(module, f"os.{alias.name}",
+                                               node.lineno))
+
+        if bound:
+            for node in ast.walk(tree):
+                if (isinstance(node, ast.Attribute)
+                        and isinstance(node.value, ast.Name)
+                        and node.value.id in bound):
+                    uses.append(AstUse(module, f"os.{node.attr}", node.lineno))
+    return uses
+
+
+def module_import_uses(files: Iterable[Path], modules: Iterable[str]) -> list:
+    """Wall C. Every IMPORT of one of `modules`, in both statement forms.
+
+    The oracle is the import and not a call: bringing a mutation capability into
+    a module is the thing this forbids. `qualname` is always the ORIGINAL module
+    name, never the local alias, so a caller can compare the returned module set
+    against the set it asked about.
+    """
+    wanted = frozenset(modules)
+    uses = []
+    for path in files:
+        tree = _parse(path)
+        module = module_id(path)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    root = alias.name.split(".")[0]
+                    if root in wanted:
+                        uses.append(AstUse(module, root, node.lineno))
+            elif isinstance(node, ast.ImportFrom):
+                if node.module and node.module.split(".")[0] in wanted:
+                    uses.append(AstUse(module, node.module.split(".")[0],
+                                       node.lineno))
+    return uses
+
+
+def functions_calling(files: Iterable[Path], name: str) -> set:
+    """Wall D. Every function whose OWN body calls `name`.
+
+    Built on `_called_names` / `_own_body_nodes`, so `f(...)` and `x.f(...)`
+    both count and a call moved into a nested helper does NOT count as the
+    enclosing function's -- a loader that hides its recording in a closure is
+    deliberately red.
+    """
+    found = set()
+    for path in files:
+        tree = _parse(path)
+        for fid, func in _iter_functions(path, tree):
+            if name in _called_names(func):
+                found.add(fid)
+    return found
+
+
+def falsy_returns_in(files: Iterable[Path], names: Iterable[str]) -> list:
+    """Wall E. Every explicit FALSY return in the own body of a function whose
+    last dotted qualname segment is in `names`.
+
+    Shares `_own_body_nodes` and `_is_falsy_return` with
+    `non_completed_write_sites` -- one rule over two universes, never a second
+    copy. That universe is needed because `non_completed_write_sites`' own gate
+    is `_is_write_call`, which no vault_io function enters (the module commits
+    through a file descriptor), so the door contract asserted against it would
+    have been vacuous.
+
+    An implicit fall-off-the-end is not an `ast.Return` node and is invisible
+    here by construction. That limit is declared rather than papered over.
+    """
+    wanted = frozenset(names)
+    sites = []
+    for path in files:
+        tree = _parse(path)
+        for fid, func in _iter_functions(path, tree):
+            if fid.name not in wanted:
+                continue
+            members = [n for n in _own_body_nodes(func)
+                       if isinstance(n, ast.Return) and _is_falsy_return(n)]
+            members.sort(key=lambda n: (n.lineno, n.col_offset))
+            for i, _node in enumerate(members):
+                sites.append(SiteId(fid.module, fid.qualname, i))
+    return sites

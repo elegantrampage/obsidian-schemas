@@ -442,15 +442,19 @@ def test_error_chains_are_bounded(tmp_path, monkeypatch):
     good = tmp_path / "@Good.md"
     good.write_text("---\ntype: person\nname: Good\n---\n\nbody\n", encoding="utf-8")
     boom = OSError(13, "Permission denied")
-    real_write_text = _Path.write_text
+    # WI-004 Table 3a row 1: the fault is injected AT THE DOOR, because
+    # Path.write_text is no longer where package code commits bytes (vault_io
+    # commits through a file descriptor). The asserted outcome is unchanged.
+    from obsidian_schemas import vault_io
+    real_write_note = vault_io.write_note
 
-    def deny(self, *a, **k):
+    def deny(*a, **k):
         raise boom
 
-    monkeypatch.setattr(_Path, "write_text", deny)
+    monkeypatch.setattr(vault_io, "write_note", deny)
     with pytest.raises(WriteFailedError) as caught:
         update_frontmatter_field(good, "role", "vip")
-    monkeypatch.setattr(_Path, "write_text", real_write_text)
+    monkeypatch.setattr(vault_io, "write_note", real_write_note)
     assert caught.value.__cause__ is boom, (
         "an OSError must survive into __cause__ — a blanket `from None` would "
         "pay for M5 with Edge Cases' promise"

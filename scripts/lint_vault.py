@@ -44,6 +44,9 @@ from obsidian_schemas.body_sections import (
 from obsidian_schemas.models import TYPE_TO_MODEL
 from obsidian_schemas.parser import parse_frontmatter
 from obsidian_schemas.writer import update_frontmatter_fields
+from obsidian_schemas.errors import NoteAlreadyExists
+# Module attribute call form throughout (WI-004 D7).
+from obsidian_schemas import vault_io
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -811,87 +814,90 @@ def apply_fixes(issues: list[LintIssue], vault_path: Path,
 
     for fpath, file_issues in by_file.items():
         try:
-            content = fpath.read_text(encoding="utf-8")
-            fm, body = parse_frontmatter(content)
-            changed = False
+            # Door 1 (WI-004): ONE reentrant lock spans both writes below;
+            # each carries the stamp of its own freshly-read bytes.
+            with vault_io.note_lock(fpath):
+                content, _stamp = vault_io.read_note(fpath)
+                fm, body = parse_frontmatter(content)
+                changed = False
 
-            # Collect wikilink replacements (applied on raw content)
-            wikilink_replacements: list[tuple[str, str]] = []
+                # Collect wikilink replacements (applied on raw content)
+                wikilink_replacements: list[tuple[str, str]] = []
 
-            for issue in file_issues:
-                if issue.check == "field_type_mismatch":
-                    raw = fm.get("auto_created")
-                    if isinstance(raw, str):
-                        fm["auto_created"] = raw.lower() in ("true", "yes", "1")
-                        changed = True
-                        fixed += 1
-
-                elif issue.check == "person_missing_name":
-                    name = fpath.stem.lstrip("@")
-                    fm["name"] = name
-                    changed = True
-                    fixed += 1
-
-                elif issue.check == "missing_body_sections":
-                    etype = fm.get("type", "")
-                    expected = get_expected_sections(etype)
-                    if expected:
-                        body = ensure_sections_exist(body, expected)
-                        changed = True
-                        fixed += 1
-
-                elif issue.check == "meeting_missing_from_timeline":
-                    mstem = issue.suggested_fix  # meeting stem
-                    if mstem and mstem in meetings:
-                        mvf = meetings[mstem]
-                        entry = _build_timeline_entry(mvf)
-                        sections = parse_body_sections(body)
-                        timeline = sections.get("Timeline", "")
-                        # Append entry to timeline
-                        if timeline and not timeline.endswith("\n"):
-                            timeline += "\n"
-                        timeline += "\n" + entry
-                        sections["Timeline"] = timeline
-                        from obsidian_schemas.body_sections import write_body_sections
-
-                        body = write_body_sections(sections)
-                        changed = True
-                        fixed += 1
-
-                elif issue.check == "broken_wikilink":
-                    try:
-                        fix_data = json.loads(issue.suggested_fix)
-                        old_link = fix_data["old"]
-                        new_link = fix_data["new"]
-                        wikilink_replacements.append((old_link, new_link))
-                    except (json.JSONDecodeError, KeyError):
-                        pass
-
-            if changed:
-                # Write the full file with updated frontmatter + body
-                from obsidian_schemas.writer import write_frontmatter as _wfm
-
-                yaml_str = _wfm(fm)
-                content = f"---\n{yaml_str}---\n{body}"
-                fpath.write_text(content, encoding="utf-8")
-
-            # Apply wikilink replacements on the current file content
-            if wikilink_replacements:
-                content = fpath.read_text(encoding="utf-8")
-                wl_changed = False
-                for old_link, new_link in wikilink_replacements:
-                    # Replace both [[old]] and [[old|alias]] forms
-                    for old_pat, new_pat in [
-                        (f"[[{old_link}]]", f"[[{new_link}]]"),
-                        (f"[[{old_link}|", f"[[{new_link}|"),
-                    ]:
-                        if old_pat in content:
-                            content = content.replace(old_pat, new_pat)
-                            wl_changed = True
+                for issue in file_issues:
+                    if issue.check == "field_type_mismatch":
+                        raw = fm.get("auto_created")
+                        if isinstance(raw, str):
+                            fm["auto_created"] = raw.lower() in ("true", "yes", "1")
+                            changed = True
                             fixed += 1
-                            break  # only count once per replacement pair
-                if wl_changed:
-                    fpath.write_text(content, encoding="utf-8")
+
+                    elif issue.check == "person_missing_name":
+                        name = fpath.stem.lstrip("@")
+                        fm["name"] = name
+                        changed = True
+                        fixed += 1
+
+                    elif issue.check == "missing_body_sections":
+                        etype = fm.get("type", "")
+                        expected = get_expected_sections(etype)
+                        if expected:
+                            body = ensure_sections_exist(body, expected)
+                            changed = True
+                            fixed += 1
+
+                    elif issue.check == "meeting_missing_from_timeline":
+                        mstem = issue.suggested_fix  # meeting stem
+                        if mstem and mstem in meetings:
+                            mvf = meetings[mstem]
+                            entry = _build_timeline_entry(mvf)
+                            sections = parse_body_sections(body)
+                            timeline = sections.get("Timeline", "")
+                            # Append entry to timeline
+                            if timeline and not timeline.endswith("\n"):
+                                timeline += "\n"
+                            timeline += "\n" + entry
+                            sections["Timeline"] = timeline
+                            from obsidian_schemas.body_sections import write_body_sections
+
+                            body = write_body_sections(sections)
+                            changed = True
+                            fixed += 1
+
+                    elif issue.check == "broken_wikilink":
+                        try:
+                            fix_data = json.loads(issue.suggested_fix)
+                            old_link = fix_data["old"]
+                            new_link = fix_data["new"]
+                            wikilink_replacements.append((old_link, new_link))
+                        except (json.JSONDecodeError, KeyError):
+                            pass
+
+                if changed:
+                    # Write the full file with updated frontmatter + body
+                    from obsidian_schemas.writer import write_frontmatter as _wfm
+
+                    yaml_str = _wfm(fm)
+                    content = f"---\n{yaml_str}---\n{body}"
+                    vault_io.write_note(fpath, content, precondition=_stamp)
+
+                # Apply wikilink replacements on the current file content
+                if wikilink_replacements:
+                    content, _stamp = vault_io.read_note(fpath)
+                    wl_changed = False
+                    for old_link, new_link in wikilink_replacements:
+                        # Replace both [[old]] and [[old|alias]] forms
+                        for old_pat, new_pat in [
+                            (f"[[{old_link}]]", f"[[{new_link}]]"),
+                            (f"[[{old_link}|", f"[[{new_link}|"),
+                        ]:
+                            if old_pat in content:
+                                content = content.replace(old_pat, new_pat)
+                                wl_changed = True
+                                fixed += 1
+                                break  # only count once per replacement pair
+                    if wl_changed:
+                        vault_io.write_note(fpath, content, precondition=_stamp)
 
         except Exception as exc:
             print(f"  Fix error on {fpath.name}: {exc}", file=sys.stderr)
@@ -1031,11 +1037,18 @@ def quarantine_garbage(
             dest_dir = quarantine_dir / "persons"
         else:
             dest_dir = quarantine_dir / "other"
-        dest_dir.mkdir(parents=True, exist_ok=True)
+        # `mkdir` is a filesystem-mutation capability, so it is named inside
+        # vault_io and nowhere else (WI-004 R5) — identical semantics, and still
+        # no precondition, because mkdir(parents, exist_ok) has no loss mode.
+        vault_io.ensure_dir(dest_dir)
         dest = dest_dir / src.name
-        if dest.exists():
+        # Door 3 (WI-004): the destination is refused BY SYSCALL rather than by
+        # a `dest.exists()` guard with the rename a line later — same
+        # skip-on-collision behaviour, without the TOCTOU window.
+        try:
+            vault_io.move_note(src, dest)
+        except NoteAlreadyExists:
             continue
-        src.rename(dest)
         moved += 1
     return moved
 
