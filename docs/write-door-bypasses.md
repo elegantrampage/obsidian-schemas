@@ -9,7 +9,7 @@ stage_changed: 2026-08-11
 touched_by: session
 tags: [typed-boundaries, name-validation, rfc2822]
 depends_on: ["WI-004"]
-round_budget: 12
+round_budget: 16
 transitions: ["idea>exploring@2026-08-11@session"]
 ---
 
@@ -6727,3 +6727,13 @@ promise intact, but the call belongs to the re-origination, made against this ex
    8/8). The four fresh rounds per gate are for the post-re-sign verification chain
    (ac-red-team → architect → data-premise → spec-writer). Dave's altitude ruling and the
    booked-not-bought directive continue to bound what rounds may be spent on.
+
+
+## Conductor Precondition Amendment — 2026-08-11 (round-12 budget finding)
+
+`round_budget: 12 → 16`. Rounds 9–12 spent pre-re-sign the four rounds precondition 2 reserved
+for the post-re-sign chain (architect/data-premise/spec-writer all reached 12/12). Dave's
+recorded decision — four fresh rounds per gate for the post-re-sign verification chain — is
+restored by 16, per the round-12 architect's own arithmetic. One of the architect's four will
+verify the round-12 fold (refusal-subclass repair) pre-sign; the reserve is otherwise for
+ac-red-team → architect → data-premise → spec-writer after the re-origination.
