@@ -1,7 +1,7 @@
 {
   "project": "obsidian-schemas",
   "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
-  "last_scanned": "2026-08-11T10:04:06Z",
+  "last_scanned": "2026-08-11T11:55:29Z",
   "next_id": 28,
   "items": [
     {
@@ -1747,6 +1747,40 @@
           "date": "2026-08-11",
           "model": "claude-sonnet-5",
           "note": "Revision 4 closed round 4's entity=-arm coverage gap structurally (AC-1 now derives at arm granularity; AC-2/AC-4 typed passes name the entity= and extra_fields-only arms as required fixtures by construction) \u2014 re-attacked the full AC-1\u2013AC-5 set fresh, verified the arm citations against the live code, and found nothing material."
+        },
+        "ac-signoff": {
+          "gate": "ac-signoff",
+          "verdict": "PROMOTE",
+          "date": "2026-08-11",
+          "reviewer": "dave",
+          "channel": "conversational",
+          "signed_at": "2026-08-11T10:33:24+01:00",
+          "provenance": "verified",
+          "signoff_escalation": "ESC-WI-021-exploring-awaiting-ac-signoff-154d37c4",
+          "ac_hash": "a76ebad54da2",
+          "intent_hash": "176e2ec73fda",
+          "ac_hash_AC-1": "33653902f47f",
+          "ac_hash_AC-2": "b6874ac5d7ef",
+          "ac_hash_AC-3": "9e2bae0c2137",
+          "ac_hash_AC-4": "175736170bcc",
+          "ac_hash_AC-5": "7fe74b36327e",
+          "artifact": "docs/spec-reviews/WI-021-dave-review-2026-08-11.md"
+        },
+        "architect": {
+          "gate": "architect",
+          "verdict": "REVISE",
+          "date": "2026-08-11",
+          "model": "claude-opus-5",
+          "targets": "#approach, #exploration-notes, AC-1, AC-2, AC-3, AC-4",
+          "note": "Ruled the open shape question the spec-writer routed here \u2014 the gate is HANDED its type and never infers one (8 of 10 arms already carry a declaration: the model at D1a, `self.type_name` at D2/D3/D4, the parsed note at D5/D6, `vf.entity_type` at D8), which deletes the untyped-dispatch rule rather than repairing it, moots two of the five vault counts, and makes the sentinel a payload rule not a new input \u2014 and that ruling creates one new defect in signed text: AC-1 proves which arms CALL the gate, never what they PASS, so a type defaulting to None greens all ten arms while every update_fields write (whose delta carries no `type:`) escapes the contract permanently."
+        },
+        "data-premise": {
+          "gate": "data-premise",
+          "verdict": "REVISE",
+          "date": "2026-08-11",
+          "model": "claude-opus-5",
+          "targets": "AC-2, AC-4, #exploration-notes, #approach",
+          "note": "Re-ruled the grounding list the round-3 DECLARE ruling routed here \u2014 confirmed from source that it moots items 2 and 5 (no person-tuned pattern can reach a company or undeclared write; type vocabulary agrees across all four declaration channels; `_owns` drops out), but it RELOCATES the ungrounded premise rather than removing it: under shape (i) the structural subset (`path_hostile_char`, `empty`) now fires on undeclared writes, and its only evidence is `_PATH_HOSTILE_RE`'s person-scoped \"0 of 1590\" from 2026-06-06 (name_validation.py:94, corpus at :26-28) \u2014 the same person-number-across-an-entity-boundary generator that produced the annexation, two patterns wide instead of ten; four counts still owed and still unrunnable in this cage."
         }
       },
       "verdicts": [
@@ -1788,6 +1822,72 @@
           "date": "2026-08-11",
           "model": "claude-sonnet-5",
           "note": "Revision 4 closed round 4's entity=-arm coverage gap structurally (AC-1 now derives at arm granularity; AC-2/AC-4 typed passes name the entity= and extra_fields-only arms as required fixtures by construction) \u2014 re-attacked the full AC-1\u2013AC-5 set fresh, verified the arm citations against the live code, and found nothing material."
+        },
+        {
+          "gate": "ac-signoff",
+          "verdict": "PROMOTE",
+          "date": "2026-08-11",
+          "reviewer": "dave",
+          "channel": "conversational",
+          "signed_at": "2026-08-11T10:33:24+01:00",
+          "provenance": "verified",
+          "signoff_escalation": "ESC-WI-021-exploring-awaiting-ac-signoff-154d37c4",
+          "ac_hash": "a76ebad54da2",
+          "intent_hash": "176e2ec73fda",
+          "ac_hash_AC-1": "33653902f47f",
+          "ac_hash_AC-2": "b6874ac5d7ef",
+          "ac_hash_AC-3": "9e2bae0c2137",
+          "ac_hash_AC-4": "175736170bcc",
+          "ac_hash_AC-5": "7fe74b36327e",
+          "artifact": "docs/spec-reviews/WI-021-dave-review-2026-08-11.md"
+        },
+        {
+          "gate": "architect",
+          "verdict": "REVISE",
+          "date": "2026-08-11",
+          "model": "claude-opus-5",
+          "targets": "AC-2, AC-4, #exploration-notes",
+          "note": "Finding B's untyped-dispatch rule reads `@*.md` as a person convention, but CompanyRepository overrides neither file_pattern (base.py:197) nor save (base.py:381), so companies share the glob and the filename \u2014 `_owns` answers yes for both repositories, and AC-2/AC-4's untyped clauses (pinned by equality) therefore subject every untyped company note to a person-only Tier-1 table this item explicitly scopes out to WI-022."
+        },
+        {
+          "gate": "data-premise",
+          "verdict": "REVISE",
+          "date": "2026-08-11",
+          "model": "claude-opus-5",
+          "targets": "AC-2, AC-4, AC-3, #exploration-notes",
+          "note": "The untyped-dispatch rule pinned by equality into AC-2/AC-4 is an ungrounded Class-1/Class-2 premise \u2014 no one has ever counted the untyped `@*.md` population or run the Tier-1 table against it, and `_owns(None)` is True for CompanyRepository too (confirmed: no file_pattern/save override in company.py); AC-3's legacy-dirt premise is a two-month-stale person-scoped number."
+        },
+        {
+          "gate": "architect",
+          "verdict": "REVISE",
+          "date": "2026-08-11",
+          "model": "claude-opus-5",
+          "targets": "AC-2, AC-4, #exploration-notes, #approach",
+          "note": "Re-attacked cold against an unfolded document \u2014 round 1's annexation finding is confirmed and sharpens to a structural one (`_owns` takes no path; Book's `*.md` matches `@Foo.md` yet answers False while Meeting's `Meeting *.md` answers True without matching, so the borrowed predicate cannot answer the gate's question at all), and one new defect in signed text: AC-2 sweeps a \"pattern table\" that does not exist (`_raise_on_tier1` is a nine-branch `if` chain raising seven keys) and would still miss the `empty` Tier-1 refusal raised outside it at name_validation.py:259/:278."
+        },
+        {
+          "gate": "data-premise",
+          "verdict": "REVISE",
+          "date": "2026-08-11",
+          "model": "claude-opus-5",
+          "targets": "AC-2, AC-4, #exploration-notes",
+          "note": "Re-audited cold against an unfolded document \u2014 round 1's ungrounded untyped-`@*.md` premise stands verbatim (re-derived from source: `_owns(None)` True for CompanyRepository, which overrides neither file_pattern nor save; `_RFC2822_LEAK_RE` matches `booking.com`), the three required vault counts remain unrun and unrunnable in this cage, and the fix both reviewing gates now demand carries a NEW ungrounded premise \u2014 the Tier-1 entity-agnostic/person-specific partition is a per-key claim about company names that has never been run against the company corpus, and must cover the tenth refusal (`empty`) raised outside `_raise_on_tier1` at name_validation.py:259/:278."
+        },
+        {
+          "gate": "architect",
+          "verdict": "REVISE",
+          "date": "2026-08-11",
+          "model": "claude-opus-5",
+          "targets": "#approach, #exploration-notes, AC-1, AC-2, AC-3, AC-4",
+          "note": "Ruled the open shape question the spec-writer routed here \u2014 the gate is HANDED its type and never infers one (8 of 10 arms already carry a declaration: the model at D1a, `self.type_name` at D2/D3/D4, the parsed note at D5/D6, `vf.entity_type` at D8), which deletes the untyped-dispatch rule rather than repairing it, moots two of the five vault counts, and makes the sentinel a payload rule not a new input \u2014 and that ruling creates one new defect in signed text: AC-1 proves which arms CALL the gate, never what they PASS, so a type defaulting to None greens all ten arms while every update_fields write (whose delta carries no `type:`) escapes the contract permanently."
+        },
+        {
+          "gate": "data-premise",
+          "verdict": "REVISE",
+          "date": "2026-08-11",
+          "model": "claude-opus-5",
+          "targets": "AC-2, AC-4, #exploration-notes, #approach",
+          "note": "Re-ruled the grounding list the round-3 DECLARE ruling routed here \u2014 confirmed from source that it moots items 2 and 5 (no person-tuned pattern can reach a company or undeclared write; type vocabulary agrees across all four declaration channels; `_owns` drops out), but it RELOCATES the ungrounded premise rather than removing it: under shape (i) the structural subset (`path_hostile_char`, `empty`) now fires on undeclared writes, and its only evidence is `_PATH_HOSTILE_RE`'s person-scoped \"0 of 1590\" from 2026-06-06 (name_validation.py:94, corpus at :26-28) \u2014 the same person-number-across-an-entity-boundary generator that produced the annexation, two patterns wide instead of ten; four counts still owed and still unrunnable in this cage."
         }
       ],
       "acceptance_criteria": [
