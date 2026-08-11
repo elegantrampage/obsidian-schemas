@@ -9,6 +9,7 @@ stage_changed: 2026-08-11
 touched_by: session
 tags: [typed-boundaries, name-validation, rfc2822]
 depends_on: ["WI-004"]
+round_budget: 12
 transitions: ["idea>exploring@2026-08-11@session"]
 ---
 
@@ -6711,3 +6712,18 @@ amendment — wider blast radius, own trade-offs), or (c) re-scope AC-2's clause
 directory SURVIVES a refused write" (refuse-then-clean). The architect's round-8 analysis
 enumerates the two filesystem-visible acts; option (a) is the smallest and keeps the signed
 promise intact, but the call belongs to the re-origination, made against this execution evidence.
+
+
+## Conductor Preconditions — 2026-08-11 (round-budget fork resolved, Dave's word)
+
+1. **Stray-directory resolution: option (a) adopted** — the gate runs ABOVE `note_lock`: the
+   name/identifier gate must refuse BEFORE any filesystem-visible act (before the lock home's
+   `ensure_dir` and before `ensure_dir(path.parent)` at writer.py:273). AC-2's "no stray
+   directory is created" clause stands as signed and is now meetable; the re-originated AC set
+   must pin gate-before-lock ordering (the execution evidence in the Conductor Booking above is
+   the fixture shape: `save(Person(name="Dave/Bob"))` against a tmp vault, then assert the vault
+   root's only child is the lock-home-free state).
+2. **`round_budget: 12`** set in frontmatter (was DEFAULT 8; all three exploring gates were
+   8/8). The four fresh rounds per gate are for the post-re-sign verification chain
+   (ac-red-team → architect → data-premise → spec-writer). Dave's altitude ruling and the
+   booked-not-bought directive continue to bound what rounds may be spent on.
