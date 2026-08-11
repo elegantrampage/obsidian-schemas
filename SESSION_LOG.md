@@ -1,5 +1,25 @@
 # Session Log
 
+## 2026-08-11
+
+### WI-004 shipped idea→done (dark-factory drive #3) — the write-safety primitive
+
+`vault_io.py`: every vault write now walks one door — atomic fd+fsync+`os.replace`,
+per-file `filelock`, derivation-stamp preconditions (`StaleEntityWrite` /
+`NoteAlreadyExists` / `ExternalWriteConflict`). AC 18/18 unforced; floor 617→637; ship
+`b87fb77`, pushed. The drive: 8-round exploring arc closed by measured-not-asserted
+reframing + audit folds; Dave rulings mid-drive (A′ stamp corpus, module-attribute doors,
+(β) battery re-admission, filelock, door 2c); live-vault obligations grounded in a
+conductor sitting (APFS-local positive; Obsidian truncate-in-place observed — residual
+restated); build-runner tooling-fault (HQ-fixed upstream) + fence-tamper true positive
+(builder citation-refresh inside frozen fences) both absorbed. Post-merge: HAL9000 456
+green, exocortex 531 + designed taxonomy tripwire (handoff:
+`~/scratch/exocortex-roster-amendment-handoff.md`), orchestrator 1250 green after
+`filelock` venv install (+ its 4 pre-existing WI-171 reds). filelock>=3.12 is a new
+runtime dep — declared in pyproject.toml, installed in all four venvs.
+
+---
+
 ## 2026-08-09
 
 ### Hygiene & housekeeping (pre-WI-004)
