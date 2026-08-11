@@ -953,3 +953,24 @@ date: 2026-08-11
 model: claude-sonnet-5
 note: Revision 4 closed round 4's entity=-arm coverage gap structurally (AC-1 now derives at arm granularity; AC-2/AC-4 typed passes name the entity= and extra_fields-only arms as required fixtures by construction) — re-attacked the full AC-1–AC-5 set fresh, verified the arm citations against the live code, and found nothing material.
 ```
+
+## AC Sign-off
+
+```verdict
+gate: ac-signoff
+verdict: PROMOTE
+date: 2026-08-11
+reviewer: dave
+channel: conversational
+signed_at: 2026-08-11T10:33:24+01:00
+provenance: verified
+signoff_escalation: ESC-WI-021-exploring-awaiting-ac-signoff-154d37c4
+ac_hash: a76ebad54da2
+intent_hash: 176e2ec73fda
+ac_hash_AC-1: 33653902f47f
+ac_hash_AC-2: b6874ac5d7ef
+ac_hash_AC-3: 9e2bae0c2137
+ac_hash_AC-4: 175736170bcc
+ac_hash_AC-5: 7fe74b36327e
+artifact: docs/spec-reviews/WI-021-dave-review-2026-08-11.md
+```
