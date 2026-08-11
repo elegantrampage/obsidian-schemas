@@ -28,3 +28,14 @@ WI-105/WI-109 built real boundaries, but they only guard the create path (2026-0
 ## Intent
 
 There is no door into the vault through which an unvalidated name or unnormalized address can pass. One RFC 2822 parse authority; an invariant test per closed door.
+
+## Currency note — 2026-08-11 (queue review)
+
+Premise re-verified against the post-WI-004 tree: still live. `_writeback_identifier` (now
+person.py:1192) still appends raw identifiers via `update_fields`; `_normalize_address_fields`
+(now :1278, called from save at :1269) still runs only in `PersonRepository.save()`;
+NameValidator still fires only on the create path. Line numbers above have drifted — re-derive
+at spec time, don't trust the 07-05 citations. Relationship to WI-004: vault_io closed the
+MECHANICAL write door (atomicity/locking/stamps); this item is the SEMANTIC layer on the same
+door — validation and normalization on every path that reaches it. Deps satisfied (WI-004 done
+2026-08-11); unblocked.

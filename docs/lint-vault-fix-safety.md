@@ -24,3 +24,16 @@ depends_on: ["WI-004", "WI-020"]
 ## Intent
 
 `--fix` cannot produce a write the library's own guards would refuse: it routes through the WI-004 primitive, refuses malformed-parse rewrites per WI-020, and carries a fixture-vault test for every fix rule it ships.
+
+## Currency note — 2026-08-11 (queue review) — premise HALF-CLOSED by WI-004, re-scope at spec time
+
+WI-004 routed lint_vault's writes through vault_io (lock + read_note + write_note-with-
+precondition at lint_vault.py:819-900; quarantine's mkdir via ensure_dir at :1043): the C2
+mechanical hazard this doc leads with — direct rewrite bypassing the WI-126 guard, frontmatter
+drop on malformed YAML — is now door-guarded, and WI-020's parse semantics apply at the door.
+File is now 1,221 LOC; every line citation above is stale. REMAINING scope for this item:
+(1) a fixture-vault test floor for the fix RULES themselves (zero tests today — pairs with
+WI-016); (2) the silent skip of unreadable files (`except Exception: continue`, now :116) made
+loud per WI-020; (3) the YAML re-serialization of hand formatting concern. Deps (WI-004,
+WI-020) both done. The spec-writer should treat this doc's Problem section as historical and
+re-audit before writing.

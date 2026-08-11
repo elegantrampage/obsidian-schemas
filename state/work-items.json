@@ -1,7 +1,7 @@
 {
   "project": "obsidian-schemas",
   "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
-  "last_scanned": "2026-08-11T00:05:33Z",
+  "last_scanned": "2026-08-11T08:24:01Z",
   "next_id": 28,
   "items": [
     {
@@ -772,11 +772,11 @@
     {
       "id": "WI-001",
       "title": "File Watching / Real-time Updates",
-      "stage": "idea",
+      "stage": "parked",
       "file": "docs/file-watching-realtime-updates.md",
       "created": "2026-03-22",
-      "last_touched": "2026-03-22",
-      "stage_changed": "2026-03-22",
+      "last_touched": "2026-08-11",
+      "stage_changed": "2026-08-11",
       "tags": [
         "repository"
       ],
@@ -866,11 +866,11 @@
     {
       "id": "WI-013",
       "title": "Incremental Loading",
-      "stage": "idea",
+      "stage": "parked",
       "file": "docs/incremental-loading.md",
       "created": "2026-03-22",
-      "last_touched": "2026-03-22",
-      "stage_changed": "2026-03-22",
+      "last_touched": "2026-08-11",
+      "stage_changed": "2026-08-11",
       "tags": [
         "performance"
       ],
@@ -888,11 +888,11 @@
     {
       "id": "WI-012",
       "title": "Index Persistence",
-      "stage": "idea",
+      "stage": "parked",
       "file": "docs/index-persistence.md",
       "created": "2026-03-22",
-      "last_touched": "2026-03-22",
-      "stage_changed": "2026-03-22",
+      "last_touched": "2026-08-11",
+      "stage_changed": "2026-08-11",
       "tags": [
         "performance"
       ],
@@ -910,11 +910,11 @@
     {
       "id": "WI-003",
       "title": "Lazy Loading",
-      "stage": "idea",
+      "stage": "parked",
       "file": "docs/lazy-loading.md",
       "created": "2026-03-22",
-      "last_touched": "2026-03-22",
-      "stage_changed": "2026-03-22",
+      "last_touched": "2026-08-11",
+      "stage_changed": "2026-08-11",
       "tags": [
         "repository"
       ],
@@ -1462,11 +1462,11 @@
     {
       "id": "WI-010",
       "title": "Migration Support",
-      "stage": "idea",
+      "stage": "parked",
       "file": "docs/migration-support.md",
       "created": "2026-03-22",
-      "last_touched": "2026-03-22",
-      "stage_changed": "2026-03-22",
+      "last_touched": "2026-08-11",
+      "stage_changed": "2026-08-11",
       "tags": [
         "schema-evolution"
       ],
@@ -1577,11 +1577,11 @@
     {
       "id": "WI-006",
       "title": "Relationship Tracking",
-      "stage": "idea",
+      "stage": "parked",
       "file": "docs/relationship-tracking.md",
       "created": "2026-03-22",
-      "last_touched": "2026-03-22",
-      "stage_changed": "2026-03-22",
+      "last_touched": "2026-08-11",
+      "stage_changed": "2026-08-11",
       "tags": [
         "entity-relationships"
       ],
@@ -1625,11 +1625,11 @@
     {
       "id": "WI-002",
       "title": "TTL-based Cache",
-      "stage": "idea",
+      "stage": "parked",
       "file": "docs/ttl-based-cache.md",
       "created": "2026-03-22",
-      "last_touched": "2026-03-22",
-      "stage_changed": "2026-03-22",
+      "last_touched": "2026-08-11",
+      "stage_changed": "2026-08-11",
       "tags": [
         "repository"
       ],
@@ -1739,13 +1739,12 @@
     }
   ],
   "queue_order": [
-    "WI-004",
     "WI-021",
+    "WI-016",
+    "WI-026",
     "WI-022",
     "WI-023",
-    "WI-016",
     "WI-025",
-    "WI-026",
     "WI-009"
   ]
 }

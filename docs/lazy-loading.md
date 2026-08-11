@@ -2,10 +2,10 @@
 id: WI-003
 title: "Lazy Loading"
 project: obsidian-schemas
-stage: idea
+stage: parked
 created: 2026-03-22
-last_touched: 2026-03-22
-stage_changed: 2026-03-22
+last_touched: 2026-08-11
+stage_changed: 2026-08-11
 touched_by: session
 tags: [repository]
 depends_on: []
@@ -16,3 +16,7 @@ depends_on: []
 ## Problem / Motivation
 
 Repositories currently load all entities from disk on first access — every markdown file gets parsed, even if the caller only needs one person. For large vaults this means slow startup and high memory use. Lazy loading would parse individual files on demand, trading faster startup for slower first queries on specific entities. The design tradeoff is meaningful: bulk operations (reporting, search) benefit from eager loading, while lookup-by-name use cases benefit from lazy loading. The right answer may be a configurable strategy or hybrid approach.
+
+## Parked — 2026-08-11 (queue review)
+
+Un-park criterion: live-vault load exceeds ~5s or a consumer measures real startup pain. Baseline 2026-08-11: 1.27s for 1,129 people — no signal.
