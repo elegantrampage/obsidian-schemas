@@ -10,7 +10,7 @@ touched_by: session
 tags: [typed-boundaries, name-validation, rfc2822]
 depends_on: ["WI-004"]
 round_budget: 20
-spawn_budget: 80
+spawn_budget: 95
 transitions: ["idea>exploring@2026-08-11@session", "exploring>specced@2026-09-05@session", "specced>ready@2026-09-05@session"]
 review_level: L3
 review_level_provenance: selector
