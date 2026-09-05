@@ -9,8 +9,8 @@ stage_changed: 2026-08-11
 touched_by: session
 tags: [typed-boundaries, name-validation, rfc2822]
 depends_on: ["WI-004"]
-round_budget: 18
-spawn_budget: 65
+round_budget: 20
+spawn_budget: 80
 transitions: ["idea>exploring@2026-08-11@session"]
 review_level: L3
 review_level_provenance: selector
@@ -2978,7 +2978,12 @@ first gated whole-list write through D1a, D4 or the rider drops the second of tw
 Live population: **5 notes**, each holding one number twice as `447…` and `+447…`, no JID-spelled
 loser, and **0** entries normalizing to empty. Which spelling survives is the FIRST-SEEN one under
 "stores the display form" — on all five live notes that is the `+`-less spelling — and that
-preference is a size for Dave to read rather than a rule this document changes.
+preference is a size for Dave to read rather than a rule this document changes. **Dave ruled
+(ruling 4, 2026-09-05, relayed verbatim via the workspaces-5e session: "Let's go with whatever the
+standard iso format is for phone numbers"): when two entries share a normalized key, the surviving
+display form is the E.164-spelled one (`+447…`) where one is present, first-seen otherwise.** This
+selects the WINNER among duplicates; it does not rewrite non-duplicate stored phones to E.164, which
+would be a display-form normalization outside `AC-4`'s "stores the display form" and a separate item.
 
 ### 6. Routing — eight arms across six functions, plus one rider
 
@@ -4328,6 +4333,12 @@ architect's round-3 re-entry path prescribe.
    refused outright. Chosen against count 1 below: the untyped population is ZERO, so the
    strictly stronger fail-closed rule has an empty live blast radius — the data audit's own
    "cheapest safe rule wins" case.
+4. **Phone duplicate winner: E.164 (2026-09-05, relayed verbatim via the workspaces-5e session —
+   "Proceed with recommendations. Let's go with whatever the standard iso format is for phone
+   numbers").** Sized by G12 (5 live notes). Among entries sharing a `normalize_phone` key the
+   `+`-prefixed E.164 spelling survives; first-seen only when no entry carries it. Applied in
+   `## Design` §5. The same word set `spawn_budget: 80` / `round_budget: 20` ("proceed with
+   recommendations").
 3. **Altitude ruling (LESSONS #38), issued.** The AC checking machinery is declared sufficiently
    specified. The re-origination round fixes the NAMED defects only — AC-1's per-arm
    pass-what pin, AC-2/AC-3's sentinel exemption, AC-4's `aliases[]`, AC-5 unchanged — with no
@@ -7453,3 +7464,7 @@ one §5 clause — its own words: "on the data premises alone the item is ready"
 converged: no blocking finding stands on either gate. Folded by hand at zero spawns; G12 run. Parked
 here for Dave's word on the two ceilings (spawn_budget and round_budget) before the exploring
 close-out and the build.
+
+**Resume, continued — Dave's word (relayed via workspaces-5e, 2026-09-05).** "Proceed with
+recommendations" → `spawn_budget: 80`, `round_budget: 20`; phone-duplicate winner E.164 (ruling 4).
+Relaunched for the exploring close-out, spec-reviewer and the build.
