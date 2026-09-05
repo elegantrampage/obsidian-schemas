@@ -5,12 +5,19 @@ This module deliberately does NOT name `ast`. It imports `modules_using_ast` and
 asserts on its RESULT: a test that parsed files itself would be the second home
 and would fail its own assertion.
 
-Uniqueness is asserted at the CAPABILITY level, not by shape. Three of the six
-derivations share one AST-walk shape, and the loose and data-flow predicates are
-indistinguishable by any shape — they differ only semantically. What every copy
-of a syntax-traversing derivation must DO is obtain syntax via the ast module,
-so that is what is single-homed. Capability uniqueness implies uniqueness of
-every predicate built on it.
+Uniqueness is asserted at the CAPABILITY level, not by shape — and that is a
+RULE, not a count (WI-021 rider (a): this said "three of the six derivations",
+which went stale the moment a seventh sweep landed and was never the argument
+anyway). SHAPE cannot discriminate a derivation from a copy of it: several
+sweeps share one AST-walk shape, and the loose and data-flow predicates are
+indistinguishable by any shape at all — they differ only semantically. What
+every copy of a syntax-traversing derivation must DO is obtain syntax via the
+ast module, so that is what is single-homed. Capability uniqueness implies
+uniqueness of every predicate built on it, however many there are.
+
+The `six` dict below is a REQUIRED SUBSET by its own comment, not a cardinality
+bound on the module, so WI-021's four new sweeps deliberately do not join it and
+`len(six) == 6` does not move.
 """
 
 from tests.derivations import (

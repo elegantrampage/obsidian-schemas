@@ -112,6 +112,188 @@ _PURE_DIGIT_RE = re.compile(r"^\+?\d+$")
 
 
 # ============================================================
+# The Tier-1 refusal surface, REIFIED (WI-021, Design §3)
+# ============================================================
+#
+# `_raise_on_tier1`'s docstring has always claimed a "pattern table"; the body
+# was a hand-written `if` chain of nine branches raising SEVEN distinct keys,
+# because the arrow, calendar and 'Me to' branches all raise `calendar_prefix`
+# deliberately (WI-111). There was no iterable object anywhere in the module, so
+# nothing could sweep it — and a sweep keyed on the RAISED KEY yields seven
+# fixtures and leaves two branches unexercised.
+#
+# The unit is therefore the BRANCH, not the pattern key. Ten records: the nine
+# chain branches plus `empty`, which both public entry points raise ABOVE the
+# chain and which must NOT be moved into it — `_PURE_DIGIT_RE` is `^\+?\d+$` and
+# cannot match an empty string, so the sentinel exemption sitting above the
+# `empty` check cannot swallow an empty name.
+#
+# The rewrite below is BEHAVIOUR-PRESERVING: same order, same keys, same match
+# methods (`.search` vs `.match` differ per branch and are part of the
+# behaviour), same messages, same raise sites.
+
+
+@dataclass(frozen=True)
+class Tier1Branch:
+    """One refusal branch of the Tier-1 surface.
+
+    `branch_id` is the sweep's unit and is unique in the tuple; `pattern` is the
+    stable key the branch RAISES and is deliberately not unique (three branches
+    share `calendar_prefix`). `specimen` is a name that makes THIS branch fire
+    and no earlier one, so a sweep has an input per record. `sentinel_exempt`
+    marks the one branch the WI-083 phone-sentinel exemption suppresses.
+
+    `regex` is `None` for exactly one record, `empty`, whose refusal is raised
+    above the chain by `validate_strict` and `clean` rather than inside
+    `_raise_on_tier1`.
+    """
+
+    branch_id: str
+    pattern: str
+    specimen: str
+    sentinel_exempt: bool
+    regex: Optional[re.Pattern]
+    method: str                # "search" | "match" | "empty"
+    detail_template: str
+
+    def matches(self, name: str) -> bool:
+        """Does this branch fire for `name`? The same test the chain applies."""
+        if self.regex is None:
+            return not name.strip()
+        probe = self.regex.search if self.method == "search" else self.regex.match
+        return probe(name) is not None
+
+    def detail(self, name: str) -> str:
+        return self.detail_template.format(name=name)
+
+
+TIER1_BRANCHES: tuple = (
+    Tier1Branch(
+        branch_id="email_chars",
+        pattern="contains_email_chars",
+        specimen="dave@example.com",
+        sentinel_exempt=False,
+        regex=_EMAIL_CHARS_RE,
+        method="search",
+        detail_template=(
+            "name contains '@' which cannot appear in a human name: {name!r}"
+        ),
+    ),
+    Tier1Branch(
+        branch_id="rfc2822_leak",
+        pattern="rfc2822_leak",
+        specimen="Naomi Pavie naomipavieatspeechmaticscom",
+        sentinel_exempt=False,
+        regex=_RFC2822_LEAK_RE,
+        method="search",
+        detail_template=(
+            "name appears to contain an email mashed into text "
+            "(TLD-suffix run detected): {name!r}"
+        ),
+    ),
+    Tier1Branch(
+        branch_id="arrow_connective",
+        pattern="calendar_prefix",
+        specimen="Dave -> Thomas Gatten",
+        sentinel_exempt=False,
+        regex=_ARROW_CONNECTIVE_RE,
+        method="search",
+        detail_template=(
+            "name contains a connective arrow '->' "
+            "(meeting/relationship descriptor): {name!r}"
+        ),
+    ),
+    Tier1Branch(
+        branch_id="calendar_prefix",
+        pattern="calendar_prefix",
+        specimen="Dave - Thomas Gatten",
+        sentinel_exempt=False,
+        regex=_CALENDAR_PREFIX_RE,
+        method="match",
+        detail_template=(
+            "name starts with a calendar-event-title prefix "
+            "('Dave -', 'Me -', etc.): {name!r}"
+        ),
+    ),
+    Tier1Branch(
+        branch_id="me_to_prefix",
+        pattern="calendar_prefix",
+        specimen="Me to David Field",
+        sentinel_exempt=False,
+        regex=_ME_TO_PREFIX_RE,
+        method="match",
+        detail_template=(
+            "name starts with a 'Me to' / 'My to' transcript prefix: {name!r}"
+        ),
+    ),
+    Tier1Branch(
+        branch_id="path_hostile",
+        pattern="path_hostile_char",
+        specimen="Bausch/Lomb",
+        sentinel_exempt=False,
+        regex=_PATH_HOSTILE_RE,
+        method="search",
+        detail_template=(
+            "name contains '/' which breaks the note file path: {name!r}"
+        ),
+    ),
+    Tier1Branch(
+        branch_id="archive_prefix",
+        pattern="archive_prefix",
+        specimen="zArchived Dave Smith",
+        sentinel_exempt=False,
+        regex=_ARCHIVE_PREFIX_RE,
+        method="match",
+        detail_template=(
+            "name starts with Obsidian archive convention ('zArchived'): {name!r}"
+        ),
+    ),
+    Tier1Branch(
+        branch_id="unknown_contact",
+        pattern="unknown_contact",
+        specimen="Unknown Contact Zeta-9",
+        sentinel_exempt=False,
+        regex=_UNKNOWN_CONTACT_RE,
+        method="search",
+        detail_template=(
+            "name contains 'unknown contact' literal "
+            "(WhatsApp scanner artifact): {name!r}"
+        ),
+    ),
+    Tier1Branch(
+        branch_id="pure_digit",
+        pattern="pure_digit_name",
+        specimen="447700900123",
+        sentinel_exempt=True,
+        regex=_PURE_DIGIT_RE,
+        method="match",
+        detail_template=(
+            "name is pure digits (use allow_phone_sentinel=True for "
+            "phone-only stubs): {name!r}"
+        ),
+    ),
+    # Raised ABOVE the chain by both public entry points, never inside
+    # `_raise_on_tier1`. A member of the table because it is a real refusal the
+    # sweep must exercise, and because this item INTRODUCES it on the write path
+    # — `create_stub` guards its validator call with `if name and name.strip():`,
+    # so `empty` has never fired in production.
+    Tier1Branch(
+        branch_id="empty",
+        pattern="empty",
+        specimen="",
+        sentinel_exempt=False,
+        regex=None,
+        method="empty",
+        detail_template="name is empty or whitespace-only",
+    ),
+)
+
+# The one record the chain does not walk, bound so the two entry points that
+# raise it can name the table rather than re-spell its key and message.
+EMPTY_BRANCH: Tier1Branch = TIER1_BRANCHES[-1]
+
+
+# ============================================================
 # Tier 2 patterns — CLEAN
 # ============================================================
 
@@ -256,7 +438,8 @@ class NameValidator:
         # Empty / whitespace
         stripped = name.strip()
         if not stripped:
-            raise NameValidationError("empty", "name is empty or whitespace-only")
+            raise NameValidationError(EMPTY_BRANCH.pattern,
+                                      EMPTY_BRANCH.detail(name))
 
         # Tier 1 checks (order matters for clearest error reporting)
         self._raise_on_tier1(stripped)
@@ -275,7 +458,8 @@ class NameValidator:
             return CleanResult(cleaned_name=name.strip(), repairs_applied=[], ambiguous=False)
 
         if not name.strip():
-            raise NameValidationError("empty", "name is empty or whitespace-only")
+            raise NameValidationError(EMPTY_BRANCH.pattern,
+                                      EMPTY_BRANCH.detail(name))
 
         repairs = []
         current = name
@@ -301,77 +485,26 @@ class NameValidator:
     def _raise_on_tier1(self, name: str) -> None:
         """Walks the Tier 1 pattern table; raises on the first match.
 
+        WI-021: the table is now a real object, `TIER1_BRANCHES`, and this is a
+        walk of it rather than a hand-written `if` chain claiming to be one.
+        Behaviour is unchanged — same order, same keys, same per-branch match
+        method, same messages.
+
         Order matters: more-specific patterns first so the error reason is
         the most informative one. `@` is a clear smoking gun (always means
         the name carries an email), so it fires before the RFC 2822
-        heuristic which would also match an intact "name@domain.com".
+        heuristic which would also match an intact "name@domain.com". The
+        RFC 2822 branch must match on ORIGINAL casing (see the comment on
+        _RFC2822_LEAK_RE) — lowercasing would false-positive on 'Maurizio' /
+        'Francisco' / 'Patricio' and other names ending in TLD-substring
+        suffixes — which is why nothing here folds case.
+
+        The `empty` record is SKIPPED here: its refusal is raised above this
+        method by both public entry points, and moving it into the chain would
+        put it below the sentinel exemption.
         """
-        # Email-leak smoking gun: @ character in name
-        if _EMAIL_CHARS_RE.search(name):
-            raise NameValidationError(
-                "contains_email_chars",
-                f"name contains '@' which cannot appear in a human name: {name!r}",
-            )
-
-        # RFC 2822 leak — must search on ORIGINAL casing (see comment on
-        # _RFC2822_LEAK_RE for why). Lowercasing here would false-positive
-        # on 'Maurizio' / 'Francisco' / 'Patricio' and other names ending
-        # in TLD-substring suffixes.
-        if _RFC2822_LEAK_RE.search(name):
-            raise NameValidationError(
-                "rfc2822_leak",
-                f"name appears to contain an email mashed into text (TLD-suffix run detected): {name!r}",
-            )
-
-        # Connective arrow ('Dave -> X', 'X -> Y') — meeting-descriptor leak.
-        # Reuses the calendar_prefix pattern key so invariant by_pattern
-        # reporting stays coherent (WI-111).
-        if _ARROW_CONNECTIVE_RE.search(name):
-            raise NameValidationError(
-                "calendar_prefix",
-                f"name contains a connective arrow '->' (meeting/relationship descriptor): {name!r}",
-            )
-
-        # Calendar prefix ('Dave -', 'Me -', 'My -')
-        if _CALENDAR_PREFIX_RE.match(name):
-            raise NameValidationError(
-                "calendar_prefix",
-                f"name starts with a calendar-event-title prefix ('Dave -', 'Me -', etc.): {name!r}",
-            )
-
-        # 'Me to X' / 'My to X' prefix variant
-        if _ME_TO_PREFIX_RE.match(name):
-            raise NameValidationError(
-                "calendar_prefix",
-                f"name starts with a 'Me to' / 'My to' transcript prefix: {name!r}",
-            )
-
-        # Path-hostile forward slash ('/') — breaks the @{name}.md file path
-        # and is a connective descriptor form. WI-111: required because the
-        # legacy create_stub re.sub that used to strip it has been deleted.
-        if _PATH_HOSTILE_RE.search(name):
-            raise NameValidationError(
-                "path_hostile_char",
-                f"name contains '/' which breaks the note file path: {name!r}",
-            )
-
-        # Archive convention leak
-        if _ARCHIVE_PREFIX_RE.match(name):
-            raise NameValidationError(
-                "archive_prefix",
-                f"name starts with Obsidian archive convention ('zArchived'): {name!r}",
-            )
-
-        # 'unknown contact' literal
-        if _UNKNOWN_CONTACT_RE.search(name):
-            raise NameValidationError(
-                "unknown_contact",
-                f"name contains 'unknown contact' literal (WhatsApp scanner artifact): {name!r}",
-            )
-
-        # Pure-digit name (sentinel path handled before this method runs)
-        if _PURE_DIGIT_RE.match(name):
-            raise NameValidationError(
-                "pure_digit_name",
-                f"name is pure digits (use allow_phone_sentinel=True for phone-only stubs): {name!r}",
-            )
+        for branch in TIER1_BRANCHES:
+            if branch.regex is None:
+                continue        # `empty` — raised above the chain, never in it
+            if branch.matches(name):
+                raise NameValidationError(branch.pattern, branch.detail(name))

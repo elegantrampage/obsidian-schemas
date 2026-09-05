@@ -15,6 +15,7 @@ from typing import Any, Generic, TypeVar, Optional, List, Type
 
 from ..errors import FrontmatterParseError, SchemaDriftError, bounded_detail
 from ..models import BaseEntity
+from ..name_gate import gate_write
 from ..parser import parse_markdown_file, parse_frontmatter
 from ..writer import write_markdown_file, write_frontmatter
 # Module attribute call form throughout (WI-004 D7) — see writer.py's note.
@@ -447,8 +448,31 @@ class BaseRepository(ABC, Generic[T]):
                     aliases.append(old_stem)
                     frontmatter["aliases"] = aliases
 
-            # Update frontmatter with new values
-            frontmatter.update(updates)
+            # Update frontmatter with new values — through the SEMANTIC gate
+            # (WI-021, D4). IN-LOCK, because this frame refuses on the target's
+            # non-existence above `note_lock` and so has nothing to gain from
+            # the hoist.
+            #
+            # The gate judges `updates` — the DELTA this write introduces —
+            # never the merged record, which is what keeps a note whose STORED
+            # name is already Tier-1 dirty writable for every write that does
+            # not re-introduce that name.
+            #
+            # The result MERGES into `frontmatter` and never into `updates`,
+            # which the caller still holds. `frontmatter` is bound exactly once
+            # in this frame, at the parse above, and must still be bound exactly
+            # once afterwards — a re-binding here would mint a spurious second
+            # arm in the wall's own derived set.
+            #
+            # NOTE, so the delta is specified knowingly rather than loosely: the
+            # alias append above introduces a value that is NOT in `updates`.
+            # Under the arm-shape split `aliases[]` passes through
+            # byte-identical on a dict-shaped arm, so there is nothing the gate
+            # would have done differently — but the delta handed to it is *the
+            # caller's `updates` dict*, not *everything this write introduces*.
+            frontmatter.update(gate_write(updates,
+                                          declared_type=self.type_name,
+                                          whole_record=False))
 
             # Rebuild and write file
             yaml_content = write_frontmatter(frontmatter)

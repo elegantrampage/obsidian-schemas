@@ -100,6 +100,52 @@ class SiteId(NamedTuple):
     ordinal: int       # position among the sites the scan returns for that function
 
 
+class ArmId(NamedTuple):
+    """One WRITE ARM: a distinct binding of the dict a function serializes.
+
+    The unit is the ARM rather than the function because `write_markdown_file`
+    builds its frontmatter in three branches that converge on ONE
+    `write_frontmatter` call — so a wall proving "this function calls the gate
+    somewhere" passes for a gate written inside `if entity is not None:` while
+    the two dict-shaped branches stay open.
+
+    `arm` is the 1-based ordinal of the binding among that function's bindings
+    of the serialized name — never a line number. It is POSITIONAL over a corpus
+    WI-021 itself edits, so its stability is a property that build has to
+    preserve rather than one this identity has: the gate's result is MERGED into
+    what the arm serializes and never re-bound to that name, so no routing edit
+    adds a binding. `test_name_gate_wall.py` pins the six edited functions'
+    member counts by EQUALITY for exactly that reason.
+    """
+
+    module: str
+    qualname: str
+    arm: int
+
+
+class GateCallSite(NamedTuple):
+    """Everything AC-1(e) and the association rule need about ONE arm's gate call.
+
+    `observed` / `required` are the placement legs. `arguments_bound_in_lock` is
+    the RED CONSISTENCY leg — asserted as a check, never as a second route to
+    `in-lock`: an arm the one local rule requires `above` while its gate
+    arguments are bound below the anchor is a CONTRADICTION the wall reports,
+    whose repair is that frame's missing existence guard rather than a hoist
+    above the parse that supplies its type.
+
+    `calls_in_function` and `nested_in_arm_branch` carry the association: every
+    arm of a function is attributed to that function's ONE gate call, which must
+    precede the `write_frontmatter` call and must NOT sit inside a branch that
+    binds an arm.
+    """
+
+    observed: Optional[str]            # "above" | "in-lock" | None if no gate call
+    required: str                      # "above" | "in-lock" — `above` is the DEFAULT
+    arguments_bound_in_lock: bool
+    calls_in_function: int
+    nested_in_arm_branch: bool
+
+
 class AstUse(NamedTuple):
     module: str
     qualname: str
@@ -584,11 +630,17 @@ def _is_falsy_return(node) -> bool:
 def modules_using_ast(files: Iterable[Path]) -> list:
     """Every USE of the `ast` module, read off PARSED SYNTAX, never source text.
 
-    Capability detection, not shape attribution: three of the six derivations
-    share one AST-walk shape and the loose and data-flow predicates differ only
-    semantically, so no shape discriminates them. What every copy of a
-    syntax-traversing derivation must DO is obtain syntax via `ast` — so that is
-    the marker, asserted single-homed to this module.
+    Capability detection, not shape attribution — and the reason is a RULE
+    rather than a census of how many derivations happened to share a shape when
+    this was written (WI-021 rider (a): the prose here used to say "three of the
+    six", which went stale the moment a seventh sweep landed and was never an
+    argument anyway). The rule: SHAPE cannot discriminate a derivation from a
+    copy of it — several sweeps here share one AST-walk shape, and the loose and
+    data-flow predicates are indistinguishable by any shape at all, differing
+    only semantically. What every copy of a syntax-traversing derivation must
+    DO is obtain syntax via `ast` — so that is the marker, asserted single-homed
+    to this module. Capability uniqueness implies uniqueness of every predicate
+    built on it, however many there are.
 
     Read as SYNTAX because the checking test necessarily carries its planted
     fixtures' source as string literals: a text matcher would match the planter
@@ -829,6 +881,484 @@ def functions_calling(files: Iterable[Path], name: str) -> set:
         tree = _parse(path)
         for fid, func in _iter_functions(path, tree):
             if name in _called_names(func):
+                found.add(fid)
+    return found
+
+
+def _import_aliases(tree, member: str) -> set:
+    """Every local name bound to `member` by a `from ... import member [as x]`.
+
+    Collected over the WHOLE tree, not just module scope: `apply_fixes` imports
+    the serializer INSIDE the function (`from obsidian_schemas.writer import
+    write_frontmatter as _wfm`) and calls `_wfm(fm)`. A matcher keyed on the
+    literal name resolves seven arms and silently drops the one arm that lives
+    outside the package — the WI-232 shape.
+    """
+    aliases = {member}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                if alias.name == member:
+                    aliases.add(alias.asname or alias.name)
+    return aliases
+
+
+def _resolves_to(call, member: str, aliases: set) -> bool:
+    """Does this Call's callee resolve to `member`? Three forms, all required.
+
+    Bare name (`write_frontmatter(fm)`), attribute
+    (`writer.write_frontmatter(fm)`), and IMPORT ALIAS (`_wfm(fm)`).
+    """
+    if not isinstance(call, ast.Call):
+        return False
+    func = call.func
+    if isinstance(func, ast.Name):
+        return func.id in aliases
+    if isinstance(func, ast.Attribute):
+        return func.attr == member
+    return False
+
+
+def _pos(node) -> tuple:
+    return (node.lineno, node.col_offset)
+
+
+def _assign_targets_name(node, wanted: str) -> bool:
+    """Is `wanted` bound by this Assign — directly, or inside a Tuple/List target?
+
+    Four of the six arm functions bind their dict by UNPACKING
+    (`frontmatter, body = parse_frontmatter(content)`), so a single-`Name`
+    target rule resolves three arms of the eight. A `Subscript` target
+    (`fm["auto_created"] = ...`) is NOT an arm and neither is a method call
+    (`fm.update(extra_fields)`): both mutate a dict already bound.
+    """
+    for target in node.targets:
+        if isinstance(target, ast.Name) and target.id == wanted:
+            return True
+        if isinstance(target, (ast.Tuple, ast.List)):
+            for element in target.elts:
+                if isinstance(element, ast.Name) and element.id == wanted:
+                    return True
+    return False
+
+
+def _serialized_names(func, aliases: set) -> tuple:
+    """(the names this function passes to write_frontmatter, those call nodes).
+
+    The first POSITIONAL argument of each resolving call, which must be a Name.
+    """
+    names = []
+    calls = []
+    for node in _own_body_nodes(func):
+        if not _resolves_to(node, "write_frontmatter", aliases):
+            continue
+        if node.args and isinstance(node.args[0], ast.Name):
+            calls.append(node)
+            if node.args[0].id not in names:
+                names.append(node.args[0].id)
+    return names, calls
+
+
+def _arm_assigns(func, names: Iterable[str]) -> list:
+    """Every Assign in the function's own body binding one of `names`, in source
+    order. "At any depth" — `_own_body_nodes` descends into branches and `with`
+    bodies while excluding nested functions, so a branch-built arm counts and a
+    closure's rebinding does not."""
+    wanted = list(names)
+    found = [
+        node for node in _own_body_nodes(func)
+        if isinstance(node, ast.Assign)
+        and any(_assign_targets_name(node, name) for name in wanted)
+    ]
+    found.sort(key=_pos)
+    return found
+
+
+def frontmatter_write_arms(files: Iterable[Path]) -> list:
+    """THE arm derivation (WI-021, AC-1(a)-(c)).
+
+    For each function, find every call whose callee resolves to
+    `writer.write_frontmatter` — by bare name, by attribute, and by IMPORT ALIAS
+    — take that call's first positional argument, which must be a `Name`, and
+    return every `Assign` in the function body, at any depth, whose targets
+    include that `Name` (directly, or as an element of a `Tuple`/`List` target)
+    as ONE ARM, numbered in source order from 1.
+
+    Five things about the rule are load-bearing and each is driven as a planted
+    fixture through THIS function by `tests/test_name_gate_wall.py`: the alias
+    arm, the tuple-target arm, the two non-arms (a `Subscript` target and a
+    method call), and the multi-branch function resolving as separate members.
+
+    The floor FALLS OUT rather than being asserted into existence: eight members
+    over six functions, with `BaseRepository.save`, `PersonRepository.save`,
+    `BookRepository.save` and `MeetingRepository.save` yielding ZERO because
+    they contain no `write_frontmatter` call at all — the same predicate,
+    applied uniformly, is what excludes them.
+    """
+    arms = []
+    for path in files:
+        tree = _parse(path)
+        aliases = _import_aliases(tree, "write_frontmatter")
+        for fid, func in _iter_functions(path, tree):
+            names, _calls = _serialized_names(func, aliases)
+            if not names:
+                continue
+            for ordinal, _node in enumerate(_arm_assigns(func, names), start=1):
+                arms.append(ArmId(fid.module, fid.qualname, ordinal))
+    return arms
+
+
+# --------------------------------------------------------------------------
+# 12. The gate call's DECLARATION and PLACEMENT, per arm (WI-021, AC-1(d)/(e))
+# --------------------------------------------------------------------------
+
+GATE_FUNCTION = "gate_write"
+
+DECLARATION_CLASSES = ("attribute", "type_get_call", "constant", "absent", "other")
+
+
+def _gate_calls(func, aliases: set) -> list:
+    return [node for node in _own_body_nodes(func)
+            if _resolves_to(node, GATE_FUNCTION, aliases)]
+
+
+def _declaration_class(call) -> str:
+    """Classify the expression passed as `declared_type`. TOTAL over five cells.
+
+    Four NAMED classes plus `other`; a predicate that returned "unclassified"
+    for an unrecognised expression would green the pin by producing nothing,
+    which is why `other` is a cell the battery drives on its own planted arm.
+    """
+    expression = None
+    for keyword in call.keywords:
+        if keyword.arg == "declared_type":
+            expression = keyword.value
+            break
+    if expression is None:
+        return "absent"
+    if isinstance(expression, ast.Constant):
+        return "constant"
+    if isinstance(expression, ast.Attribute):
+        return "attribute"
+    if (isinstance(expression, ast.Call)
+            and isinstance(expression.func, ast.Attribute)
+            and expression.func.attr == "get"
+            and any(isinstance(a, ast.Constant) and a.value == "type"
+                    for a in expression.args)):
+        return "type_get_call"
+    return "other"
+
+
+def gate_call_declarations(files: Iterable[Path]) -> dict:
+    """AC-1(d). Per ARM, the declaration SHAPE its function's gate call passes.
+
+    An arm whose function carries no gate call is absent from the mapping, so a
+    build that skips an arm is a set difference rather than a silent pass. A
+    function carrying MORE than one gate call classifies as `other` at every one
+    of its arms rather than having one arm's call attributed to its siblings.
+
+    The pin AC-1(d) needs is three assertions, two of them EQUALITIES over the
+    derived arm set — `constant == {D7}`, `absent == {}`, and every remaining
+    arm an `attribute` or a `.get` `Call`. Together they are strictly narrower
+    than a universal over arms: a build wiring every arm with the type
+    defaulting to `None` is RED three times over — by `TypeError` at the
+    required keyword-only parameter, by the `{D7}` equality if it writes the
+    literal, and by the `absent == {}` equality if it omits the keyword.
+    """
+    classified = {}
+    for path in files:
+        tree = _parse(path)
+        fm_aliases = _import_aliases(tree, "write_frontmatter")
+        gate_aliases = _import_aliases(tree, GATE_FUNCTION)
+        for fid, func in _iter_functions(path, tree):
+            names, _calls = _serialized_names(func, fm_aliases)
+            if not names:
+                continue
+            calls = _gate_calls(func, gate_aliases)
+            if not calls:
+                continue
+            label = ("other" if len(calls) > 1
+                     else _declaration_class(calls[0]))
+            for ordinal, _node in enumerate(_arm_assigns(func, names), start=1):
+                classified[ArmId(fid.module, fid.qualname, ordinal)] = label
+    return classified
+
+
+def _vault_io_anchor(func):
+    """The frame's FIRST `vault_io` call of ANY kind, equivalently its
+    `with vault_io.note_lock(...)` statement.
+
+    NOT the frame's first vault_io MUTATION call. `note_lock` is in none of this
+    module's vocabularies — not DOOR_NAMES, not COMMIT_FUNCTION_NAMES, not
+    PATH_MUTATION_NAMES — so a mutation anchor sits BELOW where the design puts
+    every gate call, all eight arms compute `above`, the four the rule requires
+    `in-lock` go red on the intended build, and the fail-closed default stops
+    being fail-closed.
+    """
+    calls = [node for node in _own_body_nodes(func)
+             if isinstance(node, ast.Call)
+             and isinstance(node.func, ast.Attribute)
+             and isinstance(node.func.value, ast.Name)
+             and node.func.value.id == "vault_io"]
+    if not calls:
+        return None
+    return min(calls, key=_pos)
+
+
+def _locked_name(func):
+    """The Name this frame passes to `vault_io.note_lock(...)`."""
+    for node in _own_body_nodes(func):
+        if (isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "note_lock"
+                and node.args and isinstance(node.args[0], ast.Name)):
+            return node.args[0].id
+    return None
+
+
+def _refuses_on_nonexistence_above(func, anchor, locked: Optional[str]) -> bool:
+    """The ONE local syntactic rule behind the REQUIRED placement value.
+
+    An `If` whose test is a NEGATED `.exists()` call on the name the frame later
+    locks, and whose body RAISES, positioned above the anchor.
+
+    Two near-misses live in this tree and neither may be recognised:
+    `write_markdown_file`'s `file_path.exists()` in an ASSIGNMENT, and its
+    positive test inside a compound condition. A third is planted: an
+    `if not p.exists():` whose body LOGS instead of raising.
+    """
+    if anchor is None or locked is None:
+        return False
+    for node in _own_body_nodes(func):
+        if not isinstance(node, ast.If) or _pos(node) >= _pos(anchor):
+            continue
+        test = node.test
+        if not (isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not)):
+            continue
+        call = test.operand
+        if not (isinstance(call, ast.Call)
+                and isinstance(call.func, ast.Attribute)
+                and call.func.attr == "exists"
+                and isinstance(call.func.value, ast.Name)
+                and call.func.value.id == locked):
+            continue
+        if any(isinstance(inner, ast.Raise) for inner in ast.walk(node)):
+            return True
+    return False
+
+
+def _names_bound_below(func, anchor) -> set:
+    if anchor is None:
+        return set()
+    bound = set()
+    for node in _own_body_nodes(func):
+        if isinstance(node, ast.Assign) and _pos(node) > _pos(anchor):
+            for target in node.targets:
+                bound |= _names_in(target)
+    return bound
+
+
+def _nested_in_arm_branch(func, call, arm_nodes) -> bool:
+    """Is the gate call inside an `If` that also binds one of this function's arms?
+
+    `ast.If` ONLY, and that is deliberate rather than an omission: at
+    `apply_fixes` the arm and the gate call both sit inside a `for`, a `try` and
+    a `with`, so a rule covering those compound forms would be RED against the
+    intended build. The bypass this closes is `if entity is not None:` — a gate
+    written in the branch that holds the typed model, leaving the two
+    dict-shaped arms open.
+    """
+    for node in _own_body_nodes(func):
+        if not isinstance(node, ast.If):
+            continue
+        inner = set(map(id, ast.walk(node)))
+        if id(call) in inner and any(id(arm) in inner for arm in arm_nodes):
+            return True
+    return False
+
+
+def gate_call_placement(files: Iterable[Path]) -> dict:
+    """AC-1(e). Per ARM, the placement triple plus the association facts.
+
+    OBSERVED is `above` when the gate call precedes the frame's first `vault_io`
+    call of any kind, `in-lock` otherwise.
+
+    REQUIRED is DERIVED by ONE local syntactic rule over the arm's OWN frame —
+    `in-lock` iff that frame refuses on the target's non-existence above the
+    same anchor — and `above` is the DEFAULT for an arm the predicate does not
+    recognise, so a ninth arm is RED by omission rather than silently permitted.
+
+    The placement pin is what AC-2's no-stray-directory clause depends on:
+    `write_markdown_file` takes the note lock FIRST, and `note_lock`'s outermost
+    acquisition `mkdir`s the sentinel home at a path defaulting to the note's own
+    parent — so a gate at the convergence point refuses AFTER `<vault>/@Dave/`
+    and a `.lock` are already on disk. Without this leg a build that leaves the
+    call at the convergence point is indistinguishable from one that hoists it.
+    """
+    placements = {}
+    for path in files:
+        tree = _parse(path)
+        fm_aliases = _import_aliases(tree, "write_frontmatter")
+        gate_aliases = _import_aliases(tree, GATE_FUNCTION)
+        for fid, func in _iter_functions(path, tree):
+            names, _calls = _serialized_names(func, fm_aliases)
+            if not names:
+                continue
+            arm_nodes = _arm_assigns(func, names)
+            anchor = _vault_io_anchor(func)
+            locked = _locked_name(func)
+            required = ("in-lock"
+                        if _refuses_on_nonexistence_above(func, anchor, locked)
+                        else "above")
+            calls = _gate_calls(func, gate_aliases)
+
+            observed = None
+            arguments_below = False
+            nested = False
+            if calls:
+                call = min(calls, key=_pos)
+                if anchor is None:
+                    observed = "above"
+                else:
+                    observed = ("above" if _pos(call) < _pos(anchor)
+                                else "in-lock")
+                below = _names_bound_below(func, anchor)
+                mentioned = set()
+                for argument in list(call.args) + [k.value for k in call.keywords]:
+                    mentioned |= _names_in(argument)
+                arguments_below = bool(mentioned & below)
+                nested = _nested_in_arm_branch(func, call, arm_nodes)
+
+            for ordinal, _node in enumerate(arm_nodes, start=1):
+                placements[ArmId(fid.module, fid.qualname, ordinal)] = GateCallSite(
+                    observed=observed,
+                    required=required,
+                    arguments_bound_in_lock=arguments_below,
+                    calls_in_function=len(calls),
+                    nested_in_arm_branch=nested,
+                )
+    return placements
+
+
+# --------------------------------------------------------------------------
+# 13. The address-splitting JOB SHAPE (WI-021, AC-5)
+# --------------------------------------------------------------------------
+
+# Where a string literal counts as being USED to split or match a string. Not a
+# list of the shapes this tree happens to carry: the point of keying on the job
+# is that a duplication written without the `parseaddr` symbol is still found.
+_STRING_MATCH_METHODS = frozenset({
+    "split", "rsplit", "partition", "rpartition", "startswith", "endswith",
+    "find", "rfind", "index", "strip", "lstrip", "rstrip", "removeprefix",
+    "removesuffix", "match", "search", "fullmatch", "sub", "splitlines",
+})
+
+_ADDRESS_CHARS = ("<", "(", "@")
+
+
+def _is_address_literal(node, regex: bool = False) -> bool:
+    """A literal that is address-splitting evidence, by TWO rules not one.
+
+    A `(` is the address's parens form when it is split or matched against a
+    string — and a capture GROUP when it is in a regex, which is why a single
+    rule over the three characters is wrong. `parse_frontmatter`'s fence regex
+    (`r"^---\\n(.*?)\\n?---\\n?(.*)"`) is the live specimen: two `(` and not one
+    byte of address work.
+
+    So a REGEX literal is evidence only when it carries `@` — the one character
+    an address regex cannot avoid and a structural regex has no reason to hold —
+    while a literal handed to an ordinary string operation is evidence on any of
+    the three. Both arms are driven by planted controls; the fence regex is the
+    live near-miss and is in the tree rather than planted, which is stronger.
+    """
+    if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+        return False
+    if regex:
+        return "@" in node.value
+    return any(char in node.value for char in _ADDRESS_CHARS)
+
+
+def _returns_a_pair(func) -> bool:
+    """A 2-tuple return, by an explicit `return a, b` or by the annotation.
+
+    Both arms are needed and neither subsumes the other: a function whose only
+    returns are variables carries its shape in the annotation, and one with no
+    annotation carries it in the returns.
+    """
+    for node in _own_body_nodes(func):
+        if (isinstance(node, ast.Return)
+                and isinstance(node.value, ast.Tuple)
+                and len(node.value.elts) == 2):
+            return True
+    annotation = func.returns
+    if isinstance(annotation, ast.Subscript):
+        base = annotation.value
+        name = (base.id if isinstance(base, ast.Name)
+                else base.attr if isinstance(base, ast.Attribute) else None)
+        if name in ("Tuple", "tuple"):
+            index = annotation.slice
+            if isinstance(index, ast.Tuple) and len(index.elts) == 2:
+                return True
+    return False
+
+
+def _carries_address_evidence(func, email_names: set, re_names: set) -> bool:
+    """Any `email.utils` member, or a `'<'` / `'('` / `'@'` literal used to
+    split or match a string.
+
+    The second arm is why the sweep is keyed on the JOB rather than on the
+    `parseaddr` symbol: the deleted `_extract_email_and_name` reached for a
+    parens REGEX before it reached parseaddr, which is the existence proof that
+    this job is written without the symbol.
+    """
+    for node in _own_body_nodes(func):
+        if isinstance(node, ast.Call):
+            callee = node.func
+            if isinstance(callee, ast.Name) and callee.id in email_names:
+                return True
+            if isinstance(callee, ast.Attribute):
+                if callee.attr in email_names:
+                    return True
+                receiver = callee.value
+                is_regex = (isinstance(receiver, ast.Name)
+                            and receiver.id in re_names)
+                if (is_regex or callee.attr in _STRING_MATCH_METHODS) and any(
+                        _is_address_literal(a, regex=is_regex) for a in node.args):
+                    return True
+        if isinstance(node, ast.Compare) and any(
+                isinstance(op, (ast.In, ast.NotIn)) for op in node.ops):
+            if _is_address_literal(node.left) or any(
+                    _is_address_literal(c) for c in node.comparators):
+                return True
+    return False
+
+
+def address_splitting_implementations(files: Iterable[Path]) -> set:
+    """AC-5. Every implementation of the JOB "split a display-name/address blob
+    into (address, display)", keyed on the job SHAPE and never on `parseaddr`.
+
+    Keyed on `FunctionId`, so it carries no ordinal of its own and is not a
+    member of the positional-identity class.
+    """
+    found = set()
+    for path in files:
+        tree = _parse(path)
+        email_names = set()
+        re_names = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module in (
+                    "email.utils", "email"):
+                for alias in node.names:
+                    email_names.add(alias.asname or alias.name)
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name.startswith("email"):
+                        email_names.add(alias.asname or alias.name.split(".")[0])
+                    elif alias.name == "re":
+                        re_names.add(alias.asname or "re")
+        for fid, func in _iter_functions(path, tree):
+            if _returns_a_pair(func) and _carries_address_evidence(
+                    func, email_names, re_names):
                 found.add(fid)
     return found
 

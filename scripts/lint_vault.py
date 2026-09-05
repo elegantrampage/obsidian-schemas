@@ -28,7 +28,7 @@ from dataclasses import asdict, dataclass, field
 from difflib import SequenceMatcher
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, NamedTuple, Optional
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -44,7 +44,8 @@ from obsidian_schemas.body_sections import (
 from obsidian_schemas.models import TYPE_TO_MODEL
 from obsidian_schemas.parser import parse_frontmatter
 from obsidian_schemas.writer import update_frontmatter_fields
-from obsidian_schemas.errors import NoteAlreadyExists
+from obsidian_schemas.errors import NameGateRefusal, NoteAlreadyExists
+from obsidian_schemas.name_gate import gate_write
 # Module attribute call form throughout (WI-004 D7).
 from obsidian_schemas import vault_io
 
@@ -801,9 +802,32 @@ def _build_timeline_entry(meeting_vf: VaultFile) -> str:
         return f"### {heading}\n{link}\n"
 
 
+class NameGateRefusalRecord(NamedTuple):
+    """One note the semantic gate declined during a `--fix` run (WI-021).
+
+    The field set is CLOSED at exactly two, and that closure is the contract
+    rather than a starting point: `path` is the operator's own vault path and
+    `pattern` is a source literal read off the exception. Nothing else — not the
+    refused name, not `str(exc)`, not the note's parsed `type:` — because this
+    run walks the whole vault and its output is what an operator reads and
+    pastes.
+    """
+
+    path: Path
+    pattern: Optional[str]
+
+
+class FixOutcome(NamedTuple):
+    """What a `--fix` pass did: what it repaired, and what it declined."""
+
+    fixed: int
+    refused: tuple
+
+
 def apply_fixes(issues: list[LintIssue], vault_path: Path,
-                idx: Optional[dict] = None) -> int:
+                idx: Optional[dict] = None) -> FixOutcome:
     fixed = 0
+    refused: list[NameGateRefusalRecord] = []
     # Group by file to batch fixes
     by_file: dict[Path, list[LintIssue]] = defaultdict(list)
     for issue in issues:
@@ -814,12 +838,48 @@ def apply_fixes(issues: list[LintIssue], vault_path: Path,
 
     for fpath, file_issues in by_file.items():
         try:
+            # WI-021: the existence guard its three siblings already carry,
+            # statement for statement. A read-only `Path.exists` probe and
+            # nothing else — `touch` and `mkdir` are filesystem-MUTATION
+            # capabilities named only inside `vault_io`, so a touch-shaped guard
+            # is red at the routing wall.
+            #
+            # A real correction, not a formality: this pass runs AFTER the walk,
+            # so a note deleted in between reaches `note_lock` on a vanished
+            # path, gets the sentinel `mkdir` and the `.lock`, and only THEN
+            # fails inside `read_note`. It changes no caller-visible behaviour —
+            # the raise lands in the per-file handler below, which already
+            # prints and continues, exactly as a vanished file does today.
+            if not fpath.exists():
+                raise FileNotFoundError(f"File not found: {fpath}")
+
             # Door 1 (WI-004): ONE reentrant lock spans both writes below;
             # each carries the stamp of its own freshly-read bytes.
             with vault_io.note_lock(fpath):
                 content, _stamp = vault_io.read_note(fpath)
                 fm, body = parse_frontmatter(content)
                 changed = False
+
+                # WI-021: the DELTA this pass introduces into the frontmatter.
+                # Threaded beside `fm` because the gate judges what a write
+                # INTRODUCES and never the stored record — a note whose stored
+                # name is already Tier-1 dirty must stay repairable by the very
+                # tool that exists to repair it.
+                #
+                # Its key set is CLOSED at {auto_created, name}: exactly two
+                # branches below assign into `fm`, and the other three mutate
+                # `body` or collect wikilink replacements applied to raw
+                # content. So no identifier field can reach the gate here at
+                # all, and the phone-sentinel exemption is structurally
+                # unreachable — a `person_missing_name` repair whose
+                # path-derived name is Tier-1 dirty is REFUSED, recorded, and
+                # the run continues.
+                delta: dict[str, Any] = {}
+                # Tallied LOCALLY and folded into the run's total only
+                # AFTER the gate has spoken. Incrementing the running
+                # counter inside the branches reported a repair that the
+                # refusal then prevented from ever being committed.
+                file_fixed = 0
 
                 # Collect wikilink replacements (applied on raw content)
                 wikilink_replacements: list[tuple[str, str]] = []
@@ -829,14 +889,16 @@ def apply_fixes(issues: list[LintIssue], vault_path: Path,
                         raw = fm.get("auto_created")
                         if isinstance(raw, str):
                             fm["auto_created"] = raw.lower() in ("true", "yes", "1")
+                            delta["auto_created"] = fm["auto_created"]
                             changed = True
-                            fixed += 1
+                            file_fixed += 1
 
                     elif issue.check == "person_missing_name":
                         name = fpath.stem.lstrip("@")
                         fm["name"] = name
+                        delta["name"] = name
                         changed = True
-                        fixed += 1
+                        file_fixed += 1
 
                     elif issue.check == "missing_body_sections":
                         etype = fm.get("type", "")
@@ -844,7 +906,7 @@ def apply_fixes(issues: list[LintIssue], vault_path: Path,
                         if expected:
                             body = ensure_sections_exist(body, expected)
                             changed = True
-                            fixed += 1
+                            file_fixed += 1
 
                     elif issue.check == "meeting_missing_from_timeline":
                         mstem = issue.suggested_fix  # meeting stem
@@ -862,7 +924,7 @@ def apply_fixes(issues: list[LintIssue], vault_path: Path,
 
                             body = write_body_sections(sections)
                             changed = True
-                            fixed += 1
+                            file_fixed += 1
 
                     elif issue.check == "broken_wikilink":
                         try:
@@ -872,6 +934,19 @@ def apply_fixes(issues: list[LintIssue], vault_path: Path,
                             wikilink_replacements.append((old_link, new_link))
                         except (json.JSONDecodeError, KeyError):
                             pass
+
+                # WI-021 (D8) — the gate, UNCONDITIONAL within this frame so it
+                # is reached on every path that reaches the serialization, and
+                # IN-LOCK because the declaration it is handed is this note's
+                # own `type:`, parsed inside the lock above.
+                #
+                # MERGED into the dict this frame serializes, never re-bound:
+                # `fm = {**fm, **gate_write(delta, …)}` would be a second
+                # binding of `fm` and therefore a spurious ninth arm in the
+                # wall's derived set.
+                fm.update(gate_write(delta, declared_type=fm.get("type"),
+                                     whole_record=False))
+                fixed += file_fixed
 
                 if changed:
                     # Write the full file with updated frontmatter + body
@@ -899,10 +974,26 @@ def apply_fixes(issues: list[LintIssue], vault_path: Path,
                     if wl_changed:
                         vault_io.write_note(fpath, content, precondition=_stamp)
 
+        except NameGateRefusal as exc:
+            # WI-021. ABOVE the broad handler below, and filtering on the EXACT
+            # refusal type rather than on the hierarchy root — this frame
+            # already raises four other `LoudFailError` subclasses (a lock
+            # timeout from `note_lock`, a corrupt fence from `parse_frontmatter`,
+            # two commit failures from `write_note`), none of which can carry a
+            # `pattern`, so a root filter would record a corrupt fence as "the
+            # gate declined this note" and move real IO failures out of the
+            # channel an operator reads for them.
+            #
+            # RECORD AND CONTINUE, not re-raise: this handler sits INSIDE the
+            # per-file loop, so `except LoudFailError: raise` — one word shorter
+            # and matching the sibling doors literally — would turn one refused
+            # note into a vault-wide repair outage.
+            refused.append(NameGateRefusalRecord(path=fpath, pattern=exc.pattern))
+            print(f"  Name gate refused {fpath}: {exc.pattern}", file=sys.stderr)
         except Exception as exc:
             print(f"  Fix error on {fpath.name}: {exc}", file=sys.stderr)
 
-    return fixed
+    return FixOutcome(fixed=fixed, refused=tuple(refused))
 
 
 # ---------------------------------------------------------------------------
@@ -1100,8 +1191,12 @@ def run_lint(
     if do_fix:
         fixable = [i for i in all_issues if i.auto_fixable]
         if fixable:
-            fixed = apply_fixes(fixable, vault_path, idx)
-            print(f"Fixed {fixed} issues. Re-scanning...\n")
+            outcome = apply_fixes(fixable, vault_path, idx)
+            # WI-021: the refusal count sits beside the fixed count, so a note
+            # the semantic gate declined is visible to the operator rather than
+            # silently absent from the repaired set.
+            print(f"Fixed {outcome.fixed} issues, "
+                  f"refused {len(outcome.refused)}. Re-scanning...\n")
             # Re-scan to report post-fix state
             all_files = read_vault(vault_path)
             idx = build_indexes(all_files)

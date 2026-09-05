@@ -103,6 +103,48 @@ class NoteAlreadyExists(LoudFailError):
     surfaces it."""
 
 
+class NameGateRefusal(LoudFailError):
+    """A write was declined by the semantic gate (WI-021).
+
+    A leaf of LoudFailError **directly**, never of NoteParseError: that subtree
+    is what `base._skip_reason` maps to a skip reason and what `base._note_skip`
+    files into the repository's skip surface, and the note here is perfectly
+    loadable — a WRITE was declined. It falls to `_skip_reason`'s "unreadable"
+    default, which is correct and unreached in practice.
+
+    Its own TYPE rather than a `LoudFailError` with an attribute, and that is
+    forced rather than tidy: `lint_vault --fix`'s per-file `try` already raises
+    four subclasses of the root before this item touches the frame (a lock
+    timeout, a corrupt fence, two commit failures), none of which can carry a
+    `pattern` — so an ABSORBING handler filtering on the root would record a
+    corrupt frontmatter fence as "the gate declined this note" and move real IO
+    failures out of the channel an operator reads for them.
+
+    The rule that covers the whole surface: a handler that RE-RAISES may filter
+    on the hierarchy root (the package's seven existing `except LoudFailError`
+    sites are correct as they stand); a handler that ABSORBS — records, counts,
+    logs and continues — must filter on this exact type, and every oracle
+    asserting the gate refused names `NameGateRefusal` and its `pattern` rather
+    than the root.
+
+    NOT retryable: the refusal is a deterministic function of the payload, so an
+    identical retry gets an identical refusal. That is the distinction
+    StaleEntityWrite (retry after refresh) and ExternalWriteConflict (the retry
+    re-reads) already draw here, and it is visible to a caller because the type
+    is its own leaf rather than an attribute probe on a base-class catch.
+
+    Declares NO __init__, exactly as StaleEntityWrite and NoteAlreadyExists do
+    not — the hierarchy's one constructor is what bounds the message. `pattern`
+    is the stable NameValidator pattern key (or the gate's own undeclared key);
+    it is a source literal by construction and carries no note content, and it
+    is set as an ATTRIBUTE after construction rather than passed in, because a
+    constructor keyword would mean either an __init__ here or widening
+    `bounded_message`'s keyword set. It does NOT render into the message.
+    """
+
+    pattern: Optional[str] = None
+
+
 # Exactly the literals of the construction table below — nothing else.
 # Extended only by editing this set alongside that table; bounded_message
 # refuses anything else at first construction. Enumerated, not derived, so that
@@ -124,6 +166,7 @@ REASONS: frozenset = frozenset({
     "entity write derives from a stale snapshot",         # StaleEntityWrite, WI-004 door 2u
     "target changed since it was read",                   # ExternalWriteConflict, WI-004 door 1
     "a note already exists at the destination",           # NoteAlreadyExists, WI-004 doors 2c/3
+    "the write introduces a name this package refuses",   # NameGateRefusal, WI-021
 })
 
 # LoudFailError.__init__ — the hierarchy's ONE constructor and the sole caller of

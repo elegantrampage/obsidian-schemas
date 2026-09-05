@@ -14,7 +14,6 @@ Also provides methods for managing To Discuss items.
 import re
 import logging
 from dataclasses import dataclass
-from email.utils import parseaddr
 from pathlib import Path
 from typing import Optional, List, Literal, Tuple, Type
 
@@ -76,6 +75,18 @@ from ..errors import (
     chainable_cause,
 )
 from .base import BaseRepository
+# WI-021: `normalize_phone` / `phones_match` MOVED to the stdlib-only leaf
+# `obsidian_schemas/phone_normalization.py` so `name_gate.py` can name the
+# authority without closing writer -> gate -> person -> base -> writer. This is
+# a COMPAT RE-EXPORT, not a convenience: two live consumers import these names
+# from this module by path (HAL9000 `core/contact_resolver.py:13`, exocortex
+# `clients/contacts.py:13`), so `obsidian_schemas.repositories.person.normalize_phone`
+# must keep resolving to the relocated function object.
+from ..phone_normalization import normalize_phone, phones_match
+# WI-021: the gate (for the write-back RIDER on save) and the ONE address
+# splitter, which replaces both duplicate parseaddr sites this module carried.
+from ..name_gate import gate_write, split_address
+from ..writer import model_to_frontmatter
 # Module attribute call form throughout (WI-004 D7) — see writer.py's note.
 from obsidian_schemas import vault_io
 
@@ -124,60 +135,6 @@ def _split_trailing_paren(name: str) -> Tuple[str, Optional[str]]:
     if not head or not inner:        # never strip to empty; never derive an empty hint
         return name, None
     return head, inner
-
-
-def normalize_phone(phone: str) -> str:
-    """
-    Normalize a phone number to digits only.
-
-    Examples:
-        "+44 7990 558521" → "447990558521"
-        "447990558521@s.whatsapp.net" → "447990558521"
-        "(555) 123-4567" → "5551234567"
-    """
-    if not phone:
-        return ""
-
-    # Remove WhatsApp JID suffix
-    phone = phone.split("@")[0]
-
-    # Keep only digits
-    return re.sub(r"\D", "", phone)
-
-
-def phones_match(phone1: str, phone2: str) -> bool:
-    """
-    Check if two phone numbers represent the same person.
-
-    Handles country code variations:
-    - UK: 44... vs 0...
-    - US: 1... vs 10-digit
-    """
-    norm1 = normalize_phone(phone1)
-    norm2 = normalize_phone(phone2)
-
-    if not norm1 or not norm2:
-        return False
-
-    # Direct match
-    if norm1 == norm2:
-        return True
-
-    # UK: 44 prefix vs 0 prefix
-    if norm1.startswith("44") and norm2.startswith("0"):
-        return norm1[2:] == norm2[1:]
-    if norm2.startswith("44") and norm1.startswith("0"):
-        return norm2[2:] == norm1[1:]
-
-    # US: 1 prefix vs 10-digit
-    if norm1.startswith("1") and len(norm1) == 11:
-        if norm1[1:] == norm2:
-            return True
-    if norm2.startswith("1") and len(norm2) == 11:
-        if norm2[1:] == norm1:
-            return True
-
-    return False
 
 
 class PersonRepository(BaseRepository[Person]):
@@ -1255,92 +1212,49 @@ class PersonRepository(BaseRepository[Person]):
     def save(self, entity, body: str = "", extra_fields=None, overwrite: bool = True,
              allow_body_replacement: bool = False,
              allow_unverified_overwrite: bool = False):
-        """Override BaseRepository.save() to normalize field-level RFC 2822
-        corruption (WI-109).
+        """Override BaseRepository.save() to write the gate's normalized
+        identifier fields back onto the ENTITY (WI-021's rider; WI-109's
+        `_normalize_address_fields` is SUBSUMED here and deleted).
 
-        Producers sometimes append raw 'Name <email>' / 'Name (email)' strings
-        into Person.emails[] and Person.aliases[]. This breaks exact-email
-        match in dedupe detection. Normalize at the save boundary:
-          - For each entry in emails/aliases, parseaddr it.
-          - If it yields a clean (email, display_name) pair, replace the entry
-            with the clean email and add the display_name to aliases.
-        Dedup-aware: identical clean emails after normalization collapse to one.
+        This is not an eighth arm and the wall does not sweep it — `save` binds
+        no frontmatter dict and serializes nothing. It is a RIDER, and it is the
+        reason this method carries a gate call at all: the gate returns a dict
+        and never touches the model, so no other frame can preserve the IN-PLACE
+        model mutation callers observe today (`person.emails` and
+        `person.aliases` were rewritten by `_normalize_address_fields`).
+
+        `whole_record=True`, because `model_to_frontmatter` projects every
+        declared field: both cross-field migrations run here exactly as they ran
+        before — an address found in an `aliases[]` entry moves to `emails[]`,
+        and a display half found in an `emails[]` entry moves to `aliases[]`.
+
+        The write-back is the IDENTIFIER fields ONLY and never `name`: under the
+        name-identity rule the gate returns the name it was handed byte-for-byte,
+        so there is nothing on that field to write back — and the filename is
+        derived from the raw name one frame below, so writing a repaired name
+        here is exactly the path/field divergence this item exists to prevent.
+
+        `phones[]` is a NEW in-place mutation a caller holding a `Person` will
+        observe where it does not today: nothing in this package deduped
+        `phones[]` before, and that is the behaviour the identifier criterion
+        wants. Stated because it is one field wider than the consumer audit's
+        grep list was written against.
+
+        The gate runs TWICE on one save — here, then at the entity arm on the
+        projection of the entity this rider just normalized — which is why
+        idempotence is required of it rather than incidental.
         """
-        self._normalize_address_fields(entity)
+        gated = gate_write(model_to_frontmatter(entity),
+                           declared_type=self.type_name, whole_record=True)
+        entity.emails = gated["emails"]
+        entity.phones = gated["phones"]
+        entity.aliases = gated["aliases"]
         # Delegates and adopts nothing of its own, so it calls _adopt nowhere —
         # a consequence of the door rather than a per-file exemption.
         return super().save(entity, body=body, extra_fields=extra_fields,
                             overwrite=overwrite,
                             allow_body_replacement=allow_body_replacement,
                             allow_unverified_overwrite=allow_unverified_overwrite)
-
-    @staticmethod
-    def _normalize_address_fields(person: Person) -> None:
-        """In-place normalization of person.emails and person.aliases.
-
-        Walks each list, runs parseaddr on every entry; whenever an entry
-        contains '<' or wrapped-in-parens email, replaces it with the clean
-        email and moves the display-name to aliases. Dedupes case-insensitively
-        while preserving first-seen order.
-        """
-        def _extract_email_and_name(entry: str) -> Tuple[str, str]:
-            """Return (email, display_name). Empty strings if not extractable."""
-            if not entry or not isinstance(entry, str):
-                return "", ""
-            # parseaddr handles 'Name <email>' form natively
-            name_p, email_p = parseaddr(entry)
-            if email_p and "@" in email_p and "." in email_p:
-                return email_p, (name_p or "").strip()
-            # Try the parens form: 'Name (email@domain)'
-            m = re.match(r"^(.*?)\s*\(\s*([^@\s]+@[^\s)]+)\s*\)\s*$", entry)
-            if m:
-                return m.group(2).strip(), m.group(1).strip()
-            return "", ""
-
-        # Process emails[]: extract clean email, collect display names for aliases
-        new_emails: List[str] = []
-        extracted_names: List[str] = []
-        seen_emails_lower = set()
-        for entry in list(person.emails or []):
-            email, display = _extract_email_and_name(entry)
-            if email:
-                if email.lower() not in seen_emails_lower:
-                    new_emails.append(email)
-                    seen_emails_lower.add(email.lower())
-                if display:
-                    extracted_names.append(display)
-            else:
-                # Couldn't parseaddr — keep as-is (rare; only if entry was malformed)
-                if entry and entry.lower() not in seen_emails_lower:
-                    new_emails.append(entry)
-                    seen_emails_lower.add(entry.lower())
-        person.emails = new_emails
-
-        # Process aliases[]: same logic, but emails extracted go to emails[] (if not
-        # already there), and the cleaned alias stays in aliases[]
-        new_aliases: List[str] = []
-        seen_aliases_lower = set()
-        for entry in list(person.aliases or []):
-            email, display = _extract_email_and_name(entry)
-            if email:
-                # The alias was a wrapped email — add the clean email to emails
-                if email.lower() not in seen_emails_lower:
-                    person.emails.append(email)
-                    seen_emails_lower.add(email.lower())
-                # Add display name as alias if extracted
-                if display and display.lower() not in seen_aliases_lower:
-                    new_aliases.append(display)
-                    seen_aliases_lower.add(display.lower())
-            else:
-                if entry and entry.lower() not in seen_aliases_lower:
-                    new_aliases.append(entry)
-                    seen_aliases_lower.add(entry.lower())
-        # Also add any extracted display names from emails[] that aren't already there
-        for n in extracted_names:
-            if n and n.lower() not in seen_aliases_lower:
-                new_aliases.append(n)
-                seen_aliases_lower.add(n.lower())
-        person.aliases = new_aliases
 
     def create_stub(
         self,
@@ -1383,8 +1297,16 @@ class PersonRepository(BaseRepository[Person]):
         # regex sanitizer below doesn't mangle it into something like
         # "Display Name emailatdomaincom". This protects against any caller
         # passing the raw sender field from a scanner.
-        parsed_name, parsed_email = parseaddr(name)
-        if parsed_email and "@" in parsed_email:
+        #
+        # WI-021: the JOB survives verbatim; only the parser moves. This was a
+        # second, laxer copy of the address split — it trusted parseaddr on a
+        # BARE input, which silently repairs `a@b c.com` into `a@bc.com` and
+        # mints a wrong identity key. `split_address` is the one implementation
+        # and it delegates to `Email.parse`, so this site inherits that
+        # deliberate refusal: an unparseable blob is no longer adopted as an
+        # address, and falls through to the NameValidator boundary below.
+        parsed_email, parsed_name = split_address(name)
+        if parsed_email:
             # An email was extracted from the input. The caller's explicit
             # `email` arg wins if present; otherwise we adopt the parsed one.
             if not email:

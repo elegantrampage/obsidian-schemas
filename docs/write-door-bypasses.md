@@ -2,7 +2,7 @@
 id: WI-021
 title: "Close the write-door bypasses: name validation + address normalization on every mutation path"
 project: obsidian-schemas
-stage: building
+stage: done
 created: 2026-07-05
 last_touched: 2026-09-05
 stage_changed: 2026-09-05
@@ -11,7 +11,7 @@ tags: [typed-boundaries, name-validation, rfc2822]
 depends_on: ["WI-004"]
 round_budget: 20
 spawn_budget: 95
-transitions: ["idea>exploring@2026-08-11@session", "exploring>specced@2026-09-05@session", "specced>ready@2026-09-05@session", "ready>building@2026-09-05@session"]
+transitions: ["idea>exploring@2026-08-11@session", "exploring>specced@2026-09-05@session", "specced>ready@2026-09-05@session", "ready>building@2026-09-05@session", "building>done@2026-09-05@session"]
 review_level: L3
 review_level_provenance: selector
 ---
@@ -4186,7 +4186,7 @@ never inside a branch that binds an arm (not "at the convergence of its arms": a
 the lock while the arm binds inside it — architect round 16). A `fm = gate_write(fm, …)` anywhere in Tasks
 7–10 mints a ninth arm in `AC-1`'s own derived set and is RED at Task 6's per-function equality pin.
 
-- [ ] **Task 1 — Capture the baseline before the first edit.** Run the floor command
+- [x] **Task 1 — Capture the baseline before the first edit.** Run the floor command
       (`.venv/bin/python -m pytest tests -q`, absolute, from anywhere) and record in the Build Log:
       the passing case count, and the current length of `frontmatter_write_arms`' future corpus as
       a plain fact (`tests/derivations.py` exists, six wall modules, `REASONS` has fifteen members).
@@ -4194,7 +4194,7 @@ the lock while the arm binds inside it — architect round 16). A `fm = gate_wri
       directional comparison has a left-hand side.
       verify: baseline — an informational capture whose only artifact is the Build Log; no standing check asserts it.
 
-- [ ] **Task 2 — Relocate the phone authority to a leaf.** Create
+- [x] **Task 2 — Relocate the phone authority to a leaf.** Create
       `obsidian_schemas/phone_normalization.py` holding `normalize_phone` and `phones_match`
       verbatim from `obsidian_schemas/repositories/person.py:129-176`, stdlib-only (`re`). Replace
       the definitions in `person.py` with `from ..phone_normalization import normalize_phone,
@@ -4207,7 +4207,7 @@ the lock while the arm binds inside it — architect round 16). A `fm = gate_wri
       green **UNEDITED** — that is what proves the re-export is real rather than asserted.
       verify: test_phone_normalization_relocated_without_a_behaviour_delta
 
-- [ ] **Task 3 — Add `NameGateRefusal` to the loud-fail hierarchy.** In
+- [x] **Task 3 — Add `NameGateRefusal` to the loud-fail hierarchy.** In
       `obsidian_schemas/errors.py`: the class as Design §2 states it (parent `LoudFailError`
       DIRECTLY, no `__init__`, `pattern` as a class-level attribute defaulting to `None`), plus the
       one new `REASONS` literal, fifteen → sixteen. In `obsidian_schemas/__init__.py`: the import
@@ -4223,7 +4223,7 @@ the lock while the arm binds inside it — architect round 16). A `fm = gate_wri
       where a real refusal is driven through `gate_write`.
       verify: test_name_gate_refusal_is_a_loud_fail_leaf_carrying_a_pattern
 
-- [ ] **Task 4 — Reify the Tier-1 refusal surface.** In `obsidian_schemas/name_validation.py`, add
+- [x] **Task 4 — Reify the Tier-1 refusal surface.** In `obsidian_schemas/name_validation.py`, add
       the ten-record `TIER1_BRANCHES` tuple of Design §3 and rewrite `_raise_on_tier1` to walk it.
       Behaviour-preserving: same order, same seven pattern keys over nine branches, same messages,
       `empty` still raised above the chain by both entry points, the sentinel exemption still above
@@ -4234,7 +4234,7 @@ the lock while the arm binds inside it — architect round 16). A `fm = gate_wri
       `(pattern, type)` pairs as before the rewrite on a table-driven corpus.
       verify: test_the_tier1_surface_is_reified_totally_and_the_chain_is_unchanged
 
-- [ ] **Task 5 — Build the splitter and the gate.** Create `obsidian_schemas/name_gate.py` with
+- [x] **Task 5 — Build the splitter and the gate.** Create `obsidian_schemas/name_gate.py` with
       the splitter (Design §4) and `gate_write` (Design §1), including the payload-derived sentinel,
       the name-identity rule, the three-field container with the `whole_record` split, the two
       migrations, and the single `_refuse` site that sets `pattern`. **The LIST-SHAPE PRECONDITION of
@@ -4331,7 +4331,7 @@ the lock while the arm binds inside it — architect round 16). A `fm = gate_wri
       log line"* a statement about a channel the module does not open rather than an unchecked hope.
       verify: test_the_gate_is_a_pure_function_of_payload_and_declaration
 
-- [ ] **Task 6 — Ship the four derivation predicates and their planted batteries.** In
+- [x] **Task 6 — Ship the four derivation predicates and their planted batteries.** In
       `tests/derivations.py`: `frontmatter_write_arms`, `gate_call_declarations`,
       `gate_call_placement` and `address_splitting_implementations`, per Design §7. In
       `tests/test_name_gate_wall.py`: `_single_sourced` on all four, then the floor / reach /
@@ -4373,7 +4373,7 @@ the lock while the arm binds inside it — architect round 16). A `fm = gate_wri
       asserted by equality as exactly `{D1a, D1b, D1c}`, then cannot reconcile.
       verify: test_the_arm_sweep_resolves_the_floor_and_its_match_shapes
 
-- [ ] **Task 7 — Route D1a/D1b/D1c with the hoist.** In `obsidian_schemas/writer.py`, move the
+- [x] **Task 7 — Route D1a/D1b/D1c with the hoist.** In `obsidian_schemas/writer.py`, move the
       three-branch fm construction (`:255-263`) and one gate call above
       `with vault_io.note_lock(file_path)` (`:209`); leave `write_frontmatter(fm)` at the
       convergence point (`:266`). **The gate call is written
@@ -4398,7 +4398,7 @@ the lock while the arm binds inside it — architect round 16). A `fm = gate_wri
       asserted UNSET, and never an ambient recursive-listing snapshot.
       verify: test_write_markdown_file_gates_all_three_arms_above_the_lock
 
-- [ ] **Task 8 — Route D4 and the D3 rider; subsume `_normalize_address_fields`.** In
+- [x] **Task 8 — Route D4 and the D3 rider; subsume `_normalize_address_fields`.** In
       `obsidian_schemas/repositories/base.py`, add the in-lock gate call in `update_fields` on the
       caller's `updates` with `self.type_name` and `whole_record=False`, between the alias append
       (`:443-448`) and the merge (`:451`). The gate's result MERGES into `frontmatter` —
@@ -4416,7 +4416,7 @@ the lock while the arm binds inside it — architect round 16). A `fm = gate_wri
       the stored `name:` are equal for a Tier-2-dirty name.
       verify: test_repository_writes_gate_in_lock_and_the_rider_writes_back
 
-- [ ] **Task 9 — Route D5, D6 and D7.** In `obsidian_schemas/writer.py`: at
+- [x] **Task 9 — Route D5, D6 and D7.** In `obsidian_schemas/writer.py`: at
       `update_frontmatter_field`, CONSTRUCT `{field_name: field_value}` and gate it in-lock with
       `frontmatter.get("type")` — never the parsed record bound at `:329`; at
       `update_frontmatter_fields`, gate the `updates` parameter in-lock with
@@ -4438,7 +4438,7 @@ the lock while the arm binds inside it — architect round 16). A `fm = gate_wri
       build that refuses it, which raises on a call that succeeds today.
       verify: test_the_public_writer_doors_gate_the_delta_not_the_record
 
-- [ ] **Task 10 — `lint_vault --fix`: guard, delta, gate, refusal arm, interface.** All four
+- [x] **Task 10 — `lint_vault --fix`: guard, delta, gate, refusal arm, interface.** All four
       changes of Design §6 in `scripts/lint_vault.py`, plus the call-site and print update at
       `:1100-1104`. The guard is a read-only `Path.exists` probe and nothing else. The gated delta
       is **MERGED** into the serialized dict — `fm.update(gate_write(delta, …))`, never
@@ -4480,7 +4480,7 @@ the lock while the arm binds inside it — architect round 16). A `fm = gate_wri
       and the relaxation that greens it deletes M3.
       verify: test_lint_vault_fix_guards_threads_and_records_refusals
 
-- [ ] **Task 11 — `AC-1`'s full per-arm triple.** Extend `tests/test_name_gate_wall.py` with the
+- [x] **Task 11 — `AC-1`'s full per-arm triple.** Extend `tests/test_name_gate_wall.py` with the
       criterion check: the floor by `(qualname, arm)`, the driven reach battery and the near-miss
       (all from Task 6), the PASS-WHAT pin per arm, the PLACEMENT pin per arm with its derived
       required value and the RED consistency leg, the rider stated as a NON-member and pinned by its
@@ -4493,7 +4493,7 @@ the lock while the arm binds inside it — architect round 16). A `fm = gate_wri
       post-routing tree unedited; they must not be relaxed to accommodate a routing edit.
       verify: test_every_frontmatter_door_routes_through_the_semantic_gate
 
-- [ ] **Task 12 — `AC-2`'s battery.** `tests/test_name_gate_refusals.py`. The fixture space is
+- [x] **Task 12 — `AC-2`'s battery.** `tests/test_name_gate_refusals.py`. The fixture space is
       SWEPT from `TIER1_BRANCHES` — ten records, never sampled — crossed with the seven arms of the
       typed pass (exclusion asserted to BE exactly `{D7}`), with the per-record set at D8 DERIVED
       rather than assumed total, per the paragraph at the foot of this task. Four conjuncts, each bound to the arms
@@ -4516,7 +4516,7 @@ the lock while the arm binds inside it — architect round 16). A `fm = gate_wri
       turns this derivation RED instead of silently shrinking it.
       verify: test_every_tier1_pattern_is_refused_at_every_door
 
-- [ ] **Task 13 — `AC-3`'s battery.** `tests/test_name_gate_delta_rule.py`. The preservation
+- [x] **Task 13 — `AC-3`'s battery.** `tests/test_name_gate_delta_rule.py`. The preservation
       property over `AC-1`'s derived set at arm granularity with the exclusion set asserted BY
       EQUALITY to `{D1a, D1b, D1c}`; the delta-not-record pin at D5/D6; the body-section append as a
       named BEHAVIOURAL example that still commits (a Class-2 pass-through, not a member); the
@@ -4524,7 +4524,7 @@ the lock while the arm binds inside it — architect round 16). A `fm = gate_wri
       and the module says why in one line.
       verify: test_a_legacy_dirty_name_stays_writable_for_unrelated_writes
 
-- [ ] **Task 14 — `AC-4`'s battery.** `tests/test_name_gate_identifiers.py`. Agreement ACROSS arms
+- [x] **Task 14 — `AC-4`'s battery.** `tests/test_name_gate_identifiers.py`. Agreement ACROSS arms
       on the typed pass (exclusion asserted to BE exactly `{D7}`); the third field scoped by arm
       shape — both migrations at D1a and the rider, `aliases[]` byte-identical on all six
       dict-shaped arms, and a build that splits an alias or emits a destination key there is RED;
@@ -4567,7 +4567,7 @@ the lock while the arm binds inside it — architect round 16). A `fm = gate_wri
       the vacuity is a measured property of the frame, not a claim in this paragraph.
       verify: test_identifiers_normalize_identically_on_every_door
 
-- [ ] **Task 15 — `AC-5`'s battery.** `tests/test_address_splitter.py`, importing
+- [x] **Task 15 — `AC-5`'s battery.** `tests/test_address_splitter.py`, importing
       `address_splitting_implementations` from `tests/derivations.py`. The live claim (exactly one
       implementation, homed in `name_gate.py`, with `identifier.Email.parse` as the permitted
       authority); planted positive controls it MUST match in each implementation shape — a
@@ -4577,7 +4577,7 @@ the lock while the arm binds inside it — architect round 16). A `fm = gate_wri
       included, with the case contract of Design §4 asserted explicitly.
       verify: test_address_splitting_is_single_homed_and_agrees_with_email_parse
 
-- [ ] **Task 16 — Close wall membership by RUNNING each wall's own predicate, and land the two
+- [x] **Task 16 — Close wall membership by RUNNING each wall's own predicate, and land the two
       staleness riders.** For every file this item creates or edits, call the shipped predicate of
       each wall that sweeps it (the census is in `## Verification`) on that file's FINAL text and
       assert the wall's own requirement, in `tests/test_name_gate_wall.py`. Anything the run returns
@@ -4592,13 +4592,298 @@ the lock while the arm binds inside it — architect round 16). A `fm = gate_wri
       write, and the fix is the catch-`LoudFailError` IDIOM sentence rather than a tenth number.
       verify: test_wall_membership_is_closed_by_running_each_walls_predicate
 
-- [ ] **Task 17 — Floor run and the derived regression enumeration.** Run the floor command; assert
+- [x] **Task 17 — Floor run and the derived regression enumeration.** Run the floor command; assert
       the PROPERTY (green, zero errors) and compare the case count DIRECTIONALLY against Task 1's
       Build Log baseline — a run landing fewer cases has lost a file. Re-derive the regression
       enumeration by sweeping the resolved test roots for modules naming each `## Write Targets`
       path and confirm every module the sweep returns is green; record the sweep's output in the
       Build Log rather than inheriting this spec's list.
       verify: hand-run — a directional comparison against a Build-Log baseline plus an inspection of the sweep's output; neither is a standing artifact any check can assert.
+
+## Build Log — 2026-09-05
+
+Built to `## Design` §§1–8 and the Implementation Plan, which the round-18 fold makes the
+NORMATIVE register. All 17 tasks landed; the floor is green. Only things a future reader needs
+in order to understand why the code looks the way it does are recorded here.
+
+**Baselines (Task 1, captured before the first edit).** Floor `654 passed` at close against a
+pre-build baseline of **637 passed** — DIRECTIONALLY up by 17, so no test file was lost.
+`tests/derivations.py` existed with six wall modules; `REASONS` held **fifteen** members and now
+holds sixteen, pinned by equality because it is a FROZEN population.
+
+**The shell was probed first and is live** (Abort Protocol step 0): `echo hi` returned before any
+source was read, so nothing here was written from source-reads alone.
+
+### Deviations from the spec, and the reason for each
+
+1. **`create_stub`'s parseaddr site was replaced too, not just `_extract_email_and_name`.** The
+   Implementation Plan's Task 5/15 text names the splitter and the deleted sites; Finding D's table
+   classifies `create_stub` parseaddr (row 1) as **REPLACE** — "the job survives verbatim, only the
+   parser moves" — and `AC-5`'s agreement clause is written over "every input form the deleted
+   `create_stub` and `_normalize_address_fields` sites accepted". No task text spells the edit, so
+   it is recorded as an addition made to satisfy the criterion rather than a silent extra. The
+   consequence is reconciliation 3, exactly as Finding D predicts: that site trusted parseaddr on a
+   BARE input and now inherits `Email.parse`'s refusal, so an unparseable blob is no longer adopted
+   as an address and falls through to the NameValidator boundary below it. `parseaddr` is now
+   unreferenced in `repositories/person.py` and its import is gone.
+
+2. **A `None` name coerces to the empty string, not to the string `"None"`.** `## Design` §1.3 says
+   the gate "coerces with `str(...)` before matching", and `## Edge Cases` says a `None` name is the
+   `empty` refusal because "`None` cannot pass `bool(stripped)`". Those two are jointly unsatisfiable
+   under a literal `str(name)`, which yields `"None"` — a perfectly valid name that sails through.
+   The build takes the reading that makes the stated DECISION true: `"" if name is None else str(name)`.
+   Pinned by Task 5's leg over `(None, "", "   ")`.
+
+3. **`apply_fixes`'s repair tally moved BELOW the gate call.** Found by Task 10's own fixture, not by
+   reading: the five branch increments ran `fixed += 1` before the gate spoke, so a refused note was
+   still counted as repaired and a two-note run reported `Fixed 2 issues, refused 1` having written
+   one. The branches now tally into a per-file local that is folded into the run's total only after
+   the gate returns. This is a correctness change to a counter the spec did not discuss; it is the
+   only way `fixed` and `refused` can both be true of the same run.
+
+4. **The two phone NEGATIVES are asserted against the module's NAMESPACE, not its source text.**
+   Task 5 asks that "the dedupe path imports neither `phones_match` nor `Phone.parse` and never reads
+   `MIN_DIGITS`". A source-text scan is the self-match trap `errors.py` already documents in its own
+   header: `name_gate.py`'s docstrings EXPLAIN why those two are excluded, so naming the excluded
+   symbol in the explanation makes a compliant module read as a violation — it went red on the first
+   run for exactly that reason. The oracle reads `vars(name_gate)` instead, which is strictly exact:
+   `Phone.parse` and `MIN_DIGITS` are unreachable without binding `Phone`. The `logging`/`print`
+   channel leg stays a source scan (no runtime name to probe for a builtin), and `name_gate.py`'s
+   prose avoids those tokens by construction, the same convention `errors.py` carries.
+
+### Findings that were not in the spec
+
+- **`address_splitting_implementations` over-generated on `parse_frontmatter`.** `## Design` §7 keys
+  the predicate on "a `'<'` / `'('` / `'@'` literal used to split or match a string". Applied
+  literally, `parse_frontmatter`'s fence regex `r"^---\n(.*?)\n?---\n?(.*)"` matches: two `(`, and
+  a 2-tuple return. A `(` is the address's parens form when it is split against a string and a
+  capture GROUP when it is in a regex, so ONE rule over the three characters is wrong. The predicate
+  now splits the arm: a REGEX literal is evidence only when it carries `@` — the one character an
+  address regex cannot avoid and a structural regex has no reason to hold — while a literal handed
+  to an ordinary string operation is evidence on any of the three. The fence regex is now a LIVE
+  near-miss in the tree rather than a planted one, which is stronger.
+
+- **The planted-fixture YAML had to be serialized rather than hand-spelled.** A hand-written
+  `phones:\n- 447700900123` parses back as a list of INTS, which then takes the gate's list-shape
+  pass-through arm — so a fixture claiming to exercise the phone dedupe exercised nothing. Caught by
+  Task 14's byte-identity leg. `plant_note` now dumps the values it was handed, so what a caller
+  passes is what parses back.
+
+### Rules taken from `## Design` where an upstream register read differently
+
+Per the round-18 class close, `## Design` §§1–8 and the plan win and the disagreement is reported
+rather than chosen. Two were met and neither is a contradiction, only a narrower statement:
+
+- `## Approach` says the write-back rider is "the IDENTIFIER fields only — `emails[]`, `phones[]`,
+  `aliases[]` — and never `name`"; §6 says the same. Built to that. `phones[]` is therefore a NEW
+  in-place mutation on a caller's `Person`, which `## Approach` already flags as one field wider
+  than the consumer audit's grep list; it is asserted at Task 8 and Task 14.
+- `## Approach`'s round-6 marker says D1b/D1c "have no declaration to pass". §7's four-class
+  enumeration is the live rule: they PASS `fm.get("type")`, a `Call` that EVALUATES to `None`, and
+  only D7 writes a `Constant`. Built to §7; the wall asserts `constant == {D7}` and `absent == {}`,
+  both by equality, and both hold.
+
+### Verification beyond the batteries
+
+- **Every `verify:` check invoked BARE**, exactly as the conveyor invokes a `kind: test` criterion
+  (`getattr(mod, name)()`): all 15 standing checks are top-level, take ZERO arguments and signal by
+  raising. Run and passing.
+- **Mutate-and-observe on the five load-bearing structural rules**, each mutation applied, observed
+  RED, and reverted (the complementary half of the driven fixtures, never sufficient alone):
+  re-binding `fm` at D1 → RED at Task 6 (ii)'s per-function equality pin; hardcoding
+  `declared_type="person"` at D1 → RED at the `constant == {D7}` equality; emitting
+  `validate_strict`'s repaired return as the name → RED at the name-identity control; gating the
+  MERGED record at D5 → RED at AC-3's delta-not-record pin; filtering D8's refusal arm on
+  `LoudFailError` → RED at the near-miss control. `git diff --stat` confirms all five reverted.
+- **The executed incident is closed.** `repo.save(Person(name="Dave/Bob"))` now raises
+  `NameGateRefusal(pattern="path_hostile_char")` and leaves NONE of the four artefacts the
+  2026-08-11 run left — asserted by NAME (`<vault>/@Dave`, `<vault>/@Dave.md`, the target, its
+  parent, and `parent/".obsidian-schemas-locks"`), never by an ambient recursive listing, and with
+  `OBSIDIAN_SCHEMAS_LOCK_DIR` asserted UNSET.
+- **The arm sweep resolves the floor at 8 over 6 functions on the POST-build tree**, with every
+  arm's `observed == required` and exactly one non-nested gate call per function:
+  `above` = {D1a, D1b, D1c, D7}, `in-lock` = {D4, D5, D6, D8} — D8 reaching `in-lock` only because
+  this item added the existence guard its three siblings already carried.
+
+### Task 17 — the regression enumeration, RE-DERIVED rather than inherited
+
+Swept the resolved test roots for modules naming any `## Write Targets` path. **Domain and
+predicate, stated so the count is falsifiable** *(resume-leg correction; the rule that a "none
+found" / "only these fall outside" sentence must name the domain it walked)*: the domain is the
+**29** `*.py` modules directly under `tests/`, and the predicate is *does the module reference the
+MODULE named by a `## Write Targets` path* — an import of it or a mention of its stem — not a
+literal match on the path string, which under-resolves to 16 because most modules import
+`obsidian_schemas.writer` rather than spelling `obsidian_schemas/writer.py`. The sweep returns
+**26 modules** — wider than the spec's inherited 14-module list, which is why the plan asks for a
+re-derivation. All 26 green, and the full floor (654) green with them:
+
+`derivations.py`, `support.py`, `test_address_splitter.py`, `test_body_sections.py`,
+`test_concurrent_access.py`, `test_identifier.py`, `test_lint_vault_fix_gate.py`,
+`test_loud_fail_harness.py`, `test_loud_fail_load.py`, `test_loud_fail_parse.py`,
+`test_loud_fail_write.py`, `test_models.py`, `test_name_gate.py`,
+`test_name_gate_delta_rule.py`, `test_name_gate_identifiers.py`, `test_name_gate_refusals.py`,
+`test_name_gate_wall.py`, `test_name_validation.py`, `test_parser.py`,
+`test_phone_normalization.py`, `test_repositories.py`, `test_resolve_or_create.py`,
+`test_vault_path_required.py`, `test_wi126_body_preservation.py`, `test_write_routing.py`,
+`test_writer.py`.
+
+**THREE** modules fall outside the sweep, and the set is closed by arithmetic — 26 swept + 3
+outside = the 29 the domain contains: `test_identity_index.py`, `test_name_cleaning.py` and
+`tests/__init__.py`. *(Resume-leg correction: this sentence previously named only the first and
+third. The omission was `test_name_cleaning.py`, which is genuinely outside — it imports
+`obsidian_schemas.name_cleaning` alone, and `name_cleaning.py` is not a `## Write Targets` path —
+so the 26-list itself was right and only its complement was mis-stated. It is recorded rather than
+silently repaired because an exclusion sentence whose members do not sum to its domain is
+unfalsifiable in exactly the way the stated-predicate rule above exists to prevent.)* All three are
+green: `test_identity_index.py` and `test_name_cleaning.py` run **46 passed** together, and
+`tests/__init__.py` carries no checks.
+
+`tests/test_repositories.py` stayed green **UNEDITED**, which is Task 2's proof that the
+`normalize_phone` / `phones_match` re-export is real rather than asserted.
+
+### Task 16 rider (b) — not a builder write, and confirmed already landed
+
+`CLAUDE.md` is a project-root file outside the cage's write authority
+(`pipeline-runners.yaml` declares `obsidian_schemas/**`, `tests/**`, `scripts/**`, `docs/**`), so
+this build did not touch it and did not attempt to. The conductor committed it as a precondition
+(`ef13edf`): the loud-fail note is de-drifted to the catch-`LoudFailError` IDIOM rather than a
+member count, `NameGateRefusal` is named, and the Key Files table carries rows for `name_gate.py`
+and `phone_normalization.py`. Verified present in the tree this build ran against. Rider (a) — the
+stale *"three of the six derivations"* prose — IS a builder write and landed in
+`tests/derivations.py:modules_using_ast` and `tests/test_loud_fail_harness.py`, restated as the
+RULE it stood for (shape cannot discriminate a derivation from a copy; capability can). The
+`six` dict is a REQUIRED SUBSET by its own comment, so the four new sweeps deliberately do not join
+it and `len(six) == 6` is unmoved.
+
+### The linter's citation warnings are this build's own shadow, not drift
+
+`work_item_linter.py` (read-only) reports **0 errors, 180 warnings** against this document. Every
+one is a citation written BEFORE the build now pointing at a line the build moved — this item edits
+eight source files and shifts line numbers in all of them, so the document's citations into
+`writer.py`, `lint_vault.py` and `name_validation.py` are stale by construction rather than by
+neglect. (They are not re-quoted with their line suffixes here: doing so appends three more
+warnings of exactly the kind this paragraph exists to explain, which is the self-match trap
+`errors.py` documents, one register over.) They are left as written: the spec's citations are the
+record of what the tree looked like when each round read it, and re-pointing them would erase the
+provenance the gate rounds were reasoning from. Anything a later reader needs at its CURRENT line is
+in `## Design` or here.
+
+Two warnings are a different thing and are worth naming because they are the RELOCATION landing
+exactly as designed, not a break: `absent-symbol: obsidian_schemas/repositories/person.py:normalize_phone`
+and `absent-symbol: person.py:phones_match`. Both functions moved to
+`obsidian_schemas/phone_normalization.py`; `person.py` now RE-EXPORTS them, which is an import
+rather than a `def`, so a symbol scan correctly finds no definition there. The names still resolve —
+that is the compat contract two live consumers depend on, and it is asserted by
+`tests/test_phone_normalization.py` (identity, not behaviour) and by `tests/test_repositories.py`
+staying green unedited.
+
+### Resume leg — the first build spawn TIMED OUT, and what was re-verified from the tree
+
+The spawn that wrote everything above ended by TIMEOUT, not by finishing its report. The worktree
+retained its edits, so this leg resumed from this Build Log as the cursor rather than restarting —
+and, because a timed-out spawn's last claims are the ones most likely to be unbacked, it re-ran the
+claims from the tree instead of inheriting them. **Nothing needed rebuilding: all 17 tasks were
+genuinely landed and every re-run was green.** What the re-verification actually executed:
+
+- **The floor**: `654 passed` — byte-identical to the number Task 1's leg recorded at close, so the
+  directional invariant holds and no test file was lost to the interruption.
+- **All 15 standing checks invoked BARE** (`getattr(mod, name)()`, the conveyor's own calling
+  convention), not through pytest: 15 PASS, 0 failures. Each first resolved by AST to a top-level
+  `def` taking ZERO arguments, with no duplicate definition across the roots — the D10b shape the
+  `building -> done` transition grades.
+- **The 17 `verify:` declarations and the 5 `check:` names all resolve**; the two exception-kind
+  declarations (Task 1 `baseline`, Task 17 `hand-run`) carry their reasons.
+- **`## Write Targets` matches the changed-file set EXACTLY** — 20 paths, 10 modified and 10
+  untracked, with no stray file and none missing. The mutate-and-observe mutations of the previous
+  leg are confirmed reverted by that same equality, not by assertion. (As of THIS leg the equality
+  still holds at 22 paths: the revision leg below adds two test files and their two fences.)
+- **Four narrative claims re-checked against live bytes**: `parseaddr` has no import and no call in
+  `repositories/person.py` (two prose mentions only); `REASONS` holds **16** with the new literal
+  *"the write introduces a name this package refuses"*; `NameGateRefusal` is exported and is a
+  `LoudFailError` subclass; and the `CLAUDE.md` precondition is present in the tree this leg ran
+  against (`name_gate.py` / `phone_normalization.py` rows, `NameGateRefusal` named in the loud-fail
+  note).
+- **The linter, read-only**: `0 errors, 180 warnings` — the same 180 the paragraph above explains as
+  this build's own citation shadow. This leg's doc edits added none.
+
+The one DEFECT the re-verification found was in this Build Log rather than in the code: Task 17's
+exclusion sentence named two outside modules where the domain requires three. It is corrected in
+place above, with the sweep's domain and predicate now stated. That is the only substantive change
+this leg made to the tree.
+
+### Still owed, and deliberately NOT done in the cage
+
+`## Verification`'s **close-out replay** and **consumer smoke** are prescribed as post-merge steps
+and are not plan tasks, for the stated reason: a caged builder's writes outside this tree are
+reverted at the merge boundary, so an in-plan replay would change nothing and report success. Both
+remain owed against the merged library — the replay against a throwaway tmp vault and a COPY of the
+live vault, and each consumer's own floor before the change is announced. The compat re-export is
+load-bearing in two of them (HAL9000 `core/contact_resolver.py:13`, exocortex
+`clients/contacts.py:13`), which Task 2 pins from this side only.
+
+### Revision leg — five-of-five criteria RED in the battery against a GREEN floor
+
+The check battery returned `exit 1` on **every** criterion with the same body:
+`ModuleNotFoundError: No module named 'pydantic'`, raised at each check module's first package
+import — in a worktree whose floor was green. Nothing about the properties was in question; the
+criteria never reached them.
+
+**Reproduced before anything was changed** (failing-test-first, WI-029). The conveyor discharges a
+`kind: test` criterion by running `<python> -c "<importlib bootstrap>" <module path> <check name>`
+with cwd at the project (`src/stage_advancer.py`, `BOOTSTRAP_SRC` / `build_check_argv`); that
+interpreter defaults to the ADVANCER's own `sys.executable` and is this project's venv only when
+the driver passes `--ac-python`. Running that exact argv with the advancer's interpreter
+(`workshop-stable/.venv/bin/python`, whose site-packages are `pip` and `pyyaml` — no pydantic)
+reproduced all five tracebacks byte-for-byte, and the same argv under `.venv/bin/python` passed all
+five. So the red was the INTERPRETER, and the diagnosis was falsifiable in one command rather than
+inferred from the message.
+
+**Why it had never bitten this project before.** Every criterion shipped here to date is a SOURCE
+sweep — `tests/derivations.py` imports `ast` and `pathlib` and nothing else — so no earlier check
+ever imported the library it gates. WI-021 is the first item whose criteria must EXECUTE the
+package, and it is the first to meet the gap. `pipeline-runners.yaml` already carries the intent
+(its header says the battery runs "with this project's interpreter … so the venv must be seeded
+into the worktree", and `seed_deps: .venv` seeds it); the missing half was on the running side, and
+that file is deny-class to a builder in any case.
+
+**The fix, and why it is not an escalation.** The interpreter is chosen by driver argv, not by any
+path a builder could write, so there is no out-of-authority path to name — and the venv the
+criteria need is already IN the battery's worktree by declaration. So the bridge is built on the
+side this item owns: `tests/ac_interpreter.py` exposes `ensure_project_interpreter(__file__)`,
+which each of the five check modules now calls as its FIRST statement, ahead of every package
+import. When the running interpreter can import the package's runtime deps it RETURNS and nothing
+changes — that is the floor, and the floor's behaviour is byte-identical. When it cannot, it does
+not return: it re-execs the same check under `<root>/.venv/bin/python` as a one-node `pytest` run,
+so the child's exit status and output ARE the criterion's. No second copy of any assertion, no
+reporting to plumb, and delegation to pytest rather than a re-spelled bootstrap so the delegated
+run sits under this project's own `[tool.pytest.ini_options]` and this repo carries no copy of the
+conveyor's private child source to drift against.
+
+Every failure path is loud and none degrades to green: an interpreter that STILL lacks the deps
+after one hop raises (`OBSIDIAN_SCHEMAS_AC_DELEGATED`, so an impossible delegation is refused on
+the second hop rather than looped); an invocation that is not the conveyor's `-c <module> <check>`
+shape raises rather than guessing which check to run; and both messages carry the hand-run command.
+All three were driven and observed.
+
+**The wall over the bridge** is `tests/test_ac_interpreter.py`, and it closes the split that made
+this possible in the first place — a check module that lost its guard would stay green on the floor
+and go red only in the battery. It DERIVES the criterion set from this document's own `criteria`
+fences (so an AC added later joins on the day it is written), resolves each name to its module by
+the conveyor's own discovery rule, and runs each in the battery's argv shape under
+`sys.executable -S` — `-S` skips `site`, so the venv's site-packages are off the child's path and
+`import pydantic` fails exactly as it does under the advancer's interpreter, reproduced
+hermetically with no second interpreter to locate. It asserts each exits 0 **and** that each
+actually delegated (an exit 0 without the delegation marker proves nothing about the battery's
+conditions), and its near-miss control drives a nonexistent check name through the same bridge and
+requires a NON-zero exit, so the wall cannot pass by reporting green for a run that did nothing.
+
+**Verified.** All five criteria, run through the conveyor's argv shape under
+`workshop-stable/.venv/bin/python` — the interpreter that produced the objection — now exit 0
+(0.15–0.56s each). The floor is **657 passed**, directionally up from this build's 654 by the three
+new cases and no test file lost. Scope: no production code and no test ASSERTION was touched by
+this leg — the diff is the new bridge, the new wall, and one guarded import block at the head of
+each of the five check modules.
+
 
 ## Write Targets
 
@@ -4700,6 +4985,16 @@ why: Task 15 — AC-5's battery
 ```writes
 path: tests/test_lint_vault_fix_gate.py
 why: Task 10 — the D8 arm's guard, delta, refusal record and near-miss
+```
+
+```writes
+path: tests/ac_interpreter.py
+why: Revision leg — the interpreter bridge each AC check module calls ahead of its first package import, so a criterion run by the conveyor's own interpreter reaches the property instead of ModuleNotFoundError
+```
+
+```writes
+path: tests/test_ac_interpreter.py
+why: Revision leg — the standing wall over that bridge: every criterion derived from this doc's own fences, run in the battery's argv shape under an interpreter without the project's site-packages, plus the near-miss control
 ```
 
 ```writes
@@ -10403,4 +10698,232 @@ verdict: PROMOTE
 date: 2026-09-05
 model: claude-sonnet-5
 note: Independent cold-start re-read of the full document plus the material added since round 2's Adversarial Review (Threat Model round 3, Spec Review round 3); targeted greps for steering phrasings, raw HTML comments, hidden/bidi Unicode and embedded URLs found nothing planted — the sole `<!--` hit is a prior injection-hunter's own prose quoting its search string. The round-3 additions are independent re-derivations from source (not adoptions of prior fence text) and the spec-reviewer explicitly declines to manufacture a further round, the opposite motion from steering-induced leniency. Same conclusion as rounds 1 and 2, independently re-derived rather than inherited.
+```
+
+## Code Review — 2026-09-05
+
+Cold-start build-exit read of the post-build tree. **Trigger: FIRES** — the diff is not doc-only
+(two new package modules, six modified package/script modules, ten new test modules, one new test
+helper).
+
+**Method, and its one hard limit, stated first because it bounds everything below.** This spawn has
+NO `Bash` tool, and none is reachable through the deferred-tool surface. So the floor was not run,
+the five criterion checks were not executed, and no `git diff` was taken. This is a SOURCE review.
+What I did instead of trusting the Build Log's numbers was hand-resolve every one of its structural
+claims that a reader can falsify from bytes, which is most of them:
+
+- **The arm derivation resolves to exactly the claimed floor on the post-build tree.** I traced
+  `frontmatter_write_arms` (`tests/derivations.py:977`) by hand over the live corpus: `_serialized_names`
+  resolves `write_frontmatter` at `writer.py:307`, `:390`, `:448`, `:501`, `base.py:478` and — through
+  the import alias `_wfm` — `lint_vault.py:955`; `_arm_assigns` then yields three `fm` bindings in
+  `write_markdown_file` (`writer.py:230`, `:235`, `:246`) and one each in the other five. Eight arms
+  over six functions, exactly as `AC-1(a)` floors. The two non-arm shapes hold in the live tree too:
+  `fm.update(...)` at `writer.py:237`/`:252` and `lint_vault.py:947` are method calls, and
+  `fm["auto_created"]`/`fm["name"]` (`lint_vault.py:891`, `:898`) and `frontmatter["aliases"]`
+  (`base.py:449`) are `Subscript` targets. None mints a spurious ninth member.
+- **The declaration pin's two equalities hold.** `_declaration_class` returns `constant` only for
+  `roundtrip_file`'s `declared_type=None` (`writer.py:494`), and every other arm passes either
+  `fm.get("type")`/`frontmatter.get("type")` (`type_get_call`) or `self.type_name` (`attribute`). No
+  arm omits the keyword, so `absent == {}` is true of the bytes and not only of the assertion.
+- **The placement rule resolves as pinned.** `_vault_io_anchor` lands on each frame's first
+  `vault_io.*` call; the gate call precedes it at `write_markdown_file` (252 < 258) and `roundtrip_file`
+  (494 < 497), and follows it at `update_frontmatter_field` (385 > 368), `update_frontmatter_fields`
+  (443 > 434), `BaseRepository.update_fields` (473 > 438) and `apply_fixes` (947 > 858).
+  `_refuses_on_nonexistence_above` matches the four `if not <locked>.exists(): raise` guards —
+  including the one this item ADDS at `lint_vault.py:853-854`, which is what moves D8 into `in-lock`.
+  So `above = {D1a, D1b, D1c, D7}` and `in-lock = {D4, D5, D6, D8}` are facts of the tree.
+- **Four narrative claims re-checked from bytes.** `REASONS` holds sixteen members with the new
+  literal (`errors.py:152-170`); `NameGateRefusal` subclasses `LoudFailError` DIRECTLY and not
+  `NoteParseError` (`errors.py:106`) and is imported and `__all__`-listed (`__init__.py:56`, `:134`);
+  `parseaddr` has no import and no call left in `repositories/person.py` (two prose mentions only);
+  `phone_normalization.py` is stdlib-only (`re`) and `person.py:85` re-exports both names, so the
+  compat contract two live consumers depend on is real rather than asserted.
+
+**The headline defects are closed, verified by reading the paths rather than the fixtures.** N2:
+`create_stub` is no longer the sole `NameValidator` site — `gate_write` calls `validate_strict` for
+its RAISE behaviour at every declared-person arm. N3: `_writeback_identifier` (`person.py:1174`)
+reaches D4, whose delta now routes through the gate (`base.py:473`), so a raw `Name <email>` string
+lands normalized. The consolidation rider holds: `split_address` (`name_gate.py:89`) is the one
+implementation and it delegates to `Email.parse`, and `create_stub:1308` now consumes it.
+
+**Correctness spot-checks I ran by hand and that pass.** Idempotence, which the design REQUIRES
+because one `PersonRepository.save` invokes the gate twice: I traced four whole-record shapes
+(`emails=["Al B <a@b.com>"]` with empty and non-empty `aliases`, an alias that duplicates a stored
+address, an alias that is an address absent from `emails[]`) and each is a fixed point on the second
+pass. The M1/M2 migrations are correctly pairwise-guarded (`name_gate.py:353`), so a payload passing
+one shape check and failing the other cannot half-migrate. `result["emails"]` and the migration's
+`new_emails` are deliberately the same object (`:372`, `:383`), which is what makes the alias-sourced
+address land in the emitted list. The output's key set cannot grow: every assignment is to a key
+`introduced` already carried. `chainable_cause` returns `None` for a `NameValidationError` (it is a
+plain `ValueError` in neither `CHAINABLE` arm), so `_refuse`'s suppression is real and M2's channel
+bound holds. `Person.emails/phones/aliases` are `List[str] = Field(default_factory=list)`
+(`models.py:80-82`), so the rider's three write-backs (`person.py:1249-1251`) cannot `KeyError` and
+cannot assign a shape the model rejects.
+
+**AI-maintainability checks (1-5).** No new cross-project reach — `ac_interpreter.py`'s only path is
+`<root>/.venv/bin/python`, inside this repo, and `test_ac_interpreter.py` names workshop in a comment
+while deliberately driving the bootstrap by EXECUTION rather than importing it. No new dependence on
+deprecated code. No idiom regression: the one absorbing handler prints on an interactive CLI, which is
+this project's stated idiom, and every re-raising handler still filters on the hierarchy root while the
+one absorbing handler filters on the exact leaf. **Docs made false: NO** — `CLAUDE.md` carries the
+`name_gate.py` and `phone_normalization.py` rows and the de-drifted loud-fail note (conductor
+precondition `ef13edf`, verified present), and `README.md`'s three writer examples all still commit
+under the new rule (the entity arms stamp `type: person`, and the `update_frontmatter_field` example
+introduces `company`, not a name).
+
+**Data-quality checks (Step 2c).** *Readback:* no code path in this diff writes to an external
+service — every vault write routes through `vault_io`, whose stamp precondition IS the readback
+discipline, and the one model write-back (`person.py:1249-1251`) is in-process. Nothing to flag; no
+finding manufactured. *No-silent-PASS-on-empty:* the four pass-through arms I could construe as
+silent — `_is_str_list`'s ill-shape arm, `split_address`'s `IdentifierError` mapping,
+`_dedupe_phones`' digit-less rule, and the non-person early return — are each an INTENTIONAL,
+commented, separately-tested case rather than a default, which is exactly the shape the rule permits.
+The sweeps that could pass vacuously do not: `criterion_checks` asserts non-emptiness explicitly
+(`test_ac_interpreter.py:103`), `check_module` raises on anything but a unique match, and the arm
+walls pin by equality inside the edited functions rather than by a floor alone. *Cage-reverted writes:*
+no such block in this spawn's input, so nothing to judge; `CLAUDE.md` is correctly declared as a
+`kind: precondition` write target rather than claimed as a builder edit, and the Build Log says so.
+
+**Build Log honesty (check 6).** Not a source-reads build: the shell liveness probe is recorded as
+step 0, and the log carries executed evidence a reading-only spawn could not fabricate cheaply — the
+five mutate-and-observe mutations with their named RED targets, a fixture that found the `apply_fixes`
+tally bug (deviation 3) rather than a reading that predicted it, and a serialization bug in the
+planter itself (`plant_note` dumping ints). The log also records its own defect — Task 17's exclusion
+sentence naming two modules where the domain requires three — and repairs it in place with the domain
+and predicate stated. That is the opposite of a log written to pass.
+
+**Findings.**
+
+- **Recommended — the new refusal is absent from four maintained `Raises:` contracts.**
+  `write_markdown_file` (`writer.py:196-203`), `update_frontmatter_field` (`:351-357`),
+  `update_frontmatter_fields` (`:421-425`) and `BaseRepository.update_fields` (`base.py:423-425`) each
+  carry an exhaustive `Raises:` enumeration that WI-004 and WI-020 both extended when they added an
+  exception; this item adds `NameGateRefusal` to all four doors and extends none. Three repositories
+  install this library with `pip install -e`, and `CLAUDE.md`'s own loud-fail idiom tells an absorbing
+  consumer to name the LEAF — which a consumer cannot do from a docstring that never says the door can
+  raise it. NOT blocking: the type is exported from `__init__`, fully documented at `errors.py:106-143`
+  and in `CLAUDE.md`, and a consumer catching `LoudFailError` (the documented idiom) still catches it.
+  One line per docstring closes it.
+- **Note — the phone-sentinel predicate reads `phones` before the list-shape precondition.**
+  `name_gate.py:324` computes `bool(introduced.get("phones"))` on the raw value, so a payload carrying
+  a pure-digit `name` beside a malformed truthy `phones` (a scalar string, say) enables the WI-083
+  exemption for a name that would otherwise be refused `pure_digit_name`. Extremely narrow — the name
+  must already be pure digits AND the payload must be ill-shaped — and the `phones` value still passes
+  through byte-identical under M1, so nothing is written wrong. Worth knowing, not worth a bounce.
+- **Note — the floor now forks six pytest sub-runs.** `test_ac_interpreter.py` runs each of the five
+  criteria plus one near-miss through `sys.executable -S`, each of which `execve`s into a fresh
+  `pytest` node. The Build Log measures 0.15-0.56s each and the recursion terminates (the wall's own
+  test functions are not named in any `criteria` fence, and the delegated child's bridge call is a
+  no-op), so this is a cost note rather than a hazard.
+
+No Blocking issues. The one thing a later reader should not have to rediscover: this verdict rests on
+a source read, not on an executed floor, because the cage gave this gate no shell.
+
+```verdict
+gate: code-reviewer
+verdict: PROMOTE
+date: 2026-09-05
+model: claude-opus-5
+note: No Blocking findings — I hand-resolved the arm/declaration/placement derivations against the live post-build bytes and they yield exactly the 8 arms over 6 functions, `constant == {D7}`, `absent == {}` and above/in-lock splits the ACs pin; N2/N3 and the splitter consolidation are closed at the paths, the gate is a leaf with no cycle, idempotence holds on four hand-traced whole-record shapes, and the refusal's chain and message bounds hold because NameValidationError is in neither CHAINABLE arm; two Notes and one Recommended (NameGateRefusal missing from four maintained `Raises:` docstrings), and the review is a SOURCE read because this cage exposes no Bash, so the floor and the AC battery were not executed.
+```
+
+## Test & Observability Review — 2026-09-05
+
+**Trigger: APPLIES.** This is not a refactor — it adds new production paths (a semantic gate on six
+write arms, a relocated leaf, a new refusal type, a new operator-facing refusal channel in a batch
+repair CLI), so this pass runs its three checks rather than self-declaring N/A.
+
+**Check 1 — tests exist for the new code paths, and they discriminate.** Ten new test modules import
+the new code and cover happy path plus failure modes. What raises this above "tests exist" is that the
+oracles are built to be RED against the specific wrong builds the spec names, and I verified several of
+those by reading rather than taking the claim:
+
+- `test_name_gate_refusals.py` sweeps the reified `TIER1_BRANCHES` (all ten records, `empty` and the
+  sentinel-exempt `pure_digit` included) across seven arms, and asserts the exclusion sets by EQUALITY
+  (`:135`, `:375`) so an arm cannot be out because an implementation skipped it. The no-stray-directory
+  oracle names artifacts computed from values the test holds (`:199-206`) rather than taking an ambient
+  recursive listing — which matters, because at the four in-lock arms `note_lock` legitimately creates
+  two artifacts of different arity before the gate can speak, and a listing oracle would be red against
+  correct code there.
+- `_d8_constructible` (`:100-116`) DERIVES D8's per-record fixture set by planting each specimen as a
+  filename stem and keeping the record only if the stem still fires that record's own branch — then
+  asserts the dropped set is exactly `{path_hostile}` by equality. I checked the derivation by hand:
+  `Path("@Bausch/Lomb.md").stem` is `Lomb`, which fires nothing, and `@.md` yields `""`, which fires
+  `empty`. So the "nine of ten" is computed, not asserted, and it moves on its own when the table moves.
+- `test_lint_vault_fix_gate.py:214-248` is the strongest single oracle in the item: the refusal record's
+  field set is pinned to `{path, pattern}` by EQUALITY and the printed line to EXACT string equality
+  built from the path the fixture created. Both are red against any diagnostic-minded build that carries
+  a third value, and the module's header explains why the tempting alternative ("assert the line lacks
+  the refused name") is red against the CORRECT build — the refused name IS the stem the required
+  `path` field contains. That is a genuine trap defused in the source rather than in prose.
+- The near-miss controls are present at both walls that need one: a corrupt fence produces NO refusal
+  record and still prints on the IO channel (`:251-273`), and a nonexistent check name driven through
+  the interpreter bridge must exit non-zero (`test_ac_interpreter.py:126-138`).
+- **WI-235 discipline is real here.** The counting walls ship their claimed match-shapes as planted
+  fixtures driven through the wall's OWN predicate (`PLANT_CALLEE_FORMS`, `PLANT_DECLARATION_SHAPES`,
+  `PLANT_PLACEMENT_SHAPES`), including all five declaration cells and the `guard_only_logs` near-miss
+  — so `matches == 8` is backed by evidence about the matcher's reach rather than standing alone.
+
+**Check 2 — failure-mode signalling.** The gate signals by RAISING a typed loud-fail exception
+carrying a stable `pattern` key, which is this package's stated idiom in preference to a log line;
+`name_gate.py` deliberately opens no output channel at all (M2 — because a `NameValidationError`
+message interpolates the raw name, and at two branches that name IS an email address). The one place
+a refusal is ABSORBED rather than raised — `apply_fixes`' per-file loop — is the one place a log line
+is the right instrument, and it has one: a stderr line distinguishable from the pre-existing
+`Fix error on …` channel, a structured record, and a run-level count surfaced beside the fixed count
+(`lint_vault.py:991-992`, `:1198-1199`). The handler filters on the exact leaf and nothing wider, so a
+lock timeout or a corrupt fence cannot be miscounted as a gate refusal — verified in source at
+`:977-992`, and it correctly sits ABOVE the broad `except Exception` at `:993`. The `apply_fixes` tally
+fix (deviation 3) is what makes `fixed` and `refused` both true of the same run rather than the counter
+reporting repairs the refusal then prevented; without it the operator-facing numbers would have lied.
+
+**Check 3 — alerts.** N/A, and legitimately so. This item ships no new automated system: it is a
+library change plus one operator-run CLI. There is no cron, launchd entry, daemon or scheduled job in
+the diff to wire an alert for, and the failure mode is a synchronous typed exception in the caller's own
+process rather than a silent background break. The right operator signal for the batch path is the
+refusal count, and it is present and asserted.
+
+**Check 4 — invariant registration.** N/A by the role's own rule: this project has NO invariant
+registry — I globbed for `**/invariants.py` across the tree and it returns nothing, the registry being
+orchestrator-only (`src/invariants.py`). Skipped, not failed, and noted rather than silently dropped.
+
+**Regression enumeration.** Task 17 re-derived it rather than inheriting the spec's 14-module list,
+returning 26 of the 29 modules directly under `tests/`, with the three-module complement closed by
+arithmetic. The Build Log corrects its own earlier two-module statement of that complement and states
+the sweep's domain and predicate so the count is falsifiable — which is the right treatment of a
+"none found" sentence.
+
+**The revision leg's bridge is the right shape and fails closed.** `tests/ac_interpreter.py` closes a
+real gap that only the battery could see (every prior criterion in this project was a source sweep that
+never imported the library it gated, so no earlier check ever needed the project's interpreter). It was
+reproduced before it was fixed, the diagnosis was falsified in one command rather than inferred from the
+message, and each failure path raises with a hand-run command instead of degrading to green: a second
+hop still missing the deps raises on the sentinel, and a non-conveyor invocation shape raises rather
+than guessing which check to run. `test_ac_interpreter.py` closes the split that made the gap invisible
+— it DERIVES the criterion set from this document's own fences, runs each in the battery's argv shape
+under `sys.executable -S` (hermetic, no second interpreter to locate), and asserts each exits 0 **and**
+actually delegated, so an exit 0 that proves nothing about the battery's conditions is red.
+
+**Owed, correctly, outside the cage.** `## Verification`'s close-out replay (the executed incident
+against a throwaway tmp vault, and `--fix` against a COPY of the live vault) and the consumer smoke
+across HAL9000/exocortex/orchestrator floors remain owed post-merge, and are correctly NOT plan tasks —
+a caged builder's writes outside this tree are reverted at the merge boundary, so an in-plan replay
+would change nothing and report success. The compat re-export is load-bearing in two of those consumers
+and is pinned from this side only, so the consumer floors are the other half of that proof.
+
+**The limit on this pass, stated plainly.** No `Bash` in this cage, so I did not execute the floor and
+cannot independently confirm `657 passed` or the five criteria exiting 0 under the advancer's
+interpreter. Every test module named above was READ; each defines the check its `criteria` fence names,
+each of the five calls `ensure_project_interpreter(__file__)` ahead of its first package import (I
+confirmed no package import precedes it), and all ten new modules match `test_*.py` so the floor
+collects them while `ac_interpreter.py` and `derivations.py` correctly do not. Nothing I read
+contradicts the Build Log's numbers; I simply could not re-run them, and I would rather say so than
+let a directional count pass as verified.
+
+```verdict
+gate: test-observability-checker
+verdict: PROMOTE
+date: 2026-09-05
+model: claude-opus-5
+note: Every new prod path has tests covering happy path plus failure modes, and the oracles discriminate rather than merely pass — D8's fixture set is DERIVED from the arm's closed delta (hand-checked: `@Bausch/Lomb.md` stems to `Lomb`, so the `{path_hostile}` exclusion is computed not asserted), the refusal record and its printed line are pinned by two equalities that are red against any diagnostic-minded build, near-miss controls exist at both walls, and the WI-235 match-shapes are driven through the walls' own predicates; the one absorbing handler has a distinguishable operator channel plus a counted refusal surface, alerting is N/A (library plus operator-run CLI, no new automated system), and invariant registration is N/A because this project has no `invariants.py` registry (orchestrator-only) — noted, not failed; caveat: no Bash in this cage, so the floor and the AC battery were read and not executed.
 ```

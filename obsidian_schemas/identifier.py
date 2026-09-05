@@ -35,6 +35,15 @@ from dataclasses import dataclass
 from email.utils import parseaddr
 from typing import ClassVar, FrozenSet, Optional, Tuple
 
+# WI-021: MODULE-SCOPE, replacing the two deferred imports `Phone.parse` and
+# `WhatsAppJID.parse` carried. `phone_normalization` is a stdlib-only leaf that
+# imports nothing from the package, so naming it here cannot close a cycle — it
+# was `repositories.person` (which reaches `base` -> `writer`) that forced the
+# lazy form. This module names one package sibling and nothing above it, so it
+# is still a LEAF; it is no longer *stdlib-only*, and the docstring's "pure
+# layer" claim is about vault I/O and resolution, which is untouched.
+from .phone_normalization import normalize_phone
+
 
 # ── Public email providers (the WI-124 denylist) ─────────────────────────────
 # A personal-email domain is never an employer. An EmailDomain on this set is
@@ -231,9 +240,6 @@ class Phone(Identifier):
     def parse(cls, raw: str) -> "Phone":
         if raw is None:
             raise IdentifierError("phone", raw, "is None")
-        # Lazy import: keeps the canonical normalizer single-sourced without a
-        # module-load circular import once person.py imports the engine (P3/4).
-        from .repositories.person import normalize_phone
         digits = normalize_phone(str(raw))
         if len(digits) < cls.MIN_DIGITS:
             raise IdentifierError("phone", raw, f"fewer than {cls.MIN_DIGITS} digits")
@@ -269,7 +275,6 @@ class WhatsAppJID(Identifier):
             raise IdentifierError("whatsapp_jid", raw, "empty")
         if "@lid" in s:
             return cls(jid=s, phone_digits="")
-        from .repositories.person import normalize_phone
         digits = normalize_phone(s)
         if len(digits) < Phone.MIN_DIGITS:
             raise IdentifierError("whatsapp_jid", raw, "no @lid and no usable phone")

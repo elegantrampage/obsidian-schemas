@@ -53,6 +53,7 @@ from obsidian_schemas.errors import (
     StaleEntityWrite,
     ExternalWriteConflict,
     NoteAlreadyExists,
+    NameGateRefusal,
 )
 from obsidian_schemas.body_sections import (
     parse_body_sections,
@@ -129,6 +130,8 @@ __all__ = [
     "StaleEntityWrite",
     "ExternalWriteConflict",
     "NoteAlreadyExists",
+    # The semantic write gate's refusal (WI-021)
+    "NameGateRefusal",
     # Body Sections
     "parse_body_sections",
     "write_body_sections",

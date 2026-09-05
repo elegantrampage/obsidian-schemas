@@ -25,6 +25,7 @@ from obsidian_schemas.errors import (
     chainable_cause,
 )
 from obsidian_schemas.models import BaseEntity, EntityType
+from obsidian_schemas.name_gate import gate_write
 from obsidian_schemas.parser import parse_frontmatter
 # Imported as a MODULE and every door called as a module attribute (WI-004 D7):
 # `tests/derivations.py:_is_write_call` gates on `ast.Attribute`, so a bare
@@ -203,6 +204,54 @@ def write_markdown_file(
     """
     file_path = Path(file_path)
 
+    # WI-021 — the SEMANTIC gate, and it runs ABOVE the lock.
+    #
+    # The fm construction is HOISTED here from below `note_lock` because
+    # `note_lock`'s own outermost acquisition `mkdir`s the sentinel home at a
+    # path that DEFAULTS to the note's own parent, BEFORE any frontmatter
+    # exists. A gate at the convergence point therefore refuses only AFTER
+    # `<vault>/@Dave/` and a `.lock` are already on disk — confirmed by
+    # execution, not by reading. Hoisting is legal precisely because the gate is
+    # HANDED its declaration and reads nothing but its own arguments, so nothing
+    # it touches is lock-protected.
+    #
+    # The hoist is mechanically local: nothing between the lock and the three
+    # branches feeds them. The stamp lookup, the `unverified` flag, `is_create`
+    # and the WI-126 body read are all downstream CONSUMERS of the lock, while
+    # the arms read only `entity`, `frontmatter` and `extra_fields`, which are
+    # parameters.
+    #
+    # ONE gate call, after the if/elif/else and before `write_frontmatter`,
+    # never inside a branch; `whole_record` is carried to it by a local flag set
+    # per branch rather than by a second call per branch. The result is MERGED —
+    # `fm = gate_write(fm, …)` would be a NEW binding of `fm` and therefore a
+    # NINTH arm of this function in the wall's own derived set.
+    if entity is not None:
+        fm = model_to_frontmatter(entity, extra_fields)
+        # `model_to_frontmatter` emits every declared field unconditionally, so
+        # this payload guarantees both a migration's source and its destination.
+        gate_whole_record = True
+    elif frontmatter is not None:
+        fm = frontmatter.copy()
+        if extra_fields:
+            fm.update(extra_fields)
+        gate_whole_record = False
+    else:
+        # A FRESH dict replacing what was `extra_fields or {}` — an ALIAS of the
+        # dict the caller still holds. The merge below mutates whatever `fm` is
+        # bound to, so leaving the alias would write the gate's normalized
+        # `emails[]`/`phones[]` back into the caller's own dict: a new
+        # caller-visible side effect on a documented public entry point. The
+        # same single `Assign`, so this arm's identity is unchanged.
+        fm = dict(extra_fields or {})
+        gate_whole_record = False
+
+    # `fm.get("type")` read HERE is the POST-merge dict's `type:` — `extra_fields`
+    # merged one branch above — which is what the declaration pin requires at the
+    # `frontmatter=` arm.
+    fm.update(gate_write(fm, declared_type=fm.get("type"),
+                         whole_record=gate_whole_record))
+
     # Door 2 (WI-004 D8). The lock spans the stamp lookup, the WI-126 guard's
     # read and the commit, so the guard verifies the SAME bytes the precondition
     # asserts — today those two reads had nothing held between them.
@@ -252,17 +301,9 @@ def write_markdown_file(
                 if dropped:
                     raise BodyTruncationError(file_path, len(dropped))
 
-        # Build frontmatter from entity or raw dict
-        if entity is not None:
-            fm = model_to_frontmatter(entity, extra_fields)
-        elif frontmatter is not None:
-            fm = frontmatter.copy()
-            if extra_fields:
-                fm.update(extra_fields)
-        else:
-            fm = extra_fields or {}
-
-        # Serialize to YAML
+        # Serialize to YAML. The convergence point is unchanged: the fm
+        # construction and its one gate call were hoisted above the lock (WI-021),
+        # and `write_frontmatter` still runs here.
         yaml_content = write_frontmatter(fm)
 
         # Build full content
@@ -328,8 +369,22 @@ def update_frontmatter_field(
             content, stamp = vault_io.read_note(file_path)
             frontmatter, body = parse_frontmatter(content)
 
-            # Update the field
-            frontmatter[field_name] = field_value
+            # Update the field — through the SEMANTIC gate (WI-021, D5).
+            #
+            # The delta is CONSTRUCTED here, because there is no dict anywhere
+            # in this frame: `field_name` and `field_value` are two loose
+            # parameters. Gating the merged `frontmatter` instead would make
+            # this function permanently refuse every note whose STORED name is
+            # Tier-1 dirty — and D5/D6 are the only arms those notes are
+            # reachable through at all, so that build greens every other
+            # criterion while bricking the exact population the delta rule
+            # exists to keep writable.
+            #
+            # IN-LOCK, and it MUST be: the declaration handed to the gate is
+            # this note's own `type:`, parsed inside the lock one line above.
+            frontmatter.update(gate_write({field_name: field_value},
+                                          declared_type=frontmatter.get("type"),
+                                          whole_record=False))
 
             # Rebuild and write
             yaml_content = write_frontmatter(frontmatter)
@@ -380,8 +435,14 @@ def update_frontmatter_fields(
             content, stamp = vault_io.read_note(file_path)
             frontmatter, body = parse_frontmatter(content)
 
-            # Update all fields
-            frontmatter.update(updates)
+            # Update all fields — through the SEMANTIC gate (WI-021, D6).
+            # The DELTA is the caller's `updates`, never the merged record; the
+            # result merges into `frontmatter` and never into `updates`, which
+            # the caller still holds. IN-LOCK for the same reason as D5: the
+            # declaration is this note's own `type:`, parsed inside the lock.
+            frontmatter.update(gate_write(updates,
+                                          declared_type=frontmatter.get("type"),
+                                          whole_record=False))
 
             # Rebuild and write
             yaml_content = write_frontmatter(frontmatter)
@@ -412,6 +473,25 @@ def roundtrip_file(file_path: Union[str, Path]) -> str:
         The content that was written
     """
     file_path = Path(file_path)
+
+    # WI-021 (D7). This function re-serializes the note's OWN parsed frontmatter
+    # and introduces no field, so the gate is handed an EMPTY mapping, has
+    # nothing to judge and can never refuse — which is exactly why the call is
+    # worth writing rather than skipping: the wall's per-arm triple stays total,
+    # and the ninth arm someone adds next month by copying this function
+    # inherits a gate call instead of a hole.
+    #
+    # It HOLDS no declaration and therefore PASSES the literal `None`. The
+    # parameter carries no default, so an absence is EXPRESSED rather than
+    # defaulted; and this frame has no dict to read a `type:` off, because the
+    # only one binds INSIDE the lock below. `None` is the one permitted literal
+    # in this whole item, and the wall asserts that by equality.
+    #
+    # ABOVE the lock, by the placement rule's DEFAULT rather than by a hoist:
+    # this frame carries no existence guard (that is a separate, parked defect),
+    # and the placement costs nothing because the delta is empty. The result is
+    # discarded — there is nothing in it.
+    gate_write({}, declared_type=None, whole_record=False)
 
     # Door 1 (WI-004) — see update_frontmatter_field.
     with vault_io.note_lock(file_path):
