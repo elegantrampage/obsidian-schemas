@@ -1,7 +1,7 @@
 {
   "project": "obsidian-schemas",
   "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
-  "last_scanned": "2026-09-05T16:10:54Z",
+  "last_scanned": "2026-09-05T17:15:56Z",
   "next_id": 29,
   "items": [
     {
@@ -1734,7 +1734,7 @@
     {
       "id": "WI-021",
       "title": "Close the write-door bypasses: name validation + address normalization on every mutation path",
-      "stage": "ready",
+      "stage": "building",
       "file": "docs/write-door-bypasses.md",
       "created": "2026-07-05",
       "last_touched": "2026-09-05",
@@ -1769,6 +1769,13 @@
         {
           "from": "specced",
           "to": "ready",
+          "at": "2026-09-05",
+          "by": "session",
+          "forced": false
+        },
+        {
+          "from": "ready",
+          "to": "building",
           "at": "2026-09-05",
           "by": "session",
           "forced": false

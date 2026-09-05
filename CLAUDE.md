@@ -38,6 +38,8 @@ vips = repo.get_by_role("vip")
 | `obsidian_schemas/repositories/company.py` | CompanyRepository |
 | `obsidian_schemas/identifier.py` | Typed Identifier union + EntityRef (identity core, WI-125) |
 | `obsidian_schemas/name_validation.py` | NameValidator boundary contract (WI-105) |
+| `obsidian_schemas/name_gate.py` | THE semantic write gate (WI-021, landing): every frontmatter-writing arm hands it the fields the write introduces plus a declared type; it refuses with `NameGateRefusal` or returns them normalized |
+| `obsidian_schemas/phone_normalization.py` | `normalize_phone`/`phones_match` leaf (WI-021 relocation; `repositories/person.py` re-exports both for consumers) |
 | `obsidian_schemas/name_cleaning.py` | clean_person_name (WI-117) |
 | `obsidian_schemas/body_sections.py` | Markdown body section parse/write, To-Discuss items |
 
@@ -63,13 +65,17 @@ build raises the count substantially). The invariant is DIRECTIONAL: a drive tha
 than the previous run without explanation has silently lost a test file. Last verified-by-hand
 anchors, for archaeology only: 563 (pre-WI-024), 607 (2026-07-19 post-WI-024).
 
-**Loud-fail API (WI-020, landing):** `obsidian_schemas/errors.py` — six exported exception classes
-(`LoudFailError`, `NoteParseError`, `FrontmatterParseError`, `SchemaDriftError`,
-`UnverifiableBodyError`, `WriteFailedError`, all `ValueError` subclasses; catch `LoudFailError` for
-"this package refused", `NoteParseError` for both parse failures). Repositories expose a queryable
-skip surface for notes they own but could not load. Contract details live in the package docstrings
-(the build carries them there — this file holds only the pointer; per WI-020's spec, the build does
-NOT write this file, and this section is the conductor-committed landing note it relies on).
+**Loud-fail API (WI-020; WI-021 adds `NameGateRefusal`):** `obsidian_schemas/errors.py` is one
+hierarchy rooted at `LoudFailError` (a `ValueError`). Never trust a member COUNT written here — it
+drifted from six to nine unnoticed; run `python -c 'import obsidian_schemas as o; print(o.__all__)'`
+to see the exported members. The IDIOM is what matters: catch `LoudFailError` for "this package
+refused"; `NoteParseError` covers both parse failures. A handler that RE-RAISES may filter on the
+root; a handler that ABSORBS, and any test asserting a refusal, names the LEAF it means — e.g.
+`NameGateRefusal` with its `pattern` attribute (WI-021) — because sibling leaves raise from the same
+frames and a root filter would misattribute them. Repositories expose a queryable skip surface for
+notes they own but could not load. Contract details live in the package docstrings (the builds carry
+them there — this file holds only the pointer; neither WI-020's nor WI-021's build writes this file,
+and this section is the conductor-committed landing note they rely on).
 
 System python has no pytest — always use the `.venv` interpreter. Note that this `.venv`'s editable
 install is stale (`_obsidian_schemas.pth` points at a path that no longer exists), so a bare

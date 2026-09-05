@@ -2,7 +2,7 @@
 id: WI-021
 title: "Close the write-door bypasses: name validation + address normalization on every mutation path"
 project: obsidian-schemas
-stage: ready
+stage: building
 created: 2026-07-05
 last_touched: 2026-09-05
 stage_changed: 2026-09-05
@@ -11,7 +11,7 @@ tags: [typed-boundaries, name-validation, rfc2822]
 depends_on: ["WI-004"]
 round_budget: 20
 spawn_budget: 95
-transitions: ["idea>exploring@2026-08-11@session", "exploring>specced@2026-09-05@session", "specced>ready@2026-09-05@session"]
+transitions: ["idea>exploring@2026-08-11@session", "exploring>specced@2026-09-05@session", "specced>ready@2026-09-05@session", "ready>building@2026-09-05@session"]
 review_level: L3
 review_level_provenance: selector
 ---
