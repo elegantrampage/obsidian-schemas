@@ -1,8 +1,8 @@
 {
   "project": "obsidian-schemas",
   "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
-  "last_scanned": "2026-08-11T21:51:37Z",
-  "next_id": 28,
+  "last_scanned": "2026-08-31T08:56:10Z",
+  "next_id": 29,
   "items": [
     {
       "id": "WI-022",
@@ -1551,6 +1551,26 @@
       "verdicts": [],
       "acceptance_criteria": [],
       "summary": "`repositories/person.py` is 1,839 LOC \u2014 2.6\u00d7 the workspace ~700-line ceiling \u2014 and the package's fan-in hub (imports six internal modules). It holds five separable concerns: index maintenance, the res"
+    },
+    {
+      "id": "WI-028",
+      "title": "Person-resolution policy moves into the library",
+      "stage": "idea",
+      "file": "docs/person-resolution-policy-in-library.md",
+      "created": "2026-08-31",
+      "last_touched": "2026-08-31",
+      "stage_changed": "2026-08-31",
+      "tags": [],
+      "involvement": null,
+      "parent": null,
+      "children": [],
+      "depends_on": [],
+      "blocked": false,
+      "transitions": [],
+      "latest_verdicts": {},
+      "verdicts": [],
+      "acceptance_criteria": [],
+      "summary": "Person MATCHING lives in one place (this library's PersonRepository.resolve_all), but resolution POLICY lives in two: HAL9000's WI-057 seam (core/person_resolution.py \u2014 the 0.85 cutoff, refuse-with-ra"
     },
     {
       "id": "WI-009",
