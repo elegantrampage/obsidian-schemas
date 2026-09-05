@@ -2185,6 +2185,10 @@ carries **no behaviour delta**: `Phone.parse`'s `MIN_DIGITS = 7` floor (`identif
 `:238-239`) is never introduced into the dedupe path, which is why this shape was chosen over
 delegating to `Phone.parse`. The gate dedupes on `normalize_phone` alone; `phones_match`'s
 country-code equivalence moves with it but stays WI-023 item 2's question, not this item's.
+*(Round-19 fold — the two rules "store the display form" leaves undecided, both stated in full at
+`## Design` §5, which is normative: an entry whose normalized form is EMPTY is not a dedupe key and
+passes through byte-identical; and among entries sharing a key the E.164 spelling survives where one
+is present, first-seen otherwise — Dave's ruling 4, 2026-09-05.)*
 
 Route all **eight arms across six functions** through it — `write_markdown_file`'s three fm-building
 arms, `update_fields`, `update_frontmatter_field(s)`, `roundtrip_file`, and `lint_vault --fix`, with
@@ -2631,6 +2635,78 @@ built, verified from source, and is the loud-fail direction. It did not touch `#
 record. It changed no rule, no arm's placement, no criterion's scope and no task's oracle: every edit
 this round makes two registers say what one of them already said.
 
+### Round 19 — 2026-09-05 (Dave's ruling 4 folded; the phones dedupe gets a task and an oracle)
+
+**No signed text is touched.** `## Intent` and `## Acceptance Criteria` are byte-unchanged, so
+`ac_hash 92a58783c84f` stands, and `AC-4` is neither edited nor re-signed. Every edit this round is
+unsigned prose: `## Approach`'s phone paragraph, `## Design` §5 and one sentence of §4 (its
+case-only paragraph closed with a one-item enumeration of "every downstream sentence that quotes a
+size", which the new Risk Analysis row falsified the moment it landed — restated as the standing
+dating RULE instead), `## Edge Cases`, the Implementation
+Plan preamble and Tasks 5 and 14, `## Verification`'s smoke path, `## Risk Analysis` (one new row —
+this item's only data-DELETING behaviour had no entry in the register that owns "what could go
+wrong", which is the same defect this round closes one register over), `## Grounding Still Owed`'s
+G12 entry and its section-level owed line, and this section. No new `check` name, no criterion's
+scope moved, no arm's placement changed, no `## Write Targets` fence added or removed (so the
+`review_level: L3` touch surface is unchanged), and no Dave round created.
+
+**What this round is.** Round 18 closed with the architect PROMOTE and a data-premise REVISE carrying
+no blocking item — one booked query (G12) and one §5 clause — both folded by the conductor at zero
+spawns, and the item parked for Dave's ceilings. Dave answered (`spawn_budget: 80`,
+`round_budget: 20`) and, in the same word set, ruled the one size G12 had put in front of him:
+**ruling 4 — among `phones[]` entries sharing a `normalize_phone` key the E.164 spelling survives.**
+This round re-drives the spec from those live bytes and folds the ruling.
+
+**The finding, and it is not the ruling itself.** The ruling and the round-18 empty-key clause had
+both landed in `## Design` §5 and nowhere else. That is internally consistent — §5 is normative, and
+the round-18 rule makes every silent register yield to it — and it is still **unbuildable**: the
+builder executes the Implementation Plan top-to-bottom, and Task 5's whole statement of §5's
+behaviour was nine words written before either rule existed (*"the phone
+dedupe-on-normalized/store-display rule"*), while Task 14's `AC-4` battery named `emails[]` and
+`aliases[]` and never the phones leg. A rule no task names and no check would go RED over is
+satisfiable in both directions by a build that is green everywhere — which is precisely how the
+`+`-less spelling would have won on all five live notes after Dave ruled the other way.
+
+**The generator, named one dimension over from round 18's** *(WI-226)*. Round 18 closed *which
+register wins when two disagree*. The failure here is a register that says NOTHING: it disagrees with
+nothing, reads as folded, and is caught by no rule round 18 wrote. Stated at the level that closes
+it: **a rule stated in `## Design` §§1–5 is not folded until a `Task N` names it in its own work text
+AND some task's `verify` check would go RED if a build got it wrong** — and where the wrong build is
+the NATURAL one, reaching for a helper the package already ships, the rule is stated as an explicit
+NEGATIVE with a negative leg in the battery, because an absence asserts nothing. That rule is at the
+head of the Implementation Plan, where a builder meets it.
+
+**The sweep it forced, and what it found — three cells, not one.** Every behavioural rule in
+`## Design` §§1–5 crossed with (named by a task) × (would a check go red), declared in the plan
+preamble. All three non-empty cells are in §5, and that fact IS the generator's fingerprint: every
+other Design section maps onto a task that names it by number, while §5 alone is split — its
+relocation half owned by Task 2, its behavioural half surviving as a nine-word clause inside a task
+about something else. The three: the E.164 winner (ruling 4), the empty-key pass-through
+(data-premise round 18), and — found by this sweep rather than handed to it — **the pair of
+NEGATIVES the document had carried as an absence since the round-5 fold**: the dedupe adopts neither
+`Phone.parse`'s `MIN_DIGITS` floor nor `phones_match`'s country-code equivalence. Both were stated in
+`## Approach` and §5 as things that do not happen, and nothing anywhere would have gone red for a
+build that did them — `phones_match` reports `447990558521` and `07990558521` as one number
+(`person.py:167-170`, read this round), so a build using it deletes a genuinely different stored
+number, silently, on the first gated write. All three now land in Task 5's work text and Task 14's
+battery with input-derived oracles.
+
+**The next level of the ladder, swept and DECLARED empty.** The dimension under *which rule* is
+*which FIELD carries a winner-selection question at all* — it exists only where two DISTINCT stored
+spellings can share one dedupe key. `phones[]` alone: `emails[]` entries are stored as
+`Email.parse(candidate).value` (§4), so a group sharing a key is byte-identical and there is nothing
+to choose; `aliases[]` is never keyed, byte-identical on every dict arm, and on the `whole_record`
+arms the two migrations use seen-sets to SUPPRESS an append rather than to drop a stored entry. Empty,
+and declared empty here rather than left for a round to find.
+
+**What this round deliberately did NOT do.** It did not re-open ruling 4, edit any signed span or
+`criteria` fence, or touch `## Threat Model` (there is none) or any gate-verdict record. It did not
+rewrite `## Exploration Notes`' Finding G or `## Carried Forward`, which are SILENT on the winner
+rather than stale about it — silence yields safely under the round-18 rule, and rewriting a
+historical finding to carry a ruling issued twenty-five days later would make the record worse.
+`## Grounding Still Owed`'s G12 entry WAS repaired, because it asserted the superseded
+first-seen reading in the present tense as *"the one size for Dave"* — that one is stale, not silent.
+
 ## Verified Diagnosis
 
 Three load-bearing claims about how the system behaves incorrectly today. Each cites a falsifiable
@@ -2936,8 +3012,14 @@ constant** *(round-17 fold; WI-295's live-population rule)*. Round 14's pass mea
 over 1,021 `emails[]` entries and **5** on `aliases[]` — the corpus grew and the count moved DOWN,
 which is exactly why nothing in this item pins it. The decision the number forced (state the return
 contract) is unaffected: one non-empty case cell is sufficient to force it and both walks agree the
-cell is non-empty. Every downstream sentence that quotes a size — `## Risk Analysis`' case-contract
-row — says "measured at a date" for the same reason.
+cell is non-empty. `## Risk Analysis`' case-contract row quotes both walks with their dates for the
+same reason — and it is an INSTANCE of the standing rule rather than the enumeration it once read as
+*(round-19 fold: the sentence named one downstream row as though the set were closed, which is the
+totality-over-an-unenumerated-set shape data-premise round 17 raised one register over; the
+round-19 `phones[]` deletion row is a second such sentence, dated on its face)*. The rule that
+governs, stated at `## Conductor Rulings & Grounding`'s count-3 marker: **every quotation of a live
+vault number carries the date it was measured, and an undated one is STALE by default**, with
+`## Conductor Shell Pass` normative.
 
 `_normalize_address_fields` is **SUBSUMED**: deleted, its inner `_extract_email_and_name`
 (`person.py:1286`, nested inside the static method at `:1277-1278`) becomes the splitter, its two
@@ -2965,25 +3047,59 @@ migrations become the gate's `whole_record` behaviour, and `PersonRepository.sav
   in live consumers, measured**: HAL9000 `core/contact_resolver.py:13` and exocortex
   `clients/contacts.py:13` import it directly (`## Conductor Shell Pass`, re-run 2026-09-05).
 
-**No behaviour delta.** `Phone.parse`'s `MIN_DIGITS = 7` floor (`identifier.py:228`, `:238-239`)
-is never introduced into the dedupe path — the gate dedupes on `normalize_phone`'s output alone,
-stores the DISPLAY form, and does not adopt `phones_match`'s country-code equivalence, which is
-WI-023 item 2's open question and not this item's. **The dedupe-key contract at the empty case**
-*(data-premise round 18, applied by the conductor 2026-09-05)*: an entry whose `normalize_phone` output
-is EMPTY is never a dedupe key and is passed through byte-identical — a naive seen-set keyed on the
-normalized form would otherwise silently delete every digit-less entry after the first. **And the
-dedupe is a DELETION over live stored data, sized by G12** (`## Grounding Still Owed`,
-`## Conductor Shell Pass`): nothing in this package normalizes or dedupes `phones[]` today, so the
-first gated whole-list write through D1a, D4 or the rider drops the second of two same-number entries.
-Live population: **5 notes**, each holding one number twice as `447…` and `+447…`, no JID-spelled
-loser, and **0** entries normalizing to empty. Which spelling survives is the FIRST-SEEN one under
-"stores the display form" — on all five live notes that is the `+`-less spelling — and that
-preference is a size for Dave to read rather than a rule this document changes. **Dave ruled
-(ruling 4, 2026-09-05, relayed verbatim via the workspaces-5e session: "Let's go with whatever the
-standard iso format is for phone numbers"): when two entries share a normalized key, the surviving
-display form is the E.164-spelled one (`+447…`) where one is present, first-seen otherwise.** This
-selects the WINNER among duplicates; it does not rewrite non-duplicate stored phones to E.164, which
-would be a display-form normalization outside `AC-4`'s "stores the display form" and a separate item.
+**No behaviour delta on the relocated functions themselves.** Both move byte-for-byte and every
+caller keeps resolving; the relocation changes where they live, never what they compute.
+
+**The `phones[]` dedupe, specified in full.** This is the one BEHAVIOUR §5 owns — the rest of the
+section is a relocation — and it is the register that had no task and no oracle until this round
+*(round-19 fold; see the Implementation Plan preamble's rule and its declared sweep)*. It lands in
+**Task 5** and is proved in **Task 14**. Given the `phones[]` list the gate was handed, in source
+order:
+
+1. **The key is `normalize_phone`'s output and nothing else.** `Phone.parse`'s `MIN_DIGITS = 7`
+   floor (`identifier.py:Phone:228`, `:238-239`) is **never** introduced into this path, and
+   `phones_match`'s country-code equivalence (`person.py:phones_match:148-180`) is **not** adopted.
+   Both are strictly WIDER collapses than `AC-4` signs: `MIN_DIGITS` would make a short entry
+   unkeyable by raising, and `phones_match` reports `447990558521` and `07990558521` as one number
+   (`person.py:167-170`) — a UK-specific equivalence that is WI-023 item 2's open question, not this
+   item's, and that is not even transitive, so it is not a relation a seen-set can be built on. Both
+   are stated as RULES here rather than left as an absence, because a build that dedupes with either
+   is green at every other check in this document; Task 14 carries the two negative legs.
+2. **The empty key is not a key** *(data-premise round 18)*. An entry whose `normalize_phone` output
+   is EMPTY — i.e. the value carries NO DIGIT AT ALL after the `@` split (`person.py:142-145`): `"n/a"`,
+   `"ext."`, `"call the office"`; NOT an extension-only string such as `"ext. 4021"`, whose output is
+   `"4021"` and non-empty *(example list corrected per data-premise round 19)* — is
+   never a dedupe key and is passed through byte-identical, in place. A naive seen-set keyed on the
+   normalized form would otherwise silently delete every digit-less entry after the first, which no
+   criterion asks for and §1.6's key-set rule does not reach, since the `phones` key survives and
+   only its contents shrink.
+3. **The WINNER among entries sharing a non-empty key is the E.164 spelling — Dave's ruling 4.**
+   **Dave ruled (ruling 4, 2026-09-05, relayed verbatim via the workspaces-5e session: "Let's go with
+   whatever the standard iso format is for phone numbers"): when two entries share a normalized key,
+   the surviving display form is the E.164-spelled one (`+447…`) where one is present, first-seen
+   otherwise.** Buildable form: within a group sharing one non-empty key, the survivor is the FIRST
+   entry in source order whose stripped display form begins with `"+"`; if no member does, the first
+   entry in source order. This selects the winner AMONG duplicates; it does not rewrite non-duplicate
+   stored phones to E.164, which would be a display-form normalization outside `AC-4`'s "stores the
+   display form" and a separate item.
+4. **The survivor is stored byte-identical, at the index of its group's FIRST entry.** Nothing is
+   re-spelled — "stores the display form" means the entry's own bytes, not a canonicalization of them
+   — and pinning the output position to the first occurrence is what makes the output a function of
+   the input alone and makes a second pass a no-op, which §1.7's idempotence requires and the rider
+   (gate, then D1a on the projection) actually exercises.
+
+**And the dedupe is a DELETION over live stored data, sized by G12** (`## Grounding Still Owed`,
+`## Conductor Shell Pass`): nothing in this package normalizes or dedupes `phones[]` today —
+`_normalize_address_fields` walks `emails` and `aliases` only (`person.py:1300-1343`),
+`_writeback_identifier` tests membership by exact string (`:1205`, `:1208`), and `Person.phones`
+carries no validator (`models.py:82`) — so two differently-formatted stored entries for one number
+coexist on disk right now, and the first gated whole-list write through D1a, D4 or the rider drops
+one of them. Live population, measured 2026-09-05: **5 notes**, each holding one number twice as
+`447…` and `+447…`, no JID-spelled loser, and **0** entries normalizing to empty. So under ruling 4
+the `+`-spelled entry survives on all five and the `+`-less one is dropped; under the first-seen
+reading it would have been the other way on all five, which is the whole reason the question went to
+Dave. Rule 2 has no live subject and is a free hardening rather than a repair — stated anyway,
+because the rule governs the next entry written.
 
 ### 6. Routing — eight arms across six functions, plus one rider
 
@@ -3411,6 +3527,26 @@ parseaddr, which is the existence proof that the job is written here without the
   None of the three decisions above branches on any of these sizes; they are the reason the decisions
   are cheap, not the oracle for any of them. A rename-the-file sweep is a different work item.
 
+- **A stored `phones[]` list that already holds one number twice** *(new 2026-09-05, round-19 fold;
+  data-premise round 18's booked finding plus Dave's ruling 4)*.
+  **Case:** a note stores `phones: ["447700900123", "+44 7700 900123"]` — two spellings of one
+  number, which nothing in this package normalizes or dedupes today. The next gated write that hands
+  the gate the WHOLE list (D1a, the rider, or D4 via `_writeback_identifier`) deletes one of them.
+  **Decision:** the deletion happens — it is the behaviour `AC-4` signs — and **which entry survives
+  is Dave's ruling 4, not the implementation's choice**: the E.164-spelled entry (`+44 7700 900123`)
+  wins where one is present, first-in-source-order otherwise, stored byte-identical at the index of
+  the group's first entry (`## Design` §5, rules 3 and 4). A digit-less entry has an empty normalized
+  form, is not a dedupe key at all, and passes through byte-identical (rule 2). Non-duplicate stored
+  phones are NOT rewritten to E.164 — the ruling picks a winner among duplicates and nothing more.
+  **Reasoning:** this is a real loss against what is on disk today, applied at whole-list scale on
+  every reuse write-back — the identical shape `AC-4`'s own `why` already declares for the `emails[]`
+  display half — so it is signed against a MEASURED population rather than an estimate. G12
+  (2026-09-05, `## Conductor Shell Pass` fourth pass) measures it: **5 live notes**, each holding one
+  number as `447…` and `+447…`, no JID-spelled loser, and **0** entries normalizing to empty. Left to
+  "stores the display form" alone the winner would have been the `+`-less spelling on all five, which
+  is a preference no criterion expresses — hence the ruling. The empty-key rule has no live subject
+  and is a free hardening, kept because the rule governs the next entry written, not the five on disk.
+
 - **Idempotency.**
   **Case:** the gate runs twice on one write.
   **Decision:** required and pinned — `gate_write(gate_write(x)) == gate_write(x)`.
@@ -3496,6 +3632,41 @@ with `## Design`, build `## Design`'s version and report the disagreement rather
 measured vault number is normative at `## Conductor Shell Pass` and stale anywhere it is quoted
 without its measurement date.
 
+**Every behavioural rule in `## Design` is NAMED by the task that lands it and carries an ORACLE in
+the battery task that proves it — and that is a rule over the whole surface, not a note about the
+three cells this round found empty** *(round-19 fold; WI-226 class close)*. The round-18 rule above
+settled which register WINS when two disagree. It does not reach the failure one level over: a rule
+that `## Design` states and the plan is SILENT about disagrees with nothing, reads as folded, and is
+still unbuildable — the builder executes this plan top-to-bottom, and a rule no task names and no
+check asserts is satisfiable in both directions by a build that is green everywhere. **So: a rule
+stated in `## Design` §§1–5 is not folded until some `- [ ] **Task N**` names it in its own work text
+AND some task's `verify` check would go RED if a build got it wrong. Where the wrong build is the
+NATURAL one — reaching for a helper the package already ships — the rule is stated as an explicit
+NEGATIVE and the battery carries a negative leg, because an absence asserts nothing.**
+
+**The sweep, declared rather than left implicit.** Every behavioural rule `## Design` §§1–5 states,
+crossed with (does a task name it) × (would a check go red). §§6–8 are excluded with a reason:
+§6/§7's rules are STRUCTURAL and are asserted by the derived wall itself (Tasks 6 and 11), and §8 is
+prerequisites, which land nothing. **Three non-empty cells, all three in §5, and the generator is
+visible in that fact**: every other Design section maps onto a task that names it by number — §1 →
+Task 5, §2 → Task 3, §3 → Task 4, §4 → Tasks 5 and 15, §6 → Tasks 7–10, §7 → Tasks 6 and 11 — while
+§5 is SPLIT, its relocation half owned by Task 2 and its behavioural half surviving only as nine
+words inside Task 5 ("the phone dedupe-on-normalized/store-display rule"). A section with no task of
+its own is where a late rule lands with nothing to catch it, and all three of this round's cells are
+rules added to §5 after Task 5's text was written: the E.164 winner (ruling 4, 2026-09-05), the
+empty-key pass-through (data-premise round 18), and the pair of negatives (`MIN_DIGITS`,
+`phones_match`) that had been stated as an absence since the round-5 fold. All three are folded into
+Task 5's work text and Task 14's battery in this same edit. The remaining cells re-read as full:
+§1's seven numbered behaviours (Tasks 5, 11, 12, 13, 14), §2's three (Tasks 3, 10), §3's
+behaviour-preservation (Task 4), §4's return contract and parens ownership (Task 15). **The next
+level of the ladder, swept and DECLARED:** the dimension under "which rule" is *which FIELD carries a
+winner-selection question at all* — it exists only where two DISTINCT stored spellings can share one
+dedupe key, which is `phones[]` alone. `emails[]` entries are stored as `Email.parse(candidate).value`
+(§4), so a group sharing a key is byte-identical and there is nothing to choose; `aliases[]` is never
+keyed — byte-identical on every dict arm, and on the `whole_record` arms the two migrations use
+seen-sets to SUPPRESS an append rather than to drop a stored entry. That cell is empty, and it is
+declared empty here rather than left for the next round to find.
+
 **One constraint binds every routing task (7, 8, 9, 10) and is stated once here rather than four
 times** *(Design §1's consumption rule; architect round 15)*: the gate's returned dict is **MERGED**
 into the object the arm serializes and is **never re-bound** to the name that function passes to
@@ -3550,14 +3721,32 @@ the lock while the arm binds inside it — architect round 16). A `fm = gate_wri
 
 - [ ] **Task 5 — Build the splitter and the gate.** Create `obsidian_schemas/name_gate.py` with
       the splitter (Design §4) and `gate_write` (Design §1), including the payload-derived sentinel,
-      the name-identity rule, the phone dedupe-on-normalized/store-display rule, the three-field
-      container with the `whole_record` split, the two migrations, and the single `_refuse` site
-      that sets `pattern`. Ship a test in `tests/test_name_gate.py` asserting the gate is a pure
-      function of `(introduced, declared_type, whole_record)` — it touches no filesystem (assert
-      against a `PersonRepository`-free tmp path that nothing is created), returns exactly the key
-      set it was handed, is an identity on `name` for a Tier-2-dirty input, is idempotent on both
-      values of `whole_record`, refuses an undeclared `name:` write with
-      `pattern == UNDECLARED_PATTERN`, and returns a non-`person` declared payload unchanged.
+      the name-identity rule, the three-field container with the `whole_record` split, the two
+      migrations, and the single `_refuse` site that sets `pattern`. **The `phones[]` dedupe is
+      built to Design §5's four numbered rules, all four, and none of them is inferable from the
+      others:** (1) the key is `normalize_phone`'s output alone — the dedupe path imports neither
+      `phones_match` nor `Phone.parse` and never reads `MIN_DIGITS`; (2) an entry whose normalized
+      form is EMPTY is not a dedupe key and passes through byte-identical, in place; (3) among
+      entries sharing a non-empty key the survivor is the first whose stripped display form begins
+      with `"+"`, else the first in source order (Dave's ruling 4 — E.164 wins); (4) the survivor is
+      stored byte-identical at the index of its group's first entry, so the output is a function of
+      the input order and a second pass is a no-op. Ship a test in `tests/test_name_gate.py`
+      asserting the gate is a pure function of `(introduced, declared_type, whole_record)` — it
+      touches no filesystem (assert against a `PersonRepository`-free tmp path that nothing is
+      created), returns exactly the key set it was handed, is an identity on `name` for a
+      Tier-2-dirty input, is idempotent on both values of `whole_record`, refuses an undeclared
+      `name:` write with `pattern == UNDECLARED_PATTERN`, and returns a non-`person` declared payload
+      unchanged. **Plus the four phone rules at unit granularity, each with the oracle derived from
+      the input the test itself holds and never from a re-spelling of it:**
+      `["447700900123", "+44 7700 900123"]` → exactly `["+44 7700 900123"]`, at index 0;
+      `["+44 7700 900123", "447700900123"]` → exactly `["+44 7700 900123"]`; a group with no
+      `"+"` member keeps its first entry byte-identical; `["n/a", "ext.", "+44 7700 900123"]` keeps all
+      three, in order, byte-identical (rule 2 — genuinely digit-less specimens, per data-premise
+      round 19); `["ext. 4021", "x77", "+44 7700 900123"]` ALSO keeps all three (rule 1: three
+      distinct SHORT keys `4021`/`77`/`447700900123` are not collapsed); `["0790 0900123", "+44 7900 900123"]` keeps
+      BOTH (the `phones_match` negative — a build adopting the UK country-code equivalence collapses
+      them); and `["12345", "1 2 3 4 5"]` collapses to one (the `MIN_DIGITS` negative — a build
+      routing the key through `Phone.parse` raises `IdentifierError` on a five-digit entry instead).
       verify: test_the_gate_is_a_pure_function_of_payload_and_declaration
 
 - [ ] **Task 6 — Ship the four derivation predicates and their planted batteries.** In
@@ -3704,7 +3893,19 @@ the lock while the arm binds inside it — architect round 16). A `fm = gate_wri
       dict-shaped arms, and a build that splits an alias or emits a destination key there is RED;
       the rider's write-back and the gate's idempotence; the undeclared pass over
       `{D1b, D1c, D5, D6}` with exclusion `{D1a, D4, D7, D8}`, including the identifiers-without-a-
-      `name:` cell, which normalizes exactly as the typed pass does.
+      `name:` cell, which normalizes exactly as the typed pass does. **Plus `AC-4`'s phones leg
+      carried THROUGH the arms rather than only at the unit (Task 5 pins the four rules on
+      `gate_write` directly; this pins what reaches disk), because the deletion is performed on the
+      WHOLE stored list at D1a, at D4 via `_writeback_identifier`'s `updates["phones"] =
+      person.phones` (`person.py:1210`, `:1217`) and at the rider:** for a note stored with
+      `phones: ["447700900123", "+44 7700 900123"]`, a write through each of those three that
+      touches an unrelated field leaves `phones:` holding exactly `["+44 7700 900123"]` — the E.164
+      winner of Design §5 rule 3, read back off the committed file rather than off the returned
+      dict; a note stored with a digit-less entry beside a real one keeps both, byte-identical and in
+      order (rule 2); and the two NEGATIVE legs ride here at arm granularity as well, since a build
+      that reached for `phones_match` or `Phone.parse` would do so once inside the gate and change
+      every arm at once — `["0790 0900123", "+44 7900 900123"]` survives as two entries and
+      `["12345", "1 2 3 4 5"]` commits as one rather than raising.
       verify: test_identifiers_normalize_identically_on_every_door
 
 - [ ] **Task 15 — `AC-5`'s battery.** `tests/test_address_splitter.py`, importing
@@ -3851,10 +4052,11 @@ why: Task 16 rider (b) — a project-root file outside the cage allowlist (pipel
 ## Verification
 
 **Happy path (smoke).** `PersonRepository(tmp).save(Person(name="Dave Smith",
-emails=["Al B <A@B.com>"], phones=["+44 7739 341679"]))` commits; the note is at
+emails=["Al B <A@B.com>"], phones=["447739341679", "+44 7739 341679"]))` commits; the note is at
 `@Dave Smith.md`; `emails[]` holds one lower-cased address; `aliases[]` holds `"Al B"`;
-`phones[]` holds the display form and dedupes against a re-spaced duplicate; the caller's own
-`Person` object carries the same normalized values and an unchanged `name`.
+`phones[]` holds exactly `["+44 7739 341679"]` — deduped on `normalize_phone`'s output, the E.164
+spelling kept byte-identical as ruling 4 requires and the other entry dropped (`## Design` §5); the
+caller's own `Person` object carries the same normalized values and an unchanged `name`.
 
 **Failure modes that must fail gracefully.** Every one of `TIER1_BRANCHES`' ten records at every
 arm of `AC-1`'s derived set except D7 — refused with a `NameGateRefusal` carrying that record's
@@ -4019,6 +4221,7 @@ This item changes a core write path three downstream repositories install with `
 | **The arm predicate under-resolves and every dependent criterion shrinks at once.** | Medium — this is the failure mode fourteen rounds were spent on. | `AC-1`, `AC-2`, `AC-3` and `AC-4` all green while real doors stay open. | The floor (eight named `(qualname, arm)` pairs), the driven reach battery through the wall's own predicate, and the near-miss. The alias-import shape is the specific trap: it is the ONLY way D8 is reachable and it is planted as a GREEN fixture. |
 | **The D8 refusal arm records a lock timeout or a corrupt fence as a gate refusal.** | Medium if written as `except LoudFailError`. | A real IO failure leaves the channel an operator reads for IO failures; `AC-2`'s conjunct 4 becomes greenable on a build with no gate at D8 at all. | The refusal has its OWN type; the arm filters on `NameGateRefusal` and nothing wider; the near-miss control is one line and is a required fixture. |
 | **The splitter's case contract surprises someone.** | Certain on a small, measured population, by design. | Every stored entry whose only disagreement with `Email.parse` is CASE changes case on its next gated write. Two dated measurements, quoted as such because the corpus is LIVE: round 14 (2026-08-11) found 19 `emails[]` + 5 `aliases[]` over 952 entries; G9's re-walk (2026-09-05) found 18 + 5 over 1,021 — the count moved DOWN while the corpus grew, which is why nothing here pins it. | Measured twice (G2, G9), decided in Design §4 with the rejected alternative named, reversible, and asserted explicitly in `AC-5`'s agreement clause — which pins the PROPERTY (agreement with `Email.parse` on every accepted input form) and never a count. |
+| **The `phones[]` dedupe DELETES a stored entry** *(row added round-19 fold — the one decided behaviour in this item that removes data)*. | Certain on a small, measured population, by design — nothing in this package dedupes `phones[]` today, so the duplicates on disk are real. | On its next gated whole-list write (D1a, D4 via `_writeback_identifier`, or the rider) a note holding one number under two spellings loses one of them. Measured 2026-09-05 (G12, `## Conductor Shell Pass` fourth pass): **5 live notes**, each `447…` beside `+447…`, no JID-spelled loser, and 0 digit-less entries. A LIVE number, dated for that reason. | The WINNER is Dave's ruling 4 and not the implementation's — the E.164 spelling survives byte-identical, first-seen only where no member carries a `+` (Design §5 rules 3–4), so the five notes converge on the spelling Dave chose rather than the one insertion order happened to produce. A digit-less entry is not a dedupe key at all (rule 2), so the empty-key collapse cannot happen. `MIN_DIGITS` and `phones_match` are excluded as explicit NEGATIVES with negative legs in Tasks 5 and 14, because either would delete a genuinely DIFFERENT number rather than a duplicate. Non-duplicate phones are never re-spelled. |
 
 **Rollback.** The gate is one module and one call per arm. Reverting the routing commit restores
 today's behaviour exactly; the phone relocation is behaviour-neutral and can stand alone. There is
@@ -4542,7 +4745,9 @@ and every answer is booked at its own entry below and folded into the spec text 
 2 of 2 reachable records phone-bearing (`## Design` §1.3); G9 → `aliases[]` cells 2 and 3 both zero
 (`## Design` §4, whose round-16 `emails[]`-only scoping is widened back over both fields); G10 → zero
 blank-named live person notes (`## Design` §6's D8 paragraph). **Nothing on this list is OWED** —
-G11 (data-premise round 17) was booked and RUN in the same conductor pass, 2026-09-05. The
+G11 (data-premise round 17) and G12 (data-premise round 18) were each booked and RUN in the same
+conductor pass that booked them, 2026-09-05, and G12's one residue — which of two same-key spellings
+survives — is settled by Dave's ruling 4 rather than left as a size to read. The
 entries are kept in their original booked form, each with its RUN record beneath it, so the question
 each was asked to decide stays legible beside the answer.
 
@@ -4620,9 +4825,12 @@ each was asked to decide stays legible beside the answer.
   (fourth pass; `wi021_g12.py`): 147 notes carry `phones[]`, 152 entries. (i) = 5 notes, all live, each
   one number stored twice as `447…` and `+447…` (`@Elliott Herrod-Taylor`, `@Randy Silver`,
   `@Martin Eriksson`, `@Faith Forster`, `@Kate Sellwood`), no JID-spelled loser; (ii) = 0.** So the
-  deletion `AC-4`'s phones leg performs is the benign same-digits collapse on five notes, the empty-key
-  clause in §5 is a free hardening, and the one size for Dave is which spelling survives (first-seen,
-  i.e. the `+`-less one, on all five).
+  deletion `AC-4`'s phones leg performs is the benign same-digits collapse on five notes, and the
+  empty-key clause in §5 is a free hardening with no live subject. **The one size this left for Dave —
+  which spelling survives — is ANSWERED and is no longer open**: under "stores the display form" alone
+  the first-seen (`+`-less) entry would have won on all five, and Dave ruled the other way
+  (ruling 4, 2026-09-05: E.164 wins where present, first-seen otherwise), which `## Design` §5 rules 3
+  and 4 build and Tasks 5 and 14 prove.
 
 **Also owed and NOT a vault query — the consumer audit**, carried unchanged from Constraints and
 sharpened by G1. `AC-2`'s refusal is a breaking change for HAL9000, exocortex and orchestrator, all
@@ -5847,6 +6055,15 @@ blocking item: G12 booked and RUN above; §5 gains the empty-key dedupe contract
 No signed span moved; `ac_hash 92a58783c84f` stands. Zero spawns. **Budgets are now exhausted on
 both axes** — spawns 65/65, rounds 18/18 — so nothing relaunches until Dave sets the ceilings for the
 exploring close-out and the build.
+
+### Fold record (round 19)
+
+Data-premise REVISE with NO blocking item (its own words), no shell in the cage, one two-line text
+repair: §5 rule 2's example list carried "an extension-only string", which its own predicate excludes
+(`normalize_phone("ext. 4021") == "4021"`), and Task 5's rule-2 fixture was built from that false
+member. Both repaired by the conductor 2026-09-05 at zero spawns; the old triple is kept as a rule-1
+check. Architect did not run this leg (PROMOTE from round 18 stands). Signed span byte-unchanged.
+The REVISE-with-zero-blocking treadmill is reported to workshop as a driver/role-contract defect.
 
 ## Hold state — 2026-08-11 (Dave's word, relayed via HQ)
 
@@ -7468,3 +7685,234 @@ close-out and the build.
 **Resume, continued — Dave's word (relayed via workspaces-5e, 2026-09-05).** "Proceed with
 recommendations" → `spawn_budget: 80`, `round_budget: 20`; phone-duplicate winner E.164 (ruling 4).
 Relaunched for the exploring close-out, spec-reviewer and the build.
+
+## Data Audit — 2026-09-05 (round 19, ruling-4 fold)
+
+**Recommendation: REVISE — round 18's booked item is CLOSED on both halves and ruling 4 is folded
+buildably; ONE new finding, non-blocking, and it is a two-line text repair with no query attached**
+
+### Run constraint, stated first because it bounds everything below
+
+**This spawn had no shell.** The cage granted no `Bash`, so I could re-run no predicate against the
+live vault this round. Everything below is verified from the TREE's source bytes (which I can read)
+and from the recorded RUN in `## Conductor Shell Pass`, plus arithmetic checks on the record itself.
+Where I rely on a measurement I did not take, I say so. No number in this section is one I produced;
+the two I check, I check for internal consistency and for scope-fitness against the code, which is
+work the source alone supports.
+
+### Trigger check
+
+**Class 1 and Class 2, both fired**, unchanged from rounds 15–18. Class 1: the spec signs behaviour
+against quantified claims about live vault data (G1's 137 undeclared notes, G2/G9's identifier cells,
+G4's 11 Tier-2-dirty names, G5's zero `@`-directories and 22 root `.lock` files, count 3 / G11's
+79 / 2 / 77, G7's and G10's zeros, and — new this round in a normative register — G12's 5 / 0).
+Class 2: `gate_write`, rule (ii), the reified Tier-1 surface, the sentinel exemption and the
+`phones[]` normalize-and-dedupe step are rules whose correctness depends on their effect against the
+corpus that exists today.
+
+### Round 18 is CLOSED — both halves, and the ruling that arrived with them
+
+`prior: held`. I re-attacked the grounding surface rather than re-checking my own targets, and the
+finding below is what that walk returned.
+
+- **(a) G12 is BOOKED and RUN, in the form round 18 asked for, and the record is arithmetically
+  self-consistent.** `## Grounding Still Owed`'s G12 entry and `## Conductor Shell Pass`' **fourth
+  pass** report the same corpus and walk G8/G10/G11 used: **147 `@*.md` notes carry a `phones[]`,
+  152 entries; (i) same-normalized-key collisions = 5 notes, all live, each one number stored twice
+  as `447…` and `+447…`, no JID-spelled loser; (ii) entries normalizing to the EMPTY string = 0.**
+  The check the record supports and that I ran on it: 152 − 147 = 5, so the five collision notes are
+  the ONLY multi-entry notes in the corpus — 142 singletons plus 5 pairs exhausts both totals
+  exactly. That is a stronger result than the query asked for and it falls out of the two numbers:
+  **no note holds three or more entries, and no note holds two DISTINCT numbers.** So the dedupe's
+  entire live blast radius is those five notes and one dropped entry each.
+- **(b) The `@*.md` scope of G12 is correct BY THE CODE, not merely inherited.** I booked G12 at that
+  scope in round 18 and a scope I choose myself is exactly the kind a later round finds mis-fitted —
+  this is the shape of my own round-14 finding against ruling 2's `@*.md`-scoped count 1. Re-derived
+  here: `BaseRepository.file_pattern` returns the literal `"@*.md"` (`base.py:194-197`) and `load`
+  globs it root-only (`base.py:230`), so **D4 and the rider cannot reach a person record outside
+  `@*.md` at all** — the two arms `AC-4`'s phones leg is carried through in Task 14. The one arm that
+  can take any path is D1a, and the consumer audit's eight live callers are all D1a-with-a-declared-
+  NON-person-type or D4-with-`self.type_name` (`## Risk Analysis` row 1, G7 = 0). The scope fits the
+  reachable population rather than the convenient one. Closed, not carried.
+- **(c) The §5 empty-key clause landed, and ruling 4 landed with a task and an oracle.** §5 is now
+  four numbered rules; ruling 4 is recorded in `## Conductor Rulings & Grounding` as Dave's, with its
+  buildable form in §5 rule 3 and its output-position contract in rule 4; and the round-19 fold gave
+  the whole of §5's behavioural half what it had never had — a task that names it (Task 5) and a
+  battery that would go RED (Task 14), plus a `## Risk Analysis` row for this item's only
+  data-deleting behaviour and a dated `## Edge Cases` entry. The plan preamble's new rule (*a rule in
+  `## Design` §§1–5 is not folded until a task names it AND a check would go red*) is the right
+  instrument and is stronger than anything I booked.
+
+### Citations re-derived this round at their sites (spec-quality-bar Check 3)
+
+Read, not resolved, and confined to the citations round 19 newly introduced. `normalize_phone`
+(`person.py:129-145`) returns `""` on a falsy input at `:138-139`, splits at `@` (`:142`) and then
+`re.sub(r"\D", "", phone)` (`:145`) — so its output is EMPTY exactly when the value carries no digit
+after the JID split, which is the predicate §5 rule 2 turns on. `phones_match` (`:148-180`) does
+report `447990558521` and `07990558521` as one number, at `:167-170`, so §5 rule 1's negative names a
+real widening. `Phone.parse` (`identifier.py:230-240`) RAISES `IdentifierError` below
+`MIN_DIGITS = 7` (`:228`, `:238-239`), so the second negative is real and has the failure mode Task 5
+states. `Person.phones` is `List[str] = Field(default_factory=list)` with no validator
+(`models.py:82`). `_writeback_identifier` (`person.py:1196-1223`) appends at `:1206`/`:1209`, tests
+membership by exact string at `:1205`/`:1208`, passes the WHOLE list as `updates["phones"] =
+person.phones` at `:1210`, and routes through `self.update_fields` at `:1217` — D4, as Task 14 cites
+it. `_normalize_address_fields` (`:1278-1343`) still walks `emails` and `aliases` and nothing else.
+The four body-section writers re-emit the fence they read (`f"---{frontmatter}---\n{new_body}"` at
+`person.py:1693`, `:1813`, `:1892`, `:1962`, the slice bound by `_split_frontmatter_fence` at
+`:1668`, with the comment at `:1692` saying so).
+
+### Counterexample hunt (WI-293)
+
+`## Intent` quantifies universally over an enumerable domain — *"There is no door into the vault
+through which an unvalidated name or unnormalized address can pass"* — so it owes a walk for members
+the universal is FALSE about by design. Re-walked this round against the tree, not inherited from
+round 18's record.
+
+**Domain:** every `.py` file under `obsidian_schemas/` and `scripts/`, enumerated by glob rather than
+by the document's list — **eighteen modules** (`__init__`, `body_sections`, `errors`, `identifier`,
+`models`, `name_cleaning`, `name_validation`, `parser`, `vault_io`, `writer`, `repositories/`×6,
+`scripts/lint_vault.py`, `scripts/migrate_person_to_discuss.py`). **Predicates, the same three:**
+(1) every call resolving to `writer.write_frontmatter`, by bare name, attribute and IMPORT ALIAS;
+(2) every call to a `vault_io` door (`write_note` / `create_note` / `move_note`); (3) every
+`f"---…---"` fence construction.
+
+**Result: no member beyond rounds 17–18's list, byte-for-byte.** Predicate (1): definition at
+`writer.py:133`; callee sites `writer.py:266`/`:335`/`:387`/`:421`, `base.py:454` (import `:19`),
+`lint_vault.py:880` (alias `_wfm` imported `:878`) — eight arms over six functions, nothing else
+outside tests. Predicate (2): `writer.py:276`/`:278`/`:338`/`:390`/`:424`, `base.py:456`,
+`lint_vault.py:882`/`:900`/`:1049`, `migrate_person_to_discuss.py:109`, and
+`person.py:1582`/`:1593`/`:1694`/`:1814`/`:1893`/`:1963`. Predicate (3) returns
+`writer.py:269`/`:336`/`:388`/`:422` and `base.py:455` (all downstream of predicate (1)) plus
+`person.py:1693`/`:1813`/`:1892`/`:1962` (the body-section writers, already in predicate (2)) — it
+adds nothing. **Dispositions unchanged and each re-read at its own declared granularity:** the eight
+arms are routed; `append_to_timeline` is a genuine pass-through (`person.py:1579-1593`, composed from
+`content` by concatenation or a `split`/rejoin, with `:1569-1578` recording that string insertion is
+deliberate so no parse happens); the four body-section writers carry the frontmatter slice verbatim;
+`lint_vault.py:884-900`'s wikilink pass is `str.replace` on raw content; `lint_vault.py:1049`'s
+`move_note` takes its destination stem from the source file's own name (`:1044`);
+`migrate_person_to_discuss.py:103`/`:109` composes from `content.split('---', 2)[1]`; D7 routes on an
+empty delta; a declared non-`person` write returns untouched under §1.2; `Person.whatsapp` and
+`aliases[]` on a dict arm are parked defect 5 and `AC-4`'s scoped clause; orchestrator
+`bin/repair-person-names.py:365` is outside the package and outside `## Scope Boundary`. **No new
+member; the universal stands as the eight arms plus the declared exclusion set.**
+
+### Finding (non-blocking) — §5 rule 2's own example list contains a member its predicate excludes, and Task 5's rule-2 fixture is built out of exactly that false member, so it proves nothing about rule 2
+
+New this round. It lands on FOLDED material — §5 rule 2 is the clause I booked in round 18 and Task 5's
+phone fixtures are the round-19 fold — and the false member is **my own wording, propagated**: round
+18's booked text read *"a placeholder, a note-to-self, an extension-only string, any digit-less
+value"*, §5 rule 2 took that list verbatim, and Task 5 then built its rule-2 specimen from it.
+
+**The defect, from the code.** §5 rule 2's predicate is exact and correct: *an entry whose
+`normalize_phone` output is EMPTY*. `normalize_phone` strips every non-digit after the `@` split
+(`person.py:142-145`), so the output is empty **iff the value carries no digit at all**. An
+extension-only string is not such a value: `normalize_phone("ext. 4021") == "4021"` and
+`normalize_phone("x77") == "77"`, both NON-empty. The illustrative list's third member is therefore
+false against the rule's own predicate, sitting one clause away from it.
+
+**Why that matters rather than being a wording nit — it reached the oracle.** Task 5's stated unit
+fixture for rule 2 is `["ext. 4021", "x77", "+44 7700 900123"]` → *"keeps all three, in order,
+byte-identical (rule 2)"*. Those three entries normalize to `"4021"`, `"77"` and `"447700900123"` —
+**three DISTINCT non-empty keys**. All three survive under rule **1** alone. A build that implements
+no empty-key handling whatever — the naive seen-set keyed on `normalize_phone`'s output that rule 2
+exists to forbid — is **GREEN on this fixture**. The fixture tests that distinct short keys stay
+distinct, which is worth having, and tests rule 2 not at all.
+
+**Measured against the plan preamble's own round-19 rule**, which is what makes this a finding rather
+than an observation: *a rule stated in `## Design` §§1–5 is not folded until some `Task N` names it in
+its own work text AND some task's `verify` check would go RED if a build got it wrong.* Task 5 names
+rule 2 and its check would NOT go red. The rule is saved from being wholly unproven by **Task 14**,
+whose leg — *"a note stored with a digit-less entry beside a real one keeps both, byte-identical and
+in order (rule 2)"* — is a genuine specimen (digit-less, therefore empty-keyed). So the round-19
+generator did its job at arm granularity and missed at unit granularity, in the one place the
+document also DEFINES what the rule's subject looks like. That asymmetry is the whole finding: a
+builder reading §5 rule 2 and Task 5 together learns the wrong extension of "empty-normalizing", and
+learns it twice.
+
+**Why non-blocking, against the standard rounds 17–18 set.** G8 was blocking because a harmful answer
+made a signed leg FALSE. Nothing here can. `AC-4` is byte-unchanged and its phones leg asserts a
+BEHAVIOUR true under every population; the rule 2 behaviour is correctly and normatively stated in §5
+and correctly proved at Task 14; G12 measured **(ii) = 0**, so rule 2 has **no live subject** — it
+governs the next digit-less entry written, not anything on disk. The repair is two lines of unsigned
+text and no query.
+
+**What is owed — two text repairs, no round and no measurement.**
+
+**(a) `## Design` §5 rule 2:** drop *"an extension-only string"* from the example list, or replace the
+list with values that satisfy the predicate (`"n/a"`, `"ext."`, `"call the office"`). Stating the
+predicate positively — *carries no digit at all after the `@` split* — beside the examples is the
+stronger form, since the examples are what got copied.
+
+**(b) Task 5's rule-2 fixture:** replace `["ext. 4021", "x77", "+44 7700 900123"]` with a genuinely
+digit-less specimen, e.g. `["n/a", "ext.", "+44 7700 900123"]` → keeps all three, in order,
+byte-identical. **Keep the old triple as well, relabelled to rule 1** — it is a real and currently
+unasserted check that two SHORT distinct keys are not collapsed, which is the shape a `MIN_DIGITS`
+build would get wrong differently from the `["12345", "1 2 3 4 5"]` leg already there.
+
+Both are unsigned text. `## Intent` and `## Acceptance Criteria` stay byte-unchanged,
+`ac_hash 92a58783c84f` stands, `AC-4` is neither edited nor re-signed, no criterion's scope moves and
+no `check` name is added.
+
+### Two residues named and deliberately NOT raised as findings
+
+- **The "first-seen would have won on all five" claim.** `## Design` §5 and `## Edge Cases` both say
+  that under the first-seen reading the `+`-less spelling would have won on all five notes. The G12
+  RUN record reports the two SPELLINGS per note (*"each one number twice as `447…` and `+447…`"*); it
+  does not separately assert the stored ORDER, which is what a first-seen winner turns on. The reading
+  is natural and probably exact. It is not an oracle for anything: under ruling 4 the winner is
+  order-independent, and order fixes only the output INDEX (rule 4), which no criterion asserts. Under
+  the round-18 dating rule the sentence is properly dated and yields to `## Conductor Shell Pass`.
+  **Not a finding**; a free marker if the tail edits that sentence for another reason.
+- **`_writeback_identifier`'s in-memory divergence at D4.** After the gate dedupes, the committed file
+  holds one entry while the caller's `person.phones` — mutated at `person.py:1209` BEFORE the write —
+  still holds two. A later `save(person)` re-introduces the dropped spelling and the rider drops it
+  again, so disk converges and §1.7's idempotence is untouched. Task 14 already reads its oracle *"off
+  the committed file rather than off the returned dict"*, which is the correct call. This is a
+  specification question about the caller's object, not a data premise, and it is the architect's seat
+  if it is anyone's. Named so the next reader meets the disposition rather than the discrepancy.
+
+### Premises re-verified this round and NOT re-litigated
+
+G12 = 147 / 152 / 5 / 0, scope-fitted to D4 and the rider by `base.py:194-197`/`:230` and to D1a by
+G7's zero; G11 = 79 / 2 / 77 with live non-sentinel ZERO, so `AC-3`'s signed fixtures sentence is
+measured and dated; G8's 2 of 2 reachable sentinel records phone-bearing, with the parenthetical `3`
+correctly dispositioned as a size in a rationale rather than an oracle; G9's `aliases[]` cells 2 and 3
+both zero over 701 entries, §4's widening SCOPE-only and the zeros explicitly unpinned; G10 = 0
+blank-named live person notes, its predicate matching `lint_vault.py:381`'s absent-OR-blank trigger;
+G5(b) = 0 `@`-directories and 22 root `.lock` files; G2's deletion column = 0 with the case-only cell
+non-empty at two dated walks (19 + 5, then 18 + 5); G1's four-bucket census (4 + 130 + 3 = 137, none
+under `@*.md`); G4(a) = 11 and G4(b) = 3, parked defect 1's scope; G7 = 0 intersected with G1's 134,
+so rule (ii)'s live blast radius is empty on the measured intersection; the consumer audit's eight
+files at 2026-09-05 HEADs and the two `normalize_phone` importers keeping the compat re-export
+load-bearing. The round-18 dating rule and the round-19 named-and-oracled rule are both in force and I
+applied both as instruments this round rather than re-examining them.
+
+### Cap on OPEN questions
+
+**ZERO** open data questions. G12 was the last one and it is answered; this round's finding is a text
+repair with no measurement attached. Under the role's cap of two, and it is the first round of this
+drive to open none.
+
+### On the budgets and the drive's state
+
+`round_budget: 20` and this is round 19, so one round remains; `spawn_budget: 80`. The 2026-09-05
+resume note's hard cap — *"if the verify-once rounds return anything beyond a booked note, the drive
+stops and Dave is asked"* — is met on this gate's side by less than a booked note: two lines of
+unsigned text with no query, foldable by hand at zero spawns. I create no fork and no Dave round.
+**On the data premises this item is ready**, and it has been ready on this gate's side since round 18;
+what round 19 added was the buildability of a ruling, and what this round found is one specimen inside
+that fold that names its own subject wrongly.
+
+```verdict
+gate: data-premise
+verdict: REVISE
+date: 2026-09-05
+model: claude-opus-5
+targets: Task 5, #design
+prior: held
+basis: folded-material
+findings: 0/1
+note: Round 18's booked item is CLOSED on both halves and ruling 4 is folded buildably. G12 is booked and RUN at the corpus and walk G8/G10/G11 used — 147 @*.md notes carry phones[], 152 entries, (i) 5 same-key collision notes all live each holding one number as 447… and +447… with no JID-spelled loser, (ii) 0 entries normalizing to empty — and the record is arithmetically self-consistent in a way that yields more than was asked: 152 − 147 = 5 means the five collision notes are the ONLY multi-entry notes, so no note holds three or more entries and no note holds two DISTINCT numbers, and the dedupe's entire live blast radius is those five notes at one dropped entry each. I re-derived the SCOPE I myself chose for G12 rather than inheriting it, because a self-chosen scope is the shape of my own round-14 finding against ruling 2: BaseRepository.file_pattern returns the literal "@*.md" (base.py:194-197) and load globs it root-only (:230), so D4 and the rider — the two arms Task 14 carries the phones leg through — cannot reach a person record outside @*.md at all, and the one any-path arm D1a has eight live callers all passing a declared non-person type (G7 = 0). The scope fits the reachable population. The §5 empty-key clause landed and ruling 4 landed with a task (Task 5) and a battery (Task 14) plus a Risk Analysis row and a dated Edge Cases entry, and the plan preamble's new rule — a Design §§1–5 rule is not folded until a task names it AND a check would go red — is stronger than anything I booked. Citations re-derived at their sites: normalize_phone returns "" on falsy input (person.py:138-139), splits at @ (:142) and re.sub(r"\D") (:145), so its output is empty iff the value carries no digit; phones_match's UK equivalence is real at :167-170; Phone.parse raises below MIN_DIGITS = 7 (identifier.py:228, :238-239); _writeback_identifier passes the whole list at :1210 and routes through update_fields at :1217. Counterexample hunt re-walked over the eighteen .py modules under obsidian_schemas/ and scripts/ enumerated by glob with the same three predicates: no member beyond rounds 17–18's list, byte-for-byte, and predicate (3) adds nothing predicate (1) or (2) does not already reach. The one NEW finding is non-blocking and lands on folded material — and the false member is my own round-18 wording propagated. Design §5 rule 2's predicate is exact (normalize_phone's output is EMPTY) but its example list names "an extension-only string", which the predicate excludes: normalize_phone("ext. 4021") == "4021" and normalize_phone("x77") == "77", both non-empty. That false example reached the oracle: Task 5's stated rule-2 fixture is ["ext. 4021", "x77", "+44 7700 900123"], whose three entries carry three DISTINCT non-empty keys, so all three survive under rule 1 alone and the naive seen-set build that rule 2 exists to forbid is GREEN on it. By the plan preamble's own round-19 rule, Task 5 names rule 2 and its check would not go red. Task 14 saves the rule from being wholly unproven — its "a note stored with a digit-less entry beside a real one keeps both" leg is a genuine empty-keyed specimen — so the generator worked at arm granularity and missed at unit granularity, in the one place the document also DEFINES the rule's subject. Non-blocking because no answer can make a signed leg false: AC-4 is byte-unchanged and asserts a behaviour true under every population, the behaviour is correctly stated in §5 and correctly proved at Task 14, and G12 measured (ii) = 0 so rule 2 has no live subject. Owed: two lines of unsigned text and no query — (a) drop "an extension-only string" from §5 rule 2's example list or replace it with genuinely digit-less values ("n/a", "ext.", "call the office") and state the predicate positively beside them; (b) replace Task 5's rule-2 fixture with a digit-less specimen such as ["n/a", "ext.", "+44 7700 900123"] and KEEP the old triple relabelled to rule 1, since it is a real and otherwise unasserted check that two short distinct keys are not collapsed. Intent and Acceptance Criteria stay byte-unchanged, ac_hash 92a58783c84f stands, AC-4 is neither edited nor re-signed, no criterion's scope moves and no check name is added. Two residues named and deliberately NOT raised: the "first-seen would have won on all five" claim rests on a stored ORDER the G12 record reports only implicitly, and is an oracle for nothing since ruling 4 makes the winner order-independent and order fixes only the output index; and _writeback_identifier's in-memory divergence at D4 (person.phones mutated at person.py:1209 before the write, so the object keeps two entries while disk holds one) converges on disk via the rider and is a specification question about the caller's object, not a data premise. ZERO open data questions — the first round of this drive to open none. Run constraint stated in the section: this spawn had no shell, so I re-ran no predicate; everything is verified from the tree's source bytes and from the recorded RUN, with arithmetic and scope-fitness checks the source alone supports. On the data premises this item is ready.
+```
+
+**Resume, continued — round 19 (sixth leg).** spec-writer → data-premise, 2 spawns (67 of 80). Data-premise REVISE, zero blocking, one example-list repair; folded by hand. Relaunched.
