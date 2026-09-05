@@ -34,6 +34,14 @@ state/.escalations.lock
 state/.eval.lock
 state/spawn-ledger.json
 
+# The rest of the factory's flock-sentinel family (workshop .gitignore lines 21-47; confirmed by the
+# workshop session 2026-09-05 as intentional, created on first use, never removed — unlinking on
+# exit would race a concurrent reader). Runtime, never tracked.
+state/.escalation-policy.lock
+state/.involvement.lock
+state/.review-level.lock
+state/manifest-runs/
+
 # Testing
 .pytest_cache/
 .coverage
