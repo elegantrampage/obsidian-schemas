@@ -9,9 +9,11 @@ stage_changed: 2026-08-11
 touched_by: session
 tags: [typed-boundaries, name-validation, rfc2822]
 depends_on: ["WI-004"]
-round_budget: 16
+round_budget: 18
 spawn_budget: 65
 transitions: ["idea>exploring@2026-08-11@session"]
+review_level: L3
+review_level_provenance: selector
 ---
 
 # Close the write-door bypasses
