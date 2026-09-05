@@ -1,5 +1,40 @@
 # Session Log
 
+## 2026-09-05
+
+### WI-021 shipped idea→done (dark-factory drive #4, the long one) — the semantic write gate
+
+`obsidian_schemas/name_gate.py`: one gate, HANDED its declaration (DECLARE), routed at eight arms
+across six functions plus the `PersonRepository.save` rider, hoisted above `note_lock` at the three
+writer arms (no stray `@Dave/` directory), in-lock at D4/D5/D6/D8; `NameGateRefusal(LoudFailError)`
+carrying the pattern key; rule (ii) refuses undeclared name writes; Tier-1 surface reified;
+address splitter single-homed on `Email.parse`; `normalize_phone`/`phones_match` relocated to
+`phone_normalization.py` (compat re-export kept — two consumers import it); `lint_vault --fix`
+gains an existence guard and a counted, typed refusal record; derived AST wall
+(arms/declarations/placement, `{D7}` the one literal) in `tests/derivations.py`; AC battery bridged
+to the project interpreter (`tests/ac_interpreter.py`). Floor 637→657; consumers green
+(exocortex 641, HAL9000 602, orchestrator 1396). Ship `04d0305`.
+
+The drive: resumed from the 2026-08-11 spawn-budget park on Dave's go after the pre-spawn hand
+work (Finding B inversion repaired, G7 = 0, consumer audit re-run: eight files). AC-1–AC-5
+re-originated from the brief and SIGNED (WI-268 witness, `ac_hash 92a58783c84f`), then held
+byte-identical to `done`. Verify rounds 15–20: each of rounds 16–18 found one rule stated in
+disagreeing registers (merge idiom, association vs placement at D7, D7's declaration literal) —
+all hand-resolved at zero spawns; G8/G9/G10/G11/G12 run by the conductor's shell (G8: both live
+sentinel stubs phone-bearing; G11: count 3 = 79/2/77 unchanged, live non-sentinel 0; G12: five
+`+`/no-`+` phone duplicates → Dave's ruling 4, E.164 wins). Ready gates (threat model, spec
+review, adversarial) three rounds each in one leg; build two legs (a CLAUDE.md write-authority
+pause landed by hand); exit reviewers PROMOTE unforced. Budgets: spawns 52→65→80→95 (Dave's word
+each time), rounds 16→18→20. Two factory defects recorded from this drive: the zero-blocking
+REVISE treadmill (rounds 18–19; specimen in the eval ledger, workshop minting the lane) and the
+missing `--ac-python` on hand launches. One conductor scar: a ledger append during a leg tripped
+fence-tamper; restored from evidence bytes, rule adopted. Doc archive-split by hand at wrap-up
+(the tool refuses the hand-made August drawer): living 7,2xx lines, drawer 12,5xx. Retrospective
+appended. WI-028 (person-resolution policy into the library) minted 08-31, committed today.
+Consumer gitignore completed for the factory's lock-sentinel family.
+
+---
+
 ## 2026-08-11 (later)
 
 ### Queue review + curation (post-WI-004)
