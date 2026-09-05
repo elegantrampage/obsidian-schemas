@@ -10,6 +10,7 @@ touched_by: session
 tags: [typed-boundaries, name-validation, rfc2822]
 depends_on: ["WI-004"]
 round_budget: 16
+spawn_budget: 65
 transitions: ["idea>exploring@2026-08-11@session"]
 ---
 
