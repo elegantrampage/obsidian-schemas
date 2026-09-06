@@ -1,7 +1,7 @@
 {
   "project": "obsidian-schemas",
   "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
-  "last_scanned": "2026-09-06T16:30:08Z",
+  "last_scanned": "2026-09-06T18:29:53Z",
   "next_id": 31,
   "items": [
     {
@@ -1095,7 +1095,7 @@
     {
       "id": "WI-023",
       "title": "Identity engine endgame: delete the legacy cascade, cut over the unified index",
-      "stage": "exploring",
+      "stage": "specced",
       "file": "docs/identity-engine-endgame.md",
       "created": "2026-07-05",
       "last_touched": "2026-09-06",
@@ -1117,6 +1117,13 @@
           "at": "2026-09-06",
           "by": "session",
           "forced": false
+        },
+        {
+          "from": "exploring",
+          "to": "specced",
+          "at": "2026-09-06",
+          "by": "session",
+          "forced": false
         }
       ],
       "latest_verdicts": {
@@ -1133,6 +1140,31 @@
           "date": "2026-09-06",
           "model": "claude-sonnet-5",
           "note": "Both round-1 findings are closed and I re-derived the arithmetic independently rather than trusting the document \u2014 AC-3's outer-vertex phone literal (44790055852) is pinned in the criteria text and its two-match-one-miss witness re-executes against phone_normalization.py:58-90, and AC-1's company/phone branch coverage is now constructed by the same two named roster notes (Priya Raman, Tomas Villalobos) whose 0.6+0.25 company-hint bump re-executes against person.py:595-656 to clear the 0.85 threshold; swept the remaining failure classes (tautology, single-literal gameability, further mutual-unsatisfiability, uncovered invocation layers, mocked oracles, unrun corpus claims) and found nothing new."
+        },
+        "ac-signoff": {
+          "gate": "ac-signoff",
+          "verdict": "PROMOTE",
+          "date": "2026-09-06",
+          "reviewer": "dave",
+          "channel": "cli",
+          "signed_at": "2026-09-06T17:23:59+01:00",
+          "provenance": "verified",
+          "signoff_escalation": "ESC-WI-023-exploring-awaiting-ac-signoff-9d293950",
+          "ac_hash": "583a1b6a293a",
+          "intent_hash": "ce7e35a70ea0",
+          "ac_hash_AC-1": "bd76924cea03",
+          "ac_hash_AC-2": "7523d81032ed",
+          "ac_hash_AC-3": "a2ce8381aa34",
+          "ac_hash_AC-4": "f21e51ef4ea0",
+          "ac_hash_AC-5": "0dec3196b520",
+          "artifact": "docs/spec-reviews/WI-023-dave-review-2026-09-06.md"
+        },
+        "data-premise": {
+          "gate": "data-premise",
+          "verdict": "PROMOTE",
+          "date": "2026-09-06",
+          "model": "claude-opus-5",
+          "note": "The arm-selecting premise is grounded by a committed, re-runnable artifact \u2014 0 of 1021 live `emails:` entries refused, 0 divergences in both improvement classes, 0 live consumer reads of `_email_index` \u2014 and I verified the thing that makes those numbers admissible rather than trusting them: `_email_index` (person.py:192-197) and `_project_identifiers` (person.py:254-255) are both built from `entity.emails` alone over exactly the set `get_all()` returns, with an owned-scoped skip surface reporting 0 (base.py:258-307), so the audited domain IS the indexed domain; E2's rule fires to CUTOVER and no draft AC is falsified \u2014 the counterexample hunt's one live class (three cross-repo `orchestrator/docs/\u2026` pointers that AC-5's universal can never resolve, two surviving Cut 4) is dispositioned as a named exclusion AC-5's own \"`docs/`-relative\" wording already reads correctly."
         }
       },
       "verdicts": [
@@ -1189,6 +1221,31 @@
           "date": "2026-09-06",
           "model": "claude-sonnet-5",
           "note": "Both round-1 findings are closed and I re-derived the arithmetic independently rather than trusting the document \u2014 AC-3's outer-vertex phone literal (44790055852) is pinned in the criteria text and its two-match-one-miss witness re-executes against phone_normalization.py:58-90, and AC-1's company/phone branch coverage is now constructed by the same two named roster notes (Priya Raman, Tomas Villalobos) whose 0.6+0.25 company-hint bump re-executes against person.py:595-656 to clear the 0.85 threshold; swept the remaining failure classes (tautology, single-literal gameability, further mutual-unsatisfiability, uncovered invocation layers, mocked oracles, unrun corpus claims) and found nothing new."
+        },
+        {
+          "gate": "ac-signoff",
+          "verdict": "PROMOTE",
+          "date": "2026-09-06",
+          "reviewer": "dave",
+          "channel": "cli",
+          "signed_at": "2026-09-06T17:23:59+01:00",
+          "provenance": "verified",
+          "signoff_escalation": "ESC-WI-023-exploring-awaiting-ac-signoff-9d293950",
+          "ac_hash": "583a1b6a293a",
+          "intent_hash": "ce7e35a70ea0",
+          "ac_hash_AC-1": "bd76924cea03",
+          "ac_hash_AC-2": "7523d81032ed",
+          "ac_hash_AC-3": "a2ce8381aa34",
+          "ac_hash_AC-4": "f21e51ef4ea0",
+          "ac_hash_AC-5": "0dec3196b520",
+          "artifact": "docs/spec-reviews/WI-023-dave-review-2026-09-06.md"
+        },
+        {
+          "gate": "data-premise",
+          "verdict": "PROMOTE",
+          "date": "2026-09-06",
+          "model": "claude-opus-5",
+          "note": "The arm-selecting premise is grounded by a committed, re-runnable artifact \u2014 0 of 1021 live `emails:` entries refused, 0 divergences in both improvement classes, 0 live consumer reads of `_email_index` \u2014 and I verified the thing that makes those numbers admissible rather than trusting them: `_email_index` (person.py:192-197) and `_project_identifiers` (person.py:254-255) are both built from `entity.emails` alone over exactly the set `get_all()` returns, with an owned-scoped skip surface reporting 0 (base.py:258-307), so the audited domain IS the indexed domain; E2's rule fires to CUTOVER and no draft AC is falsified \u2014 the counterexample hunt's one live class (three cross-repo `orchestrator/docs/\u2026` pointers that AC-5's universal can never resolve, two surviving Cut 4) is dispositioned as a named exclusion AC-5's own \"`docs/`-relative\" wording already reads correctly."
         }
       ],
       "acceptance_criteria": [

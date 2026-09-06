@@ -2,14 +2,14 @@
 id: WI-023
 title: "Identity engine endgame: delete the legacy cascade, cut over the unified index"
 project: obsidian-schemas
-stage: exploring
+stage: specced
 created: 2026-07-05
 last_touched: 2026-09-06
 stage_changed: 2026-09-06
-touched_by: session
+touched_by: spec-writer
 tags: [identity, wi-125-followup, strangler-completion]
 depends_on: []
-transitions: ["idea>exploring@2026-09-06@session"]
+transitions: ["idea>exploring@2026-09-06@session", "exploring>specced@2026-09-06@session"]
 review_level: L3
 review_level_provenance: selector
 ---
@@ -247,6 +247,800 @@ Out of scope, routed: write-boundary phone canonicalization (new item, motivatio
 
 **Handoff.** New module boundaries are not created, no schema changes, no cross-system integration — but it changes which code resolves email and which person `resolve()` returns, across three consumer repos. **Spec-writer, not architect**, at the campaign's recorded Opus/high — with the sequencing above treated as a hard constraint on the implementation plan rather than as advice.
 
+## Design
+
+### D0 — The arm is already selected, and the spec builds ONE arm
+
+`## Approach` Cut 1 says "the audit in `## Write Targets` picks the arm". It has. The
+grounding artifact is in HEAD at `docs/identity-cutover-corpus-audit.md` and the data-premise
+gate verified that its predicate walked the domain the rule runs over: **0 of 1021 live
+`emails:` entries are refused by `Email.parse`, 0 divergences in both improvement classes,
+0 live non-test consumer reads of `_email_index`**. E2's decision rule therefore fires to
+**CUTOVER**, and this spec is written for the cutover arm ONLY.
+
+That is a deliberate narrowing and it is the safe direction: AC-2 and AC-4 are written
+arm-agnostically, so the criteria are undisturbed, but a plan that carried both arms would
+hand the builder a build-time judgement call — the thing this document has spent four
+architect rounds removing. **If the conductor's close-out re-run of the audit command returns
+a nonzero (b), the build STOPS and the item returns for a spec revision; it does not switch
+arms mid-build.** That is stated as a Prerequisite, not as a branch in the plan.
+
+One consequence worth naming because two review rounds flagged it: round 3's and round 4's
+open note about `_remove_entity_from_indexes` needing the same widening as the insert path
+applies **only to the carve-out arm**. Under cutover `_remove_entity_from_indexes`
+(`obsidian_schemas/repositories/person.py:_remove_entity_from_indexes:335`) already removes
+identifier keys through `_project_identifiers`, which is the same projection that inserted
+them — so the asymmetry the note predicted cannot arise, and the note is closed by the arm
+selection rather than by work.
+
+### D1 — The fixture: one roster declaration, committed as DATA
+
+E6 fixes the arm ("permanently homed to this item's own `tests/`-local fixture, frozen with
+it, never re-homed") and E8 fixes the roster. AC-1 fixes the REPRESENTATION: the test runs
+"against a fixture vault seeded from the golden's own declaration". So the fixture is not a
+directory of committed `@*.md` notes — it is one committed JSON declaration plus a seeder that
+writes the vault into a temp directory:
+
+- `tests/fixtures/identity_endgame/roster.json` — the frozen ten-note roster, byte-frozen data.
+- `tests/identity_fixture.py` — `seed_vault(roster, dest) -> Path`, which writes one
+  `@<name>.md` per entry and returns the vault path. Not a `test_*.py` module, so pytest never
+  collects it.
+
+Two reasons this beats committed `.md` fixtures, both concrete rather than aesthetic. First,
+the committed corpus cannot drift: AC-1's sweep MUTATES the vault (Branch C mints notes,
+pre-cut Branch B writes identifiers back), so a committed vault would be rewritten by its own
+test. Second, `tests/test_vault_path_required.py:_scanned_markdown_files:421` walks
+`REPO_ROOT.rglob("*.md")` excluding only `.git/.venv/docs/state/node_modules` — committed
+fixture notes would join that wall's population; a JSON declaration does not.
+
+`roster.json` schema (`schema_version: 1`), one object per note in the order below, which IS
+the frozen order every derivation uses:
+
+```json
+{
+  "schema_version": 1,
+  "notes": [
+    {"name": "Jane Roe",   "emails": ["Jane Roe <jane.roe@example.com>"], "aliases": [], "phones": [], "company": null},
+    {"name": "Kit Baldwin","emails": ["kit@localhost"],                   "aliases": [], "phones": [], "company": null}
+  ]
+}
+```
+
+**The complete roster, as literals.** E8's table plus the three values E7 constrained by rule
+but never spelled — `John Smith`'s, `Sandy Forster`'s and `Emily Mendes`'s "well-formed"
+addresses. Fixing them here is this document's own standing rule ("an unfixed plant decides
+buildability") applied to the last three plants the folds left to prose:
+
+| # | `name` | `emails` | `aliases` | `phones` | `company` |
+|---|---|---|---|---|---|
+| 1 | `Jane Roe` | `["Jane Roe <jane.roe@example.com>"]` | — | — | — |
+| 2 | `Kit Baldwin` | `["kit@localhost"]` | — | — | — |
+| 3 | `Dana Okafor` | `[" dana@example.com "]` | — | — | — |
+| 4 | `John Smith` | `["john.smith@example.com"]` | — | — | — |
+| 5 | `Sandy Forster` | `["sandy.forster@example.com"]` | — | — | — |
+| 6 | `Alex Nkemdirim` | — | `["pat@example.com"]` | — | — |
+| 7 | `Rosa Delgado` | `["pat@example.com"]` | — | — | — |
+| 8 | `Emily Mendes` | `["emily.mendes@example.com"]` | — | — | — |
+| 9 | `Priya Raman` | — | — | `["44790055852"]` | — |
+| 10 | `Tomas Villalobos` | — | — | `["2125550147"]` | `Kestrel Analytics` |
+
+The three added addresses satisfy every clause E7 and AC-2 place on "every other fixture
+note's entries": well-formed, already lowercase, whitespace-free, and unique across the
+fixture. Each is keyed identically by `_email_index` (`email.lower()`,
+`obsidian_schemas/repositories/person.py:_index_entity:197`) and by `Email.key`
+(`obsidian_schemas/identifier.py:Email:176`), so none of the three contributes a Cut-1
+divergence and **E7's exception list stays closed at two rows** with the addresses pinned,
+exactly as it was with them left to prose. `Tomas Villalobos` is the ONLY note carrying
+`company:`, which is what makes AC-1's Branch-B arm yield exactly one case.
+
+**The seeder's YAML contract, because one entry depends on it.** `Dana Okafor`'s padded entry
+must survive load as `" dana@example.com "`, spaces intact. The seeder therefore emits every
+`emails:`/`aliases:`/`phones:` element double-quoted (`  - " dana@example.com "`), never as a
+bare scalar — a bare scalar is stripped by the YAML loader and the plant goes inert. Nothing
+downstream re-normalizes it: `obsidian_schemas/models.py:Person:81` is a bare
+`emails: List[str]` and the module carries no validator, and `parser.py` carries no `strip`.
+
+**Both E8 invariants are properties of this table and are asserted, not assumed.** Invariant 1
+(no two notes share a name token) holds over the twenty tokens *jane, roe, kit, baldwin, dana,
+okafor, john, smith, sandy, forster, alex, nkemdirim, rosa, delgado, emily, mendes, priya,
+raman, tomas, villalobos*, and `kestrel`/`analytics` are absent from that set. Invariant 2 (no
+two notes carry phones `phones_match` unifies) holds over `{44790055852, 2125550147}`. Both are
+re-derived from `roster.json` at test time rather than restated, so a future edit to the roster
+that breaks either is RED rather than silently flaky.
+
+### D2 — The two goldens: frozen data with a regeneration tripwire
+
+Both goldens live beside the roster and are recorded ONCE, at Cut 0, against this item's
+starting HEAD — before Cut 1, before Cut 2, before Cut 3 — and are **never re-recorded** (E7).
+
+`tests/fixtures/identity_endgame/stub_golden.json`:
+
+```json
+{
+  "schema_version": 1,
+  "recorded_at": "cut-0",
+  "roster_digest": "<sha256 of roster.json's bytes>",
+  "cases": [
+    {"ordinal": 1, "arm": "per-email", "name": "Jane Roe", "email": "Jane Roe <jane.roe@example.com>",
+     "phone": null, "company": null, "expected_name": "Jane Roe", "expected_created": false}
+  ]
+}
+```
+
+`tests/fixtures/identity_endgame/resolve_golden.json`:
+
+```json
+{
+  "schema_version": 1,
+  "recorded_at": "cut-0",
+  "roster_digest": "<sha256 of roster.json's bytes>",
+  "queries": [
+    {"ordinal": 1, "arm": "name",  "query": "Jane Roe",      "expected": "Jane Roe"},
+    {"ordinal": 5, "arm": "email", "query": "kit@localhost", "expected": "Kit Baldwin"}
+  ]
+}
+```
+
+`expected` is the resolved `person.name`, or `null` for a `None` answer.
+
+**`roster.json` IS the golden's own declaration, in AC-1's sense.** The roster lives in its own
+file rather than inline in each golden for one reason — two goldens must not carry two copies of
+one declaration, which is the duplication this item exists to remove — and the two are bound by
+`roster_digest`, which every check verifies before it reads a case. A roster edited without a
+re-record is RED, and a re-record is a diff a reviewer sees. Roster and goldens are frozen
+together and are never re-homed onto WI-016's vault (E6).
+
+**What makes "never re-recorded" machine-checkable rather than a promise.** Three clauses,
+each of which a regenerated golden fails:
+
+1. `roster_digest` must equal the sha256 of the committed `roster.json` bytes. A fixture edit
+   without a re-record is RED; a re-record is visible in the diff.
+2. The AC-4 check carries the two exception rows' **pre-cut** values as literals in its own
+   source — `("kit@localhost", "Kit Baldwin")` and `(" dana@example.com ", None)` — and asserts
+   the golden still holds them. A golden regenerated after Cut 1 records `None` and
+   `"Dana Okafor"` for those two queries and this assertion goes RED. This is the clause E7
+   said regeneration "cannot reach": it is prose in this document AND a literal in the test,
+   never data the recorder can produce.
+3. `recorded_at` must be the literal `"cut-0"`.
+
+### D3 — Cut 0: the oracle
+
+**(a) Repair the parity legs.** `tests/test_resolve_or_create.py:190` and `:214` currently
+compare `parse_identifiers(...) + resolve_or_create(...)` against itself, because the Phase-4
+adapter swap made `find_or_create_stub`
+(`obsidian_schemas/repositories/person.py:find_or_create_stub:688-697`) *be* the engine. Point
+the "legacy" leg at `_find_or_create_stub_legacy` so the six cases compare two implementations
+again. They are deleted at Cut 4 (AC-1 requires it); their value is the three cuts in between,
+which is exactly the window E1 says the oracle must survive.
+
+**(b) Record both goldens.** `tests/record_identity_golden.py` — a one-shot recorder, run by
+hand once at Cut 0 and never again. It seeds a temp vault from `roster.json`, derives the case
+list and the query list by the rules below, executes them against **unchanged** code, and
+writes the two JSON files.
+
+It lives under `tests/`, NOT under `scripts/`, and that is load-bearing rather than tidy: it
+writes files with `Path.write_text`, and `tests/test_write_routing.py:91` sweeps
+`python_files_under(PACKAGE_ROOT, SCRIPTS_ROOT)` for exactly that capability outside
+`obsidian_schemas/vault_io.py`. A recorder in `scripts/` is RED on a standing wall before it
+runs. The same applies to `tests/identity_fixture.py`.
+
+**AC-1's case derivation, per arm, in this order** (roster order, and within a note: emails,
+then phones, then company):
+
+| arm | rule |
+|---|---|
+| `per-email` | one case per `emails:` entry: `name=<the note's name>, email=<the entry verbatim>` |
+| `per-phone` | one case per `phones:` entry: `name=<the note's name>, phone=<the entry verbatim>` |
+| `per-company` | one case per note carrying `company:`: `name=<the note's FIRST name token>, company=<the company>`, no identifiers |
+| `not-present` | one case per base case above, at ordinal `10 + i`, taking its fresh values from the pinned table below |
+
+That yields **10 base cases and 10 not-present cases, 20 in all**. `Alex Nkemdirim` contributes
+no base case (aliases are not an arm), which is correct and is why AC-1's coverage claim rests
+on the ROSTER rather than on the sweep.
+
+**The not-present variants, pinned as literals.** AC-1 constrains them twice (a not-present
+NAME is multi-token, or `weak_identity_reason`
+(`obsidian_schemas/name_validation.py:weak_identity_reason:531-532`) raises `WeakIdentityError`
+where the case expects a create; a not-present PHONE is not-present under `phones_match`, not
+under string equality) and round 4 added a third (keep the Branch-B variant's name away from
+`tomas`/`villalobos`, where `0.65 + 0.25` would silently convert a create into a reuse). All
+three are satisfied by construction below, and none of the twenty fresh tokens appears in the
+roster's twenty:
+
+| variant ordinal | pairs with | `name` | identifier / hint |
+|---|---|---|---|
+| 11 | 1 | `Wilbur Achebe` | `email=wilbur.achebe@notpresent.example.com` |
+| 12 | 2 | `Greta Oyelaran` | `email=greta.oyelaran@notpresent.example.com` |
+| 13 | 3 | `Marcus Thibodeaux` | `email=marcus.thibodeaux@notpresent.example.com` |
+| 14 | 4 | `Ingrid Castellanos` | `email=ingrid.castellanos@notpresent.example.com` |
+| 15 | 5 | `Otto Farrimond` | `email=otto.farrimond@notpresent.example.com` |
+| 16 | 6 | `Neve Kowalczyk` | `email=neve.kowalczyk@notpresent.example.com` |
+| 17 | 7 | `Rafael Ibarrola` | `email=rafael.ibarrola@notpresent.example.com` |
+| 18 | 8 | `Sunniva Blackwood` | `phone=33612345678` |
+| 19 | 9 | `Hugo Pemberton` | `phone=33698765432` |
+| 20 | 10 | `Delphine Marchetti` | `company=Kestrel Analytics` |
+
+Both fresh phones are not-present under `phones_match` and not merely under string equality,
+hand-executed against `obsidian_schemas/phone_normalization.py:phones_match:58-90`: neither
+`33612345678` nor `33698765432` starts with `44` or `0`, and neither is an eleven-digit string
+starting with `1`, so no UK arm and no US arm can fire against `44790055852`, `2125550147`, or
+against each other.
+
+**The sweep runs sequentially in ONE temp vault, replaying the frozen ordered case list.** That
+is AC-1's own clause ("every note a create case mints is visible to every later case in the
+same run"), and it is safe because all ten base cases precede all ten variants and no minted
+name shares a token with any roster name or with any other minted name — hand-executed:
+`resolve_all("Delphine Marchetti", company="Kestrel Analytics")` at ordinal 20 has no candidate
+to bump, because the company-hint bump at
+`obsidian_schemas/repositories/person.py:resolve_all:635-651` lifts existing candidates and
+never creates one.
+
+**The one thing round 4 got right that this spec must not repeat.** AC-1's per-case annotation
+names the derivation ARM, not the runtime BRANCH, and the two differ for three cases. The
+golden's field is therefore `arm`, and the record is explicit: `Jane Roe`, `Kit Baldwin` and
+`Dana Okafor` all fall through to Branch B pre-cut (`Email.parse` refuses `kit@localhost`;
+`jane.roe@example.com` misses `_email_index`'s bracketed-literal key; `dana@example.com` misses
+the padded key), and Jane's and Dana's move to Branch A post-cut. Branch coverage is carried by
+`Rosa Delgado`'s `pat@example.com` (Branch A, email, both pre- and post-cut), `Priya Raman`'s
+and `Tomas Villalobos`' phones (Branch A, phone), `Tomas`+`Kestrel Analytics` (Branch B), and
+the ten variants (Branch C).
+
+**AC-1's golden has NO exceptions across any cut.** Hand-executed for the three cases whose
+runtime branch moves at Cut 1: Jane pre-cut takes Branch B and reuses on exact-name at 1.0
+returning `("Jane Roe", False)`, post-cut takes Branch A and returns `("Jane Roe", False)`;
+Dana likewise returns `("Dana Okafor", False)` on both sides; Kit parses no identifier at all on
+either side. The pairs are identical; only the SIDE EFFECT differs (pre-cut Branch B calls
+`_writeback_identifier`, post-cut Branch A does not), and side effects are explicitly outside
+the parity contract (E5). No later case reads the written-back value, because the case list is
+frozen data derived once from `roster.json` and is never re-read from the mutated vault.
+
+**AC-4's query derivation**: for every note in roster order — the exact `name`, then each
+whitespace token of that name in order, then each alias, then each email, then each phone — the
+resulting list de-duplicated by query string, first occurrence winning. `pat@example.com`
+appears twice (Alex's alias, Rosa's email) and collapses to one entry; the space is **39
+queries**, stated as informational and asserted by re-derivation rather than pinned as a
+number.
+
+### D4 — Cut 1: email resolution gets exactly one authority
+
+`_email_index` is deleted outright and `_identifier_index` becomes the email authority. All
+changes are in `obsidian_schemas/repositories/person.py`:
+
+1. Delete the `_email_index` attribute (`__init__:156`), its population loop
+   (`_index_entity:194-197`), its clear (`_clear_indexes:328`) and its removal loop
+   (`_remove_entity_from_indexes:337-342`). The identifier-index removal at `:374-377` already
+   covers email keys through `_project_identifiers`.
+2. `get_by_email` becomes the ONE reader: parse the argument with `Email.parse`, return `None`
+   on `IdentifierError`, look up `self._identifier_index.get(ident.key)`, and hydrate through
+   `self._cache.get(ref.canonical_key)`. Signature, return type and exception set are
+   unchanged — it still returns `Optional[Person]` and still raises nothing.
+3. `resolve` step 3 (`resolve:492-496`) and `resolve_all` step 2 (`resolve_all:571-578`) both
+   stop reading a mapping and call `self.get_by_email(query)` instead. The `"@" in query_lower`
+   gate stays on both: it changes no answer (a non-address query is refused by `Email.parse`
+   anyway) and it keeps the pre-cut cascade shape legible.
+4. `_resolve_identifier` (`:955-956`) is unchanged — it already delegates `Email` to
+   `get_by_email`, which is now the index reader. That is what makes "one authority" structural
+   rather than behavioural: after this cut the string `_identifier_index` is read for an
+   `email:` key in exactly one function.
+5. `_project_identifiers`' docstring (`:236-238`) loses the three-month-old "942 notes,
+   2026-06-13, ZERO failures" claim and gains a pointer to
+   `docs/identity-cutover-corpus-audit.md`. A pointer, not a fresh number — the number drifts
+   the same way (this is the data-premise gate's own recommendation, and it rides in AC-5's
+   documentation-truth class).
+
+**The four surfaces, post-cut, on the three plants** — hand-executed and identical to E7's
+table, which is why this cut moves exactly the two queries AC-4 enumerates:
+
+| query | `get_by_email` | `resolve` | `resolve_all[0]` | `_resolve_identifier(Email.parse(q))` |
+|---|---|---|---|---|
+| `Jane Roe <jane.roe@example.com>` | Jane Roe | Jane Roe | Jane Roe | Jane Roe |
+| `kit@localhost` | None | None | None | N/A — `Email.parse` refuses |
+| `" dana@example.com "` | Dana Okafor | Dana Okafor | Dana Okafor | Dana Okafor |
+
+**The alias asymmetry is untouched and is asserted.** For `pat@example.com` the three
+email-only doors return `Rosa Delgado` and `resolve` returns `Alex Nkemdirim`, because
+`resolve`'s alias step precedes its email step and `resolve_all` records email before alias at
+equal confidence under a stable sort. AC-2's scope rule is stated as a PREDICATE rather than
+per-literal, so the whitespace and lowercase variants of a colliding address are covered by the
+same clause: **a sweep member is in the asymmetry set iff its stripped, lowered form is a key of
+`_alias_index` belonging to a different person than the address's email owner.**
+
+**One test module is falsified by this cut and must be rewritten, not deleted.**
+`tests/test_identity_index.py:183-201` pins the divergence deliberately —
+`assert "not-an-email" in repo._email_index` and `assert "bad email" in repo._email_index`,
+each with the comment "legacy still has it". That property is exactly what Cut 1 ends. It is
+replaced by the post-cutover property with the audit's number as its warrant: a note carrying
+`not-an-email` loads without raising, contributes no identifier, and resolves through **no**
+door — `get_by_email("not-an-email") is None` and `repo.resolve("not-an-email") is None` — and
+the reason it is acceptable to lose is that the live corpus contains zero such entries
+(`docs/identity-cutover-corpus-audit.md`, clause (b): 0 of 1021).
+
+### D5 — Cut 2: the phone carve-out, made executable
+
+Two changes in `obsidian_schemas/repositories/person.py:get_by_phone:394-421`:
+
+1. The fuzzy scan iterates a **materialized snapshot**:
+   `for indexed_phone, cache_key in list(self._phone_index.items()):`. This closes WI-004's
+   explicitly-open half (`docs/concurrent-access.md:8713-8714` — `:417` iterates the live
+   mapping while `_clear_indexes:326-333` mutates it in place).
+2. The scan carries a comment naming the non-transitivity as the reason phones cannot key into
+   `_identifier_index`, and citing the executable witness by name
+   (`tests/test_identity_endgame.py::test_phones_stay_on_the_fuzzy_path_and_the_reason_is_executable`).
+
+**AC-3's structural clause needs a sharper predicate than its own parenthetical, and the spec
+says so rather than letting the build discover it.** AC-3 glosses the mechanism as "the loop's
+iterable is a call, not a bare attribute". Today's iterable is already a call —
+`self._phone_index.items()` — so that gloss alone is **vacuously green against unchanged
+code**. The property AC-3 actually asserts is its leading clause, "iterates a MATERIALIZED
+snapshot", so the check is: every `for` loop in the package whose iterable reaches
+`self._phone_index` has an iterable that is a call to one of `list`, `tuple`, `sorted`,
+`frozenset` or `dict` wrapping that reach. That is strictly stronger than the gloss and
+satisfies it (a `list(...)` call is a call and is not a bare attribute); the parenthetical is
+not weakened, it is discharged by something that can fail.
+
+### D6 — Cut 3: one cascade, one named selection policy
+
+`resolve()` keeps no match logic of its own. A module-level function in
+`obsidian_schemas/repositories/person.py` — module-level so AC-4's "named module-level
+selection policy" is checkable by attribute lookup rather than by reading:
+
+```python
+# resolve()'s own cascade order, which is what breaks a 1.0 tie between two
+# DIFFERENT people. resolve_all emits email before alias deliberately
+# (person.py:571-572); resolve has always answered alias first. Cut 3 preserves
+# resolve's answer without touching resolve_all's ordering.
+_RESOLVE_CASCADE_ORDER = ("exact-name", "alias", "email", "phone")
+
+
+def select_resolution(query: Optional[str],
+                      candidates: List[ResolveCandidate]) -> Optional[Person]:
+    """The ONE selection policy resolve() applies to resolve_all()'s ranking."""
+```
+
+It returns a `Person` (the winning candidate's `.person`) or `None` — `resolve()`'s own return
+type, so the method body is a delegation with no unwrapping of its own.
+
+The policy, stated as a rule and not as code:
+
+- No candidates → `None`. This arm is checked FIRST, so a `None` or empty query cannot reach
+  the tokenizer and cannot raise.
+- **Single-token query** (the stripped query contains no whitespace): take the highest
+  confidence; among candidates tied at that confidence, take the one whose `matched_via`'s
+  leading label ranks first in `_RESOLVE_CASCADE_ORDER`, unknown labels last, insertion order
+  breaking a remaining tie.
+- **Multi-token query**: return a candidate only if its confidence is `1.0`; otherwise `None`.
+  Ties at `1.0` break by the same `matched_via` rule.
+
+`matched_via` may carry a `+company-hint` suffix (`resolve_all:650`), so the rank is read off
+the label BEFORE the first `+`. `resolve()` itself passes no company, so from this caller the
+suffix never appears — the rule is stated totally anyway, because the policy is module-level
+and a future caller may not be `resolve`.
+
+**Why exactly these two arms, and why a confidence threshold is the wrong shape.** E4's three
+constraints are jointly sufficient, and the reason is structural rather than empirical:
+`resolve` step 5 tests `query_lower in name.split()`
+(`obsidian_schemas/repositories/person.py:resolve:507`), which can only be true for a query with
+no whitespace — so a multi-token query is answerable today ONLY by steps 1–4, every one of
+which scores `1.0` in `resolve_all`. And the two 0.6 `partial-name` sites cannot collide across
+the arms: the token-subset arm requires `len(shared) >= 2` (`resolve_all:608`), unreachable from
+a one-token query, and the short-form arm requires `len(query_tokens) == 2` (`:618`),
+unreachable from one token. So a single-token query's non-1.0 candidates are only step 5's 0.6,
+and a multi-token query's are only 0.65 and 0.6.
+
+Hand-executed against every answer this document requires:
+
+| query | `resolve_all` records | policy | required |
+|---|---|---|---|
+| `john smith kato` | 0.65 `token-subset` | multi-token, not 1.0 → **None** | None (E4 A) |
+| `pat@example.com` | Rosa 1.0 `email`, Alex 1.0 `alias` | single-token, tie → `alias` ranks above `email` → **Alex Nkemdirim** | Alex (E4 B) |
+| `andy` | nothing | **None** | None |
+| `emily m` | Emily 0.6 `partial-name` (step 6) | multi-token, not 1.0 → **None** | None (E4 C) |
+| `sandy` | Sandy 0.6 `partial-name` (step 5) | single-token, best → **Sandy Forster** | Sandy |
+| `Jane Roe` | Jane 1.0 `exact-name` | multi-token, 1.0 → **Jane Roe** | Jane |
+| `44790055852` | Priya 1.0 `phone` | single-token, best → **Priya Raman** | Priya |
+
+`resolve()`'s body after the cut is the empty-query guard, `self.resolve_all(query)`, and
+`select_resolution(query, candidates)`. It reads none of `_cache`, `_alias_index`,
+`_email_index` (gone) or `_phone_index`; reading its own `query` argument is inside AC-4's
+structural clause, which forbids reading the four indexes and nothing else.
+
+### D7 — Cut 4: the deletion, and the riders
+
+- Delete `_find_or_create_stub_legacy` (`obsidian_schemas/repositories/person.py:699-824`).
+- Delete the six vacuous parity cases repaired at Cut 0 (`tests/test_resolve_or_create.py`
+  `PARITY_CASES` + `test_engine_matches_legacy_return_value` + the seed helper if it is left
+  with no caller, and `test_engine_matches_legacy_on_weak_identity`).
+- Delete `test_legacy_preserves_rich_note` (`tests/test_wi126_body_preservation.py:209-215`).
+  Its engine twin at `:200-207` is left standing and carries the WI-126 body-preservation
+  property alone — a real, currently-passing test is being removed, and this spec says so out
+  loud because AC-1 forces it.
+- Delete the prose mention at `obsidian_schemas/repositories/person.py:find_or_create_stub:675`
+  ("The original body is preserved verbatim as `_find_or_create_stub_legacy`…"). The
+  data-premise gate found this third site; `## Approach` Cut 4 names only two, and AC-1's
+  literal-text scan is total and would have caught it at the last task. Naming it here moves
+  the discovery to spec time.
+- Repair the stale claim three lines below it at `:685` — "The Phase-5 replay confirms zero
+  return-value divergence over the real vault". E1 establishes that replay is cross-repo,
+  unreachable from this tree, and predates WI-020/WI-021. It is replaced by a pointer to the
+  committed goldens, which are the replay's in-tree successor.
+- Rider: delete the dangling `docs/paren-decoration-at-the-door.md` reference at `:113`.
+- Rider: give the slack carve-out (`_project_identifiers:238-242`) its **unblock condition** on
+  a line beginning with the literal marker `UNBLOCK:` — what would have to be true of the
+  frontmatter for `slack` to be projectable. The marker is pinned so the clause is checkable by
+  a text scan rather than by prose recognition.
+- Rider: repair the false comment at `resolve_all:615-617`. It claims the short-form match
+  "stays low confidence (< 0.5) and gets filtered out below"; it records 0.6 at `:626` against
+  the `>= 0.5` floor at `:654`. The replacement states what actually happens: the branch
+  records 0.6, which SURVIVES the floor, and the company hint bumps an already-surviving
+  candidate rather than rescuing a filtered one.
+
+### D8 — Three new derivations, and why they go in `tests/derivations.py`
+
+The `ast` capability is single-homed by a standing set-EQUALITY assertion — `homes ==
+{"tests/derivations.py"}` in both `tests/test_loud_fail_harness.py:103` and
+`tests/test_name_gate_wall.py:_check_the_ast_capability_stays_single_homed:1136`, over
+`python_files_under(PACKAGE_ROOT, TESTS_ROOT)`. **Every structural predicate this item needs
+must therefore be a new export of `tests/derivations.py`, and no test module this item writes
+may import `ast`.** A private copy in the check module is RED on two standing walls before it
+asserts anything.
+
+| new export | serves | returns |
+|---|---|---|
+| `phone_index_iteration_sites(files)` | AC-3 | one record per `for` loop whose iterable reaches `self._phone_index`, classified `materialized` (wrapped in `list`/`tuple`/`sorted`/`frozenset`/`dict`) or `live` |
+| `attribute_reads_in(files, qualnames, attrs)` | AC-4 | every `<x>.<attr>` load inside the named functions, for `attr` in `attrs` |
+| `docs_markdown_mentions(files)` | AC-5 | every `docs/`-relative `.md` path mentioned in the source text, with its module and line |
+
+`tests/test_loud_fail_harness.py:test_derivations_are_single_sourced:74-97` asserts a **required
+subset** of six named exports, explicitly "not a cardinality bound", so three more exports join
+legally.
+
+**`docs_markdown_mentions`' rule, total, with its exclusion class named** — the data-premise
+gate's counterexample hunt found three members that are false BY DESIGN and are not
+dispositioned anywhere else in this document:
+
+- Match `[A-Za-z0-9._/-]+\.md` per line over the file's whole text (comments and docstrings
+  alike).
+- A match is IN SCOPE iff it **starts with** `docs/`. That single clause is the exclusion: the
+  three cross-repository pointers — `orchestrator/docs/identity-model-revised-2026-06-13.md`
+  (`obsidian_schemas/identifier.py:3-4`), `orchestrator/docs/name-validation-and-cleanup.md`
+  (`obsidian_schemas/name_validation.py:29`) and `orchestrator/docs/find-or-create-stub.md`
+  (`obsidian_schemas/repositories/person.py:729`, which dies with Cut 4) — match as
+  `orchestrator/docs/…`, which does not start with `docs/`. Each names a real audit in a
+  sibling repo and none can ever resolve under this tree; **a scan that collected them would go
+  RED on two correct pointers and the cheapest repair would be deleting them, which is this
+  item's own harm class.**
+- The same clause excludes the eighteen vault-note filename illustrations (`Name.md`,
+  `Speechmatics.md`, `October.md`, …), which are Obsidian note names in docstring examples.
+- `identifier.py`'s pointer is line-WRAPPED, so the per-line scan sees the bare tail
+  `revised-2026-06-13.md`, which also does not start with `docs/`. That is correct and
+  deliberate, not a blind spot to fix: the pointer is out of scope by the same clause either
+  way.
+- Every in-scope mention must resolve to an existing file under the repo root.
+
+### D9 — The interpreter bridge is mandatory for this item's check module
+
+The conveyor runs a `kind: test` check as `<some python> -c "<importlib bootstrap>" <module
+path> <check name>`, and the interpreter is the ADVANCER's, not this project's
+(`tests/ac_interpreter.py:1-44`). Four of this item's five checks EXECUTE `PersonRepository`,
+so the very first package import pulls in `pydantic` and every criterion reports
+`ModuleNotFoundError` — the exact battery output WI-021's first build attempt drew on
+five-of-five criteria with a green floor in the same tree.
+
+So `tests/test_identity_endgame.py` calls `ensure_project_interpreter(__file__)` as its **first
+statement, ahead of every package import**. This is not optional and it is not discoverable
+from the criteria text; it is stated here because the failure is invisible from inside the
+suite.
+
+`tests/test_ac_interpreter.py` is the wall that proves the bridge by EXECUTION, and it is
+currently pinned to one document (`WORK_ITEM_DOC = ROOT / "docs" / "write-door-bypasses.md"`,
+`:40`). It is generalized to a tuple of documents and iterated, so this item's five checks are
+proved under the foreign interpreter by the wall that already exists rather than by a second
+copy of it. That is a solve-in-one-place call with a disclosed cost: five more `-S` subprocesses
+per floor run, each re-execing into a one-node pytest.
+
+### D10 — Wall memberships (the INBOUND half), derived not remembered
+
+The derivation: sweep `tests/` for modules that read the text of files they did not name at
+authoring time — in their own source or through a helper under the same root — then read every
+file the sweep returns at FILE granularity. Run on 2026-09-06 it returns fourteen modules;
+this census is a FLOOR measured at that date, never a total. Discarding by reading leaves the
+walls below. **Membership is closed by CALLING each wall's own shipped predicate on the final
+text of every file this item creates or edits**, never by reasoning about which shapes match:
+
+| wall | universe | what it requires of this item's files |
+|---|---|---|
+| `tests/test_loud_fail_harness.py:test_derivations_are_single_sourced` | `python_files_under(PACKAGE_ROOT, TESTS_ROOT)`, set EQUALITY | no new module names `ast`; the three new predicates are exports of `tests/derivations.py` |
+| `tests/test_name_gate_wall.py:_check_the_ast_capability_stays_single_homed` | same, set EQUALITY | same |
+| `tests/test_name_gate_wall.py:_check_the_loud_fail_write_universe_in_the_removal_direction` | `non_completed_write_sites([person.py])`, pinned to five qualnames and eight sites | unchanged: the functions this item edits or deletes contain no `write_text`/`write_bytes`/`write_note`/`create_note`/`move_note` attribute call, so none of them is in that universe |
+| `tests/test_loud_fail_write.py:test_write_failure_raises_and_noops_keep_their_return` | `non_completed_write_sites(python_files_under(PACKAGE_ROOT))`, bidirectional classification | same |
+| `tests/test_concurrent_access.py:test_wi020_derivations_survive_the_routing` | four derivations over `PACKAGE_ROOT`, count pins 4 / `write_markdown_file` / 8 / 4 / 3 | unchanged: no repository subclass, no `_load_file`, no reserializing writer is touched |
+| `tests/test_write_routing.py` | `filesystem_mutation_uses`, `os_module_attribute_uses`, `module_import_uses` over `PACKAGE_ROOT + SCRIPTS_ROOT` | `person.py`'s edits name no filesystem-mutation capability; the recorder and seeder are under `tests/`, outside this universe, which is WHY they are there |
+| `tests/test_company_name_contract.py:test_company_name_punctuation_survives_every_write_arm` | `character_class_strip_sites` + `frontmatter_write_arms` over `PACKAGE_ROOT + SCRIPTS_ROOT`, bidirectional | unchanged: `person.py` contributes no `write_frontmatter` arm and no character-class strip; the deleted function contains neither |
+| `tests/test_address_splitter.py:test_address_splitting_is_single_homed_and_agrees_with_email_parse` | `address_splitting_implementations` over `PACKAGE_ROOT + SCRIPTS_ROOT`, exactly one home | unchanged: the one home is `name_gate.split_address`; nothing this item writes splits an address |
+| `tests/test_vault_path_required.py:test_no_implicit_vault_path_defaults` | `(REPO_ROOT/"obsidian_schemas"\|"scripts").rglob("*.py")` | `person.py`'s edits introduce no caller-independent default path |
+| `tests/test_vault_path_required.py:test_docs_do_not_advertise_no_arg_construction` | `REPO_ROOT.rglob("*.md")` minus `.git/.venv/docs/state/node_modules` | **this item adds no `.md` under `tests/`** — the fixture is JSON and the vault is seeded into a temp directory, so nothing joins this population |
+| `tests/test_ac_interpreter.py:check_module` | `TESTS_ROOT.glob("test_*.py")`, unique `def <check>(` | the five check names appear in exactly one module, `tests/test_identity_endgame.py` |
+
+Anything the RUN returns that this table did not name is NAMED in the Build Log and satisfied —
+never worked around, and never satisfied by narrowing the wall.
+
+### Prerequisites & Assumptions
+
+- **Services:** none. The floor is hermetic and no test may reach the live vault or
+  `OBSIDIAN_VAULT_PATH` (E5, WI-024's standing constraint).
+- **Env vars / credentials / scopes:** none.
+- **Required state in HEAD before the build is armed:** `docs/identity-cutover-corpus-audit.md`
+  (the `kind: precondition` fence below; already committed).
+- **The arm is CUTOVER and is not re-decided in the build.** The audit's clause (b) is 0 of
+  1021. If the conductor's close-out re-run returns nonzero, the build STOPS and the item
+  returns for a spec revision.
+- **Interpreter:** the floor command is
+  `/Users/davewascha/Workspaces/obsidian-schemas/.venv/bin/python -m pytest
+  /Users/davewascha/Workspaces/obsidian-schemas/tests -q`, run against the worktree. System
+  python has no pytest. The `.venv`'s editable install is stale by design; the suite works
+  because pytest prepends its rootdir — see `pipeline-runners.yaml`, and do not "fix" it.
+- **Consumer contracts that must not move:** `find_or_create_stub`'s signature, return shape and
+  exception set (`obsidian_schemas/repositories/person.py:find_or_create_stub:658-697`), and the
+  `normalize_phone`/`phones_match` compat re-export (`:78-85`), which two live consumers import
+  by this module's path.
+- **Trust boundaries:** unchanged. `Email.parse` is already the address authority at the write
+  door; this item moves a READ path onto the same parser and adds no new input surface.
+- **Assumed and stated rather than implicit:** `_cache` insertion order is the filesystem walk
+  (`obsidian_schemas/repositories/base.py:load:231` globs unsorted), which is why both E8
+  invariants are load-bearing; and `_adopt` (`base.py:_adopt:158-181`) appends a minted note to
+  a COPY of the mapping rather than re-globbing, which is what makes AC-1's ordered replay
+  deterministic under mutation.
+- **No other work item is a prerequisite.** WI-016 sits immediately ahead in `queue_order` and
+  is deliberately NOT a dependency (E6, arm (b)); if it lands first, nothing here changes.
+
+## Edge Cases & Open Questions
+
+- **Case:** the query is empty, `None`, or whitespace-only.
+  **Decision:** `resolve` returns `None` and `resolve_all` returns `[]`, unchanged.
+  `select_resolution` receives an empty candidate list and returns `None` before touching the
+  query, so a `None` query cannot raise.
+  **Reasoning:** today's behaviour (`resolve:477-478` vs `resolve_all:547-548`) and round 3
+  swept it; the policy must not be the first thing to change it.
+
+- **Case:** an `emails:` entry that `Email.parse` refuses.
+  **Decision:** after Cut 1 it resolves through no door. `get_by_email` returns `None`,
+  `resolve` falls through its cascade, `resolve_all` records no email candidate, and
+  `_project_identifiers` skips it as it already does (`:246-252`).
+  **Reasoning:** this is E2 class (a) and it is the only class the cutover can LOSE. The live
+  size is 0 of 1021 (`docs/identity-cutover-corpus-audit.md`), which is what makes the loss
+  acceptable, and the number is what the code comment points at rather than restates.
+
+- **Case:** two callers hit the repository concurrently while a refresh clears the indexes.
+  **Decision:** `get_by_phone` iterates `list(self._phone_index.items())` — a materialized
+  snapshot. `load()` and `_adopt` already rebind whole mappings under `_cache_lock` rather than
+  mutating in place.
+  **Reasoning:** WI-004 closed the wrong-VALUE half and left the iterate-a-live-mapping half
+  open by name (`docs/concurrent-access.md:8713-8714`) on the expectation that phones would
+  leave the fuzzy path here. They do not, so this item owns it or nobody does.
+
+- **Case:** an external dependency is unavailable — the live vault, a consumer repo, the
+  network.
+  **Decision:** nothing in the build touches any of them. The one empirical premise is settled
+  by a committed artifact read as bytes, and AC-5's check makes no subprocess, network or vault
+  call.
+  **Reasoning:** the caged builder can reach none of them, so a builder-authored version of that
+  artifact would be fabrication (the WI-024 and WI-022 precedents).
+
+- **Case:** first run versus subsequent runs of the golden sweep.
+  **Decision:** identical. Every run seeds a fresh temp vault from `roster.json`, replays the
+  frozen ordered case list, and discards the vault. The committed fixture is never written.
+  **Reasoning:** the sweep mutates (Branch C mints, pre-cut Branch B writes back); a sweep that
+  mutated its own committed baseline would invalidate the golden on its first green run.
+
+- **Case:** migration / backfill of existing data.
+  **Decision:** none exists and none is needed. No frontmatter schema changes, no vault
+  rewrite, no state migration. The only "migration" is the index the library builds in memory at
+  load time.
+  **Reasoning:** the cutover changes which in-memory map answers a lookup, not what a note
+  contains. The write-boundary E.164 canonicalization that WOULD need a vault-wide migration is
+  minted as a separate item (E3) precisely so it is not smuggled in here.
+
+- **Case:** re-running the build, or re-running the suite.
+  **Decision:** idempotent. The goldens are recorded once and committed; the recorder is never
+  run again; every test derives its own temp vault.
+  **Reasoning:** a second recording is the one way this oracle can be defeated, and D2's three
+  tripwires make it RED rather than silent.
+
+- **Case:** transient versus permanent failure inside a cut.
+  **Decision:** there are no retries and none are wanted. Every operation is a local file write
+  or an in-memory lookup; a failure is a defect, and the package's `LoudFailError` hierarchy
+  already refuses rather than degrading.
+  **Reasoning:** WI-020's loud-fail contract. A retry here would hide the only signal.
+
+- **Case:** partial failure — a cut lands and a later cut does not.
+  **Decision:** each cut is a commit, the goldens stand from Cut 0 to Cut 4, and the deletion is
+  last. A build that stops after Cut 2 leaves a tree that is green, shippable, and still holds
+  the duplicate.
+  **Reasoning:** that is the whole reason for inverting the mint's order (E1). Reversibility is
+  cut-by-cut, and the only irreversible step happens against two committed goldens.
+
+- **Case:** error propagation to a caller.
+  **Decision:** unchanged in every public surface. `get_by_email` still returns `Optional[Person]`
+  and raises nothing — an `IdentifierError` from `Email.parse` is caught and becomes `None`,
+  which is the same answer a miss has always produced. `find_or_create_stub` keeps its exception
+  set exactly (`NameValidationError`, `WeakIdentityError`).
+  **Reasoning:** three consumer repos catch on those shapes; widening or narrowing the exception
+  set is a consumer break bought for nothing.
+
+- **Case:** a trust-boundary crossing — untrusted input reaching the new parser.
+  **Decision:** `get_by_email` now parses its argument. `Email.parse` refuses whitespace-bearing
+  bare addresses rather than letting `parseaddr` silently repair them
+  (`obsidian_schemas/identifier.py:Email:148-168`), and routes only genuine angle-bracket forms
+  through `parseaddr`.
+  **Reasoning:** that refusal is the WI-017 lesson already shipped at the write door; putting
+  the read path on the same parser is the point of the cut, not a side effect of it.
+
+**OPEN: None.**
+
+## Implementation Plan
+
+Tasks are ordered by dependency and each is independently verifiable. Tasks 2 and 3 are
+independent of each other and may be done in either order; everything from Task 4 on is
+strictly sequential, because the cut order IS the oracle's availability.
+
+- [ ] **Task 1 — Capture the pre-build baseline.** Before the first edit, run the floor command
+      and record in the Build Log: the pass/fail counts, and the value of
+      `len(non_completed_write_sites(python_files_under(PACKAGE_ROOT)))` (expected 8, the number
+      two standing walls pin). Both are informational anchors for the directional invariant; no
+      later check asserts either number.
+      verify: baseline — the numbers are recorded in the Build Log before any edit that could move them, and nothing asserts them afterwards
+
+- [ ] **Task 2 — Add the three structural derivations to `tests/derivations.py`, each with its
+      claimed match-shapes as planted fixtures.** Add `phone_index_iteration_sites`,
+      `attribute_reads_in` and `docs_markdown_mentions` per D8. Write
+      `tests/test_identity_endgame.py` (with `ensure_project_interpreter(__file__)` as its FIRST
+      statement, per D9) carrying a shapes test that drives every claimed shape through the
+      derivation's OWN predicate — never a re-implementation — over a scratch directory scanned
+      by `python_files_under(plant_dir)`: for `phone_index_iteration_sites`, a `list(...)`-wrapped
+      loop (matches, `materialized`), a bare `.items()` loop (matches, `live`) and a loop over an
+      unrelated attribute (near-miss, not collected); for `attribute_reads_in`, a read of a named
+      attribute inside a named function (matches), the same read in a DIFFERENT function
+      (near-miss), and a read of an attribute not in the set (near-miss); for
+      `docs_markdown_mentions`, a resolving `docs/company-name-corpus-audit.md` and a dangling
+      `docs/does-not-exist.md` (both collected), and `orchestrator/docs/x.md`, a bare `Smith.md`
+      and a wrapped tail `revised-2026-06-13.md` (all three near-misses that must NOT be
+      collected). Import no `ast` anywhere outside `tests/derivations.py`.
+      verify: test_identity_endgame_derivations_match_their_claimed_shapes
+
+- [ ] **Task 3 — Author the frozen roster and the seeder.** Write
+      `tests/fixtures/identity_endgame/roster.json` from D1's ten-row table verbatim, and
+      `tests/identity_fixture.py` exposing `load_roster()`, `seed_vault(roster, dest)` (emitting
+      every list element double-quoted so `" dana@example.com "` survives load) and
+      `roster_digest()`. Add a test that re-derives both E8 invariants from `roster.json` rather
+      than restating them: no two notes share a name token, and no two notes carry phones that
+      `phones_match` unifies — the latter driven through the shipped `phones_match`, not a
+      re-implementation. Assert `Tomas Villalobos` is the only note with `company:`, and that a
+      seeded vault loads with `PersonRepository(vault).load() == 10` and a skip surface of 0.
+      verify: test_identity_fixture_roster_is_complete_and_invariant_holding
+
+- [ ] **Task 4 — Cut 0a: repair the parity legs so they compare two implementations again.**
+      In `tests/test_resolve_or_create.py`, point the "legacy" leg of
+      `test_engine_matches_legacy_return_value` and of `test_engine_matches_legacy_on_weak_identity`
+      at `_find_or_create_stub_legacy` instead of `find_or_create_stub`. Both tests stay green;
+      they are now differential rather than tautological. They are deleted at Task 11, which is
+      why this task's verification cannot be a standing artifact: any test name it declared
+      would stop resolving at the end of the build.
+      verify: hand-run — the two repaired legs are run once here and are green; AC-1 deletes them at Task 11, so no standing artifact can carry this ordinal to the end of the build
+
+- [ ] **Task 5 — Cut 0b: record both goldens against unchanged code.** Write
+      `tests/record_identity_golden.py` (under `tests/`, never `scripts/` — see D3), which
+      derives AC-1's twenty ordered cases and AC-4's thirty-nine deduplicated queries by D3's
+      rules, executes them against a temp vault seeded from `roster.json`, and writes
+      `stub_golden.json` and `resolve_golden.json` with `recorded_at: "cut-0"` and the roster
+      digest. Run it ONCE, now, before any edit to `obsidian_schemas/`. Commit both files. Then
+      write the tripwire test: the goldens' `roster_digest` matches the committed roster, both
+      carry `recorded_at: "cut-0"`, the case and query lists re-derive identically from the
+      roster, and the golden still holds the two exception rows' PRE-CUT values as literals
+      spelled in the test's own source — `("kit@localhost", "Kit Baldwin")` and
+      `(" dana@example.com ", None)`.
+      verify: test_identity_goldens_are_frozen_pre_cut_data
+
+- [ ] **Task 6 — Cut 1: give email resolution exactly one authority.** Apply D4 items 1–5 to
+      `obsidian_schemas/repositories/person.py`. Write AC-2's check: the derived sweep over every
+      `emails:` entry plus its lowercase, whitespace-padded and (where `Email.parse` succeeds)
+      parsed-address variants; four surfaces agreeing on the note the roster declares owns the
+      address, EXCEPT members whose stripped lowered form is an alias of a different person,
+      where the declared asymmetry is asserted instead (three email-only doors → `Rosa Delgado`,
+      `resolve` → `Alex Nkemdirim`); `kit@localhost` resolving to nobody by all three string
+      surfaces with surface 4 asserted as a refusal; and the structural clause that the string
+      `_email_index` (built from parts in the test's own source, never spelled whole) appears at
+      zero sites under `python_files_under(PACKAGE_ROOT)`.
+      verify: test_email_has_exactly_one_resolution_authority
+
+- [ ] **Task 7 — Cut 1b: re-home the two leniency tests the cutover falsifies.** Rewrite
+      `tests/test_identity_index.py`'s `test_malformed_email_skipped_but_legacy_indexes_it` and
+      `test_clean_and_junk_in_one_list_indexes_only_the_clean` to assert the post-cutover
+      property per D4: a note carrying `not-an-email` (and one carrying `bad email` beside a good
+      address) loads without raising, contributes no identifier for the junk, and resolves
+      through NO door — with the audit's 0-of-1021 cited in the test as the warrant for the loss.
+      Remove every remaining reference to the deleted attribute from `tests/`.
+      verify: test_malformed_email_resolves_nowhere_after_cutover
+
+- [ ] **Task 8 — Cut 2: the phone carve-out, made executable and concurrency-safe.** Materialize
+      `get_by_phone`'s fuzzy scan (`list(self._phone_index.items())`) and add the comment naming
+      the non-transitivity and citing the witness by name. Write AC-3's check: the three
+      `phones_match` results against the shipped function; `Phone.parse` accepting all three
+      forms and yielding three DISTINCT `.key` values; `get_by_phone("44790055852")` and
+      `get_by_phone("0790055852")` returning `Priya Raman` while `get_by_phone("10790055852")`
+      returns `None` against a vault seeded from `roster.json`; and the structural clause via
+      `phone_index_iteration_sites` that every `_phone_index` loop in the package is
+      `materialized` (with the non-vacuity assertion that at least one site exists).
+      verify: test_phones_stay_on_the_fuzzy_path_and_the_reason_is_executable
+
+- [ ] **Task 9 — Cut 3: one cascade behind one named selection policy.** Add
+      `_RESOLVE_CASCADE_ORDER` and the module-level `select_resolution(query, candidates)` per
+      D6, and rewrite `resolve()` as the empty guard plus `resolve_all` plus the policy. Write
+      AC-4's check: the structural clause (`resolve` calls `resolve_all` and `select_resolution`;
+      `attribute_reads_in` over `PersonRepository.resolve` for `_cache`, `_alias_index`,
+      `_email_index`, `_phone_index` is empty; `select_resolution` is a module-level function of
+      `obsidian_schemas.repositories.person`), the golden replay over all thirty-nine queries
+      with the two-row exception list as literals each asserted to land on its DECLARED post-cut
+      answer, and the four hand-stated discriminants plus `resolve("sandy")` against the same
+      single seeded vault.
+      verify: test_resolve_is_one_cascade_and_matches_the_pre_cut_golden
+
+- [ ] **Task 10 — Riders and the documentation-truth repairs.** Apply D7's four rider edits to
+      `obsidian_schemas/repositories/person.py`: delete the dangling
+      `docs/paren-decoration-at-the-door.md` reference at `:113`; give the slack carve-out its
+      `UNBLOCK:` line; repair the false step-6 comment at `:615-617`; and replace the
+      three-month-old zero-failures claim at `:236-238` with a pointer to the audit artifact.
+      Write AC-5's check: the audit artifact's SHAPE (the literal command, verbatim stdout, the
+      `type: person` count, an explicit no-matches marker rather than an absent field per class,
+      the two divergence-class counts, the cross-note phone-pair count, and a 40-hex SHA per
+      consumer repo), with no subprocess, network or vault call; plus zero sites for
+      `paren-decoration-at-the-door`, every `docs_markdown_mentions` hit over
+      `python_files_under(PACKAGE_ROOT)` resolving to an existing file, the `UNBLOCK:` marker
+      present with non-empty text, and no source comment asserting that step 6 is filtered out
+      absent a company hint.
+      verify: test_identity_cutover_docs_are_complete_and_truthful
+
+- [ ] **Task 11 — Cut 4: delete the duplicate and both of its consumers.** Delete
+      `_find_or_create_stub_legacy` and the prose mention at `:675`; repair the stale Phase-5
+      replay claim at `:685` to point at the committed goldens; delete the six parity cases in
+      `tests/test_resolve_or_create.py` repaired at Task 4 and `test_legacy_preserves_rich_note`
+      in `tests/test_wi126_body_preservation.py`, leaving `test_engine_preserves_rich_note`
+      standing. Write AC-1's check: a literal-text scan over every file
+      `python_files_under(PACKAGE_ROOT, TESTS_ROOT)` returns, with the needle assembled from
+      parts in the check's own source so the check is not its own counterexample; the both-legs
+      clause (no test's two legs both reach `resolve_or_create`); and the golden replay of all
+      twenty ordered cases with every `(resolved_name, created_new)` pair matching and the
+      committed fixture's bytes unchanged by the run.
+      verify: test_legacy_stub_is_gone_and_the_golden_is_the_oracle
+
+- [ ] **Task 12 — Prove the stale-claim repair separately from AC-5.** AC-5's check owns three
+      documentation-truth repairs; the Phase-5 replay claim at `:685` is a fourth that the
+      data-premise gate surfaced after the criteria were frozen. Assert it directly: no file
+      under `python_files_under(PACKAGE_ROOT)` claims a replay confirms zero divergence over the
+      real vault, and the surviving text points at the committed goldens.
+      verify: test_no_source_claims_a_runnable_phase5_replay
+
+- [ ] **Task 13 — Close wall membership by RUNNING each wall's own predicate.** Enumerate the
+      files this item created or edited, assert each exists, and run every predicate in D10's
+      table on their final text, asserting each wall's own requirement. Anything the run returns
+      that D10 did not name is recorded in the Build Log and satisfied — never worked around, and
+      never satisfied by narrowing a wall.
+      verify: test_identity_endgame_wall_membership_is_closed
+
+- [ ] **Task 14 — Prove this item's checks survive the conveyor's interpreter.** Generalize
+      `tests/test_ac_interpreter.py` from a single `WORK_ITEM_DOC` to a tuple of documents,
+      iterated, adding `docs/identity-engine-endgame.md`; update its `CORPUS_COUPLING`
+      declaration to name both. The wall then discovers this item's five `check:` names from its
+      own `criteria` fences, resolves each to its unique module, and runs it under `-S` — which
+      is what proves `ensure_project_interpreter` is wired, not merely present. Record the
+      resulting floor wall-clock in the Build Log.
+      verify: test_every_acceptance_criterion_passes_under_the_conveyors_interpreter
+
+- [ ] **Task 15 — Full floor, green, with the directional invariant satisfied.** Run the floor
+      command against the worktree. Case count must be no lower than Task 1's baseline except by
+      the seven cases this item deliberately removes (six parity cases plus the WI-126 legacy
+      twin), which the Build Log names explicitly against the baseline.
+      verify: hand-run — the floor command's own output is the artifact; the count is compared against Task 1's Build Log baseline by hand, and every standing check that proves a property of this item is already named as another task's verify
+
 ## Write Targets
 
 ```writes
@@ -255,6 +1049,283 @@ path: docs/identity-cutover-corpus-audit.md
 grounds: whether the unified index resolves every email the legacy per-kind dicts resolve on the live vault today
 why: AC-2 asks for ONE email authority, and E2 shows the two candidate authorities disagree on a class that only the live corpus can size — entries `Email.parse` refuses, which are in `_email_index` (person.py:197 indexes any non-empty string) and absent from `_identifier_index` (person.py:246-252 skips them). The only claim on record is a 2026-06-13 line in a docstring, "audited against the live vault (942 notes): email/phone/whatsapp/linkedin parse with ZERO failures" (person.py:236-238) — three months old, about a vault that has been written to daily since, and it is the WI-144 shape exactly: a confident reading standing in for a run. E2's decision rule is stated in advance so this artifact is decision-forcing rather than decorative: zero refusals means cut over and delete `_email_index`; any refusals means the carve-out arm and a repair rule routed to WI-026. Shape contract: (a) the literal walk command with verbatim stdout and the count of `type: person` notes scanned; (b) every `emails:` entry `Email.parse` refuses, quoted with its note and the refusal reason, or an explicit "no matches" marker — never an absent field; (c) every entry where `raw.lower()` differs from `Email.parse(raw).value`, split into the whitespace and angle-bracket classes of E2(b)/(c), with counts; (d) the count of `phones:`/`whatsapp:` value PAIRS on DIFFERENT notes that `phones_match` unifies but `Phone.key` does not — the live size of the fuzzy arm AC-3 preserves, and the number that would tell us if the arm is in fact dead; (e) the 40-hex HEAD SHA of each consumer repo scanned. The caged builder can reach neither the live vault nor the consumer repos, so a builder-authored version of this file would be fabrication (the WI-024 precedent, `docs/wi-024-consumer-audit.md`; the WI-022 precedent, `docs/company-name-corpus-audit.md`). It is declared HERE, at exploring, because it settles a premise the criteria are ABOUT: a nonzero result edits one clause of a draft AC now, or costs a D4b re-sign and a second interruption of Dave later (the WI-281 shape).
 ```
+
+*The fence above is the ideation-authored grounding precondition and is unchanged. The builder
+write targets below extend the section; nothing above them is rewritten.*
+
+```writes
+path: obsidian_schemas/repositories/person.py
+why: Tasks 6, 8, 9, 10, 11 — the email cutover (delete `_email_index`, re-home `get_by_email` onto `_identifier_index`, re-point `resolve` step 3 and `resolve_all` step 2), the phone snapshot + carve-out comment, `select_resolution` + the rewritten `resolve`, the four rider repairs, and the deletion of `_find_or_create_stub_legacy` and its docstring mention.
+```
+
+```writes
+path: tests/derivations.py
+why: Task 2 — the three new structural predicates (`phone_index_iteration_sites`, `attribute_reads_in`, `docs_markdown_mentions`). They land HERE and nowhere else because `ast` is single-homed by two standing set-equality walls.
+```
+
+```writes
+path: tests/identity_fixture.py
+why: Task 3 — `load_roster` / `seed_vault` / `roster_digest`. Under `tests/` rather than `scripts/` because it writes notes with `Path.write_text`, which `tests/test_write_routing.py` forbids anywhere under `obsidian_schemas/` or `scripts/`.
+```
+
+```writes
+path: tests/fixtures/identity_endgame/roster.json
+why: Task 3 — the frozen ten-note roster declaration, byte-frozen data, the fixture both goldens are digest-bound to.
+```
+
+```writes
+path: tests/record_identity_golden.py
+why: Task 5 — the one-shot Cut-0 recorder. Under `tests/` for the same write-routing reason as the seeder; never a `test_*.py`, so pytest does not collect it, and never run again after Cut 0.
+```
+
+```writes
+path: tests/fixtures/identity_endgame/stub_golden.json
+why: Task 5 — AC-1's oracle: the twenty ordered cases and the `(resolved_name, created_new)` pair each returned against unchanged code.
+```
+
+```writes
+path: tests/fixtures/identity_endgame/resolve_golden.json
+why: Task 5 — AC-4's oracle: the thirty-nine deduplicated queries and `resolve()`'s pre-cut answer to each.
+```
+
+```writes
+path: tests/test_identity_endgame.py
+why: Tasks 2, 3, 5, 6, 8, 9, 10, 11, 12, 13 — all five acceptance checks plus the derivation-shapes, roster-invariant, golden-tripwire, stale-claim and wall-membership tests. Calls `ensure_project_interpreter(__file__)` as its first statement.
+```
+
+```writes
+path: tests/test_resolve_or_create.py
+why: Tasks 4 and 11 — repair the two parity legs to compare two implementations again, then delete the six cases at Cut 4 per AC-1.
+```
+
+```writes
+path: tests/test_wi126_body_preservation.py
+why: Task 11 — delete `test_legacy_preserves_rich_note`, leaving `test_engine_preserves_rich_note` to carry the WI-126 property alone.
+```
+
+```writes
+path: tests/test_identity_index.py
+why: Task 7 — the two leniency cases pin the very divergence Cut 1 ends (`assert "not-an-email" in repo._email_index`); they are re-homed onto the post-cutover property with the audit's 0-of-1021 as the warrant, not deleted.
+```
+
+```writes
+path: tests/test_ac_interpreter.py
+why: Task 14 — generalize `WORK_ITEM_DOC` to a tuple and add this item's doc, so the standing foreign-interpreter wall proves this item's five checks rather than a second copy of it being written.
+```
+
+## Verification
+
+**Happy path (smoke).** Seed a vault from `roster.json`, then: `get_by_email`, `resolve`,
+`resolve_all` and `_resolve_identifier(Email.parse(...))` all return `Jane Roe` for
+`jane.roe@example.com` and for `Jane Roe <jane.roe@example.com>`; `resolve("pat@example.com")`
+returns `Alex Nkemdirim` while the three email-only doors return `Rosa Delgado`;
+`resolve("sandy")` returns `Sandy Forster`; `find_or_create_stub("Tomas", company="Kestrel
+Analytics")` returns `(Tomas Villalobos, False)`.
+
+**Failure modes that must fail gracefully.** `get_by_email` on a string `Email.parse` refuses
+returns `None` rather than raising. `resolve` on an empty, `None` or whitespace-only query
+returns `None`. `get_by_phone` on a query normalizing to fewer than seven digits returns `None`
+before touching the index. A malformed `emails:` entry still loads its note without raising and
+is still reported nowhere as a skip, because the note itself parsed.
+
+**Failure modes that must fail LOUDLY.** A golden whose `roster_digest` no longer matches the
+committed roster; a golden regenerated after any cut (caught by the two pre-cut exception rows
+held as literals in the check's own source); a `for` loop over `_phone_index` that is not
+materialized; `resolve` reading any of the four indexes directly; a `docs/`-relative markdown
+pointer in `obsidian_schemas/` that does not resolve; the audit artifact missing a section, a
+field, or carrying a stated count with no listing behind it.
+
+**Counting walls ship their claimed match-shapes as fixtures (WI-235).** Three of this item's
+oracles are counts of structural matches — zero sites for `_find_or_create_stub_legacy`, zero
+sites for `_email_index` under `PACKAGE_ROOT`, zero non-materialized `_phone_index` loops, zero
+unresolving `docs/` mentions, zero direct index reads in `resolve`. `matches == 0` is satisfied
+identically by a predicate that resolves every claimed shape and by one that resolves almost
+none, so Task 2 drives every claimed shape AND a near-miss through each predicate's own
+function — the same function the live sweep calls, never a re-implementation — as green
+fixtures on every floor run. The near-misses are named in Task 2 and are the load-bearing half:
+without `orchestrator/docs/x.md` and a bare `Smith.md` as asserted non-matches, the docs scan
+could pass by matching everything and later be narrowed back with nothing checking that the
+narrowing kept the claimed shapes.
+
+**Non-vacuity.** Every zero-count assertion is paired with a positive one: at least one
+`_phone_index` iteration site exists; the docs scan returns a non-empty set of in-scope
+mentions; the golden's derived case and query lists are non-empty and re-derive to the same
+ordinals.
+
+**Integration — downstream consumers that must still work.** `find_or_create_stub`'s signature,
+return shape and exception set are unchanged, which is what orchestrator's
+`contact_normalizer.py` calls directly and HAL9000's `entities.py` calls over HTTP. The
+`normalize_phone` / `phones_match` compat re-export at
+`obsidian_schemas/repositories/person.py:78-85` is untouched, and it is load-bearing in HAL9000
+`core/contact_resolver.py:13` and exocortex `clients/contacts.py:13`. The corpus audit's clause
+(e) records that no consumer code outside this repo reads `_email_index` at all — HAL9000's two
+hits are a test wall naming the reaches as forbidden and a docstring, exocortex and orchestrator
+have none — so the deletion is repo-local, against HEAD SHAs recorded in the artifact for
+re-checking at build start.
+
+**Regression — the enumeration is DERIVED from the edited surfaces, not inherited.** Sweeping
+`tests/` for modules naming `resolve(`, `resolve_all(`, `find_or_create_stub`, `get_by_phone(`
+or `resolve_or_create(` returns eleven files; reading each at file granularity discards four as
+`Path.resolve()` or scan plumbing (`tests/derivations.py`, `tests/ac_interpreter.py`,
+`tests/test_ac_interpreter.py`, `tests/test_vault_path_required.py`) and leaves the modules that
+actually assert on the surfaces this item edits: **`tests/test_repositories.py`** (75 sites — the
+`resolve` cascade battery, including the substring-rejection promises
+`test_resolve_rejects_substring_andy` and `test_resolve_rejects_substring_ed` at `:385-395`
+that AC-4 discriminant (iii) restates, and the `get_by_email` / `get_by_phone` /
+`update_fields`-reindex cases), **`tests/test_resolve_or_create.py`** (17), **`tests/test_wi126_body_preservation.py`** (4),
+**`tests/test_identity_index.py`**, **`tests/test_concurrent_access.py`**,
+**`tests/test_name_validation.py`** and **`tests/test_company_name_contract.py`**. All must be
+green at every task boundary; two of them are edited deliberately (Tasks 4/7/11) and no other
+may change.
+
+**The floor, and the directional invariant.** The floor command is the pipeline's test floor —
+hermetic, and it must stay so: no test this item writes may reach the live vault or read
+`OBSIDIAN_VAULT_PATH`. The case count is compared against Task 1's recorded baseline as a
+PROPERTY, not against a number written here: green, with the only permitted decrease being the
+seven cases this item deliberately removes, each named in the Build Log.
+
+**Close-out, run OUTSIDE the cage by the conductor, before the ship.** Re-run the literal
+command recorded in `docs/identity-cutover-corpus-audit.md` against the live vault and confirm
+clause (b) is still 0. That is the one verification the cage cannot perform — it has neither the
+vault nor the consumer repos — and it is the rot direction that matters: a single newly-written
+malformed `emails:` entry flips the arm. Redact nothing sensitive into a tracked document; only
+the counts are recorded.
+
+## Verified Diagnosis
+
+Five load-bearing claims about how the current system behaves incorrectly. Each cites a
+falsifiable artifact; if any were false the corresponding work would be invalid.
+
+1. **The in-tree parity harness is vacuous.** `tests/test_resolve_or_create.py:198` calls
+   `find_or_create_stub`, which since the Phase-4 adapter swap is
+   `parse_identifiers(...) + self.resolve_or_create(...) + self._hydrate(...)`
+   (`obsidian_schemas/repositories/person.py:find_or_create_stub:688-697`); `:204-209` is the
+   same three calls with the same arguments. Both legs are one computation, so the six cases at
+   `:189-211` and `:214-224` cannot fail for any change to either path. Falsifiable by reading
+   those two spans side by side; independently re-executed by four architect rounds.
+
+2. **The comment on `resolve_all` step 6 asserts the opposite of what the code does.**
+   `obsidian_schemas/repositories/person.py:resolve_all:615-617` says the short-form match
+   "stays low confidence (< 0.5) and gets filtered out below". It records `0.6` at `:626` and
+   the floor is `>= 0.5` at `:654`. Falsifiable by two line reads; the branch is live, and its
+   apparent inertness is why E4's third divergence class went unnamed through a full round of
+   review.
+
+3. **`get_by_phone` iterates a live mapping while another method mutates it in place.**
+   `:417` iterates `self._phone_index.items()`; `_clear_indexes:326-333` calls `.clear()` on
+   that same dict. `docs/concurrent-access.md:8713-8714` records this half as explicitly NOT
+   closed by WI-004.
+
+4. **A package comment points at a file that does not exist.**
+   `obsidian_schemas/repositories/person.py:113` names `docs/paren-decoration-at-the-door.md`;
+   there is no such file under `docs/`. Exactly one site in the tree.
+
+5. **Two docstring claims in `person.py` are empirically false today.** `:236-238` asserts an
+   audit "against the live vault (942 notes, 2026-06-13)" — the vault now holds 1147 `type:
+   person` notes (`docs/identity-cutover-corpus-audit.md`, clause (a)), so the reading is 205
+   notes stale. `:685` asserts "The Phase-5 replay confirms zero return-value divergence over
+   the real vault" — that replay is `orchestrator/state/identity-parity.json`, in another repo,
+   produced before WI-020 and WI-021, and there is no runnable replay harness anywhere in this
+   tree (`scripts/` holds `lint_vault.py` and `migrate_person_to_discuss.py` only).
+
+Not load-bearing and therefore not asserted here: that the duplicate costs maintenance effort.
+It does, but the item's justification rests on the five claims above, not on that.
+
+## Scope Boundary
+
+**What we are NOT doing.**
+
+- **Write-boundary phone canonicalization (E.164 at the `name_gate`).** E3 shows the fuzzy arm
+  is a read-time reconstruction of information `normalize_phone` destroys at the write door
+  (`obsidian_schemas/phone_normalization.py:normalize_phone:52-55` strips the `+`), and that
+  fixing the seam is what would eventually make phones keyable. It needs a region policy, a
+  vault-wide migration of existing `phones:` values, and coordination across three repos.
+  Minted as a follow-on with E3 as its motivation; not started here.
+- **A `lint_vault` repair rule for unparseable email entries.** WI-026's territory. The corpus
+  audit returned 0 refusals so no rule is owed today; if a future re-run returns nonzero, it is
+  routed there, not grown into this item.
+- **Collapsing the remaining per-kind dicts into views of `_identifier_index`.** E5 shows the
+  ceiling: there is no `Alias` identifier type at all, and `slack` is unprojectable until
+  frontmatter carries a workspace. This item gives that carve-out an `UNBLOCK:` condition and
+  stops there. `_alias_index`, `_phone_index` and `_slack_index` all survive.
+- **The other three repositories' `resolve()`** — `company.py:96`, `meeting.py:345`,
+  `book.py:231` each carry their own cascade. Only Person has a `resolve_all` to consolidate
+  against; consolidating Person's pair obliges none of them.
+- **`person.py` decomposition.** WI-025 is gated on this item precisely so the duplicate is
+  deleted before the pure move. Deleting 126 lines is in scope; moving what remains is not.
+- **Re-homing anything onto WI-016's fixture vault.** E6 arm (b): this item's oracle is
+  permanently homed to its own `tests/`-local fixture. When WI-016 lands, neither imports the
+  other.
+- **Changing `resolve_all`'s output ordering.** E8 rejected reordering alias before email: the
+  ordering at `:571-572` is commented deliberate and two consumer repos rank on that output.
+  The inversion `resolve` needs lives in the selection policy, on `resolve`'s side of the seam.
+
+**Unchanged files the builder must not touch.** `obsidian_schemas/identifier.py`,
+`obsidian_schemas/name_gate.py`, `obsidian_schemas/name_validation.py`,
+`obsidian_schemas/name_cleaning.py`, `obsidian_schemas/phone_normalization.py`,
+`obsidian_schemas/models.py`, `obsidian_schemas/parser.py`, `obsidian_schemas/writer.py`,
+`obsidian_schemas/vault_io.py`, `obsidian_schemas/repositories/base.py`,
+`obsidian_schemas/repositories/company.py`, `obsidian_schemas/repositories/meeting.py`,
+`obsidian_schemas/repositories/book.py`, everything under `scripts/`, and every test module not
+named in `## Write Targets`. In particular: the compat re-export block at
+`obsidian_schemas/repositories/person.py:78-85` stays exactly as it is — it looks like tidy-up
+bait during a decomposition and it is load-bearing in two consumer repos.
+
+## Risk Analysis
+
+**R1 — the cutover loses a live lookup.** *What could go wrong:* an `emails:` entry that
+`Email.parse` refuses stops resolving. *Likelihood:* measured, not guessed — 0 of 1021 live
+entries today. *Impact:* a contact silently fails to resolve and a duplicate note is minted.
+*Mitigation:* the arm is selected by a committed artifact rather than by a build-time judgement
+call; the conductor re-runs its literal command as a close-out before the ship; the loss class
+is pinned as a test with the number cited beside it. *Rollback:* Cut 1 is one commit.
+
+**R2 — the consolidated `resolve()` widens.** *What could go wrong:* `resolve` starts claiming
+matches it declines today, which mints wrong-person resolutions in HAL9000's contact cascade —
+the exact class WI-019 and WI-103 were opened to stop. *Likelihood:* high for the obvious
+implementation; a literal thin head gets three of AC-4's four discriminants wrong, and sorting
+by confidence inverts two of them. *Impact:* the worst in the item. *Mitigation:* a golden
+recorded before any cut over a query space derived from the fixture, plus four discriminants
+hand-stated in prose because the derived space provably cannot reach three of them, plus a
+policy whose two arms are forced by the code's own structure (D6) rather than tuned until the
+tests pass. Cut 3 is allowed no exceptions of its own.
+
+**R3 — the oracle is defeated by regeneration.** *What could go wrong:* the build hits a golden
+diff after Cut 1 and re-records the golden, which then ratifies whatever the cut did.
+*Likelihood:* this is the cheapest repair a build reaches for, so: high without a wall.
+*Impact:* the item ships with no evidence and reads as though it shipped with the best evidence
+in the backlog. *Mitigation:* D2's three tripwires, of which the second cannot be reached by
+regeneration at all — the two exception rows' pre-cut values are literals in the check's own
+source and in this document's prose.
+
+**R4 — the criteria pass under the floor and fail under the conveyor's interpreter.** *What
+could go wrong:* four of five checks import the package, the battery's interpreter has no
+pydantic, and all five report `ModuleNotFoundError`. *Likelihood:* certain without the bridge —
+this is WI-021's shipped scar, five-of-five criteria red with a green floor in the same tree.
+*Impact:* a build-exit round bought for nothing. *Mitigation:* `ensure_project_interpreter` as
+the check module's first statement, proved by EXECUTION through the standing wall
+(`tests/test_ac_interpreter.py`) rather than asserted by construction.
+
+**R5 — the golden is flaky on a machine that enumerates the fixture differently.** *What could
+go wrong:* `_cache` insertion order is the filesystem walk
+(`obsidian_schemas/repositories/base.py:load:231` globs unsorted), `resolve` step 5 returns the
+FIRST cache entry containing the token, and `get_by_phone`'s fuzzy scan returns the FIRST
+unifying entry. *Likelihood:* certain if the fixture shares a name token or a unifiable phone.
+*Impact:* a red that grades the machine, not the code. *Mitigation:* both E8 invariants are
+re-derived from `roster.json` at test time rather than restated, so a roster edit that breaks
+either is RED; and AC-1's case order is frozen data, never re-derived from a walk.
+
+**R6 — the floor gets slower.** *What could go wrong:* Task 14 adds five `-S` subprocesses per
+floor run, each re-execing into a one-node pytest, to a floor CLAUDE.md describes as ~1s.
+*Likelihood:* certain; it is the cost of the mitigation, not a failure. *Impact:* a slower
+inner loop for everyone. *Mitigation:* it is the one wall that can catch R4, and generalizing
+the existing module beats writing a second one. The measured cost is recorded in the Build Log
+so the next person deciding whether to keep it has the number rather than an impression.
+
+**Migration path.** There is none to manage: no frontmatter changes, no persisted state, no
+consumer signature moves. The transition is four commits in one item, each green, with the
+oracle standing from the first to the last and the only irreversible step — the deletion —
+happening last against two committed goldens.
 
 ## Acceptance Criteria
 
@@ -598,4 +1669,182 @@ ac_hash_AC-3: a2ce8381aa34
 ac_hash_AC-4: f21e51ef4ea0
 ac_hash_AC-5: 0dec3196b520
 artifact: docs/spec-reviews/WI-023-dave-review-2026-09-06.md
+```
+
+## Data Audit — 2026-09-06
+
+**Recommendation: PROMOTE to specced**
+
+Cold-start read of the whole document, the committed grounding artifact
+(`docs/identity-cutover-corpus-audit.md`) and the tree. I did not take the artifact's numbers
+on trust — I cannot re-run its command from inside this worktree (no live vault, no consumer
+repos, no shell), so I did the one thing that IS available and is the thing that actually
+decides whether a corpus number means what it claims: I re-derived, from the source, the
+DOMAIN the audit's predicate walked and checked it against the domain `_email_index` is
+actually built from. That check is below, and it is what this verdict rests on.
+
+### Trigger check
+
+**Class 1 and Class 2.** Class 1 fires on an existence claim about live data: E2's decision
+rule turns on whether *any* live person-note `emails:` entry is refused by `Email.parse`, and
+E2 class (a) is explicitly "size on the live vault: unknown". Class 2 fires because Cut 1
+introduces a new resolution rule (route email through `_identifier_index`) whose correctness
+depends on its effect against the corpus that exists *today*, not on hypothesized inputs.
+Class 0 is not available to this item — the `## Write Targets` fence declares the premise in
+terms.
+
+### Premise
+
+Three empirical claims, all load-bearing:
+
+1. **The arm-selecting one.** Zero live `emails:` entries are refused by `Email.parse`
+   ⇒ the CUTOVER arm; any refusals ⇒ the carve-out arm plus a repair rule routed to WI-026.
+   This is the only premise that changes what the item BUILDS.
+2. **The improvement-class sizes.** E2 classes (b) and (c) — angle-bracket and
+   whitespace-bearing entries — are behaviour changes at cutover; their live counts size how
+   much real behaviour Cut 1 moves.
+3. **The fuzzy arm's live witness count.** AC-3 preserves `phones_match`'s non-transitive arm;
+   the number of cross-note phone pairs it unifies where `Phone.key` does not is what says
+   whether the arm is live or dead.
+
+Everything else the document asserts is a predicate over the TREE, not the vault — E1's
+tautology, E3's non-transitivity, E4's three divergence classes, E7's and E8's hand-executions
+— and those are not this gate's premise. I spot-re-executed the ones the audit's validity
+depends on and they hold (below).
+
+### Predicate + result
+
+The predicate was run — once, by the conductor, on 2026-09-06 — and the artifact is committed
+at `docs/identity-cutover-corpus-audit.md`, carrying the literal one-shot command, verbatim
+stdout, and exit 0. The numbers, dated so build-start re-grounding can detect rot:
+
+| clause | result, live vault, 2026-09-06 |
+|---|---|
+| (a) `type: person` notes loaded | **1147**; skip surface **0**, so scanned = loaded |
+| (b) non-empty `emails:` entries / entries `Email.parse` REFUSES | **1021 / 0** — explicit "no matches" |
+| (c) entries where `raw.lower() != Email.parse(raw).value` | **0** — whitespace class 0, angle-bracket class 0, other 0 |
+| (d) cross-note phone/whatsapp pairs `phones_match` unifies but `Phone.key` does not | **0** over 276 values, 0 refused by `Phone.parse` |
+| (e) consumer HEAD SHAs (40-hex) + live reaches into the legacy dicts | HAL9000 `68fbd334…`, exocortex `2c6f0896…`, orchestrator `d44418d9…`, obsidian-schemas `990aa6de…`; **0** non-test reaches (HAL9000's 2 are a test wall naming the reaches as forbidden and a docstring) |
+
+**The check that makes those numbers admissible, re-derived here rather than assumed.** A
+corpus count is only evidence if the predicate walked the same domain the rule will run over.
+Hand-verified against the tree:
+
+- `_index_entity` populates `_email_index` from **`entity.emails` only** — one loop,
+  `self._email_index[email.lower()] = cache_key` (person.py:192-197). No other field feeds it.
+- `_project_identifiers` runs `Email.parse` over **`entity.emails` only**
+  (person.py:254-255). Same domain, no wider, no narrower.
+- The audit's (b) iterates `p.emails` over `repo.get_all()`. `load()` indexes exactly the
+  entities `_load_file` returns and `get_all()` returns exactly those (base.py:231-245), so
+  the audited set is *identically* the set `_email_index` was built from. There is no
+  third field, and no note in one and not the other.
+- The skip surface is real and owned-scoped, not decorative: `_note_skip` records a
+  `SkippedNote` only for files the repository can PROVE are its own on the declared type
+  (base.py:258-275), and `_load_file`'s broad except routes every load failure through it
+  (base.py:277-307). A skip surface of 0 therefore means no note declaring `type: person`
+  failed to load — it is not silence standing in for absence.
+- (d)'s domain is right too: `_index_entity` puts both `phones` and `whatsapp` into
+  `_phone_index` (person.py:200-209), and the audit scans `p.phones + p.whatsapp`.
+
+So (b)'s zero is over exactly the class E2(a) names, not a proxy for it.
+
+### Conclusion
+
+**The premise holds and the decision rule fires cleanly.** Zero of 1021 live `emails:` entries
+are refused ⇒ **CUTOVER**: `_identifier_index` becomes the email authority and `_email_index`
+is deleted; no repair rule is routed to WI-026 for email. AC-2 is written arm-agnostic and is
+undisturbed by the selection. (c)'s two zeros are the stronger result and worth stating plainly:
+not only is nothing LOST at cutover, nothing MOVES — neither improvement class has a single
+live specimen, so on today's corpus Cut 1 changes no live answer at all. (e) closes the
+consumer half: no live code outside this repo reads `_email_index`, so the deletion is
+repo-local.
+
+(d)'s zero does not falsify AC-3 and I want to be exact about why, because it is the one
+number that reads as awkward for a criterion: AC-3 asserts the fuzzy arm is **unavailable to
+key**, which is a property of `phones_match` derivable from source (E3, re-executed below),
+not a claim that the arm has live witnesses. Zero witnesses makes the carve-out a
+compatibility promise rather than a repair of a live loss — which is what the artifact says
+in terms, and which the criterion already survives. It is also the number that would justify
+the E3 follow-on (E.164 at the write door) being cheap when someone picks it up.
+
+**Staleness note for build-start re-grounding (WI-022).** The artifact carries the literal
+command; re-run it before Cut 1. The rot direction that matters is (b) going nonzero — one
+newly-written malformed `emails:` entry flips the arm. Note the premise this audit REPLACES:
+`person.py:236-238`'s "audited against the live vault (942 notes, 2026-06-13): ZERO failures"
+was a confident reading standing in for a run, and it was 205 notes stale — the exact WI-144
+shape. AC-5's rider should replace it with a pointer to the artifact, not with a fresh number
+that will drift the same way; the artifact says this and I agree.
+
+### Counterexample hunt (WI-293)
+
+The document quantifies universally over domains this factory can enumerate, so a census is
+not enough — I walked for members that are false BY DESIGN.
+
+**Domain 1 — AC-5's "every `docs/`-relative markdown path named in a comment in
+`obsidian_schemas/` resolves to a file that exists".** Predicate: every `.md` path mention in
+`obsidian_schemas/` source (comments and docstrings), matched with `[A-Za-z0-9._/-]+\.md`
+rather than a `docs/`-anchored pattern, precisely so the scan could not pre-filter out the
+exemptions. **26 mentions, four classes:**
+
+- *Vault-note filename illustrations* (18): `Name.md`, `person.md`, `Title.md`, `Smith.md`,
+  `Speechmatics.md`, `October.md`, … These are Obsidian note names in docstring examples, not
+  repository paths. **False by design**, and AC-5's "`docs/`-relative" qualifier already
+  excludes them — the qualifier earns its keep. *Disposition: already-named exclusion.*
+- *In-repo, resolving* (2): `docs/company-name-corpus-audit.md` at name_validation.py:40 and
+  :347. Both resolve. ✓
+- *In-repo, dangling* (1): `docs/paren-decoration-at-the-door.md` at person.py:113 — the
+  rider's target, still exactly one site, still no such file. ✓
+- ***Cross-repository pointers* (3) — THE FALSE-BY-DESIGN CLASS, and it is not dispositioned
+  anywhere in this document.** `orchestrator/docs/identity-model-revised-2026-06-13.md`
+  (identifier.py:3-4), `orchestrator/docs/name-validation-and-cleanup.md`
+  (name_validation.py:29), `orchestrator/docs/find-or-create-stub.md` (person.py:729). Each
+  names a real audit or spec in a sibling repo, each is *correct*, and none can ever resolve
+  under this tree's `docs/`. The third dies with Cut 4 (it is inside
+  `_find_or_create_stub_legacy`'s docstring); **two survive the item**. A build that
+  implements AC-5's clause with the obvious `docs/[\w./-]+\.md` scan goes RED on two correct
+  pointers, and the cheapest repair on the table is deleting them — losing a pointer to a real
+  audit, which is this item's own harm class. There is a second wrinkle in the same class:
+  identifier.py's pointer is line-WRAPPED (`orchestrator/docs/identity-model-` / `revised-
+  2026-06-13.md`), so a line-based scan sees the bare filename `revised-2026-06-13.md` with no
+  `docs/` prefix and misses it entirely — the exemption and the blind spot are the same site.
+  *Disposition: **named exclusion**. AC-5's plain reading ("`docs/`-relative" ≠
+  "`orchestrator/docs/`-relative") already gets this right, so the criterion is satisfiable as
+  signed and this is not blocking — but the spec should state the exclusion class explicitly
+  (a `docs/` match not preceded by another path segment) rather than leave it to a regex, on
+  this document's own standing rule that an unfixed choice decides buildability.*
+
+**Domain 2 — AC-1's "`_find_or_create_stub_legacy` appears at zero sites across
+`obsidian_schemas/` and `tests/`".** Predicate: literal-string scan over both roots. **Three
+sites**: person.py:699 (the `def`), person.py:675 (a prose mention inside the *surviving*
+`find_or_create_stub` docstring), tests/test_wi126_body_preservation.py:212 (the caller).
+**No false-by-design member** — nothing in those two roots needs to keep naming the symbol
+after it is gone. But `## Approach` Cut 4 enumerates only the `def` and the two consumers and
+does **not** name person.py:675, so the item's own site list is one short of its own criterion.
+Self-correcting (AC-1's literal-text scan is total and will catch it, which is exactly why the
+mechanism was changed away from `functions_calling`), hence a note rather than a finding.
+While there: the same surviving docstring asserts at person.py:685 that "the Phase-5 replay
+confirms zero return-value divergence over the real vault" — E1 establishes that replay is
+cross-repo, unreachable and pre-WI-020/WI-021. That is AC-5's documentation-truth class,
+unnamed by AC-5, and it sits three lines from a site Cut 4 already has to edit.
+
+**Domain 3 — E5's "`normalize_phone`/`phones_match` are load-bearing in two consumer repos by
+their `repositories.person` path".** I cannot walk this domain from here (no consumer repos),
+and neither did the committed audit — its (e) greps consumer trees for
+`_email_index|_phone_index|_alias_index|_slack_index` but not for the compat re-export.
+**Domain not walked; stated rather than hidden.** Non-blocking in every direction: the claim
+is a *don't touch* constraint, so being wrong about it costs a retained re-export nobody uses,
+and (e) records the consumer SHAs, so it is re-checkable at build-start.
+
+### OPEN questions
+
+**None.** The two hunt results above are dispositioned (a named exclusion; a self-correcting
+enumeration gap), and the one unwalked domain is conservative-by-construction. The premise
+that selects the arm is grounded, decision-forcing, and settled.
+
+```verdict
+gate: data-premise
+verdict: PROMOTE
+date: 2026-09-06
+model: claude-opus-5
+note: The arm-selecting premise is grounded by a committed, re-runnable artifact — 0 of 1021 live `emails:` entries refused, 0 divergences in both improvement classes, 0 live consumer reads of `_email_index` — and I verified the thing that makes those numbers admissible rather than trusting them: `_email_index` (person.py:192-197) and `_project_identifiers` (person.py:254-255) are both built from `entity.emails` alone over exactly the set `get_all()` returns, with an owned-scoped skip surface reporting 0 (base.py:258-307), so the audited domain IS the indexed domain; E2's rule fires to CUTOVER and no draft AC is falsified — the counterexample hunt's one live class (three cross-repo `orchestrator/docs/…` pointers that AC-5's universal can never resolve, two surviving Cut 4) is dispositioned as a named exclusion AC-5's own "`docs/`-relative" wording already reads correctly.
 ```
