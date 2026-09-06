@@ -30,6 +30,46 @@ through `vault_io.move_note` with the old stem as an alias, pin the stem/name in
 corpus, and carry WI-021's booked hand repairs (the mis-typed book note, four untyped notes, three
 unparseable fences). Queued after WI-011 per the review's ranking; Dave may move it.
 
+### Manifest launched on Dave's word; WI-022 parked at D4a; WI-016 killed by a WI-327 grounds line
+
+Launched `state/manifests/queue-2026-09-06.yaml` from `workshop-stable` through
+`with-session-auth` (foreman pid 31828, own session, run record
+`obsidian-schemas-queue-2026-09-06-2026-09-06T064158Z`). **WI-022 leg: 6 spawns, ideation → ac-red-team
+3 rounds → PROMOTE → parked at D4a** (`ESC-WI-022-exploring-awaiting-ac-signoff-340c47f6`, four ACs
+drafted in `docs/company-stub-parity.md`). The leg's `## Write Targets` fence declared the WI-300
+grounding artifact `docs/company-name-corpus-audit.md` — with a **590-character `grounds:` line**.
+That is workshop WI-327's shape exactly: the linter floor went RED (1 error), and the foreman's next
+entry, WI-016, died at the Step-0 pre-flight floor with 0 spawns as a `tooling-fault`; run status
+`faulted-stop`. Conductor hand-fix per the WI-327 idiom: `grounds:` shortened to 110 chars, every
+dropped word moved into the fence's `why:`; linter back to 0 errors, floor 657 green. The
+tooling-fault record answered ("Investigate the fault", note names the cause) and dismissed so the
+next pass is not blocked; specimen reported to the factory session for WI-327's count.
+
+**Conductor grounding act (WI-300, before the AC frame): `docs/company-name-corpus-audit.md`
+written.** Live vault walked read-only: 2,160 `type: company` notes (2,159 live + the template).
+**No proposed Tier-1 branch — including the widened path-hostile set — refuses a single live
+name**, so AC-2's membership and AC-1/AC-4's "no legitimate name becomes unwritable" premise hold on
+the whole corpus. Mangler census: `&` in 8 names, `.` in 3 — the classes AC-1's table must preserve.
+D4 sized: 7 double-space residue notes (3 live, 3 quarantined, 1 merged-dupe) plus 2 quarantined
+truncations. Consumer scan (verbatim stdout + 40-hex HEADs in the artifact): HAL9000's generic
+`POST /api/entities/company` route is the only live caller of `CompanyRepository.create_stub`;
+**exocortex carries its own byte-identical copy of the mangler** (`ingestion/stages/company.py:157`)
+and writes company notes via `write_markdown_file`, never via create_stub — so the "stray `@Bausch/`
+directory" leak is not reachable from exocortex today (its copy strips `/`), the hourly leak it does
+have is `&`/`.` stripping, and deleting the mangler here does not touch it. Named as the follow-on
+that actually stops the leak (exocortex-side, outside this project's write authority); WI-022's
+scope unchanged.
+
+**WI-030 minted** (idea) on the factory session's request: export the lint_vault surface
+(`read_vault`, `build_indexes`, `run_lint`, `VaultFile`, `Severity`) from the installed package or
+publish a CLI — orchestrator's `bin/vault-health-check.py:21` and `bin/batch-contact-context.py:29`
+reach `scripts.lint_vault` by sibling path (orchestrator WI-159's boundary lint); workshop allowlists
+the two reaches citing WI-030. Minted at the quiesce, after the foreman exited. Not in `queue_order`;
+Dave's word for its slot.
+
+Open: Dave's D4a on WI-022 (the artifact must be in HEAD first — WI-300's door), then relaunch the
+manifest so WI-016 resumes and WI-023 reaches its own D4a.
+
 ---
 
 ## 2026-09-05
