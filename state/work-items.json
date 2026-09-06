@@ -1,13 +1,13 @@
 {
   "project": "obsidian-schemas",
   "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
-  "last_scanned": "2026-09-06T09:37:30Z",
+  "last_scanned": "2026-09-06T15:24:25Z",
   "next_id": 31,
   "items": [
     {
       "id": "WI-022",
       "title": "Company stub parity: retire the deleted name-mangler, add validation + provenance",
-      "stage": "exploring",
+      "stage": "done",
       "file": "docs/company-stub-parity.md",
       "created": "2026-07-05",
       "last_touched": "2026-09-06",
@@ -29,6 +29,34 @@
           "at": "2026-09-06",
           "by": "session",
           "forced": false
+        },
+        {
+          "from": "exploring",
+          "to": "specced",
+          "at": "2026-09-06",
+          "by": "session",
+          "forced": false
+        },
+        {
+          "from": "specced",
+          "to": "ready",
+          "at": "2026-09-06",
+          "by": "session",
+          "forced": false
+        },
+        {
+          "from": "ready",
+          "to": "building",
+          "at": "2026-09-06",
+          "by": "session",
+          "forced": false
+        },
+        {
+          "from": "building",
+          "to": "done",
+          "at": "2026-09-06",
+          "by": "session",
+          "forced": false
         }
       ],
       "latest_verdicts": {
@@ -38,37 +66,160 @@
           "date": "2026-09-06",
           "model": "claude-sonnet-5",
           "note": "Fresh cold-start re-attack; both prior rounds' findings (AC-2 exclusion keying, AC-3 whitespace citation) hold closed against current source. New scrutiny of AC-1's 8-arm sweep (roundtrip_file's gate call is an unconditional no-op) and AC-4's lock/gate-hoist mechanics found nothing material \u2014 the mangler-removal property is independently pinned by AC-1's pattern-scan and create-arm oracles."
+        },
+        "ac-signoff": {
+          "gate": "ac-signoff",
+          "verdict": "PROMOTE",
+          "date": "2026-09-06",
+          "reviewer": "dave",
+          "channel": "cli",
+          "signed_at": "2026-09-06T11:56:11+01:00",
+          "provenance": "verified",
+          "signoff_escalation": "ESC-WI-022-exploring-awaiting-ac-signoff-340c47f6",
+          "ac_hash": "71cab2dae680",
+          "intent_hash": "41902fee91dd",
+          "ac_hash_AC-1": "bc52957360c0",
+          "ac_hash_AC-2": "2366298b900d",
+          "ac_hash_AC-3": "95cb66f659d1",
+          "ac_hash_AC-4": "f96c089a5d0d",
+          "ac_hash_AC-5": "6e2b4d29c531",
+          "artifact": "docs/spec-reviews/WI-022-dave-review-2026-09-06.md"
+        },
+        "architect": {
+          "gate": "architect",
+          "verdict": "PROMOTE",
+          "date": "2026-09-06",
+          "model": "claude-opus-5",
+          "note": "Third cold-start read, scoped at the data-premise-2 fold since that is the material a gate most easily waves through \u2014 and it holds: \u00a78.6's remedy splits mechanical from judgement correctly, and I executed the arithmetic nobody had, confirming Task 12(g)'s pin is satisfiable as spelled (the raw string for the widened class has a .pattern value byte-identical to the substring Prerequisite 2 prescribes for the Command block) and that the new constant carries no negated-class marker and so cannot self-trip AC-1's own zero-site scan; the approach and design are unmoved from two prior PROMOTEs, W8's 9-to-10 union and the no-new-arm claim both re-derive, and all four company negative specimens are genuinely writable against the compiled regexes; the sharpest residue is a transcription hazard rather than a design fault \u2014 \u00a72.3 presents a partial `clean` body whose omitted phone-sentinel early return is guarded by tests/test_repositories.py:510,609 and not by the test module R3 names \u2014 and the audit-artifact amendment remains an unlanded conductor precondition, not an architectural defect."
+        },
+        "data-premise": {
+          "gate": "data-premise",
+          "verdict": "PROMOTE",
+          "date": "2026-09-06",
+          "model": "claude-opus-5",
+          "note": "Premise grounded \u2014 E2-E5 re-executed in-tree this round and E1 carried by \u00a72's census, which cannot fail the way \u00a71 row 4 did (a positive enumeration that RETURNED `&` and `.` demonstrably fires, where a vacuous class returns nothing), with `/` walled structurally by base.py's `@{name}.md` stem binding and the census-to-corpus entailment executed character by character across all thirteen members; round 2's rider is fully folded (\u00a78.6, Prerequisite 2's pattern-as-executed spelling, Task 4's constant wall, Task 12(g), R7) and nothing foldable remains, so a third REVISE would re-raise a target whose remedy is already specified to the byte and whose only actor is the conductor reading it \u2014 the artifact amendment is still UNLANDED and must be committed before the builder is armed, now enforced by Task 12(g) being RED by construction and the plan's abort-at-Task-1 preamble rather than by this gate; hunt added one new Domain-C class (notes whose stored `type:` escapes the walk's line selector but not the gate's parsed one), bounded by yaml.dump's unquoted emission and AC-4's delta rule."
+        },
+        "spec-reviewer": {
+          "gate": "spec-reviewer",
+          "verdict": "PROMOTE",
+          "date": "2026-09-06",
+          "model": "claude-opus-5",
+          "note": "Second round, cold-start from line 1 rather than off round 1's diff. Round 1's blocking finding is closed at its GENERATOR, not its instance \u2014 the writer swept both ladder levels of \"a coverage-claiming line naming no ordered check\" and declared what the sweep found, landing three new checks (Task 8's COERCION leg, Task 7's kept-fallback check, Task 6's idempotence leg) plus two \u00a71.3 clauses nothing had asserted; I re-drove the coercion leg's three payloads by hand and the discriminant is real. All citations re-opened for their asserted property; I independently re-ran \u00a78.1's predicate by reading and it returns exactly company.py:171 today and nothing after Task 7, with scripts/ carrying no `.sub` call at all so lint_vault.py:60,641's negated classes are structurally outside both arms. The five fold records are complete, `desc`-fresh against the latest speaking threat-model round, and \u2014 checked rather than trusted, since only `desc` is machine-anchored \u2014 every `design` and `work` quote is faithful where it claims to sit, so all five mitigations are genuinely satisfied. Re-ran the WI-229 pin sweep at FILE granularity over the six modules naming the Tier-1 surface: the only pin that moves is `len(tabled) == 9` in an already-declared write target, and `len(REASONS) == 16` is untouched because the company arm adds no enumerated reason. Fifteen canonical tasks, all with well-formed lowercase verify declarations; Write-Targets coverage clean both directions; zero OPEN. Three non-blocking notes, all one-clause: Prerequisite 2's first bullet still licenses a vault-walk placement Task 12(b)/(g) cannot address unambiguously, nothing requires \u00a71 row 4's printed regex cell to carry the executed spelling, and Task 2 creates the check module without carrying Prerequisite 4's `ensure_project_interpreter` obligation. Routed against, not re-raised: the data-premise gate's standing ruling that the unlanded corpus-audit amendment is a conductor commit no gate round can compel \u2014 it is still unlanded and must land in HEAD before the builder is armed."
+        },
+        "threat-modeler": {
+          "gate": "threat-modeler",
+          "verdict": "PROMOTE",
+          "date": "2026-09-06",
+          "model": "claude-opus-5",
+          "note": "Second round, scoped at the spec-review fold since that is the material a gate most easily waves through \u2014 and the fold is security-positive: Task 8's COERCION leg closes an integrity hole neither prior threat-model round caught (a build spelling str(raw_name) commits a null-named company note instead of refusing with `empty`), and its three payloads are a real discriminant. All five mitigations re-emitted byte-identically and re-verified at their frames this round in source, not carried: `_refuse` is still the one construction site raising through chainable_cause, the gate call still sits above note_lock's ensure_dir at writer.py:252 vs :258, and M4's landing is structurally sound because `created_by` is not a declared model field and so survives model_to_frontmatter's `if key not in result` merge guard \u2014 checked, because that guard is where a provenance mitigation would quietly die. Two new non-blocking findings: Task 8's \"rendering contains no note content\" leg should cite the shipped person-side idiom at tests/test_name_gate.py:580-630, whose own warning that format_exception renders the caller's source line makes the COERCION leg's three inlined literals the one place a reasonable extension of that assertion goes RED against correct code; and an exact-match declared_type lets a hand-authored `type: Company` note escape the company table, which is exact parity with the shipped person arm and covers a spelling the data audit's Domain-C entry does not."
+        },
+        "injection-hunter": {
+          "gate": "injection-hunter",
+          "verdict": "PROMOTE",
+          "date": "2026-09-06",
+          "model": "claude-sonnet-5",
+          "note": "Full cold-start re-read of the whole document (all 3585 lines) and both chased artifacts, covering the material added since the standing injection-hunt round (Threat Model round 2, Spec Review round 2) that the prior injection-hunter pass never saw \u2014 no text addressed to a reviewer/agent, no verdict-fence note unsupported by its own surrounding prose, and no reasoning in any of the seven gate rounds now on the document that reads as steered rather than independently derived; the grounding artifact and the AC sign-off carrier remain inert data, byte-verified against the signed hashes rather than assumed unchanged."
+        },
+        "code-reviewer": {
+          "gate": "code-reviewer",
+          "verdict": "PROMOTE",
+          "date": "2026-09-06",
+          "model": "claude-opus-5",
+          "note": "No Blocking findings \u2014 the gate stays a predicate on `name`, the company judgement sits inside the non-person branch above its return, the mangler and its `import re` are gone with the tree-wide AST scan as the oracle, and all six AI-maintainability checks plus both Step 2c dimensions are clear; spawn 3's substitution of builder for conductor evidence under AC-5 is recorded as N1 for the conductor and Dave to accept or reverse, not blocked here, because no signed premise rests on new builder-only measurement, the one new refusal class is walled independently of the artifact by a per-character test, and REVISE routes to a build-runner who cannot perform the remedy."
+        },
+        "test-observability-checker": {
+          "gate": "test-observability-checker",
+          "verdict": "PROMOTE",
+          "date": "2026-09-06",
+          "model": "claude-opus-5",
+          "note": "Applies rather than N/A (a production write path in a library three consumers install -e) and passes all four checks \u2014 a new 10-case module covering happy path plus multiple failure modes per criterion with a non-fakeable derived-arm sweep and a nine-way falsifiability run on the artifact check, every new failure mode loud at WARNING or as a NameGateRefusal carrying .pattern, no new automated system needing alerts, and no invariant registry in this project so Check 4 is N/A; the two consumer-side items (HAL9000's unmapped NameGateRefusal, and the created_by WARNING firing on 100% of HAL9000 writes) are Recommended follow-ons outside this repo's write authority, not blockers. Counts cited are the build's executions \u2014 this reviewer spawn has no shell and verified collectability statically instead."
         }
       },
       "verdicts": [
-        {
-          "gate": "ac-red-team",
-          "verdict": "REVISE",
-          "targets": "AC-2",
-          "prior": "none",
-          "basis": "original",
-          "findings": "2/2",
-          "date": "2026-09-06",
-          "model": "claude-sonnet-5",
-          "note": "AC-2's exclusion clause is tautological for pure_digit_name (wrong field: pattern not branch_id) and ambiguous for calendar_prefix/arrow_connective's shared pattern key."
-        },
-        {
-          "gate": "ac-red-team",
-          "verdict": "REVISE",
-          "targets": "AC-3",
-          "prior": "held",
-          "basis": "original",
-          "findings": "1/1",
-          "date": "2026-09-06",
-          "model": "claude-sonnet-5",
-          "note": "Round-1's two AC-2 findings held closed after the fold; new MATERIAL finding on AC-3 (unchanged by the fold) \u2014 its \"Person's exact terms\" citation (person.py:1387) does not actually normalize a whitespace-only created_by to \"unknown\", so a verbatim transcription of the cited guard fails the AC's own \"   \" fixture."
-        },
         {
           "gate": "ac-red-team",
           "verdict": "PROMOTE",
           "date": "2026-09-06",
           "model": "claude-sonnet-5",
           "note": "Fresh cold-start re-attack; both prior rounds' findings (AC-2 exclusion keying, AC-3 whitespace citation) hold closed against current source. New scrutiny of AC-1's 8-arm sweep (roundtrip_file's gate call is an unconditional no-op) and AC-4's lock/gate-hoist mechanics found nothing material \u2014 the mangler-removal property is independently pinned by AC-1's pattern-scan and create-arm oracles."
+        },
+        {
+          "gate": "ac-signoff",
+          "verdict": "PROMOTE",
+          "date": "2026-09-06",
+          "reviewer": "dave",
+          "channel": "cli",
+          "signed_at": "2026-09-06T11:56:11+01:00",
+          "provenance": "verified",
+          "signoff_escalation": "ESC-WI-022-exploring-awaiting-ac-signoff-340c47f6",
+          "ac_hash": "71cab2dae680",
+          "intent_hash": "41902fee91dd",
+          "ac_hash_AC-1": "bc52957360c0",
+          "ac_hash_AC-2": "2366298b900d",
+          "ac_hash_AC-3": "95cb66f659d1",
+          "ac_hash_AC-4": "f96c089a5d0d",
+          "ac_hash_AC-5": "6e2b4d29c531",
+          "artifact": "docs/spec-reviews/WI-022-dave-review-2026-09-06.md"
+        },
+        {
+          "gate": "architect",
+          "verdict": "PROMOTE",
+          "date": "2026-09-06",
+          "model": "claude-opus-5",
+          "note": "Third cold-start read, scoped at the data-premise-2 fold since that is the material a gate most easily waves through \u2014 and it holds: \u00a78.6's remedy splits mechanical from judgement correctly, and I executed the arithmetic nobody had, confirming Task 12(g)'s pin is satisfiable as spelled (the raw string for the widened class has a .pattern value byte-identical to the substring Prerequisite 2 prescribes for the Command block) and that the new constant carries no negated-class marker and so cannot self-trip AC-1's own zero-site scan; the approach and design are unmoved from two prior PROMOTEs, W8's 9-to-10 union and the no-new-arm claim both re-derive, and all four company negative specimens are genuinely writable against the compiled regexes; the sharpest residue is a transcription hazard rather than a design fault \u2014 \u00a72.3 presents a partial `clean` body whose omitted phone-sentinel early return is guarded by tests/test_repositories.py:510,609 and not by the test module R3 names \u2014 and the audit-artifact amendment remains an unlanded conductor precondition, not an architectural defect."
+        },
+        {
+          "gate": "data-premise",
+          "verdict": "PROMOTE",
+          "date": "2026-09-06",
+          "model": "claude-opus-5",
+          "note": "Premise grounded \u2014 E2-E5 re-executed in-tree this round and E1 carried by \u00a72's census, which cannot fail the way \u00a71 row 4 did (a positive enumeration that RETURNED `&` and `.` demonstrably fires, where a vacuous class returns nothing), with `/` walled structurally by base.py's `@{name}.md` stem binding and the census-to-corpus entailment executed character by character across all thirteen members; round 2's rider is fully folded (\u00a78.6, Prerequisite 2's pattern-as-executed spelling, Task 4's constant wall, Task 12(g), R7) and nothing foldable remains, so a third REVISE would re-raise a target whose remedy is already specified to the byte and whose only actor is the conductor reading it \u2014 the artifact amendment is still UNLANDED and must be committed before the builder is armed, now enforced by Task 12(g) being RED by construction and the plan's abort-at-Task-1 preamble rather than by this gate; hunt added one new Domain-C class (notes whose stored `type:` escapes the walk's line selector but not the gate's parsed one), bounded by yaml.dump's unquoted emission and AC-4's delta rule."
+        },
+        {
+          "gate": "spec-reviewer",
+          "verdict": "REVISE",
+          "date": "2026-09-06",
+          "model": "claude-opus-5",
+          "targets": "Task 8",
+          "prior": "none",
+          "basis": "original",
+          "findings": "1/4",
+          "note": "First spec-review round; citations all re-opened for their asserted property and all hold, the two counting claims (W8's 9-to-10 union, no new frontmatter_write_arms member) re-derive, and I independently re-ran \u00a78.1's predicate by reading \u2014 it returns exactly company.py:171 today and nothing after Task 7, with name_cleaning.py's five compiled-receiver deletions and lint_vault.py:60,641's two negated classes both genuinely outside it. The one blocking gap is a Check-4 test-coupling failure with teeth: the Edge Cases entry for a non-`str`/`None` company name declares its test as \"AC-2's empty leg drives `None` alongside `\"\"`\", but AC-2's frozen desc and Task 8 both drive only `record.specimen` (which is `\"\"`), so a build that writes `str(raw_name)` instead of \u00a73's `\"\" if raw_name is None else str(raw_name)` commits a null-named company note instead of refusing with `empty`, and every AC, every task and the whole suite stay green \u2014 there is no `None`-name fixture anywhere in tests/, on the person side either. One clause in Task 8 closes it and touches no signed hash. Routed against, not re-raised: the data-premise gate's standing ruling that the unlanded corpus-audit amendment is a conductor commit no gate round can compel."
+        },
+        {
+          "gate": "threat-modeler",
+          "verdict": "PROMOTE",
+          "date": "2026-09-06",
+          "model": "claude-opus-5",
+          "note": "Second round, scoped at the spec-review fold since that is the material a gate most easily waves through \u2014 and the fold is security-positive: Task 8's COERCION leg closes an integrity hole neither prior threat-model round caught (a build spelling str(raw_name) commits a null-named company note instead of refusing with `empty`), and its three payloads are a real discriminant. All five mitigations re-emitted byte-identically and re-verified at their frames this round in source, not carried: `_refuse` is still the one construction site raising through chainable_cause, the gate call still sits above note_lock's ensure_dir at writer.py:252 vs :258, and M4's landing is structurally sound because `created_by` is not a declared model field and so survives model_to_frontmatter's `if key not in result` merge guard \u2014 checked, because that guard is where a provenance mitigation would quietly die. Two new non-blocking findings: Task 8's \"rendering contains no note content\" leg should cite the shipped person-side idiom at tests/test_name_gate.py:580-630, whose own warning that format_exception renders the caller's source line makes the COERCION leg's three inlined literals the one place a reasonable extension of that assertion goes RED against correct code; and an exact-match declared_type lets a hand-authored `type: Company` note escape the company table, which is exact parity with the shipped person arm and covers a spelling the data audit's Domain-C entry does not."
+        },
+        {
+          "gate": "spec-reviewer",
+          "verdict": "PROMOTE",
+          "date": "2026-09-06",
+          "model": "claude-opus-5",
+          "note": "Second round, cold-start from line 1 rather than off round 1's diff. Round 1's blocking finding is closed at its GENERATOR, not its instance \u2014 the writer swept both ladder levels of \"a coverage-claiming line naming no ordered check\" and declared what the sweep found, landing three new checks (Task 8's COERCION leg, Task 7's kept-fallback check, Task 6's idempotence leg) plus two \u00a71.3 clauses nothing had asserted; I re-drove the coercion leg's three payloads by hand and the discriminant is real. All citations re-opened for their asserted property; I independently re-ran \u00a78.1's predicate by reading and it returns exactly company.py:171 today and nothing after Task 7, with scripts/ carrying no `.sub` call at all so lint_vault.py:60,641's negated classes are structurally outside both arms. The five fold records are complete, `desc`-fresh against the latest speaking threat-model round, and \u2014 checked rather than trusted, since only `desc` is machine-anchored \u2014 every `design` and `work` quote is faithful where it claims to sit, so all five mitigations are genuinely satisfied. Re-ran the WI-229 pin sweep at FILE granularity over the six modules naming the Tier-1 surface: the only pin that moves is `len(tabled) == 9` in an already-declared write target, and `len(REASONS) == 16` is untouched because the company arm adds no enumerated reason. Fifteen canonical tasks, all with well-formed lowercase verify declarations; Write-Targets coverage clean both directions; zero OPEN. Three non-blocking notes, all one-clause: Prerequisite 2's first bullet still licenses a vault-walk placement Task 12(b)/(g) cannot address unambiguously, nothing requires \u00a71 row 4's printed regex cell to carry the executed spelling, and Task 2 creates the check module without carrying Prerequisite 4's `ensure_project_interpreter` obligation. Routed against, not re-raised: the data-premise gate's standing ruling that the unlanded corpus-audit amendment is a conductor commit no gate round can compel \u2014 it is still unlanded and must land in HEAD before the builder is armed."
+        },
+        {
+          "gate": "injection-hunter",
+          "verdict": "PROMOTE",
+          "date": "2026-09-06",
+          "model": "claude-sonnet-5",
+          "note": "Full cold-start re-read of the whole document (all 3585 lines) and both chased artifacts, covering the material added since the standing injection-hunt round (Threat Model round 2, Spec Review round 2) that the prior injection-hunter pass never saw \u2014 no text addressed to a reviewer/agent, no verdict-fence note unsupported by its own surrounding prose, and no reasoning in any of the seven gate rounds now on the document that reads as steered rather than independently derived; the grounding artifact and the AC sign-off carrier remain inert data, byte-verified against the signed hashes rather than assumed unchanged."
+        },
+        {
+          "gate": "code-reviewer",
+          "verdict": "PROMOTE",
+          "date": "2026-09-06",
+          "model": "claude-opus-5",
+          "note": "No Blocking findings \u2014 the gate stays a predicate on `name`, the company judgement sits inside the non-person branch above its return, the mangler and its `import re` are gone with the tree-wide AST scan as the oracle, and all six AI-maintainability checks plus both Step 2c dimensions are clear; spawn 3's substitution of builder for conductor evidence under AC-5 is recorded as N1 for the conductor and Dave to accept or reverse, not blocked here, because no signed premise rests on new builder-only measurement, the one new refusal class is walled independently of the artifact by a per-character test, and REVISE routes to a build-runner who cannot perform the remedy."
+        },
+        {
+          "gate": "test-observability-checker",
+          "verdict": "PROMOTE",
+          "date": "2026-09-06",
+          "model": "claude-opus-5",
+          "note": "Applies rather than N/A (a production write path in a library three consumers install -e) and passes all four checks \u2014 a new 10-case module covering happy path plus multiple failure modes per criterion with a non-fakeable derived-arm sweep and a nine-way falsifiability run on the artifact check, every new failure mode loud at WARNING or as a NameGateRefusal carrying .pattern, no new automated system needing alerts, and no invariant registry in this project so Check 4 is N/A; the two consumer-side items (HAL9000's unmapped NameGateRefusal, and the created_by WARNING firing on 100% of HAL9000 writes) are Recommended follow-ons outside this repo's write authority, not blockers. Counts cited are the build's executions \u2014 this reviewer spawn has no shell and verified collectability statically instead."
         }
       ],
       "acceptance_criteria": [

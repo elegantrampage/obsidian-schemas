@@ -1,4 +1,5 @@
-"""Single source of truth for what a 'person name' looks like (WI-105).
+"""Single source of truth for what a 'person name' AND a 'company name' look
+like (WI-105; WI-022 added the company table).
 
 Architectural defect this fixes: `Person.name` is a free-form `str` and
 `PersonRepository.create_stub` previously had no boundary contract on it.
@@ -26,6 +27,17 @@ NameValidator centralizes the contract:
 The 2026-06-02 empirical audit across 1647 vault notes informed which
 patterns are Tier 1 (definitively impossible) vs Tier 3 (ambiguous).
 See orchestrator/docs/name-validation-and-cleanup.md for the audit.
+
+WI-022 — TWO Tier-1 tables, ONE dispatcher. `TIER1_BRANCHES` is the person
+table and stays the default of every entry point, so nothing on the person path
+moved. `COMPANY_TIER1_BRANCHES` is a second table with its OWN membership,
+walked by the same `_raise_on_tier1` through the `branches=` keyword: a company
+name is a domain often enough that `rfc2822_leak` would refuse the real
+"wetransfer.com", and four more person branches are transcript artifacts with no
+company producer — while the path-hostile class must be WIDER for a company,
+because `company.py`'s deleted mangler had been silently absorbing every
+filename- and wikilink-hostile character. The 2026-09-06 audit across 2159 live
+company notes grounds that membership (docs/company-name-corpus-audit.md).
 """
 
 import re
@@ -155,6 +167,14 @@ class Tier1Branch:
     regex: Optional[re.Pattern]
     method: str                # "search" | "match" | "empty"
     detail_template: str
+    # WI-022: a REAL name of this record's declared type that the branch must
+    # NOT fire on. Defaulted so the ten person records keep compiling untouched;
+    # the person table is out of the company sweep's scope and keeps the default.
+    # A derived sweep proves MEMBERSHIP and never CORRECTNESS — a branch
+    # implemented as `return True` refuses every specimen and passes the refusal
+    # leg for all of them — so every member of COMPANY_TIER1_BRANCHES carries a
+    # non-empty one and the sweep asserts it.
+    negative_specimen: str = ""
 
     def matches(self, name: str) -> bool:
         """Does this branch fire for `name`? The same test the chain applies."""
@@ -288,9 +308,134 @@ TIER1_BRANCHES: tuple = (
     ),
 )
 
+def _empty_branch_of(branches: tuple) -> Tier1Branch:
+    """The record in `branches` whose refusal is raised ABOVE the chain.
+
+    DERIVED rather than positional so a second table cannot ship without one: a
+    table with no `empty` record would make `validate_strict` silently ACCEPT ""
+    for that declared type. That is a loud failure, never a default.
+    """
+    for branch in branches:
+        if branch.regex is None:
+            return branch
+    raise ValueError(
+        "a Tier-1 table must carry an `empty` record (regex=None); this one "
+        f"carries none: {[b.branch_id for b in branches]}"
+    )
+
+
 # The one record the chain does not walk, bound so the two entry points that
-# raise it can name the table rather than re-spell its key and message.
-EMPTY_BRANCH: Tier1Branch = TIER1_BRANCHES[-1]
+# raise it can name the table rather than re-spell its key and message. WI-022
+# derives it instead of indexing: `empty` is the only regex-`None` record and it
+# is last, so this is the SAME OBJECT `TIER1_BRANCHES[-1]` was.
+EMPTY_BRANCH: Tier1Branch = _empty_branch_of(TIER1_BRANCHES)
+
+
+# ============================================================
+# The COMPANY Tier-1 surface (WI-022)
+# ============================================================
+
+# The filename- and wikilink-hostile characters a COMPANY name may not carry.
+# Wider than `_PATH_HOSTILE_RE` (which is `/` alone) because the person side
+# survives that under-reach — human names rarely carry `#` or `[` — and company
+# names do not. `company.py`'s mangler has been silently ABSORBING this whole
+# class, so deleting it un-shields characters nobody has judged: `/` and `\`
+# break the note path; `: * ? " < >` are filesystem-hostile; `[ ] | # ^` are
+# Obsidian wikilink syntax (link delimiters, alias separator, heading anchor,
+# block anchor). Verified 2026-09-06 against 2,159 live company notes: ZERO
+# carry any of them — grounded on the character CENSUS
+# (docs/company-name-corpus-audit.md §2), which enumerates every character
+# present outside [\w\s-] and returns only `&` and `.`, so every member of this
+# class is absent by positive measurement. NOT on §1's per-branch row, whose
+# printed pattern closes its class early and so measures nothing (§8.6).
+_COMPANY_PATH_HOSTILE_RE = re.compile(r'[/\\:*?"<>|\[\]#^]')
+
+# Five records, same `Tier1Branch` type, same field semantics. Membership is
+# stated by `branch_id` and NEVER by `pattern` — the two keys diverge and
+# `pattern` is not unique.
+#
+# ORDER IS BEHAVIOUR (the chain raises on the first match) and ONE constraint is
+# load-bearing: `arrow_connective` MUST precede `path_hostile`.
+# `_COMPANY_PATH_HOSTILE_RE` contains `>`, so `arrow_connective`'s specimen
+# "Acme -> Globex" matches `path_hostile` too and raises `calendar_prefix` only
+# by tuple position. The branch still earns its place: `_ARROW_CONNECTIVE_RE` is
+# `->|[→⟶⇒➜↦⇨]` and the six unicode arrows are all OUTSIDE the widened class, so
+# deleting it would stop refusing "Acme → Globex" altogether.
+#
+# EXCLUDED, by `branch_id`, each for a measured reason (WI-022 D2):
+#   `rfc2822_leak`    — its regex matches "wetransfer.com", a real company
+#   `calendar_prefix` \
+#   `me_to_prefix`     } transcript artifacts of the PERSON ingest path
+#   `unknown_contact` /
+#   `pure_digit`      — a numeric brand or ticker-styled name is a real company
+COMPANY_TIER1_BRANCHES: tuple = (
+    Tier1Branch(
+        branch_id="email_chars",
+        pattern="contains_email_chars",
+        specimen="info@acme.com",
+        sentinel_exempt=False,
+        regex=_EMAIL_CHARS_RE,
+        method="search",
+        detail_template=(
+            "name contains '@' which cannot appear in a company name: {name!r}"
+        ),
+        negative_specimen="Booking.com",
+    ),
+    Tier1Branch(
+        branch_id="arrow_connective",
+        pattern="calendar_prefix",
+        specimen="Acme -> Globex",
+        sentinel_exempt=False,
+        regex=_ARROW_CONNECTIVE_RE,
+        method="search",
+        detail_template=(
+            "name contains a connective arrow '->' "
+            "(meeting/relationship descriptor): {name!r}"
+        ),
+        negative_specimen="Hewlett-Packard",
+    ),
+    Tier1Branch(
+        branch_id="path_hostile",
+        # The SAME key the person branch raises, so a consumer routing on
+        # `.pattern` sees one key for one class regardless of declared type. The
+        # regex differs; the key does not.
+        pattern="path_hostile_char",
+        specimen="Acme/Corp",
+        sentinel_exempt=False,
+        regex=_COMPANY_PATH_HOSTILE_RE,
+        method="search",
+        detail_template=(
+            "name contains a character that breaks the note file path or an "
+            "Obsidian wikilink: {name!r}"
+        ),
+        negative_specimen="Smith & Co. (UK)",
+    ),
+    Tier1Branch(
+        branch_id="archive_prefix",
+        pattern="archive_prefix",
+        specimen="zArchived Acme Corp",
+        sentinel_exempt=False,
+        regex=_ARCHIVE_PREFIX_RE,
+        method="match",
+        detail_template=(
+            "name starts with Obsidian archive convention ('zArchived'): {name!r}"
+        ),
+        negative_specimen="Zendesk",
+    ),
+    # Raised ABOVE the chain by both public entry points, never inside
+    # `_raise_on_tier1`, exactly as the person table's `empty` record is — and
+    # LAST for the same reason.
+    Tier1Branch(
+        branch_id="empty",
+        pattern="empty",
+        specimen="",
+        sentinel_exempt=False,
+        regex=None,
+        method="empty",
+        detail_template="name is empty or whitespace-only",
+        negative_specimen="Acme Corp",
+    ),
+)
 
 
 # ============================================================
@@ -405,6 +550,29 @@ class CleanResult:
     ambiguous: bool = False  # reserved for future Tier 3 advisory output
 
 
+def tier2_repair(name: str) -> CleanResult:
+    """THE Tier-2 repair: strip, then collapse internal whitespace.
+
+    Raises nothing and judges nothing. `repairs_applied` carries the same two
+    labels it always has: "strip_whitespace", "double_space_collapse".
+
+    Single-homed here (WI-022) so `CompanyRepository.create_stub` — which needs
+    the repair WITHOUT a Tier-1 verdict, because its Tier-1 verdict belongs to
+    the gate — can reuse it rather than spell `\\s{2,}` a second time. A second
+    name authority is the thing this item exists to prevent.
+    """
+    repairs: List[str] = []
+    current = name
+    if current != current.strip():
+        current = current.strip()
+        repairs.append("strip_whitespace")
+    if _DOUBLE_SPACE_RE.search(current):
+        current = _DOUBLE_SPACE_RE.sub(" ", current)
+        repairs.append("double_space_collapse")
+    return CleanResult(cleaned_name=current, repairs_applied=repairs,
+                       ambiguous=False)
+
+
 # ============================================================
 # Validator
 # ============================================================
@@ -423,32 +591,38 @@ class NameValidator:
 
     # ----- main entry points -----
 
-    def validate_strict(self, name: str, *, allow_phone_sentinel: bool = False) -> str:
+    def validate_strict(self, name: str, *, allow_phone_sentinel: bool = False,
+                        branches: tuple = TIER1_BRANCHES) -> str:
         """Returns whitespace-normalized name. Raises NameValidationError on
         Tier 1 patterns.
 
         allow_phone_sentinel: opt-in for WI-083 phone-only stubs where the
         name field is intentionally a "+E164" or "447..." string. Off by
         default to keep producers honest.
+
+        branches: WI-022 — the Tier-1 table to walk. Defaults to the PERSON
+        table, so every existing call site keeps its exact behaviour with no
+        edit; `name_gate`'s company arm passes `COMPANY_TIER1_BRANCHES`.
         """
         # Phone sentinel: validated as-is when explicitly allowed
         if allow_phone_sentinel and _PURE_DIGIT_RE.match(name.strip()):
             return name.strip()
 
         # Empty / whitespace
+        empty = _empty_branch_of(branches)
         stripped = name.strip()
         if not stripped:
-            raise NameValidationError(EMPTY_BRANCH.pattern,
-                                      EMPTY_BRANCH.detail(name))
+            raise NameValidationError(empty.pattern, empty.detail(name))
 
         # Tier 1 checks (order matters for clearest error reporting)
-        self._raise_on_tier1(stripped)
+        self._raise_on_tier1(stripped, branches=branches)
 
         # In-band light cleaning: collapse internal whitespace
         cleaned = _DOUBLE_SPACE_RE.sub(" ", stripped)
         return cleaned
 
-    def clean(self, name: str, *, allow_phone_sentinel: bool = False) -> CleanResult:
+    def clean(self, name: str, *, allow_phone_sentinel: bool = False,
+              branches: tuple = TIER1_BRANCHES) -> CleanResult:
         """Returns CleanResult. Raises on Tier 1 (the same as validate_strict).
 
         Tier 2 repairs are applied and recorded in repairs_applied. The
@@ -457,32 +631,26 @@ class NameValidator:
         if allow_phone_sentinel and _PURE_DIGIT_RE.match(name.strip()):
             return CleanResult(cleaned_name=name.strip(), repairs_applied=[], ambiguous=False)
 
+        empty = _empty_branch_of(branches)
         if not name.strip():
-            raise NameValidationError(EMPTY_BRANCH.pattern,
-                                      EMPTY_BRANCH.detail(name))
+            raise NameValidationError(empty.pattern, empty.detail(name))
 
-        repairs = []
-        current = name
-
-        # Tier 2: strip leading/trailing whitespace
-        if current != current.strip():
-            current = current.strip()
-            repairs.append("strip_whitespace")
-
-        # Tier 1 checks run AFTER strip (otherwise a name like '  Dave - X  ' would
-        # not match the calendar-prefix regex). Strip is non-destructive.
-        self._raise_on_tier1(current)
-
-        # Tier 2: collapse internal double-spaces
-        if _DOUBLE_SPACE_RE.search(current):
-            current = _DOUBLE_SPACE_RE.sub(" ", current)
-            repairs.append("double_space_collapse")
-
-        return CleanResult(cleaned_name=current, repairs_applied=repairs, ambiguous=False)
+        # WI-022: Tier 2 computed ONCE, by its one home. Behaviour-identical to
+        # the former interleaved form: the chain below still judges
+        # `name.strip()`, byte-for-byte the text it judged before, and a
+        # whitespace collapse can neither create nor destroy a Tier-1 match —
+        # every Tier-1 regex that spans whitespace spans it with `\s+` or `\s*`,
+        # which match a single space as readily as a run, and no collapse can
+        # join two word characters. So the only difference is the ORDER of two
+        # computations whose results are independent.
+        repaired = tier2_repair(name)
+        self._raise_on_tier1(name.strip(), branches=branches)
+        return repaired
 
     # ----- Tier 1 dispatcher -----
 
-    def _raise_on_tier1(self, name: str) -> None:
+    def _raise_on_tier1(self, name: str, *,
+                        branches: tuple = TIER1_BRANCHES) -> None:
         """Walks the Tier 1 pattern table; raises on the first match.
 
         WI-021: the table is now a real object, `TIER1_BRANCHES`, and this is a
@@ -503,7 +671,7 @@ class NameValidator:
         method by both public entry points, and moving it into the chain would
         put it below the sentinel exemption.
         """
-        for branch in TIER1_BRANCHES:
+        for branch in branches:
             if branch.regex is None:
                 continue        # `empty` — raised above the chain, never in it
             if branch.matches(name):

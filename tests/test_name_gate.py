@@ -28,6 +28,7 @@ from obsidian_schemas.errors import (
     NoteParseError,
 )
 from obsidian_schemas.name_validation import (
+    COMPANY_TIER1_BRANCHES,
     EMPTY_BRANCH,
     TIER1_BRANCHES,
     NameValidationError,
@@ -189,22 +190,34 @@ def _check_the_table_is_total_over_the_modules_branch_sites():
     assert EMPTY_BRANCH is TIER1_BRANCHES[-1]
 
     # COVERAGE, DERIVED rather than listed: every Tier-1 regex the module
-    # compiles must be reached by exactly one record. A tenth branch regex added
-    # without a record is RED here, which is what "total over the module's
-    # branch sites" has to mean if it is to survive the next pattern.
+    # compiles must be reached by exactly one record. A regex added without a
+    # record is RED here, which is what "total over the module's branch sites"
+    # has to mean if it is to survive the next pattern.
+    #
+    # WI-022 widened `tabled` to the union of BOTH tables. The module now
+    # compiles a company-only regex (`_COMPANY_PATH_HOSTILE_RE`), so a
+    # person-only census would be RED against correct code — and the honest
+    # repair is to COVER the new member, never to narrow the census or rename
+    # the constant so it dodges the `*_RE` suffix. The count follows: the person
+    # table walks 9 distinct regexes, the company table adds exactly one the
+    # person table does not carry (its other three are the SAME objects), so the
+    # union is 10.
     import obsidian_schemas.name_validation as module
     compiled = {
         value for name, value in vars(module).items()
         if isinstance(value, re.Pattern) and name.endswith("_RE")
     }
     tier2 = {_DOUBLE_SPACE_RE}
-    tabled = {record.regex for record in TIER1_BRANCHES if record.regex is not None}
+    tabled = {record.regex
+              for record in TIER1_BRANCHES + COMPANY_TIER1_BRANCHES
+              if record.regex is not None}
     assert tabled == compiled - tier2, (
-        "every Tier-1 regex in the module is walked by exactly one record. "
+        "every Tier-1 regex in the module is walked by exactly one record of "
+        "the person table or the company table. "
         f"Unrecorded: {compiled - tier2 - tabled}; recorded but not compiled "
         f"here: {tabled - compiled}"
     )
-    assert len(tabled) == 9
+    assert len(tabled) == 10
 
 
 def _check_every_specimen_fires_its_own_branch_and_no_earlier_one():
@@ -353,9 +366,19 @@ def _check_the_key_set_and_the_declaration_rules():
             "undeclared branch runs too late"
         )
 
-    # A DECLARED non-person type passes through untouched.
-    company = {"name": "Bausch/Lomb", "emails": ["Al B <A@B.com>"], "type": "company"}
-    assert gate_write(company, declared_type="company", whole_record=True) == company
+    # A DECLARED non-person type passes through untouched — demonstrated on
+    # `book`, which the gate's own docstring names ("a Book write is gated and
+    # handed straight back") and which no table judges.
+    #
+    # WI-022 moved this fixture off `company`. It used to be spelled with
+    # `{"type": "company", "name": "Bausch/Lomb"}`, and `/` is now a member of
+    # `_COMPANY_PATH_HOSTILE_RE` — so that payload is REFUSED, which is the item
+    # rather than a regression. The pass-through claim this leg makes is about
+    # the types the gate holds NO judgement for, and `book` is one; the company
+    # arm's own pass-through (a delta that introduces no `name:`) is asserted in
+    # `tests/test_company_name_contract.py`.
+    book = {"name": "Bausch/Lomb", "emails": ["Al B <A@B.com>"], "type": "book"}
+    assert gate_write(book, declared_type="book", whole_record=True) == book
 
     # THE `is not None` HALF, which is the one place this branch could be
     # written half a line shorter and be wrong: an UNDECLARED write introducing

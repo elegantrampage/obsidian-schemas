@@ -1390,3 +1390,121 @@ def falsy_returns_in(files: Iterable[Path], names: Iterable[str]) -> list:
             for i, _node in enumerate(members):
                 sites.append(SiteId(fid.module, fid.qualname, i))
     return sites
+
+
+# --------------------------------------------------------------------------
+# 16. The character-class MANGLER scan (WI-022, AC-1 leg one)
+# --------------------------------------------------------------------------
+#
+# It lands HERE and nowhere else because `ast` is single-homed to this module by
+# a standing set-equality wall (`test_wall_membership_is_closed_by_running_each_walls_predicate`),
+# so a syntax-reading predicate has exactly one legal address. That address is
+# also what makes the scan COMMENT-AWARE by construction rather than by an
+# allowlist: `person.py:1339` carries the literal mangler regex inside the WI-111
+# comment recording its deletion, and a comment is not a node.
+
+def _is_negated_class_constant(node) -> bool:
+    """A `str` constant carrying the literal `[^` — a NEGATED character class."""
+    return (isinstance(node, ast.Constant) and isinstance(node.value, str)
+            and "[^" in node.value)
+
+
+def _is_empty_string_constant(node) -> bool:
+    """The empty-string constant — the DELETION half of the shape."""
+    return (isinstance(node, ast.Constant) and isinstance(node.value, str)
+            and node.value == "")
+
+
+def _is_negated_class_compile(node) -> bool:
+    """`re.compile(<str constant containing "[^">)`, attribute or bare callee."""
+    if not isinstance(node, ast.Call):
+        return False
+    func = node.func
+    if isinstance(func, ast.Attribute):
+        if func.attr != "compile":
+            return False
+    elif isinstance(func, ast.Name):
+        if func.id != "compile":
+            return False
+    else:
+        return False
+    return bool(node.args) and _is_negated_class_constant(node.args[0])
+
+
+def _negated_class_pattern_names(tree) -> set:
+    """Names bound ANYWHERE in this file by an `Assign` to a negated-class
+    `re.compile(...)`. Whole-tree, not module scope: the compile can sit inside
+    the same function as the `.sub` call, and the alias reasoning
+    `_import_aliases` records applies identically here."""
+    names = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign) or not _is_negated_class_compile(node.value):
+            continue
+        for target in node.targets:
+            if isinstance(target, ast.Name):
+                names.add(target.id)
+    return names
+
+
+def _is_character_class_strip(call, sub_aliases: set, pattern_names: set) -> bool:
+    """The §8.1 predicate, on ONE call node.
+
+    A call whose callee resolves to `sub` (bare name, attribute, or import
+    alias), matching either
+
+      (A) first positional argument is a `str` constant CONTAINING `[^` and the
+          second positional argument is the empty-string constant; or
+      (B) first positional argument is the empty-string constant and the
+          RECEIVER is either an inline `re.compile(<negated class>)` or a `Name`
+          bound in this file by an `Assign` to such a call.
+
+    Both arms are DELETIONS (`repl == ""`) of everything OUTSIDE a whitelist
+    (`[^`) — the class AC-1 calls "any equivalent character-class strip". The
+    narrowness is deliberate and is what keeps the legitimate OPPOSITE out:
+    `book.py:348,352` and `meeting.py:229` strip an ENUMERATED set
+    (`[<>:"/\\|?*]`, no `[^`) off a LOCAL filename, never off an identity field.
+    """
+    if not _resolves_to(call, "sub", sub_aliases):
+        return False
+    args = call.args
+    # Arm (A) — the mangler's own spelling, and the shape a reintroduction takes.
+    if (len(args) >= 2 and _is_negated_class_constant(args[0])
+            and _is_empty_string_constant(args[1])):
+        return True
+    # Arm (B) — the compiled-pattern spelling of the same deletion.
+    if args and _is_empty_string_constant(args[0]):
+        receiver = call.func.value if isinstance(call.func, ast.Attribute) else None
+        if _is_negated_class_compile(receiver):
+            return True
+        if isinstance(receiver, ast.Name) and receiver.id in pattern_names:
+            return True
+    return False
+
+
+def character_class_strip_sites(files: Iterable[Path]) -> list:
+    """WI-022 AC-1 leg one: every live negated-character-class DELETION site.
+
+    Returns `AstUse(module, qualname, lineno)` records, sorted. `qualname` is the
+    enclosing function's qualname where there is one and `"<module>"` otherwise,
+    so a mangler reintroduced at module scope is reported rather than missed.
+    """
+    found = []
+    for path in files:
+        tree = _parse(path)
+        sub_aliases = _import_aliases(tree, "sub")
+        pattern_names = _negated_class_pattern_names(tree)
+        module = module_id(path)
+        attributed = set()
+        for fid, func in _iter_functions(path, tree):
+            for node in _own_body_nodes(func):
+                if not isinstance(node, ast.Call):
+                    continue
+                attributed.add(id(node))
+                if _is_character_class_strip(node, sub_aliases, pattern_names):
+                    found.append(AstUse(module, fid.qualname, node.lineno))
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Call) and id(node) not in attributed
+                    and _is_character_class_strip(node, sub_aliases, pattern_names)):
+                found.append(AstUse(module, "<module>", node.lineno))
+    found.sort()
+    return found

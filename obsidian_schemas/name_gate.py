@@ -58,7 +58,11 @@ from typing import Any, Mapping, NoReturn, Optional
 
 from .errors import NameGateRefusal, chainable_cause
 from .identifier import Email, IdentifierError
-from .name_validation import NameValidationError, NameValidator
+from .name_validation import (
+    COMPANY_TIER1_BRANCHES,
+    NameValidationError,
+    NameValidator,
+)
 from .phone_normalization import normalize_phone
 
 # The rule-(ii) refusal's pattern key. Not a NameValidator pattern — it is the
@@ -67,6 +71,10 @@ from .phone_normalization import normalize_phone
 UNDECLARED_PATTERN: str = "undeclared_name_write"
 
 PERSON_TYPE: str = "person"
+
+# WI-022. The second declared type the gate has a judgement for, and the value
+# `Company.type`'s `Literal["company"]` puts in every company write's `type:`.
+COMPANY_TYPE: str = "company"
 
 # The single enumerated reason every refusal carries. One literal, not two:
 # `pattern` is the routing signal consumers keep.
@@ -309,6 +317,30 @@ def gate_write(
     # which every entity type reaches: a Book write is gated and handed straight
     # back.
     if declared_type is not None and declared_type != PERSON_TYPE:
+        # WI-022 — the COMPANY judgement, INSIDE this branch and above its
+        # return, deliberately NOT written as a widened condition
+        # (`declared_type not in (PERSON_TYPE, COMPANY_TYPE)`) letting company
+        # fall through to the person body. That cheaper-looking edit is wrong
+        # twice: it would apply the PERSON table to company names — whose
+        # `rfc2822_leak` branch refuses the real company "wetransfer.com" — and
+        # it would silently subject company writes to the phones[] dedupe below
+        # (a DELETION over stored data) and to the two alias/email migrations,
+        # none of which this item signs off for companies.
+        if declared_type == COMPANY_TYPE and "name" in introduced:
+            raw_name = introduced["name"]
+            # `None` coerces to "" rather than to the string "None", for the
+            # same reason the person arm does it below: the decision for a null
+            # name is the `empty` refusal, and str(None) is a name that would
+            # sail through.
+            name_text = "" if raw_name is None else str(raw_name)
+            try:
+                # Called for its RAISE behaviour; the repaired string is
+                # DISCARDED. THE NAME IS AN IDENTITY, not a transform — the
+                # filename is bound from the raw name one frame above.
+                NameValidator().validate_strict(
+                    name_text, branches=COMPANY_TIER1_BRANCHES)
+            except NameValidationError as exc:
+                _refuse(exc.pattern, cause=exc)
         return dict(introduced)
 
     result = dict(introduced)

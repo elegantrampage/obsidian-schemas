@@ -4,7 +4,6 @@ Company repository for organization management.
 Provides lookup of Company entities by name or website domain.
 """
 
-import re
 import logging
 from pathlib import Path
 from typing import Optional, Type
@@ -12,6 +11,7 @@ from urllib.parse import urlparse
 from datetime import datetime
 
 from ..models import Company
+from ..name_validation import tier2_repair
 from .base import BaseRepository
 
 logger = logging.getLogger(__name__)
@@ -155,21 +155,45 @@ class CompanyRepository(BaseRepository[Company]):
         name: str,
         website: Optional[str] = None,
         auto_created: bool = True,
+        created_by: Optional[str] = None,
     ) -> Company:
         """
         Create a minimal stub Company and save to vault.
 
         Args:
-            name: Company name
+            name: Company name. Tier-2 repaired HERE (strip + collapse, above
+                the filename derivation) and judged by the semantic gate on the
+                way to disk — a Tier-1 dirty name raises NameGateRefusal out of
+                save(), it is never silently stripped.
             website: Optional website URL
             auto_created: Mark as auto-created for later review
+            created_by: Provenance label. ALWAYS written; an absent, non-`str`
+                or whitespace-only label is recorded as "unknown" with a WARNING.
 
         Returns:
             The created Company entity
         """
-        # Clean name
-        clean_name = re.sub(r'[^\w\s-]', '', name).strip()
+        # WI-022: the legacy `clean_name = re.sub(r'[^\w\s-]', '', name).strip()`
+        # mangler is DELETED. It corrupted real company names into BOTH the
+        # stored `name:` and the @{name}.md stem ("AT&T" -> "ATT",
+        # "O'Reilly Media" -> "OReilly Media"), and it silently absorbed the
+        # path- and wikilink-hostile characters that are now REFUSED at the gate
+        # instead of stripped here. This is the WI-111 ruling (person.py:1337)
+        # applied to the company side: Tier-2 repair here, Tier-1 verdict there.
+        name_text = "" if name is None else str(name)
+        repaired = tier2_repair(name_text)
+        if repaired.repairs_applied:
+            logger.info(
+                "create_stub: name repairs applied %s — input=%r output=%r",
+                repaired.repairs_applied, name_text, repaired.cleaned_name,
+            )
+        clean_name = repaired.cleaned_name
         if not clean_name:
+            # KEPT deliberately (Design §4.1). Person keeps its analogous
+            # fallback at person.py:1345-1347, which is why name_validation.py
+            # can say `empty` "has never fired in production". Dropping it would
+            # change create_stub("") from writing a note to raising, which is a
+            # live behaviour change on HAL9000's POST /api/entities/company.
             clean_name = "Unknown Company"
 
         company = Company(
@@ -188,7 +212,29 @@ class CompanyRepository(BaseRepository[Company]):
 ## Notes
 """
 
-        extra_fields = {"auto_created": True} if auto_created else None
+        # WI-022 provenance, mirroring WI-119's person guard (person.py:1384-1393)
+        # with ONE deliberate widening: a whitespace-only label is ALSO unlabeled.
+        # Person's two-part check does not catch it — `not "   "` is False (a
+        # non-empty string is truthy) and `isinstance("   ", str)` is True — so
+        # person.py stores three spaces verbatim, a label that looks like a value
+        # and names nobody. The third disjunct is a TEST on the guard and never a
+        # transform on the value: a non-empty label is stored byte-identically,
+        # leading and trailing spaces included. `or` short-circuits left to
+        # right, so `created_by=123` is caught by the isinstance conjunct and
+        # never reaches `.strip()`.
+        if (not created_by
+                or not isinstance(created_by, str)
+                or not created_by.strip()):
+            logger.warning(
+                "create_stub: no created_by provenance for %r — recording 'unknown'",
+                clean_name,
+            )
+            created_by = "unknown"
+
+        extra_fields: dict = {"created_by": created_by}
+        if auto_created:
+            extra_fields["auto_created"] = True
+
         self.save(company, body=body, extra_fields=extra_fields)
 
         return company
