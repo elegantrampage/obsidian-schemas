@@ -1,8 +1,8 @@
 {
   "project": "obsidian-schemas",
   "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
-  "last_scanned": "2026-09-05T21:56:51Z",
-  "next_id": 29,
+  "last_scanned": "2026-09-06T07:32:27Z",
+  "next_id": 30,
   "items": [
     {
       "id": "WI-022",
@@ -753,7 +753,7 @@
       "stage": "idea",
       "file": "docs/exploration-entity-type.md",
       "created": "2026-03-22",
-      "last_touched": "2026-03-22",
+      "last_touched": "2026-09-06",
       "stage_changed": "2026-03-22",
       "tags": [
         "repository"
@@ -767,7 +767,7 @@
       "latest_verdicts": {},
       "verdicts": [],
       "acceptance_criteria": [],
-      "summary": "The Exploration entity type is partially implemented \u2014 a Pydantic model exists but hasn't been committed. It's missing a repository, tests, and writer support. Explorations are living documents in the"
+      "summary": "The Exploration entity type is partially implemented \u2014 the Pydantic model is committed at `models.py:266`. It's missing a repository, tests, and writer support. Explorations are living documents in th"
     },
     {
       "id": "WI-001",
@@ -775,7 +775,7 @@
       "stage": "parked",
       "file": "docs/file-watching-realtime-updates.md",
       "created": "2026-03-22",
-      "last_touched": "2026-08-11",
+      "last_touched": "2026-09-06",
       "stage_changed": "2026-08-11",
       "tags": [
         "repository"
@@ -790,6 +790,26 @@
       "verdicts": [],
       "acceptance_criteria": [],
       "summary": "Long-running processes like the HAL9000 server hold repository instances in memory, but the underlying vault files can change at any time (Obsidian edits, other tools writing frontmatter). Currently t"
+    },
+    {
+      "id": "WI-029",
+      "title": "Filename/name divergence repair: rename the forked stems, then pin the invariant",
+      "stage": "idea",
+      "file": "docs/filename-name-divergence-repair.md",
+      "created": "2026-09-06",
+      "last_touched": "2026-09-06",
+      "stage_changed": "2026-09-06",
+      "tags": [],
+      "involvement": null,
+      "parent": null,
+      "children": [],
+      "depends_on": [],
+      "blocked": false,
+      "transitions": [],
+      "latest_verdicts": {},
+      "verdicts": [],
+      "acceptance_criteria": [],
+      "summary": "Three live person notes carry a filename stem that differs from their stored `name:` \u2014 measured as"
     },
     {
       "id": "WI-019",
@@ -823,7 +843,7 @@
       "stage": "parked",
       "file": "docs/hal9000-singleton.md",
       "created": "2026-03-22",
-      "last_touched": "2026-07-05",
+      "last_touched": "2026-09-06",
       "stage_changed": "2026-07-05",
       "tags": [
         "integration"
@@ -1511,7 +1531,7 @@
       "stage": "parked",
       "file": "docs/obsidian-plugin-sync.md",
       "created": "2026-03-22",
-      "last_touched": "2026-07-05",
+      "last_touched": "2026-09-06",
       "stage_changed": "2026-07-05",
       "tags": [
         "integration"
@@ -1715,7 +1735,7 @@
       "stage": "idea",
       "file": "docs/watch-repository.md",
       "created": "2026-03-22",
-      "last_touched": "2026-03-22",
+      "last_touched": "2026-09-06",
       "stage_changed": "2026-03-22",
       "tags": [
         "repository"
@@ -2002,6 +2022,7 @@
     "WI-026",
     "WI-025",
     "WI-011",
+    "WI-029",
     "WI-009"
   ]
 }

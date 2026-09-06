@@ -4,7 +4,7 @@ title: "File Watching / Real-time Updates"
 project: obsidian-schemas
 stage: parked
 created: 2026-03-22
-last_touched: 2026-08-11
+last_touched: 2026-09-06
 stage_changed: 2026-08-11
 touched_by: session
 tags: [repository]
@@ -12,6 +12,8 @@ depends_on: []
 ---
 
 # File Watching / Real-time Updates
+
+**Status: CLOSED 2026-09-06 (queue review, Dave's word) — superseded by HAL9000 WI-061 (shipped 2026-08-28).** The un-park criterion below (a REAL staleness incident in a long-running consumer) occurred on 2026-08-24 — HAL9000 WI-061's own scar — and was solved in HAL9000: its shared person repository fingerprints the vault (name/mtime/size over the person notes) on every acquisition, so an external edit is visible on the next resolve with no watcher, no `refresh()`, no restart. No file-watching primitive belongs in this library. Stage stays `parked` because the pipeline has no closed stage; there is nothing left to build.
 
 ## Problem / Motivation
 

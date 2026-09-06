@@ -4,7 +4,7 @@ title: "WatchRepository"
 project: obsidian-schemas
 stage: idea
 created: 2026-03-22
-last_touched: 2026-03-22
+last_touched: 2026-09-06
 stage_changed: 2026-03-22
 touched_by: session
 tags: [repository]
@@ -12,6 +12,8 @@ depends_on: []
 ---
 
 # WatchRepository
+
+**Premise rewritten 2026-09-06 (queue review):** the entity TYPE is done — `class Watch` exists at `models.py:173`. What does not exist is the repository (`obsidian_schemas/repositories/` holds base, book, company, meeting, person), writer/stub support, and tests. The shape to copy is the BookRepository sibling (`repositories/book.py`: `save` at :167-178, `create_stub` at :278). Any sentence below that says the Watch type is missing or 'likely' needs defining is stale; read this paragraph as the premise.
 
 ## Problem / Motivation
 

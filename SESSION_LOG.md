@@ -20,6 +20,16 @@ convention invocation resolves (bare `-m pytest` = 657, ac_python = the project 
 command in the file header; not launched. The WI-021 rounds drawer got the `archive-split:v1`
 mark (workshop's adoption answer) — never run archive-split on WI-021.
 
+**Staleness rulings executed (Dave: "close the items you suggest closing…").** WI-001 and WI-014
+CLOSED as superseded by HAL9000 WI-061; WI-015 CLOSED as superseded by WI-004 — each carries a
+dated Status line naming the superseding ship; stage stays `parked` because the pipeline has no
+closed stage. WI-007's premise rewritten (the `Watch` model exists; the repository does not);
+WI-008's Problem corrected ("hasn't been committed" → committed at `models.py:266`). **WI-029
+minted** via the locked mint CLI: filename/name divergence repair — rename the three forked stems
+through `vault_io.move_note` with the old stem as an alias, pin the stem/name invariant over the
+corpus, and carry WI-021's booked hand repairs (the mis-typed book note, four untyped notes, three
+unparseable fences). Queued after WI-011 per the review's ranking; Dave may move it.
+
 ---
 
 ## 2026-09-05

@@ -4,7 +4,7 @@ title: "HAL9000 Singleton"
 project: obsidian-schemas
 stage: parked
 created: 2026-03-22
-last_touched: 2026-07-05
+last_touched: 2026-09-06
 stage_changed: 2026-07-05
 touched_by: session
 tags: [integration]
@@ -12,6 +12,8 @@ depends_on: []
 ---
 
 # HAL9000 Singleton
+
+**Status: CLOSED 2026-09-06 (queue review, Dave's word) — superseded by HAL9000 WI-061.** The shared, vault-tracking person repository HAL9000 ships since 2026-08-28 IS the singleton this item asked for. Three direct `PersonRepository(...)` constructions remain in HAL9000 skills (`imessage_skill.py`, `capture_router/destinations.py`, `introductions_skill.py`) and are HAL9000's to route through its provider — not this library's work. Wrong repo (noted 07-05), premise now delivered elsewhere; closed.
 
 **Status: Parked 2026-07-05 (campaign review) — premise eroded + wrong repo.** The headline premise ("no `get_person_repository()` factory") is outdated: HAL9000 now has a repository factory/registry (`hal9000/backend_fastapi/core/entity_registry.py:34 get_repository(entity_type)`). Whatever lifecycle work remains (shared cache, coordinated refresh) is HAL9000's to own — solve-in-one-place says the consuming repo manages its own repository lifecycle. If HAL9000-side gaps surface, capture there and cross-link. The library-side concurrency prerequisite this item pointed at lives on as WI-004.
 
