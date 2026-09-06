@@ -109,6 +109,22 @@ worktree persisted at `evidence-4me2roqe`. WI-026 skipped-needs (WI-016 not done
 Also this session: the v8 pause-and-bless handshake with the factory session (already quiesced here;
 stop file deliberately NOT touched so the resume could run); WI-327 specimen reported.
 
+**Evening (porter era).** Dave: "wi-023 confirmed" → D4b confirm-signed against the persisted worktree
+(`evidence-dyx23p00`, `ac_hash a8c767cdccea`, provenance verified); "wi-016 granted" → third round. The
+launchd porter now owns relaunches (workshop ruling; memory `porter-relaunches-not-conductor`); the
+conductor answers, signs, commits, and stops. Porter legs: WI-016 → **third revise-cap at idea**
+(AC-5(b)'s "run" extraction rule undefined between two readings; every committed `zArchived` specimen
+yields no token under the plain one — the gate says NOT the round-4 family; AC-5 sufficiency question at
+`docs/vault-fixtures.md:298` is Dave's); WI-023 → **specced revise-cap** (spec-reviewer r3: D11's
+falsified-prose table one member short — `resolve_all:517-539` — repair = predicate over every edited
+function; AC preamble restates its own section hash so it goes stale on every re-sign — writer's fold +
+one D4b). **Conductor act at the quiesce, sanctioned by workshop:** the D4b review artifact
+`docs/spec-reviews/WI-023-dave-review-2026-09-06-2.md` is written to `--project` while the fence goes
+into the `--doc-root` worktree, so the resumed reviewer could not see it; copied byte-identical from
+live HEAD into `evidence-dyx23p00/tree/docs/spec-reviews/` (cmp clean, no spawn live) — a file matching
+HEAD is not a delta under any baseline the guard takes. Root cause banked by workshop as a helper
+defect. Both caps await Dave's word.
+
 ---
 
 ## 2026-09-05
