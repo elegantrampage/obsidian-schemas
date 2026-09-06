@@ -10,6 +10,8 @@ touched_by: session
 tags: [identity, wi-125-followup, strangler-completion]
 depends_on: []
 transitions: ["idea>exploring@2026-09-06@session"]
+review_level: L3
+review_level_provenance: selector
 ---
 
 # Identity engine endgame
