@@ -578,3 +578,24 @@ date: 2026-09-06
 model: claude-sonnet-5
 note: Both round-1 findings are closed and I re-derived the arithmetic independently rather than trusting the document — AC-3's outer-vertex phone literal (44790055852) is pinned in the criteria text and its two-match-one-miss witness re-executes against phone_normalization.py:58-90, and AC-1's company/phone branch coverage is now constructed by the same two named roster notes (Priya Raman, Tomas Villalobos) whose 0.6+0.25 company-hint bump re-executes against person.py:595-656 to clear the 0.85 threshold; swept the remaining failure classes (tautology, single-literal gameability, further mutual-unsatisfiability, uncovered invocation layers, mocked oracles, unrun corpus claims) and found nothing new.
 ```
+
+## AC Sign-off
+
+```verdict
+gate: ac-signoff
+verdict: PROMOTE
+date: 2026-09-06
+reviewer: dave
+channel: cli
+signed_at: 2026-09-06T17:23:59+01:00
+provenance: verified
+signoff_escalation: ESC-WI-023-exploring-awaiting-ac-signoff-9d293950
+ac_hash: 583a1b6a293a
+intent_hash: ce7e35a70ea0
+ac_hash_AC-1: bd76924cea03
+ac_hash_AC-2: 7523d81032ed
+ac_hash_AC-3: a2ce8381aa34
+ac_hash_AC-4: f21e51ef4ea0
+ac_hash_AC-5: 0dec3196b520
+artifact: docs/spec-reviews/WI-023-dave-review-2026-09-06.md
+```
