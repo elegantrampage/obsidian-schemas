@@ -1,5 +1,7 @@
 # WI-021 — frozen gate-round records (rounds drawer)
 
+<!-- archive-split:v1 — IMMUTABLE APPEND-ONLY ARCHIVE — mark inserted by hand 2026-09-06 per workshop's adoption answer: this drawer was hand-made (2026-08-11, extended 2026-09-05); do NOT run archive-split on WI-021, it is done and a run would move the living doc's stub headings here as noise -->
+
 **Immutable history. Do not edit, refresh, or re-litigate.** These are the complete appended
 review records of WI-021's AC-formation campaign (2026-08-11): 5 ac-red-team rounds, 14
 architectural reviews, 14 data audits, 14 spec-writer folds/hand-backs — moved here from
