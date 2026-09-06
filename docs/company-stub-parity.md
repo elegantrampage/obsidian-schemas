@@ -551,3 +551,24 @@ date: 2026-09-06
 model: claude-sonnet-5
 note: Fresh cold-start re-attack; both prior rounds' findings (AC-2 exclusion keying, AC-3 whitespace citation) hold closed against current source. New scrutiny of AC-1's 8-arm sweep (roundtrip_file's gate call is an unconditional no-op) and AC-4's lock/gate-hoist mechanics found nothing material — the mangler-removal property is independently pinned by AC-1's pattern-scan and create-arm oracles.
 ```
+
+## AC Sign-off
+
+```verdict
+gate: ac-signoff
+verdict: PROMOTE
+date: 2026-09-06
+reviewer: dave
+channel: cli
+signed_at: 2026-09-06T11:56:11+01:00
+provenance: verified
+signoff_escalation: ESC-WI-022-exploring-awaiting-ac-signoff-340c47f6
+ac_hash: 71cab2dae680
+intent_hash: 41902fee91dd
+ac_hash_AC-1: bc52957360c0
+ac_hash_AC-2: 2366298b900d
+ac_hash_AC-3: 95cb66f659d1
+ac_hash_AC-4: f96c089a5d0d
+ac_hash_AC-5: 6e2b4d29c531
+artifact: docs/spec-reviews/WI-022-dave-review-2026-09-06.md
+```
