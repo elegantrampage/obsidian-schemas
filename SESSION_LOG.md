@@ -70,6 +70,45 @@ Dave's word for its slot.
 Open: Dave's D4a on WI-022 (the artifact must be in HEAD first — WI-300's door), then relaunch the
 manifest so WI-016 resumes and WI-023 reaches its own D4a.
 
+### WI-022 SHIPPED dark (launch #2 on factory-v8); WI-016 + WI-023 parked at revise-caps
+
+Dave: "1. commit 2. wi-022 AC's approved 3. proceed". Leg artifacts committed (`566423e`, `f0c4314`,
+`ee57268`); D4a originated from the answered escalation (`ac_hash 71cab2dae680`, `intent_hash
+41902fee91dd`, provenance `verified`, five ACs — AC-5 the grounding-artifact shape) and committed with
+its in-doc fence (`821177f`, scar 1). v8 resume had SKIPPED WI-016 (its faulted record read as terminal)
+and driven WI-023 to an idea-stage revise-cap; so a FRESH launch (#2, `...T114148Z`) followed the
+sign-off. **WI-022 went exploring→done in that one leg, 22 spawns, zero touches**: spec-reviewer
+PROMOTE r2, threat-modeler PROMOTE, code-reviewer PROMOTE, test-observability PROMOTE, battery 5/5
+unforced; floor 657→667; HAL9000 602 / exocortex 658 / orchestrator 1406+1 green by hand. Ship commit
+carries the gate's company arm, the five-branch company table with negative specimens, the mangler's
+deletion, `created_by` provenance, and the `character_class_strip_sites` derivation.
+
+**Provenance incident, recorded honestly by the builder and closed by the conductor.** The spec's
+Prerequisite 2 required a CONDUCTOR amendment of `docs/company-name-corpus-audit.md` in a byte-specified
+shape (§0 vault walk, `Notes scanned:` lines, the shipped widened spelling) before the build — an
+obligation the conductor never saw (it landed in the spec rounds while the drive ran dark). Spawns 1
+and 2 ABORTED correctly, naming the one conductor act; the drive re-ran spawn 3 with the instruction to
+make AC-5 pass and the builder amended the artifact itself, labelling every added section as builder
+evidence and flagging the downgrade for Dave. Its reach claim is real: the cage CAN read the vault and
+the three consumer repos — the fence's stated reason for conductor ownership was false. At the quiesce
+the conductor re-executed all four amended `Command:` blocks verbatim — every figure re-derived
+exactly, matching the pre-build derivation in `566423e` — and wrote an attestation into the artifact.
+Bar note for workshop: a conductor obligation minted mid-drive by a gate needs a fork at the moment it
+is minted, not a build abort three legs later.
+
+**Two revise-caps, routed differently.** WI-023 (idea, ac-red-team `findings: 2/3`, `prior: none`):
+AC-3's fixture literal unpinned so its NOT clause can name nothing; AC-1's by-construction coverage
+unsupported by E8's eight-note roster — both with the fix stated by the gate, nothing signed at idea
+→ **granted one more round under Dave's 2026-08-11 standing grant**, resuming in `evidence-eeuyjmbu`.
+WI-016 (idea, ac-red-team re-verify of its OWN round-1 fold, two CRITICALs both on AC-5 again: the
+connective pool tokens `Me`/`to`/`->` cannot honestly carry a zero-hit census while AC-3 mandates a
+`Me to` specimen; the prose allowlist is an unbounded escape hatch reachable from identity fields) —
+a same-target repeat after a fold, which the grant reserves for Dave → **escalated, unanswered**;
+worktree persisted at `evidence-4me2roqe`. WI-026 skipped-needs (WI-016 not done).
+
+Also this session: the v8 pause-and-bless handshake with the factory session (already quiesced here;
+stop file deliberately NOT touched so the resume could run); WI-327 specimen reported.
+
 ---
 
 ## 2026-09-05
