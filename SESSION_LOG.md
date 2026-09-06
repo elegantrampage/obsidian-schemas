@@ -1,5 +1,27 @@
 # Session Log
 
+## 2026-09-06
+
+### Queue review ruled; the next manifest written (not launched)
+
+`/review-queue` after WI-021's ship, every open premise re-verified against the tree and the live
+vault (load re-measured: 1,147 people in 1.26s — perf un-park criteria still unmet). Dave: "I agree
+with your logic. log the new queue ordering." **New `queue_order`: WI-022, WI-016, WI-023, WI-028,
+WI-026, WI-025, WI-011, WI-009.** WI-022 leads as a live hourly LEAK (company.py:171's mangler +
+the gate passing declared non-person types untouched; exocortex's transcript cron writes Company
+entities). Staleness recommendations awaiting Dave's word: close WI-001 and WI-014 (superseded by
+HAL9000 WI-061's vault-tracking shared repository), close WI-015 (superseded by WI-004's stamps +
+`ExternalWriteConflict`), rewrite WI-007/WI-008's premises (their models exist, repositories do
+not), and mint a small repair item for the three live notes whose filename stem ≠ stored name
+(WI-021's parked defect 1; G4(b)). **Manifest** `state/manifests/queue-2026-09-06.yaml` — WI-022,
+WI-016, WI-023 (no `needs`, so its D4a parks beside the others), WI-026 (needs WI-016); WI-028
+deliberately held for the manifest after WI-023 ships. Validated with `load_manifest`; the
+convention invocation resolves (bare `-m pytest` = 657, ac_python = the project venv). Launch
+command in the file header; not launched. The WI-021 rounds drawer got the `archive-split:v1`
+mark (workshop's adoption answer) — never run archive-split on WI-021.
+
+---
+
 ## 2026-09-05
 
 ### WI-021 shipped idea→done (dark-factory drive #4, the long one) — the semantic write gate

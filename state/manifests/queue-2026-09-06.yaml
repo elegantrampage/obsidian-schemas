@@ -1,0 +1,54 @@
+# obsidian-schemas queue manifest — 2026-09-06. Dave's word (2026-09-06, after /review-queue): "I agree with
+# your logic. log the new queue ordering. Create a manifest of the first 3-5 (looking to minimise the amount of
+# downtime waiting for a human to respond to forks but balance that against later items having to spend too much
+# on drift from earlier items progressing)."
+#
+# Composition: four entries. WI-022 (the hourly leak) and WI-016 (the fixture enabler) are independent and lead.
+# WI-023 carries NO `needs` on purpose: its ideation/spec can park at D4a beside the other two while Dave is away,
+# instead of waiting behind WI-016's signature — the drift it risks (citing fixtures that do not exist yet) is
+# small because its tests can plant their own until WI-016 lands, and it is the item whose forks cost the most
+# human time, so it should reach them early. WI-026 genuinely needs WI-016 (its remaining scope IS a fixture-vault
+# test floor) and waits. WI-028 is deliberately NOT here: it builds resolution policy on the engine WI-023 replaces,
+# so it belongs in the manifest after WI-023 ships. WI-025 stays blocked on WI-023 and follows the same way.
+#
+# Launch (NOT launched by the conductor — Dave's word first), from the blessed stable channel:
+#
+#   ~/.local/bin/with-session-auth /Users/davewascha/Workspaces/workshop-stable/.venv/bin/python \
+#       /Users/davewascha/Workspaces/workshop-stable/src/manifest_runner.py \
+#       --manifest /Users/davewascha/Workspaces/obsidian-schemas/state/manifests/queue-2026-09-06.yaml \
+#       --headless --max-hours 10 --stop-file /tmp/obsidian-schemas-stop
+#
+# resolve_invocation's convention (<project>/.venv/bin/python -m pytest; ac_python = that interpreter) is
+# verified for this project on 2026-09-06: bare `.venv/bin/python -m pytest -q` from the root = 657 passed, and
+# the convention's ac_python closes the --ac-python gap WI-021's hand launches had. No invocation override needed.
+manifest: obsidian-schemas-queue-2026-09-06
+version: 1
+authored: 2026-09-06
+source: "Dave 2026-09-06: 'I agree with your logic. log the new queue ordering. Create a manifest of the first 3-5' — the /review-queue ranking of 2026-09-06 (leaks, then breadth/unblocks): WI-022, WI-016, WI-023, WI-026"
+entries:
+  - project: /Users/davewascha/Workspaces/obsidian-schemas
+    wi: WI-022
+    class: drive
+    l_build: false
+    note: "LEAK, hourly: company.py:171 still mangles names and the WI-021 gate passes declared non-person types untouched (name_gate.py:311), so exocortex's hourly transcript ingest (stages/company.py:209) can mint a stray @Bausch/ directory today. Extend the gate's path-hostile check to every declared type; company validator + provenance."
+    needs: []
+  - project: /Users/davewascha/Workspaces/obsidian-schemas
+    wi: WI-016
+    class: drive
+    l_build: false
+    note: "BREADTH + UNBLOCKS: zero fixture notes under tests/; real-data shapes inline in three files; the live vault churned under WI-021 (both sentinel stubs turned over in 25 days). Slice to THIS repo first — 'shared with consumers' is an open-space promise. Unblocks WI-026 by name. Pre-pipeline doc: needs Intent + ACs from ideation."
+    needs: []
+  - project: /Users/davewascha/Workspaces/obsidian-schemas
+    wi: WI-023
+    class: drive
+    l_build: false
+    note: "UNBLOCKS WI-025 + ROBUSTNESS: the strangler is still in place (person.py:699 legacy stub path, dormant index map :165; file is 1,896 lines). SPLIT CANDIDATE at exploration — deletion of the legacy cascade, the index cutover, and orchestrator WI-173's ~70 live conflicts are three promises in one title. No `needs` so its D4a parks beside the others rather than behind WI-016's signature."
+    needs: []
+  - project: /Users/davewascha/Workspaces/obsidian-schemas
+    wi: WI-026
+    class: drive
+    l_build: false
+    note: "ROBUSTNESS, re-scoped smaller twice: WI-004 closed the write path, WI-021 landed the D8 existence guard + counted refusal record + 2 tests. Remaining: a fixture-vault floor for the five auto-fixable rules and the silent `except Exception: continue` at lint_vault.py:117. Re-scope at spec time against the currency note."
+    needs:
+      - project: /Users/davewascha/Workspaces/obsidian-schemas
+        wi: WI-016
