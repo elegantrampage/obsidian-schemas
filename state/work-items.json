@@ -1,7 +1,7 @@
 {
   "project": "obsidian-schemas",
   "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
-  "last_scanned": "2026-09-06T18:29:53Z",
+  "last_scanned": "2026-09-07T11:00:27Z",
   "next_id": 31,
   "items": [
     {
@@ -1095,11 +1095,11 @@
     {
       "id": "WI-023",
       "title": "Identity engine endgame: delete the legacy cascade, cut over the unified index",
-      "stage": "specced",
+      "stage": "ready",
       "file": "docs/identity-engine-endgame.md",
       "created": "2026-07-05",
-      "last_touched": "2026-09-06",
-      "stage_changed": "2026-09-06",
+      "last_touched": "2026-09-07",
+      "stage_changed": "2026-09-07",
       "tags": [
         "identity",
         "wi-125-followup",
@@ -1124,6 +1124,13 @@
           "at": "2026-09-06",
           "by": "session",
           "forced": false
+        },
+        {
+          "from": "specced",
+          "to": "ready",
+          "at": "2026-09-07",
+          "by": "porter",
+          "forced": false
         }
       ],
       "latest_verdicts": {
@@ -1144,20 +1151,20 @@
         "ac-signoff": {
           "gate": "ac-signoff",
           "verdict": "PROMOTE",
-          "date": "2026-09-06",
+          "date": "2026-09-07",
           "reviewer": "dave",
           "channel": "cli",
-          "signed_at": "2026-09-06T17:23:59+01:00",
+          "signed_at": "2026-09-07T08:43:05+01:00",
           "provenance": "verified",
-          "signoff_escalation": "ESC-WI-023-exploring-awaiting-ac-signoff-9d293950",
-          "ac_hash": "583a1b6a293a",
+          "signoff_escalation": "ESC-WI-023-specced-awaiting-ac-signoff-90fe7e3e",
+          "ac_hash": "1c4e35e50556",
           "intent_hash": "ce7e35a70ea0",
-          "ac_hash_AC-1": "bd76924cea03",
+          "ac_hash_AC-1": "97b4e402abd5",
           "ac_hash_AC-2": "7523d81032ed",
           "ac_hash_AC-3": "a2ce8381aa34",
           "ac_hash_AC-4": "f21e51ef4ea0",
           "ac_hash_AC-5": "0dec3196b520",
-          "artifact": "docs/spec-reviews/WI-023-dave-review-2026-09-06.md"
+          "artifact": "docs/spec-reviews/WI-023-dave-review-2026-09-07.md"
         },
         "data-premise": {
           "gate": "data-premise",
@@ -1165,6 +1172,27 @@
           "date": "2026-09-06",
           "model": "claude-opus-5",
           "note": "The arm-selecting premise is grounded by a committed, re-runnable artifact \u2014 0 of 1021 live `emails:` entries refused, 0 divergences in both improvement classes, 0 live consumer reads of `_email_index` \u2014 and I verified the thing that makes those numbers admissible rather than trusting them: `_email_index` (person.py:192-197) and `_project_identifiers` (person.py:254-255) are both built from `entity.emails` alone over exactly the set `get_all()` returns, with an owned-scoped skip surface reporting 0 (base.py:258-307), so the audited domain IS the indexed domain; E2's rule fires to CUTOVER and no draft AC is falsified \u2014 the counterexample hunt's one live class (three cross-repo `orchestrator/docs/\u2026` pointers that AC-5's universal can never resolve, two surviving Cut 4) is dispositioned as a named exclusion AC-5's own \"`docs/`-relative\" wording already reads correctly."
+        },
+        "spec-reviewer": {
+          "gate": "spec-reviewer",
+          "verdict": "PROMOTE",
+          "date": "2026-09-07",
+          "model": "claude-opus-5",
+          "note": "Round 6's finding is closed on the class rather than the two sites \u2014 D12 states the self-collision rule over source LINES of this item's own tests/-root modules, derives its three bound literals from `## Verification`'s zero-count table instead of listing them, and its sweep found a third ordered site (Task 5's tripwire) the round did not name; I re-ran that sweep across all fifteen tasks and found no eighth site, re-derived AC-4's full 39-query space and replayed `select_resolution` over it (all 39 reproduce pre-cut `resolve()` except E7's two enumerated rows), hand-executed the three AC-1 cases whose runtime branch moves at Cut 1 (identical pairs both sides), and confirmed `Email.parse` accepts the padded angle-bracket form at `identifier.py:154-159` so AC-2's whitespace variant cannot split surface 1 from surface 2 \u2014 the four folds are complete with faithful quotes, the five criteria are byte-identical to the signed artifact, and the three notes remaining are cross-reference accuracy, not buildability, so round 6's escalation trigger stands unfired rather than waived."
+        },
+        "injection-hunter": {
+          "gate": "injection-hunter",
+          "verdict": "PROMOTE",
+          "date": "2026-09-07",
+          "model": "claude-sonnet-5",
+          "note": "Re-hunted cold-start after Spec Review round 7 (PROMOTE to ready) landed; independently re-ran the injection-phrasing and hidden-Unicode-control-character sweeps over the whole document rather than trusting the prior six rounds' reports, and got the same zero hits outside those rounds' own method paragraphs (which only name their search terms); byte-verified round 7's heaviest citation (identifier.py:Email.parse:144-169, the parseaddr/strip/refusal logic every round quotes) directly against source rather than the quote \u2014 accurate. The new section is a reviewer's own re-derived conclusion (a full 39-query replay, three hand-executed stub cases, a re-run of D12's sweep) that explicitly tests and discharges round 6's own escalation trigger in the open rather than letting it lapse \u2014 the opposite of what a planted steer toward PROMOTE would do."
+        },
+        "threat-modeler": {
+          "gate": "threat-modeler",
+          "verdict": "PROMOTE",
+          "date": "2026-09-07",
+          "model": "claude-opus-5",
+          "note": "No unsafe approach and no security gap in the design \u2014 the identity-confusion class (R2) is mitigated by a Cut-0 golden with tripwires regeneration cannot reach, Email.parse on the new read path is regex-free and fail-closed (identifier.py:144-169), and the interpreter bridge execs a validated argv list with no shell (ac_interpreter.py:96-155); the one real threat this review adds is mechanical and folds into existing tasks, so it is four mitigation fences rather than a REVISE \u2014 this item's three new repository-constructing modules live under tests/ (deliberately, to stay outside test_write_routing.py) and therefore outside test_no_implicit_vault_path_defaults:312-331, while base.py:_resolve_vault_path:94-104 silently falls back to OBSIDIAN_VAULT_PATH (set on Dave's machine) for an absent, blank or \".\" path, so the hand-run mutating recorder of Task 5 could mint ten notes and rewrite real emails: fields through gate_write in the live 1147-note vault with nothing in this repo catching it."
         }
       },
       "verdicts": [
@@ -1225,20 +1253,20 @@
         {
           "gate": "ac-signoff",
           "verdict": "PROMOTE",
-          "date": "2026-09-06",
+          "date": "2026-09-07",
           "reviewer": "dave",
           "channel": "cli",
-          "signed_at": "2026-09-06T17:23:59+01:00",
+          "signed_at": "2026-09-07T08:43:05+01:00",
           "provenance": "verified",
-          "signoff_escalation": "ESC-WI-023-exploring-awaiting-ac-signoff-9d293950",
-          "ac_hash": "583a1b6a293a",
+          "signoff_escalation": "ESC-WI-023-specced-awaiting-ac-signoff-90fe7e3e",
+          "ac_hash": "1c4e35e50556",
           "intent_hash": "ce7e35a70ea0",
-          "ac_hash_AC-1": "bd76924cea03",
+          "ac_hash_AC-1": "97b4e402abd5",
           "ac_hash_AC-2": "7523d81032ed",
           "ac_hash_AC-3": "a2ce8381aa34",
           "ac_hash_AC-4": "f21e51ef4ea0",
           "ac_hash_AC-5": "0dec3196b520",
-          "artifact": "docs/spec-reviews/WI-023-dave-review-2026-09-06.md"
+          "artifact": "docs/spec-reviews/WI-023-dave-review-2026-09-07.md"
         },
         {
           "gate": "data-premise",
@@ -1246,12 +1274,141 @@
           "date": "2026-09-06",
           "model": "claude-opus-5",
           "note": "The arm-selecting premise is grounded by a committed, re-runnable artifact \u2014 0 of 1021 live `emails:` entries refused, 0 divergences in both improvement classes, 0 live consumer reads of `_email_index` \u2014 and I verified the thing that makes those numbers admissible rather than trusting them: `_email_index` (person.py:192-197) and `_project_identifiers` (person.py:254-255) are both built from `entity.emails` alone over exactly the set `get_all()` returns, with an owned-scoped skip surface reporting 0 (base.py:258-307), so the audited domain IS the indexed domain; E2's rule fires to CUTOVER and no draft AC is falsified \u2014 the counterexample hunt's one live class (three cross-repo `orchestrator/docs/\u2026` pointers that AC-5's universal can never resolve, two surviving Cut 4) is dispositioned as a named exclusion AC-5's own \"`docs/`-relative\" wording already reads correctly."
+        },
+        {
+          "gate": "spec-reviewer",
+          "verdict": "REVISE",
+          "date": "2026-09-06",
+          "model": "claude-opus-5",
+          "targets": "AC-1, Task 4, Task 5, #design, #verification, #acceptance-criteria",
+          "prior": "none",
+          "basis": "original",
+          "findings": "2/5",
+          "note": "The item's spine is a golden recorded ONCE at Cut 0, and D3(b)/Task 5 specify one temp vault for both sweeps in unstated order \u2014 but AC-1's pre-cut sweep reuses through Branch B and its `_writeback_identifier` routes through `update_fields` \u2192 `gate_write`, whose `emails` arm (name_gate.py:387-404) rebuilds the list from `Email.parse(...).value` and so destroys both the `Jane Roe <\u2026>` and the `\" dana@example.com \"` plants, making the shared-vault reading record a resolve golden that contradicts E7's table on two of its three rows; separately AC-1's `name_validation.py:385-387` names a Tier-1 arrow-connective branch entry, not the weak-identity guard (`weak_identity_reason:502`, clause at `:530-532`), which D3's own symbol-anchored cite gets right."
+        },
+        {
+          "gate": "injection-hunter",
+          "verdict": "PROMOTE",
+          "date": "2026-09-06",
+          "model": "claude-sonnet-5",
+          "note": "No planted steering found across the driven doc, its nine prior gate verdicts, or its two cited artifacts (the corpus audit and Dave's spec-review record) \u2014 grepped for injection-style phrasing and hidden-Unicode control characters with zero hits, and spot-verified the document's heaviest-cited code anchors (person.py:458/512/946) resolve to real, matching definitions rather than fabricated pointers."
+        },
+        {
+          "gate": "spec-reviewer",
+          "verdict": "REVISE",
+          "date": "2026-09-06",
+          "model": "claude-opus-5",
+          "targets": "Task 10, Task 12, #design, #verification",
+          "prior": "held",
+          "basis": "original",
+          "findings": "2/6",
+          "note": "Round 1's two findings are closed and I re-derived both closures against the tree, but the item's documentation-truth enumeration is one class short of its own surface \u2014 Cut 1 and Cut 3 falsify four in-file surfaces D4/D7 do not name, sharpest being `_project_identifiers`' docstring at person.py:231-234 (\"a malformed-but-present field still resolves the old way\"), whose exact negation Task 7 ships as a test four lines below the ones D4 item 5 rewrites; and Task 12 orders a zero-count text scan with no pinned needle and no non-vacuity positive, while `## Verification`'s table that answered round 1's note now omits Task 12's and Task 10's `paren-decoration-at-the-door` zero-counts, so its \"enumerated rather than claimed\" pairing is false by two."
+        },
+        {
+          "gate": "injection-hunter",
+          "verdict": "PROMOTE",
+          "date": "2026-09-06",
+          "model": "claude-sonnet-5",
+          "note": "Re-hunted cold-start after the new Spec Review round 2 (REVISE) section landed; grepped the whole document and the touched package again for injection-style phrasing and hidden-Unicode control characters with zero hits beyond round 1's own method paragraph (which only names its search terms), and independently byte-verified the new section's four heaviest citations (person.py:231-234, :160-167, :193, :462-467) against the tree rather than trusting the quotes \u2014 all accurate, and the new material argues technically against the spec's own completeness rather than toward any verdict, the opposite direction a planted steer would push."
+        },
+        {
+          "gate": "spec-reviewer",
+          "verdict": "REVISE",
+          "date": "2026-09-06",
+          "model": "claude-opus-5",
+          "targets": "#design, Task 9, Task 12, #acceptance-criteria, #ac-sign-off",
+          "prior": "held",
+          "basis": "folded-material",
+          "findings": "2/5",
+          "note": "Round 2's two findings are closed and I re-derived both closures against the tree, but D11 \u2014 the fold written to close the strangler-prose class \u2014 is itself one member short: `resolve_all`'s docstring at person.py:520-521 states P4 in the file's own words (\"resolve() \u2026 stops at the first cascade hit\", which Cut 3 ends) and at :536-539 asserts the \"Emily M\" case is \"bumped 0.65 \u2192 0.90\" when step 6 records 0.6 at :626 and the bump lands on exactly 0.85, contradicting this document's own no-slack threshold disclosure \u2014 ninety lines above the `:615-617` comment D11 does name, reachable by no needle the plan pins, so the fix is a finding predicate scoped to the functions the cuts edit rather than a sixteenth table row; separately the AC preamble names `ac_hash 583a1b6a293a` and says a re-sign is owed while the `## AC Sign-off` fence records a completed D4b at `a8c767cdccea` whose artifact `docs/spec-reviews/WI-023-dave-review-2026-09-06-2.md` is absent from the tree."
+        },
+        {
+          "gate": "injection-hunter",
+          "verdict": "PROMOTE",
+          "date": "2026-09-06",
+          "model": "claude-sonnet-5",
+          "note": "Re-hunted cold-start after Spec Review round 3 (REVISE) landed; grepped the whole document again for injection-style phrasing and hidden-Unicode control characters with zero hits beyond the prior rounds' own method paragraphs (which only name their search terms), and independently byte-verified round 3's two heaviest citations (person.py:521, :537-538) against the tree \u2014 both accurate \u2014 plus the reported absence of the `-2` sign-off artifact via an independent glob; the new material argues technical inconsistency (an unfixed docstring, a sign-off preamble/fence mismatch) rather than pushing toward any verdict, the opposite direction a planted steer would push."
+        },
+        {
+          "gate": "threat-modeler",
+          "verdict": "PROMOTE",
+          "date": "2026-09-07",
+          "model": "claude-opus-5",
+          "note": "No unsafe approach and no security gap in the design \u2014 the identity-confusion class (R2) is mitigated by a Cut-0 golden with tripwires regeneration cannot reach, Email.parse on the new read path is regex-free and fail-closed (identifier.py:144-169), and the interpreter bridge execs a validated argv list with no shell (ac_interpreter.py:96-155); the one real threat this review adds is mechanical and folds into existing tasks, so it is four mitigation fences rather than a REVISE \u2014 this item's three new repository-constructing modules live under tests/ (deliberately, to stay outside test_write_routing.py) and therefore outside test_no_implicit_vault_path_defaults:312-331, while base.py:_resolve_vault_path:94-104 silently falls back to OBSIDIAN_VAULT_PATH (set on Dave's machine) for an absent, blank or \".\" path, so the hand-run mutating recorder of Task 5 could mint ten notes and rewrite real emails: fields through gate_write in the live 1147-note vault with nothing in this repo catching it."
+        },
+        {
+          "gate": "spec-reviewer",
+          "verdict": "REVISE",
+          "date": "2026-09-07",
+          "model": "claude-opus-5",
+          "targets": "Task 5, Task 12, Task 3, Task 13, M1, M2, M3, #design",
+          "prior": "held",
+          "basis": "folded-material",
+          "findings": "2/5",
+          "note": "Round 3's two findings are closed and I re-derived both closures against the tree, but D11's disposition rule now over-quantifies in the other direction \u2014 \"every authorized owner has at least one Cut-0 line gone\" (Task 12 clause (e2), and Task 5's Cut-0 variant of it) is FALSE by the fold's own table for two of the fifteen: `select_resolution` owns zero Cut-0 lines because it does not exist at Cut 0, and `_clear_indexes` owns exactly one prose line (`:327`) that D11 orders KEPT, its authorization resting on a CODE deletion at `:328` that `prose_lines` never emits \u2014 so the fold's closing check is RED against a correct build and the cheapest repairs are the two the same tasks forbid; separately the 2026-09-07 threat model declared M1\u2013M4 `kind: required` and the document has not been folded since, so there is no `## Mitigation Folds` section (a D8c refusal) and M1's recorder path-binding, M2's `seed_vault` dest guard and M3's `NO_ARG_CONSTRUCTION` scan over this item's `tests/`-root files appear in no task, no Design section and no Write Targets `why` \u2014 only M4 is landed, by D5 and Task 8."
+        },
+        {
+          "gate": "injection-hunter",
+          "verdict": "PROMOTE",
+          "date": "2026-09-07",
+          "model": "claude-sonnet-5",
+          "note": "Re-hunted cold-start after Threat Model (PROMOTE, M1\u2013M4) and Spec Review round 4 (REVISE) landed; independently re-ran the injection-phrasing and hidden-Unicode greps over the whole document rather than trusting the prior three rounds' reports, and got the same zero hits outside their own method paragraphs (which only name their search terms); byte-verified the newest sections' load-bearing claims (person.py:326-333's `_clear_indexes` docstring-vs-code-line split, and base.py's `_is_unconfigured`/`_resolve_vault_path` fallback to `OBSIDIAN_VAULT_PATH`) against the tree \u2014 both accurate. Both new sections argue technical findings (a live-vault-write gap the threat model surfaces rather than hides, a disposition-rule over-quantification) that push toward more scrutiny, the opposite direction a planted steer would push."
+        },
+        {
+          "gate": "spec-reviewer",
+          "verdict": "REVISE",
+          "date": "2026-09-07",
+          "model": "claude-opus-5",
+          "targets": "Task 2, #design, #verification, Task 6, #ac-sign-off",
+          "prior": "held",
+          "basis": "folded-material",
+          "findings": "1/6",
+          "note": "Round 4's two findings are closed and I re-derived both closures owner-by-owner against the tree (the thirteen authorized owners each lose a Cut-0 prose line; `_clear_indexes:327` is a docstring and `:328` is the CODE line `prose_lines` never emits; all four `fold` records are complete, `desc`-verbatim and their design/work quotes faithful at the sites they claim) \u2014 but Task 2's `prose_lines` fixture orders as a NEAR-MISS the very shape D8's rule and Task 2's own collected list call a MATCH: a code line whose trailing comment contains `\"\"\"` carries a COMMENT token, so the predicate emits one record for it, and the assertion \"NEITHER of which may be collected\" is RED against a correct build at the FIRST task in the plan \u2014 where the literal-instruction repair is to make `prose_lines` skip comments containing `\"\"\"`, silently removing a class from the finding surface D11's whole closure is re-founded on."
+        },
+        {
+          "gate": "injection-hunter",
+          "verdict": "PROMOTE",
+          "date": "2026-09-07",
+          "model": "claude-sonnet-5",
+          "note": "Re-hunted cold-start after Spec Review round 5 (REVISE) landed; independently re-ran the injection-phrasing and hidden-Unicode-control-character sweeps over the whole document rather than trusting the prior four rounds' reports, and got the same zero hits outside their own method paragraphs (which only name their search terms); byte-verified round 5's own quotes (D8's prose_lines rule text and Task 2's \"collected\" vs \"near-miss\" fixture lists) against the driven doc and read both grounding artifacts (the corpus audit, the AC sign-off YAML) in full \u2014 all accurate, no reviewer-addressed text, no payload. The new section is a self-consistency finding (Task 2's fixture calls a match a near-miss) argued from re-executed rules, pushing toward more scrutiny rather than any verdict \u2014 the opposite of a planted steer."
+        },
+        {
+          "gate": "spec-reviewer",
+          "verdict": "REVISE",
+          "date": "2026-09-07",
+          "model": "claude-opus-5",
+          "targets": "Task 9, Task 12, Task 2, Task 6, Task 11",
+          "prior": "held",
+          "basis": "folded-material",
+          "findings": "1/3",
+          "note": "Round 5's finding is closed and I re-derived the closure against the tokenizer (a trailing comment carrying `\"\"\"` holds a COMMENT token, so D8's rule owes it one record and the near-miss is the two code lines beneath) \u2014 but two of this item's checks are ordered to spell, in `tests/test_identity_endgame.py`, literals two other checks assert at ZERO across TESTS_ROOT: Task 9's AC-4 clause names `_email_index` in its `attribute_reads_in` attrs list while Task 6 now scans both roots for that string, and Task 12's clause (e3) plus its authorized-owner list name `PersonRepository._find_or_create_stub_legacy` while AC-1's frozen scan takes both roots \u2014 so each goes RED at the boundary where it is written, against a correct build, and the cheapest repairs are re-narrowing Task 6's scope (undoing round 5's own fold) or dropping an attribute from a signed criterion's check; Task 2 already states the rule that closes this and scopes it to plants alone."
+        },
+        {
+          "gate": "injection-hunter",
+          "verdict": "PROMOTE",
+          "date": "2026-09-07",
+          "model": "claude-sonnet-5",
+          "note": "Re-hunted cold-start after Spec Review round 6 (REVISE) landed; independently re-ran the injection-phrasing and hidden-Unicode-control-character sweeps over the whole document plus the two role-referenced docs at their real location (workshop-stable/docs/) rather than trusting the prior five rounds' reports \u2014 zero hits outside prior rounds' own method paragraphs (which only name their search terms) and one benign non-directed hit (\"pre-approved actions\", a security-pattern description in compartmentalization-security-review.md:80, not addressed to a reviewer); byte-verified round 6's own load-bearing citations (Task 9's attrs list, Task 6's and Task 11's both-roots scans) against the driven doc \u2014 all accurate. The new section is a self-consistency finding (two of the item's own checks collide with two of its own zero-count assertions at specific commit boundaries) argued from re-derived task text, pushing toward more scrutiny rather than any verdict \u2014 the opposite of a planted steer."
+        },
+        {
+          "gate": "spec-reviewer",
+          "verdict": "PROMOTE",
+          "date": "2026-09-07",
+          "model": "claude-opus-5",
+          "note": "Round 6's finding is closed on the class rather than the two sites \u2014 D12 states the self-collision rule over source LINES of this item's own tests/-root modules, derives its three bound literals from `## Verification`'s zero-count table instead of listing them, and its sweep found a third ordered site (Task 5's tripwire) the round did not name; I re-ran that sweep across all fifteen tasks and found no eighth site, re-derived AC-4's full 39-query space and replayed `select_resolution` over it (all 39 reproduce pre-cut `resolve()` except E7's two enumerated rows), hand-executed the three AC-1 cases whose runtime branch moves at Cut 1 (identical pairs both sides), and confirmed `Email.parse` accepts the padded angle-bracket form at `identifier.py:154-159` so AC-2's whitespace variant cannot split surface 1 from surface 2 \u2014 the four folds are complete with faithful quotes, the five criteria are byte-identical to the signed artifact, and the three notes remaining are cross-reference accuracy, not buildability, so round 6's escalation trigger stands unfired rather than waived."
+        },
+        {
+          "gate": "injection-hunter",
+          "verdict": "PROMOTE",
+          "date": "2026-09-07",
+          "model": "claude-sonnet-5",
+          "note": "Re-hunted cold-start after Spec Review round 7 (PROMOTE to ready) landed; independently re-ran the injection-phrasing and hidden-Unicode-control-character sweeps over the whole document rather than trusting the prior six rounds' reports, and got the same zero hits outside those rounds' own method paragraphs (which only name their search terms); byte-verified round 7's heaviest citation (identifier.py:Email.parse:144-169, the parseaddr/strip/refusal logic every round quotes) directly against source rather than the quote \u2014 accurate. The new section is a reviewer's own re-derived conclusion (a full 39-query replay, three hand-executed stub cases, a re-run of D12's sweep) that explicitly tests and discharges round 6's own escalation trigger in the open rather than letting it lapse \u2014 the opposite of what a planted steer toward PROMOTE would do."
         }
       ],
       "acceptance_criteria": [
         {
           "id": "AC-1",
-          "desc": "The duplicate is gone and a REAL oracle outlives it. `_find_or_create_stub_legacy` appears at zero sites across `obsidian_schemas/` and `tests/` \u2014 asserted as a LITERAL-STRING scan over the source TEXT of every file `tests/derivations.py:python_files_under` returns for those two roots, so that the 126-line `def` itself, every caller, and any comment or string mention are all in the scan's reach; never as a check against person.py:699 by line, and explicitly NOT via `functions_calling`. Both of the duplicate's consumers go with it, named: the vacuous parity cases at `tests/test_resolve_or_create.py:189-211` and `:214-224`, and `test_legacy_preserves_rich_note` at `tests/test_wi126_body_preservation.py:209-215`, whose engine twin at `:200-207` is left standing to carry the WI-126 body-preservation property alone. And no test's two legs both reach `resolve_or_create`, which is the tautology those six cases are in today. In its place a committed golden file records, for every case in a derived case set, the `(resolved_name, created_new)` pair `find_or_create_stub` returns; a test re-runs the identical cases against a fixture vault seeded from the golden's own declaration and asserts every pair matches. The case set is DERIVED from the fixture vault rather than hand-picked \u2014 that vault being E8's **ten-note roster, complete and cited rather than re-derived** \u2014 and the derivation is stated per branch, so the coverage claim is CONSTRUCTED rather than asserted: for every note, one case per `emails:` entry (`name=<the note's name>, email=<the entry>` \u2192 Branch A, email hit); one case per `phones:` entry (`name=<the note's name>, phone=<the entry>` \u2192 Branch A, phone hit \u2014 reachable only because `Priya Raman` and `Tomas Villalobos` carry `phones:`, which no note on the earlier eight-note roster did); one case for every note carrying a `company:`, pairing that note's FIRST name token with that company and NO identifiers (\u2192 Branch B, name+company reuse: 0.6 `partial-name` at person.py:610-612 plus the 0.25 company bump at :635-651 is exactly the 0.85 default threshold tested at :920, and `Tomas Villalobos` is the note that supplies it); and one not-present variant of each (\u2192 Branch C, create). A note added to the fixture joins the sweep automatically, and a note carrying no phone or no company contributes no case to those arms \u2014 which is why branch coverage is guaranteed by the ROSTER, not by the sweep, and why the roster is fixed as literals in E8 rather than left to the build. Two constraints on the derivation, because either one silently weakens the sweep while it still reads as total: a not-present PHONE is not-present under `phones_match`, never merely under string equality (E8 invariant 2 \u2014 `10790055852` reads like a fresh number and is one `phones_match` arm away from `0790055852`), and a not-present NAME is MULTI-TOKEN, because a single-token name with no email and no phone hits the weak-identity guard at `name_validation.py:385-387` and raises `WeakIdentityError` instead of reaching `create_stub`. And because Branch C cases WRITE, the golden freezes the ORDERED case list as data and the test replays it in that order: a case order re-derived from a filesystem walk at test time is machine-dependent, and every note a create case mints is visible to every later case in the same run. The golden is DATA in the repository, not a value recomputed at test time from the code under test.",
+          "desc": "The duplicate is gone and a REAL oracle outlives it. `_find_or_create_stub_legacy` appears at zero sites across `obsidian_schemas/` and `tests/` \u2014 asserted as a LITERAL-STRING scan over the source TEXT of every file `tests/derivations.py:python_files_under` returns for those two roots, so that the 126-line `def` itself, every caller, and any comment or string mention are all in the scan's reach; never as a check against person.py:699 by line, and explicitly NOT via `functions_calling`. Both of the duplicate's consumers go with it, named: the vacuous parity cases at `tests/test_resolve_or_create.py:189-211` and `:214-224`, and `test_legacy_preserves_rich_note` at `tests/test_wi126_body_preservation.py:209-215`, whose engine twin at `:200-207` is left standing to carry the WI-126 body-preservation property alone. And no test's two legs both reach `resolve_or_create`, which is the tautology those six cases are in today. In its place a committed golden file records, for every case in a derived case set, the `(resolved_name, created_new)` pair `find_or_create_stub` returns; a test re-runs the identical cases against a fixture vault seeded from the golden's own declaration and asserts every pair matches. The case set is DERIVED from the fixture vault rather than hand-picked \u2014 that vault being E8's **ten-note roster, complete and cited rather than re-derived** \u2014 and the derivation is stated per branch, so the coverage claim is CONSTRUCTED rather than asserted: for every note, one case per `emails:` entry (`name=<the note's name>, email=<the entry>` \u2192 Branch A, email hit); one case per `phones:` entry (`name=<the note's name>, phone=<the entry>` \u2192 Branch A, phone hit \u2014 reachable only because `Priya Raman` and `Tomas Villalobos` carry `phones:`, which no note on the earlier eight-note roster did); one case for every note carrying a `company:`, pairing that note's FIRST name token with that company and NO identifiers (\u2192 Branch B, name+company reuse: 0.6 `partial-name` at person.py:610-612 plus the 0.25 company bump at :635-651 is exactly the 0.85 default threshold tested at :920, and `Tomas Villalobos` is the note that supplies it); and one not-present variant of each (\u2192 Branch C, create). A note added to the fixture joins the sweep automatically, and a note carrying no phone or no company contributes no case to those arms \u2014 which is why branch coverage is guaranteed by the ROSTER, not by the sweep, and why the roster is fixed as literals in E8 rather than left to the build. Two constraints on the derivation, because either one silently weakens the sweep while it still reads as total: a not-present PHONE is not-present under `phones_match`, never merely under string equality (E8 invariant 2 \u2014 `10790055852` reads like a fresh number and is one `phones_match` arm away from `0790055852`), and a not-present NAME is MULTI-TOKEN, because a single-token name with no email and no phone hits the weak-identity guard at `obsidian_schemas/name_validation.py:weak_identity_reason:531-532` \u2014 case 1, `\" \" not in name and not email and not phone` \u2014 which `resolve_or_create` turns into a raised `WeakIdentityError` at `obsidian_schemas/repositories/person.py:resolve_or_create:934` instead of reaching `create_stub`. And because Branch C cases WRITE, the golden freezes the ORDERED case list as data and the test replays it in that order: a case order re-derived from a filesystem walk at test time is machine-dependent, and every note a create case mints is visible to every later case in the same run. The golden is DATA in the repository, not a value recomputed at test time from the code under test.",
           "why": "This is the item's safety net and the reason the deletion is safe rather than merely tidy (E1). The zero-sites clause is the deletion; the golden clause is what stops the deletion from being a net loss of evidence. The mechanism is spelled out because the obvious cite was wrong in a way that would have shipped this item's own defect class inside this item's own deletion criterion: `tests/derivations.py:871-885` `functions_calling(files, name)` returns \"every function whose OWN body calls `name`\", so deleting the two callers while leaving the 126-line `def _find_or_create_stub_legacy` in place returns the EMPTY SET and the zero-sites clause goes green with the duplicate still shipped. `derivations.py` exposes no public definition-scan (`_iter_functions` is private), and a literal-text scan is total here \u2014 it sees the `def`, which is the thing being asserted absent. Naming both consumers is likewise deliberate: one is scaffolding, but `test_legacy_preserves_rich_note` is a real passing test, and a criterion that forces a real test's deletion should say so out loud rather than let a build discover it. The both-legs clause is the specific defect found in the tree: six cases that read as the Phase-5 parity contract compare `parse_identifiers` + `resolve_or_create` against `parse_identifiers` + `resolve_or_create` and cannot fail for any change to either, because the Phase-4 adapter swap turned `find_or_create_stub` into the engine underneath them. Asserting the ABSENCE of that shape is what stops a build from \"repairing\" the harness by renaming it. Data-not-recomputation is the whole point: a golden regenerated from the post-cut code agrees with any implementation, which is the one way this oracle can be defeated. The per-branch derivation is spelled out for the same reason the mechanism is: \"by construction\" was a CLAIM about a fixture, and against the roster this document actually pinned it was false \u2014 the eight notes carried no `phones:` field and no `company:` field, so Branch A's phone arm had nothing to hit and Branch B's corroboration arm was unreachable, and a build taking both texts at their word would have shipped a sweep silently missing two of the four branches it names while this criterion read as though they were covered. Coverage lives in the roster, so the roster is where it is fixed (E8, now ten notes); naming the branch each derived case ENTERS, with the arithmetic for the one that is not obvious, is what makes the claim checkable by reading rather than by building. The two derivation constraints and the ordered-replay clause are cheap here and expensive later: a phone \"variant\" that `phones_match` unifies turns a create case into a resolve case and the golden records the wrong branch as though it were right; a single-token not-present name raises `WeakIdentityError` where the case expects a create; and a sweep whose case ORDER comes from a filesystem walk is a golden that passes on the machine that recorded it.",
           "check": "test_legacy_stub_is_gone_and_the_golden_is_the_oracle",
           "kind": "test"
