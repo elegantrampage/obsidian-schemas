@@ -9,6 +9,7 @@ stage_changed: 2026-03-22
 touched_by: session
 tags: [testing, real-data-fixtures]
 depends_on: []
+round_budget: 12
 ---
 
 # Frozen anonymized real-data fixture vault
