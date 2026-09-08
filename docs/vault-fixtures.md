@@ -2,15 +2,15 @@
 id: WI-016
 title: "Frozen anonymized real-data fixture vault"
 project: obsidian-schemas
-stage: specced
+stage: ready
 created: 2026-03-22
-last_touched: 2026-09-07
-stage_changed: 2026-09-07
+last_touched: 2026-09-08
+stage_changed: 2026-09-08
 touched_by: spec-writer
 tags: [testing, real-data-fixtures]
 depends_on: []
 round_budget: 12
-transitions: ["idea>exploring@2026-09-07@porter", "exploring>specced@2026-09-07@porter"]
+transitions: ["idea>exploring@2026-09-07@porter", "exploring>specced@2026-09-07@porter", "specced>ready@2026-09-08@porter"]
 ---
 
 # Frozen anonymized real-data fixture vault
@@ -34,8 +34,12 @@ performance and property-based testing; both were measured below and neither is 
 `.json` note under `tests/` at all. Every test that needs a vault therefore *builds one inline*, and
 there are 83 hand-typed `type: <entity>` frontmatter literals across 13 test files to prove it, each
 planted by that file's own private helper — `temp_vault`, `vault(tmp_path)`, `_note`, `_seed`,
-`_plant`, `_rich_note`, `_plant_company_note`, `_plant_carrier`. Nine helpers, thirteen files, one
-job.
+`_plant`, `_rich_note`, `_plant_company_note`, `_plant_carrier`, `_write`. Nine are named here, and a
+sweep of `tests/` for private note-planting helpers returns more of them (`plant_note`,
+`_plant_dirty`, `_seeded_person`, `_typed_note_without_a_name`, `_write_multi_section_person`, …).
+**The number is deliberately not pinned and nothing here rests on it** — an earlier draft wrote "Nine
+helpers" above a list of eight, which is the shape this document has now corrected in four places.
+The claim is the PREDICATE: thirteen files, one job, and no two of them share a corpus.
 
 The consequence is not "the fixtures are small". It is that **every property this package has learned
 the hard way lives in exactly one test's private literal, and nothing makes the next test inherit
@@ -843,7 +847,7 @@ rests on.
 | P7 | `pipeline-runners.yaml:34-38` write_authority | `obsidian_schemas/**`, `tests/**`, `scripts/**`, `docs/**`. **`tests/fixtures/**` is builder-writable; a top-level `fixtures/` would NOT be** and would be silently reverted after the spawn. |
 | P8 | `pyproject.toml:38-39` wheel packages | `packages = ["obsidian_schemas"]` — `tests/` is not packaged, so a corpus living there is **unreachable by HAL9000 / Exocortex / orchestrator** even after this ships. Consumers install `-e`, so they can reach the path on disk, but not by import. |
 | P9 | Which walls a fixture module would disturb | The filesystem-single-homing wall scans `python_files_under(PACKAGE_ROOT, SCRIPTS_ROOT)` only (`tests/test_write_routing.py:91`) — **`tests/` is out of its scope**, so a byte-copy materializer under `tests/` is legal. But `ast` **is** single-homed across `obsidian_schemas/` and `tests/` to `tests/derivations.py` (`:14-17`, asserted by `tests/test_name_gate_wall.py`), so no fixture module may name it. |
-| P10 | `rg 'José\|García\|Anne-Sophie\|Legrain\|Moises\|Vetup\|Sören'` over the tree | **38 hits across 8 files** — 35 in code: `test_wi126_body_preservation.py` 12, `test_repositories.py` 9, `test_name_validation.py` 5, `test_identity_index.py` 5, `test_name_cleaning.py` 4, `obsidian_schemas/name_cleaning.py` 1. The corruption corpus exists; it is just scattered and invisible to any test that did not type it. |
+| P10 | `rg 'José\|García\|Anne-Sophie\|Legrain\|Moises\|Vetup\|Sören'` over the tree | **38 hits across 8 files**, of which **36 are in `*.py`**: `test_wi126_body_preservation.py` 12, `test_repositories.py` 9, `test_name_validation.py` 5, `test_identity_index.py` 5, `test_name_cleaning.py` 4, `obsidian_schemas/name_cleaning.py` 1. (Corrected 2026-09-07: the summary previously read "35 in code" against a list summing to 36 — 35 is the five TEST files and the package hit makes 36. The per-file enumeration was and is exact; the data audit flagged the summary, and `## Problem / Motivation`'s own "35 literals scattered across five test files … plus one in `obsidian_schemas/name_cleaning.py`" was already correct.) The corruption corpus exists; it is just scattered and invisible to any test that did not type it. |
 | P11 | `Grep 'Fwd\|Fw:\|Re:\|\bFw\b'` over the whole seeded tree (added round 4) | **One file: `docs/vault-fixtures.md`.** Zero hits in `obsidian_schemas/` and zero in `tests/`. Mail-header connectives are grounded in nothing in this repository; the package's connective vocabulary is `Dave\|Me\|My` (`name_cleaning.py:46`, `:54`, `:55`). This is why `CONNECTIVE_SET` is re-enumerated and its non-vacuity clause dropped. |
 | P12 | Which model fields carry a PERSON or ORGANISATION name (`models.py`, read field by field, added round 4 — **partial; superseded by P14**, which is the complete pass over every declared field and adds `Watch.streaming_service` `:199`, `GiftIdea.source` `:243` and `Exploration.related` `:299`) | `Person.name` `:79`, `Person.aliases` `:80`, `Person.company` `:84`; `Company.name` `:128`; `Book.author` `:161`, `Book.publisher` `:166`; `Watch.director` `:195`, `Watch.recommended_by` `:200`; `Explore.source` `:224`; `GiftIdea.for_person` `:242` (alias `for`); `Meeting.attendees` `:261`. **`Meeting` declares NO `title` field** (`:259-263`) — AC-5(b)'s prior phrase "the company/meeting title fields" named a field the schema does not have. `Person.title` `:85` is a JOB title and carries no identity. `BaseEntity` adds only `type` and `tags` (`:39-40`). |
 | P13 | `_GENERIC_ORG_SUFFIXES` and how the package compares it (added round 4, **corrected round 5**) | Exactly eight members — `support`, `ltd`, `inc`, `corp`, `group`, `team`, `limited`, `llc` (`name_cleaning.py:58`). The comparison is `words[-1].lower() in _GENERIC_ORG_SUFFIXES` at `:148`, `:185` and `:191` — `str.lower()`, **not** `str.casefold()`; round 4 wrote "casefolded", which the package nowhere does. The eight members are ASCII so the two agree on them, but the corpus carries non-ASCII specimens deliberately, so AC-5(b) now names `str.lower()` as the operation its own test performs. Derivable either way, so the org-suffix admission stays read from the package rather than hand-declared. |
@@ -875,7 +879,13 @@ suite.
   design than it looks** (surfaced by the 2026-09-06 architect round; verified in the seeded tree).
   `load()` globs non-recursively from a single `vault_path` (`repositories/base.py:231`) and the four
   repositories partition that one directory by pattern: person and company BOTH inherit the default
-  `@*.md` (`base.py:196-198` — neither subclass overrides it), meeting declares `Meeting *.md`
+  `@*.md` (`base.py:195-198`, the whole `file_pattern` property — neither subclass overrides it; the
+  span is aligned here 2026-09-08 with `## Approach` and `## Verified Diagnosis` D-7, which is where
+  a review round found this site and AC-4's `desc` still carrying the narrower `:196-198`. **AC-4 is
+  SIGNED and is deliberately NOT edited for it:** the narrower span resolves, cites the same
+  property and supports the same claim, so moving it would buy a D4b re-sign for a navigational nit
+  — recorded so a later round can tell the divergence was checked rather than missed),
+  meeting declares `Meeting *.md`
   (`meeting.py:51-54`), book declares the catch-all `*.md` (`book.py:50-53`), and `save()` writes
   `vault_path / f"@{name}.md"` (`base.py:381-383`). Three things follow. (i) A subdirectory-per-type
   corpus — the tidy default — is globbed by NOTHING, so every repository-level criterion passes
@@ -1114,7 +1124,9 @@ Land `tests/fixtures/vault/` — a **frozen corpus of ~50 markdown notes** cover
 class. **The corpus is ONE FLAT DIRECTORY, mirroring the live vault, and this is load-bearing rather
 than cosmetic:** the repositories partition a single directory by FILENAME GLOB and walk it
 non-recursively — `load()` calls `self.vault_path.glob(self.file_pattern)` (`repositories/base.py:231`),
-person and company both inherit the default `@*.md` (`base.py:196-198`; neither subclass overrides),
+person and company both inherit the default `@*.md` (`base.py:195-198`, the whole `file_pattern`
+property; neither subclass overrides — the same span `## Verified Diagnosis` D-7 cites, aligned here
+2026-09-08 after a review round found the two differing by one line),
 meeting declares `Meeting *.md` (`meeting.py:51-54`), book declares `*.md` (`book.py:50-53`), and
 `save()` writes to `self.vault_path / f"@{name}.md"` (`base.py:381-383`). A tidy
 subdirectory-per-entity-type layout — the obvious choice for a spec-writer who has not read that glob
@@ -1199,7 +1211,12 @@ is **not reachable from an identity position at all** — the split is by POSITI
 bucket, because a bucket the scan consults everywhere is a bypass, not a wall — and generic
 organisation suffixes are admitted in identity positions from a set DERIVED from the package
 (`name_cleaning._GENERIC_ORG_SUFFIXES`, `:58`), never hand-declared, so `Voxleaf Ltd` does not oblige
-the conductor to certify that `Ltd` occurs zero times in a vault of 2,159 company notes. Reading that
+the conductor to certify that `Ltd` occurs zero times in a vault whose company notes the landed census
+now MEASURES at 659 live and 2,160 whole-vault (`docs/vault-shape-census.md`'s `census-meta` header,
+`vault_notes_company: 659`, with the whole-vault figure in the prose beneath it; an earlier draft wrote
+"2,159" from the 2026-07 company-name corpus audit and the argument holds identically at any of the
+three, which is why nothing rests on the number — corrected 2026-09-08 now that this item's own
+artifact is the source). Reading that
 set from the package is what stops a builder padding it, and it has one property worth writing down
 rather than leaving to be discovered: it makes a name-CLEANING set a load-bearing dependency of a
 PRIVACY wall, so a future edit there — made by someone not thinking about this corpus, with no AC
@@ -1247,7 +1264,22 @@ named here so the scope is not discovered at build time:** `obsidian_schemas/rep
 gains the `SKIP_REASONS` declaration described above — the item's only package change, one frozenset,
 inside `write_authority` (P7) — and `tests/derivations.py` gains the one syntax scan that binds it to
 `_skip_reason`'s returns, which is where it has to live because `ast` is single-homed there (P9) and
-no fixture module may name it. Migration of existing tests is
+no fixture module may name it. *(Two spec-time amendments, 2026-09-07, recorded here rather than
+silently diverging in `## Design`. The two files are still the only NON-TEST files the build touches
+and the package change is still one frozenset — plus the three named constants it is built from —
+but: `base.py` gains four module-level names rather than one, and `tests/derivations.py` gains TWO
+scans rather than one, the second being `skip_reason_literal_sites`, the wall that closes the
+hand-typed-literal class instead of its three current instances (§4). The TEST files the build
+touches are five beyond the two new ones, all of them authorised by D5 or by §4's disposition table
+and all declared in `## Write Targets`.)* *(A third spec-time amendment, 2026-09-08, folding the
+threat model's M1: **the containment wall's reach is the corpus bytes, the manifest module AND
+`docs/vault-shape-census.md`'s own bytes** — the artifact this whole approach delegates its privacy
+ground truth to sat outside every check in this document, including the one it grounds, so its prose
+could carry a real live-vault name with everything green and two signed criteria then asserting those
+bytes immutable. The census is still READ and never written by the build; what changes is that its
+whole byte stream now faces §6.1's extractor and the same four admissions the corpus's identity
+positions face, with the same predicate run one build phase earlier as a refusal in the precondition
+abort gate. §6.5 and `## Mitigation Folds` carry it.)* Migration of existing tests is
 limited to the three `^type:`-literal files as proof the surface is usable; the other ten migrate when
 next touched (D5).
 
@@ -1281,6 +1313,27 @@ fence per pool row, one ```census-meta fence for the snapshot header, every valu
 adds no obligation the fence did not already impose: every column it names is a key, and no column
 it names is dropped.
 
+**A SECOND thing the fence leaves to two readings, pinned here for the same reason and at the same
+cost — WHAT A POOL ROW'S SUBJECT IS.** The fence charges the conductor that "EVERY PSEUDONYMOUS
+SPECIMEN'S IDENTITY-POSITION TOKENS MUST BE CONSTRUCTED STRINGS" and that each "needs a pool row
+exactly as a `name:` does", and never says whether a TOKEN is a WORD or is whatever AC-5(b)'s pinned
+run rule extracts. The two disagree on exactly the shapes this corpus exists to carry. **A pool row's
+subject is an EXTRACTED TOKEN under §6.1's run rule and never a word a reader would separate** — a run
+is maximal over {Unicode letters, combining marks, `'`, `-`} and is never restarted at an internal
+capital or split at an internal hyphen, so `Anne-Sophie Legrain` yields `{Anne-Sophie, Legrain}` and
+NOT `{Anne, Sophie, Legrain}`, and a specimen carrying a hyphen-fused pair owes a pool row for the
+COMPOUND as well as (optionally) for its halves. Certifying the halves alone leaves the compound
+uncertified, AC-5(b) then refuses it in an identity position, AC-5(c) cannot be satisfied by adding a
+row (`## Scope Boundary` forbids the builder writing the census), and the build reddens on a wholly
+correct corpus with no in-cage remedy — the R10 shape, one artifact out. The landed census satisfies
+this: its Method section states the granularity in as many words, and `Brenvik-Tarnquil` and
+`Pellworth-Wexlund` each carry their own row beside `Brenvik`/`Tarnquil` and `Pellworth`/`Wexlund`.
+**M2's abort gate is what keeps it satisfied for every later census pass** — the gate refuses when the
+artifact carries an identity-position token its own pool table does not certify, run through
+`identity_tokens` rather than through a reader's idea of a word (§6.5, Task 3). This adds no
+obligation the fence did not already impose either; it settles which of two readings of its own
+sentence the machine takes.
+
 ```writes
 path: obsidian_schemas/repositories/base.py
 why: Task 2 — the module-level SKIP_REASONS frozenset (this item's ONLY package change) plus the three module-level reason constants _skip_reason returns by name, per AC-4's "create the declaration rather than keep transcribing it" fold; inside write_authority (P7).
@@ -1288,7 +1341,7 @@ why: Task 2 — the module-level SKIP_REASONS frozenset (this item's ONLY packag
 
 ```writes
 path: tests/derivations.py
-why: Task 2 — skip_reason_return_values, the one syntax scan binding SKIP_REASONS to _skip_reason's own returns. It lands HERE and nowhere else because `ast` is single-homed to this module by a standing set-EQUALITY wall over python_files_under(PACKAGE_ROOT, TESTS_ROOT), asserted twice (tests/test_name_gate_wall.py:1136 and tests/test_loud_fail_harness.py:103), so a syntax-reading predicate has exactly one legal home (P9).
+why: Task 2 — TWO syntax scans: skip_reason_return_values, binding SKIP_REASONS to _skip_reason's own returns, and skip_reason_literal_sites, the class-closing wall returning every file whose parsed syntax carries a str Constant equal to a SKIP_REASONS member (§4). Both land HERE and nowhere else because `ast` is single-homed to this module by a standing set-EQUALITY wall over python_files_under(PACKAGE_ROOT, TESTS_ROOT), asserted twice (tests/test_name_gate_wall.py:_check_the_ast_capability_stays_single_homed:1132, live assertion at :1136, and tests/test_loud_fail_harness.py:103), so a syntax-reading predicate has exactly one legal home (P9). Reading syntax rather than source text is what lets base.py:37's `#` type comment and errors.py:112's prose docstring stay untouched with no exception carved for either.
 ```
 
 ```writes
@@ -1298,12 +1351,12 @@ why: Tasks 3-4 — the frozen corpus DIRECTORY, ~50 flat markdown notes. The dir
 
 ```writes
 path: tests/fixture_vault.py
-why: Tasks 4-8 — the declared manifest (NOTES / SKIPS / LOADABLE / RESOLVABLE / IDENTITY_FIELDS), the frozen CORPUS_DIGEST with its regeneration recipe in the module docstring, materialize_vault's byte copy, and AC-5's three literal frozensets. No test logic lives here.
+why: Tasks 4-8 — the declared manifest (NOTES / SKIPS / LOADABLE / RESOLVABLE / IDENTITY_FIELDS), the frozen CORPUS_DIGEST with its regeneration recipe in the module docstring, materialize_vault's byte copy, and AC-5's three literal frozensets. No test logic lives here. It imports MALFORMED_FRONTMATTER / SCHEMA_DRIFT / UNREADABLE from obsidian_schemas.repositories.base for SKIPS's reason values rather than re-spelling them, because §4's skip_reason_literal_sites wall sweeps this file too; it is NOT a check module and must not carry the interpreter bridge (§3.1).
 ```
 
 ```writes
 path: tests/test_fixture_vault.py
-why: Tasks 2 and 4-9 and 12 — the five acceptance checks, the SKIP_REASONS binding test with its planted-shape battery, the identity-token extractor's claimed-match-shape battery (WI-235), the census fence reader, and the wall-membership run. New module; every `check:` name AC-1 through AC-5 declares resolves here and nowhere else, which is the uniqueness rule tests/test_ac_interpreter.py:76-87 states for this project.
+why: Tasks 2 and 4-9 and 12 — the five acceptance checks, the SKIP_REASONS binding test with its planted-shape battery and the one hand-typed spelling pin, the identity-token extractor's claimed-match-shape battery (WI-235), the census fence reader, the threat model's M1 scan over the census's own bytes plus the CENSUS_PROSE_ALLOWLIST frozenset it needs (§6.5 — declared HERE and not in the manifest, because AC-5(b) is signed text naming fixture_vault.py's frozensets as exactly three), and the wall-membership + battery-parity runs. New module; every `check:` name AC-1 through AC-5 declares resolves here and nowhere else, which is the uniqueness rule tests/test_ac_interpreter.py:76-87 states for this project. It OPENS with `from tests.ac_interpreter import ensure_project_interpreter` and `ensure_project_interpreter(__file__)` as its first executable statement, ahead of every package import, exactly as this project's six other library-executing check modules do (§3.1) — all five of this item's checks execute the library behind pydantic, and tests/ac_interpreter.py:7-25 records the five-of-five ModuleNotFoundError battery that convention exists to prevent.
 ```
 
 ```writes
@@ -1323,19 +1376,30 @@ why: Task 10 — D5's proof set, ADDITIVE only: top-level test_corpus_vault_load
 
 ```writes
 path: tests/test_loud_fail_load.py
-why: Task 11 — the one line at :187-188 that hand-types the same three skip-reason strings the fold's own solve-in-one-place argument cites; it reads SKIP_REASONS instead, which is strictly stronger (a fourth reason with no specimen in that module's matrix vault goes RED where the hand-typed set stays green).
+why: Task 11 — the TWO hand-typed sites in this module, not one. :187-188 transcribes the whole codomain and reads SKIP_REASONS instead, which is strictly stronger (a fourth reason with no specimen in that module's matrix vault goes RED where the hand-typed set stays green); :209 re-spells "unreadable" twenty-two lines below it, inside the same function, and reads the UNREADABLE constant instead. Both are named because §4's skip_reason_literal_sites wall asserts set EQUALITY over the vocabulary's legal homes and would be RED with either left in place.
+```
+
+```writes
+path: tests/test_name_gate.py
+why: Task 11 — the third hand-typed site, `assert _skip_reason(exc) == "unreadable"` at :152, which reads the UNREADABLE constant instead. One line and one import; nothing else in this module is touched, and its own assertions are unaffected because the constant's value is the same string. Declared as a write target rather than left out of scope because §4's wall is a set EQUALITY over the whole of python_files_under(PACKAGE_ROOT, TESTS_ROOT) — an unrepointed site here is RED, so "leave it" was not an available arm.
 ```
 
 ## Acceptance Criteria
 
-Draft — originated cold-start, approval-only, re-derived from the frozen `## Intent`. **Not yet
-frozen:** the `ac-signoff` fence is written by `bin/review-spec-helper.py` only after Dave's review,
-never by hand. Every `check` is a top-level zero-argument `def test_*(` that signals failure by
-raising, per the battery's direct-invocation contract (`tests/support.py:1-19`).
+Originated cold-start, approval-only, re-derived from the frozen `## Intent`. **FROZEN — Dave signed
+these criteria on 2026-09-08 (`## AC Sign-off`, `signed_at: 2026-09-08T01:14:48+01:00`), and the
+frozen text is `docs/spec-reviews/WI-016-dave-review-2026-09-08.md`.** This preamble read "Draft …
+Not yet frozen" until 2026-09-08; it was true when written and is corrected here rather than left,
+because it is the sentence a later gate reads to decide whether the quality bar's Check 12 fires and
+it had come to say the opposite of the truth. Every remaining correction to a criterion's own text is
+now a D4b re-sign, not a word in a draft — §10 P-2 records the one such correction already made
+(AC-3(iv)'s re-taken `CENSUS_DIGEST`) and the single re-sign it owes. Every `check` is a top-level
+zero-argument `def test_*(` that signals failure by raising, per the battery's direct-invocation
+contract (`tests/support.py:1-19`).
 
 ```criteria
 id: AC-1
-desc: A frozen corpus exists at `tests/fixtures/vault/` holding at least 50 notes, and it is materialized by BYTE COPY rather than by any write door. Three legs. (a) FROZEN — `tests/fixture_vault.py` declares a digest constant computed over the corpus as `sha256` of the sorted sequence of (repo-relative POSIX path, file bytes), and the digest recomputed at test time EQUALS it, so editing, adding or deleting any fixture note without updating the constant is RED. (b) FAITHFUL — `materialize_vault(dest)` into a fresh empty directory reproduces the corpus byte-for-byte: the same relative path set and the same per-file bytes, with the digest over the materialized tree equal to the same constant. (c) THE DISCRIMINATOR — the corpus contains at least one note whose stored `name:` matches a live Tier-1 branch (an arrow-connective descriptor and a path-hostile name are both present, named in the manifest as such), and materialization of the WHOLE corpus succeeds with those notes present and byte-identical. A build that materializes via `repo.save()`, `write_markdown_file` or `create_stub` raises `NameGateRefusal` on exactly those members and is RED on this leg.
+desc: A frozen corpus exists at `tests/fixtures/vault/` holding at least 50 notes, and it is materialized by BYTE COPY rather than by any write door. Three legs. (a) FROZEN — `tests/fixture_vault.py` declares a digest constant computed over the corpus as `sha256` of the sorted sequence of (CORPUS-RELATIVE POSIX path, file bytes), each field NUL-framed, and the digest recomputed at test time EQUALS it, so editing, adding or deleting any fixture note without updating the constant is RED. THE KEY IS CORPUS-RELATIVE AND NEVER REPO-RELATIVE, AND THAT WORD IS LOAD-BEARING RATHER THAN PEDANTIC: the corpus is ONE FLAT DIRECTORY (`## Approach`), so a corpus-relative path IS the bare filename — exactly the `path.name` §5.2's walk hashes — while a repo-relative key would make leg (b) UNSATISFIABLE BY CONSTRUCTION, because the materialized tree lives under a caller-supplied temp directory that has no repo-relative path at all. An earlier draft said "repo-relative" here and left the item buildable two ways, since §5.2's code keys on the name; the two coincide once the word is corpus-relative, and fixing it while these criteria are drafts costs one word where fixing it after signature costs a D4b re-sign. (b) FAITHFUL — `materialize_vault(dest)` into a fresh empty directory reproduces the corpus byte-for-byte: the same relative path set and the same per-file bytes, with the digest over the materialized tree equal to the same constant — which is a real assertion only because the digest's key is the filename and therefore travels with the bytes. AND THE SECOND CALL IS ASSERTED TOO, NOT ONLY THE FIRST: `materialize_vault` is re-invoked against that SAME `dest` after a foreign file has been placed in it, and the leg asserts that every corpus member is overwritten with identical bytes, that the digest over the corpus members is unchanged, and that the FOREIGN FILE SURVIVES — `materialize_vault` adds, it never empties a caller-supplied directory. The oracle for the second call is deliberately the corpus members and NOT `corpus_digest(dest)` over the whole directory, because the foreign file is a member of that tree and not of the corpus. Without this the idempotency and no-clean rules `## Edge Cases` decides are resolved in prose with nothing exercising them, and a future `shutil.rmtree(dest)` added "for cleanliness" would destroy a caller's directory with every criterion still green. (c) THE DISCRIMINATOR — the corpus contains at least one note whose stored `name:` matches a live Tier-1 branch (an arrow-connective descriptor and a path-hostile name are both present, named in the manifest as such), and materialization of the WHOLE corpus succeeds with those notes present and byte-identical. A build that materializes via `repo.save()`, `write_markdown_file` or `create_stub` raises `NameGateRefusal` on exactly those members and is RED on this leg.
 why: "Frozen" without a mechanism is a wish — nothing otherwise stops a future test from editing a fixture to make itself pass, and the corpus then drifts silently for every other test that trusted it. Legs (a) and (b) are separate on purpose: (a) catches an edit to the checked-in bytes, (b) catches a materializer that transforms on the way out (normalizing line endings, re-serializing YAML, dropping a note it cannot parse) — a corpus whose specimens are cleaned up in transit is the Alice/Bob corpus wearing the real one's name. Leg (c) is the planted discriminating member (WI-286): byte-copy is not a performance choice, it is the ONLY mechanism that can carry these specimens, because WI-021's gate is a predicate on every frontmatter-writing arm and WI-022 extends it to companies — the gate exists precisely to make these notes uncreatable through the package. Without leg (c) a builder reaches for the repository API (the obvious, idiomatic thing), the refused specimens get quietly dropped from the corpus, and the corruption corpus this item is FOR is the part that silently does not ship.
 check: test_fixture_vault_is_frozen_and_materialized_by_byte_copy
 kind: test
@@ -1351,7 +1415,7 @@ kind: test
 
 ```criteria
 id: AC-3
-desc: Every corruption shape class the census MEASURED has a specimen in the corpus, every specimen has a declared verdict, and every class the census RULED ABSENT is on the record rather than missing. The class table is read from `docs/vault-shape-census.md` (the precondition artifact), whose rows carry a class id, a `count`, a `status` of MEASURED or ABSENT, the scan command, its stdout and — for MEASURED rows only — a specimen. THE THREE ASSERTIONS ARE SCOPED BY STATUS, WHICH IS WHAT KEEPS THIS CRITERION AND `## Write Targets` FROM CONTRADICTING EACH OTHER. (i) EQUALITY, over MEASURED rows only: `{class id : status == MEASURED}` EQUALS the manifest's covered classes, both directions — a measured class with no specimen in the corpus is RED, and a specimen belonging to no measured census class is RED. An ABSENT row is outside this equality entirely and is never RED for having no specimen. (ii) PER-ROW SHAPE, conditional on status: a MEASURED row must carry a count > 0, a non-empty command, non-empty stdout and a specimen; an ABSENT row must carry a count of exactly 0, a non-empty command, non-empty stdout and an affirmative absent ruling, and must NOT carry a specimen — so a class cannot be hidden by leaving its status blank, and an "absent" ruling cannot be asserted without the scan that supports it. THE NON-EMPTY-STDOUT ASSERTION IS SATISFIABLE AT BOTH STATUSES ONLY BECAUSE OF A CONSTRAINT ON THE COMMAND, AND THAT CONSTRAINT IS PART OF THIS CRITERION RATHER THAN AN ASSUMPTION IT MAKES ABOUT THE CONDUCTOR: `## Write Targets` requires every recorded scan command to emit a COUNT rather than raw match lines, so a true zero result records verbatim as `0`. Asserted against a bare match-listing scan this leg would be unsatisfiable by construction on exactly the honest ABSENT row it exists to police — a search that finds nothing writes nothing — and the only routes through would be typing non-verbatim prose into the ledger or leaving a correctly-ruled-absent class permanently RED. (iii) THE CLASS FLOOR — DERIVED FOR THE HALF THAT HAS A DECLARATION, HAND-LISTED ONLY FOR THE HALF THAT DOES NOT. The ids below are asserted PRESENT in the table as rows of EITHER status, which is the machine-checked form of `## Write Targets`'s "a class measured at ZERO is a row the conductor writes": it is what stops a census from silently omitting a shape, rather than trusting prose to the conductor. **THE BRANCH HALF IS READ FROM THE PACKAGE AT TEST TIME AND IS NOT TRANSCRIBED INTO THIS CRITERION AT ALL** — the floor includes `{record.branch_id for record in TIER1_BRANCHES + COMPANY_TIER1_BRANCHES}` (`name_validation.py:190-309` and `:371-438`), the same runtime read of an exported declaration AC-2 makes against `TYPE_TO_MODEL` and AC-4 against `_skip_reason`'s codomain, and the same sweep unit `tests/test_name_gate.py:212` and `tests/test_company_name_contract.py:369` already use — so the census's class table must carry a row for EVERY refusal branch this package declares, and a branch added to either table later joins the floor automatically instead of waiting for someone to notice. Ten ids today, and THE DERIVED SET IS ASSERTED NON-EMPTY AND OF EXACTLY THAT SIZE (LESSONS #46: a derived read returns green when it works and green when it silently reads nothing — an import resolving to an empty tuple, a renamed `branch_id` attribute — so the size at the moment of writing is the cheapest available form of having seen the derivation red; it is the POPULATION's size and never an oracle, since what each specimen must produce stays hand-declared): `email_chars`, `rfc2822_leak`, `arrow_connective`, `calendar_prefix`, `me_to_prefix`, `path_hostile`, `archive_prefix`, `unknown_contact`, `pure_digit`, `empty`. THE FLOOR IS ASSERTED IN BOTH DIRECTIONS OVER BRANCH-KEYED ROWS, not only as census ⊇ derived: every census row whose id is branch-shaped must also be IN the derived set, so a row naming a `branch_id` the package no longer declares is RED rather than surviving as a phantom — assertion (i) supplies the reverse direction for MEASURED rows only, which leaves exactly the ABSENT phantom uncovered, and LESSONS #45 says a check documented as deliberately one-directional is an open defect rather than a note. THE COMPANY ARM IS OUT OF THIS CORPUS'S SCOPE, STATED AFFIRMATIVELY RATHER THAN CLAIMED AS A SIDE EFFECT: five ids appear in both tables (`email_chars`, `arrow_connective`, `path_hostile`, `archive_prefix`, `empty`) but a deduped floor writes ONE census row per `branch_id` and the corpus carries ONE specimen, whose DECLARED TYPE decides which table `gate_write` consults (`name_gate.py:329-343` vs `:361-363`) — so a person-typed `path_hostile` specimen exercises the person arm ONLY, and an earlier draft's "those specimens exercise the company arm as well" was one word too strong. That is not a coverage hole and no company-typed specimen is required here: the company table already has its own in-tree refusal sweep over every one of its records' `specimen` and `negative_specimen` (`tests/test_company_name_contract.py:359-459`), which is the WI-022 surface this item does not duplicate. THE CLASS TABLE'S ROW ID FOR A BRANCH-BACKED CLASS IS THE `branch_id` ITSELF, so those ten need no naming reconciliation before origination and cannot drift apart from the package. THE KEY IS `branch_id` AND NEVER `pattern`: `arrow_connective`, `calendar_prefix` and `me_to_prefix` all RAISE the shared pattern `calendar_prefix` (`:216`, `:228`, `:240`, stated outright in the dataclass docstring at `:152-154`), so a pattern-keyed floor would silently re-merge three classes this criterion treats as separate — `Dave -> Thomas Gatten`, `Dave - Thomas Gatten` and `Me to David Field` (`:217`, `:229`, `:241`) are three distinct character profiles the census must measure one at a time, and the census must be authored against those profiles rather than against a paraphrase of them. **THE HAND-LISTED HALF IS THE SIX SHAPE CLASSES THAT HAVE NO BRANCH**, where there is no declaration to derive from and this list is the only available statement of intent: diacritics, hyphenated/multi-part surnames, whitespace damage (double-space / leading-trailing — Tier 2, `_DOUBLE_SPACE_RE` `:445`, no Tier-1 branch), filename-stem-does-not-equal-stored-name divergence, a same-name collision of at least three notes, and A POSTAL ADDRESS LEAKED INTO A NAME FIELD, which `### Examples of done` names by name and which no branch is (the nearest, `rfc2822_leak`, is an at-mangled address FUSED ONTO a name — its own specimen is `Naomi Pavie naomipavieatspeechmaticscom`, `:202-205` — not a postal address), so the census is charged in `## Write Targets` with either confirming that one present with a MEASURED row and a specimen or writing an ABSENT row that states affirmatively it does not occur in the live vault. ONLY THOSE SIX are reconciled to the census's own naming BEFORE origination — the artifact is a precondition and lands in HEAD while these criteria are still drafts (WI-300), so a shape class the census names differently costs one edit here rather than a re-sign. For each class on the floor, the manifest declares the verdict the specimen must produce and the test asserts it: either a refusal (`NameGateRefusal` — the WI-021 leaf, never the `LoudFailError` root — carrying the named `pattern` on its `.pattern` attribute when the specimen's name is re-introduced through a write arm), or a declared cleaned form (`clean_person_name` output asserted equal to a hand-written string), or a declared successful byte-identical load. SOME BRANCHES WILL PLAUSIBLY DISCHARGE AS ABSENT, AND THAT IS THE FLOOR WORKING RATHER THAN AN OBLIGATION THE CORPUS CANNOT MEET: `empty` above all — `create_stub` guards its validator call with `if name and name.strip():`, so the branch has never fired in production and this item is what introduces it on the write path (`name_validation.py:295-299`) — and a live vault holding no empty-named note gets an ABSENT row with its count, command and stdout, satisfies assertion (iii), never enters assertion (i)'s equality, and obliges no specimen. Both discharges satisfy assertion (iii) and only the MEASURED one enters assertion (i)'s equality, so a class ruled absent is on the record and is not a failure. TWO OF THE HAND-LISTED SIX MAY ALSO BE ONE: the corpus is a single flat directory (see `## Approach`), so a same-name collision is necessarily several distinct filenames sharing one stored `name:` — structurally the divergence class — and the CENSUS rules whether the live vault separates them. If it rules them ONE class, it writes one row whose id the floor accepts for both members of the pair, and the manifest's covered-class set FOLLOWS that ruling; assertion (i) is RED only when manifest and census disagree over MEASURED rows, never for the table holding fifteen class rows rather than sixteen. (iv) CENSUS FIXITY — THE ARTIFACT THIS CRITERION TREATS AS GROUND TRUTH IS FROZEN BY THE SAME MECHANISM AC-1(a) GIVES THE CORPUS, AND ITS EXPECTED VALUE HAS NO IN-CAGE HOME. `sha256` over the bytes of `docs/vault-shape-census.md`, recomputed at test time, EQUALS a 64-character lowercase hex literal — and THE LITERAL LIVES IN THIS CRITERION'S OWN TEXT, filled in at the same one-time pre-origination edit that reconciles this criterion's six hand-listed shape classes and AC-5(b)'s `CONNECTIVE_SET`: the census lands in HEAD as the WI-300 precondition BEFORE Dave signs, so its digest is knowable exactly then, and the signature freezes it. The test READS that literal out of the AC-3 `criteria` fence in `docs/vault-fixtures.md` — a plain in-tree file read, the same hermetic move this criterion already makes on the census, no subprocess and no vault call — rather than comparing against a constant declared in `tests/fixture_vault.py`, and the reason is the whole point of the leg: `docs/**` is builder-writable in full (`pipeline-runners.yaml:34-38`, P7 — no carve-out for a landed precondition), so a constant the build owns can be updated in the same commit that edits the census, and the check certifies nothing. `fixture_vault.py` MAY restate the digest for readability, but the value ASSERTED AGAINST is the one in the signed criterion. The leg additionally asserts that exactly ONE such declaration was found WITHIN THE AC-3 `criteria` FENCE and that it is well-formed 64-character lowercase hex, so a reader helper that finds nothing is RED rather than vacuously green (LESSONS #46 again). THE UNIQUENESS IS FENCE-SCOPED AND NEVER FILE-WIDE, AND THAT SCOPE IS LOAD-BEARING RATHER THAN TIDY: every gate section in this document quotes the criterion text it reviews, so once `CENSUS_DIGEST` carries a real 64-hex value, ONE round-10 quotation of the filled declaration would turn a file-wide uniqueness assertion RED — and its only remedy would be editing a historical gate section, which is the one edit this document's whole carry-forward convention exists to forbid. The read is therefore bounded to the fence the signature freezes, which is the same text the assertion is about. THE DECLARATION, WITH ITS VALUE STILL TO BE FILLED, IS `CENSUS_DIGEST = sha256:<PENDING — 64 lowercase hex, written here at the one-time pre-origination edit once `docs/vault-shape-census.md` is in HEAD, and NEVER by the build>`; origination must not proceed while the placeholder stands, which is the same door AC-3's class-naming and AC-5(b)'s `CONNECTIVE_SET` reconciliation already pass through and costs no extra interruption of Dave. The test reads both artifacts, asserts assertions (i)–(iv) over their parsed rows and text, and makes no subprocess, network or live-vault call.
+desc: Every corruption shape class the census MEASURED has a specimen in the corpus, every specimen has a declared verdict, and every class the census RULED ABSENT is on the record rather than missing. The class table is read from `docs/vault-shape-census.md` (the precondition artifact), whose rows carry a class id, a `count`, a `status` of MEASURED or ABSENT, the scan command, its stdout and — for MEASURED rows only — a specimen. THE THREE ASSERTIONS ARE SCOPED BY STATUS, WHICH IS WHAT KEEPS THIS CRITERION AND `## Write Targets` FROM CONTRADICTING EACH OTHER. (i) EQUALITY, over MEASURED rows only: `{class id : status == MEASURED}` EQUALS the manifest's covered classes, both directions — a measured class with no specimen in the corpus is RED, and a specimen belonging to no measured census class is RED. An ABSENT row is outside this equality entirely and is never RED for having no specimen. (ii) PER-ROW SHAPE, conditional on status: a MEASURED row must carry a count > 0, a non-empty command, non-empty stdout and a specimen; an ABSENT row must carry a count of exactly 0, a non-empty command, non-empty stdout and an affirmative absent ruling, and must NOT carry a specimen — so a class cannot be hidden by leaving its status blank, and an "absent" ruling cannot be asserted without the scan that supports it. THE NON-EMPTY-STDOUT ASSERTION IS SATISFIABLE AT BOTH STATUSES ONLY BECAUSE OF A CONSTRAINT ON THE COMMAND, AND THAT CONSTRAINT IS PART OF THIS CRITERION RATHER THAN AN ASSUMPTION IT MAKES ABOUT THE CONDUCTOR: `## Write Targets` requires every recorded scan command to emit a COUNT rather than raw match lines, so a true zero result records verbatim as `0`. Asserted against a bare match-listing scan this leg would be unsatisfiable by construction on exactly the honest ABSENT row it exists to police — a search that finds nothing writes nothing — and the only routes through would be typing non-verbatim prose into the ledger or leaving a correctly-ruled-absent class permanently RED. (iii) THE CLASS FLOOR — DERIVED FOR THE HALF THAT HAS A DECLARATION, HAND-LISTED ONLY FOR THE HALF THAT DOES NOT. The ids below are asserted PRESENT in the table as rows of EITHER status, which is the machine-checked form of `## Write Targets`'s "a class measured at ZERO is a row the conductor writes": it is what stops a census from silently omitting a shape, rather than trusting prose to the conductor. **THE BRANCH HALF IS READ FROM THE PACKAGE AT TEST TIME AND IS NOT TRANSCRIBED INTO THIS CRITERION AT ALL** — the floor includes `{record.branch_id for record in TIER1_BRANCHES + COMPANY_TIER1_BRANCHES}` (`name_validation.py:190-309` and `:371-438`), the same runtime read of an exported declaration AC-2 makes against `TYPE_TO_MODEL` and AC-4 against `_skip_reason`'s codomain, and the same sweep unit `tests/test_name_gate.py:212` and `tests/test_company_name_contract.py:369` already use — so the census's class table must carry a row for EVERY refusal branch this package declares, and a branch added to either table later joins the floor automatically instead of waiting for someone to notice. Ten ids today, and THE DERIVED SET IS ASSERTED NON-EMPTY AND OF EXACTLY THAT SIZE (LESSONS #46: a derived read returns green when it works and green when it silently reads nothing — an import resolving to an empty tuple, a renamed `branch_id` attribute — so the size at the moment of writing is the cheapest available form of having seen the derivation red; it is the POPULATION's size and never an oracle, since what each specimen must produce stays hand-declared): `email_chars`, `rfc2822_leak`, `arrow_connective`, `calendar_prefix`, `me_to_prefix`, `path_hostile`, `archive_prefix`, `unknown_contact`, `pure_digit`, `empty`. THE FLOOR IS ASSERTED IN BOTH DIRECTIONS OVER BRANCH-KEYED ROWS, not only as census ⊇ derived: every census row whose id is branch-shaped must also be IN the derived set, so a row naming a `branch_id` the package no longer declares is RED rather than surviving as a phantom — assertion (i) supplies the reverse direction for MEASURED rows only, which leaves exactly the ABSENT phantom uncovered, and LESSONS #45 says a check documented as deliberately one-directional is an open defect rather than a note. THE COMPANY ARM IS OUT OF THIS CORPUS'S SCOPE, STATED AFFIRMATIVELY RATHER THAN CLAIMED AS A SIDE EFFECT: five ids appear in both tables (`email_chars`, `arrow_connective`, `path_hostile`, `archive_prefix`, `empty`) but a deduped floor writes ONE census row per `branch_id` and the corpus carries ONE specimen, whose DECLARED TYPE decides which table `gate_write` consults (`name_gate.py:329-343` vs `:361-363`) — so a person-typed `path_hostile` specimen exercises the person arm ONLY, and an earlier draft's "those specimens exercise the company arm as well" was one word too strong. That is not a coverage hole and no company-typed specimen is required here: the company table already has its own in-tree refusal sweep over every one of its records' `specimen` and `negative_specimen` (`tests/test_company_name_contract.py:359-459`), which is the WI-022 surface this item does not duplicate. THE CLASS TABLE'S ROW ID FOR A BRANCH-BACKED CLASS IS THE `branch_id` ITSELF, so those ten need no naming reconciliation before origination and cannot drift apart from the package. THE KEY IS `branch_id` AND NEVER `pattern`: `arrow_connective`, `calendar_prefix` and `me_to_prefix` all RAISE the shared pattern `calendar_prefix` (`:216`, `:228`, `:240`, stated outright in the dataclass docstring at `:152-154`), so a pattern-keyed floor would silently re-merge three classes this criterion treats as separate — `Dave -> Thomas Gatten`, `Dave - Thomas Gatten` and `Me to David Field` (`:217`, `:229`, `:241`) are three distinct character profiles the census must measure one at a time, and the census must be authored against those profiles rather than against a paraphrase of them. **THE HAND-LISTED HALF IS THE SIX SHAPE CLASSES THAT HAVE NO BRANCH**, where there is no declaration to derive from and this list is the only available statement of intent: diacritics, hyphenated/multi-part surnames, whitespace damage (double-space / leading-trailing — Tier 2, `_DOUBLE_SPACE_RE` `:445`, no Tier-1 branch), filename-stem-does-not-equal-stored-name divergence, a same-name collision of at least three notes, and A POSTAL ADDRESS LEAKED INTO A NAME FIELD, which `### Examples of done` names by name and which no branch is (the nearest, `rfc2822_leak`, is an at-mangled address FUSED ONTO a name — its own specimen is `Naomi Pavie naomipavieatspeechmaticscom`, `:202-205` — not a postal address), so the census is charged in `## Write Targets` with either confirming that one present with a MEASURED row and a specimen or writing an ABSENT row that states affirmatively it does not occur in the live vault. RECONCILED 2026-09-07 against `docs/vault-shape-census.md`, whose six hand-listed ids are `diacritics`, `hyphenated_surname`, `whitespace_damage`, `stem_name_divergence`, `same_name_collision`, `postal_address_in_name` (the ONE-or-TWO ruling: TWO classes — collision ABSENT, divergence MEASURED). ONLY THOSE SIX are reconciled to the census's own naming BEFORE origination — the artifact is a precondition and lands in HEAD while these criteria are still drafts (WI-300), so a shape class the census names differently costs one edit here rather than a re-sign. For each class on the floor, the manifest declares the verdict the specimen must produce and the test asserts it: either a refusal (`NameGateRefusal` — the WI-021 leaf, never the `LoudFailError` root — carrying the named `pattern` on its `.pattern` attribute when the specimen's name is re-introduced through a write arm), or a declared cleaned form (`clean_person_name` output asserted equal to a hand-written string), or a declared successful byte-identical load. SOME BRANCHES WILL PLAUSIBLY DISCHARGE AS ABSENT, AND THAT IS THE FLOOR WORKING RATHER THAN AN OBLIGATION THE CORPUS CANNOT MEET: `empty` above all — `create_stub` guards its validator call with `if name and name.strip():`, so the branch has never fired in production and this item is what introduces it on the write path (`name_validation.py:295-299`) — and a live vault holding no empty-named note gets an ABSENT row with its count, command and stdout, satisfies assertion (iii), never enters assertion (i)'s equality, and obliges no specimen. Both discharges satisfy assertion (iii) and only the MEASURED one enters assertion (i)'s equality, so a class ruled absent is on the record and is not a failure. TWO OF THE HAND-LISTED SIX MAY ALSO BE ONE: the corpus is a single flat directory (see `## Approach`), so a same-name collision is necessarily several distinct filenames sharing one stored `name:` — structurally the divergence class — and the CENSUS rules whether the live vault separates them. If it rules them ONE class, it writes one row whose id the floor accepts for both members of the pair, and the manifest's covered-class set FOLLOWS that ruling; assertion (i) is RED only when manifest and census disagree over MEASURED rows, never for the table holding fifteen class rows rather than sixteen. (iv) CENSUS FIXITY — THE ARTIFACT THIS CRITERION TREATS AS GROUND TRUTH IS FROZEN BY THE SAME MECHANISM AC-1(a) GIVES THE CORPUS, AND ITS EXPECTED VALUE HAS NO IN-CAGE HOME. `sha256` over the bytes of `docs/vault-shape-census.md`, recomputed at test time, EQUALS a 64-character lowercase hex literal — and THE LITERAL LIVES IN THIS CRITERION'S OWN TEXT, filled in at the same one-time pre-origination edit that reconciles this criterion's six hand-listed shape classes and AC-5(b)'s `CONNECTIVE_SET`: the census lands in HEAD as the WI-300 precondition BEFORE Dave signs, so its digest is knowable exactly then, and the signature freezes it. The test READS that literal out of the AC-3 `criteria` fence in `docs/vault-fixtures.md` — a plain in-tree file read, the same hermetic move this criterion already makes on the census, no subprocess and no vault call — rather than comparing against a constant declared in `tests/fixture_vault.py`, and the reason is the whole point of the leg: `docs/**` is builder-writable in full (`pipeline-runners.yaml:34-38`, P7 — no carve-out for a landed precondition), so a constant the build owns can be updated in the same commit that edits the census, and the check certifies nothing. `fixture_vault.py` MAY restate the digest for readability, but the value ASSERTED AGAINST is the one in the signed criterion. The leg additionally asserts that exactly ONE such declaration was found WITHIN THE AC-3 `criteria` FENCE and that it is well-formed 64-character lowercase hex, so a reader helper that finds nothing is RED rather than vacuously green (LESSONS #46 again). THE UNIQUENESS IS FENCE-SCOPED AND NEVER FILE-WIDE, AND THAT SCOPE IS LOAD-BEARING RATHER THAN TIDY: every gate section in this document quotes the criterion text it reviews, so once `CENSUS_DIGEST` carries a real 64-hex value, ONE round-10 quotation of the filled declaration would turn a file-wide uniqueness assertion RED — and its only remedy would be editing a historical gate section, which is the one edit this document's whole carry-forward convention exists to forbid. The read is therefore bounded to the fence the signature freezes, which is the same text the assertion is about. THE DECLARATION, FILLED AT THE 2026-09-07 PRE-ORIGINATION EDIT ONCE THE CENSUS WAS IN HEAD (re-taken 2026-09-08 after the M1 prose remediation and the compound-token pool rows), IS `CENSUS_DIGEST = sha256:4cb7945f643415b7fba9347f2f0ecee30a3b054bb9aa1ba875e2551b93b599cb`; origination must not proceed while a placeholder stands, which is the same door AC-3's class-naming and AC-5(b)'s `CONNECTIVE_SET` reconciliation already pass through and costs no extra interruption of Dave. The test reads both artifacts, asserts assertions (i)–(iv) over their parsed rows and text, and makes no subprocess, network or live-vault call.
 why: This criterion is what makes the corpus a corruption corpus rather than a tidy sample, and reading the class list FROM the census is what gives the precondition artifact teeth inside the suite: without it the census can be discharged as one hand-waved prose paragraph and the corpus quietly reverts to D2, a fixture drawn from the fixtures that already exist — which LESSONS #27 says is structurally blind to exactly the tail the corpus is for. Equality in both directions is deliberate: one direction stops the corpus under-covering the measured estate, the other stops it accumulating specimens nobody measured, which is how a corpus starts asserting things about a vault that no longer holds. Declaring a verdict per specimen rather than merely holding the bytes is the WI-286 oracle again — a corpus that only CONTAINS `"Dave -> Thomas Gatten (Adzact)"` proves nothing about whether anything refuses it, and the classes listed are precisely the forms this package has already been burned by, so each one having a stated expected answer is what lets the next name-touching change regress against them instead of rediscovering them. Naming the address-leaked-into-a-name-field class explicitly closes the one gap between this list and Dave's own picture of done: assertion (i)'s equality is against whatever the census DECLARES, not against `### Examples of done`, so a census that recorded only the classes it happened to trip over could have dropped the one specimen Dave asked for by name and left every criterion green. DERIVING THE BRANCH HALF OF THE FLOOR RATHER THAN TRANSCRIBING IT IS THE ONE THING TO KEEP IF THIS CRITERION IS EVER EDITED AGAIN, AND THE HISTORY IS THE ARGUMENT. This floor has been hand-corrected twice and been wrong both times: round 3 added it, round 6 added `archive_prefix` and `unknown_contact` and asserted it then covered "eight of the ten live person Tier-1 branches", and a seventh read of `TIER1_BRANCHES` itself found the real prior count was FOUR (`rfc2822_leak`, `arrow_connective`, `me_to_prefix`, `path_hostile`) rising to six, with `calendar_prefix`, `email_chars`, `pure_digit` and `empty` all still missing. `calendar_prefix` was the expensive one: it is a live branch with its own id, its own specimen (`Dave - Thomas Gatten`, `:229`), its own recovery arm (`name_cleaning.py:46`, stripped at `:121`) and it is the sole source of `CONNECTIVE_SET`'s frozen `Dave` member — AC-5(b) justifies that member by citing exactly this branch — while this criterion's own parenthetical named it as a class distinct from the arrow one in the same breath that the floor omitted it. Nothing in assertions (i)–(iii) reads the package's branch table, so a conductor authoring the census works from this list, never thinks to measure `Dave -`/`Me -` prefixes as a class of their own, and every assertion stays green over a corpus with no specimen for four of the package's ten refusal branches — which is precisely the silent omission assertion (iii) exists to make impossible, defeated because the floor never named the shape for the census to measure. That is LESSONS #45 exactly: a registry validated only against itself is a mirror, not a census, and the remedy is to derive the actual population from the source and assert set-equality with the registry. So the fix removes the hand-transcription rather than pruning its third instance — the branch half is now a runtime read of two tuples the package exports and whose `branch_id` is unique by its own docstring, and only the six classes with no declaration to read stay hand-listed. Keying on `branch_id` rather than `pattern` is load-bearing and not a detail: three branches deliberately raise the shared pattern `calendar_prefix`, so a pattern-keyed derivation would re-merge the three classes this criterion separates and reintroduce the same gap by another route. It stays a FLOOR rather than a promise: if the live vault carries no archived or scanner-artifact names, the census writes each an ABSENT row with its count, command and stdout, assertion (iii) is satisfied, assertion (i) never sees them, and nothing is RED. Scoping the three assertions BY STATUS is what makes that fix hold without turning honesty into a failure: the previous draft charged the conductor to write a zero row and then, in the same breath, marked a class with no specimen RED — so a correct, honest census was a false block and the cheapest way back to green was to delete the row, which is exactly the silent omission the fix was for. Splitting them gives each obligation its own assertion: (iii) makes the row's PRESENCE mandatory (the machine-checked form of the prose charge, so no shape can vanish), (i) makes only MEASURED rows owe a specimen, and (ii) stops either from being discharged with a blank cell — a status left empty, a count with no scan behind it, an absent ruling with no command. The floor being reconciled before origination is the WI-300 ordering doing its job: the census lands in HEAD while these are still drafts, so a class the artifact names differently is one line edited here rather than a frozen criterion and a second interruption of Dave. ASSERTION (iv) EXISTS BECAUSE EVERY OTHER ASSERTION IN THIS CRITERION TRUSTS AN ARTIFACT NOTHING IN THIS PIPELINE FREEZES, AND THAT WAS THE LAST UNGUARDED ESCAPE HATCH IN THE SET. The suite is hermetic and cannot read the live vault, so the census is the ONLY place "this class occurs N times in the real vault" can be settled — and its content is entirely unprotected once it lands: `docs/**` is in this project's `write_authority` in full with no carve-out for a landed precondition (`pipeline-runners.yaml:34-38`, P7), the build-spawn precheck and WI-300's grounding-ordering backstop check only that the path is SOME committed blob in HEAD at one moment before the build starts and never compare its content afterwards, and the pipeline's one merge-boundary integrity wall over docs is scoped BY DESIGN to files carrying work-item frontmatter — a shared non-work-item doc's edit is declared legitimate build traffic there, which `docs/vault-shape-census.md` is, carrying no `id: WI-*` of its own. The concrete route it closes, and it is not hypothetical for either criterion that reads the artifact: a builder facing a MEASURED row whose character profile is awkward to author faithfully edits that row in place to `status: ABSENT`, `count: 0`, with a plausible command/stdout pair typed in, and drops the specimen — assertion (i) is scoped to MEASURED rows so the row exits the equality entirely, assertion (ii)'s per-row shape check is satisfied by construction because the builder wrote exactly the shape it demands, nothing re-derives the count because nothing can, and the floor whose declared purpose is "a class measured at zero is a row the conductor writes, not a row that may be omitted" is defeated by precisely the means it exists to prevent, every assertion green. AC-5(c) is the worse half of the same hole and is why the leg is asserted there too: a builder wanting a convenient `NAME_POOL` token that happens to collide with a real name in a vault it cannot see adds a pool-table row with a fabricated non-occurrence scan, and `## Intent`'s one sentence about Dave's contacts' real names has no machine check behind it at all. This criterion's own AC-1(a) already states the remedy applied to the wrong artifact — "frozen without a mechanism is a wish" — and the fix is that identical `sha256`-over-bytes move, with the one difference that decides whether it works: the expected value lives in the SIGNED CRITERION rather than in a module the build owns, because a digest constant a builder can edit in the same commit as the file it digests is not a wall. Absent this leg the census's trustworthiness rests on a human noticing an unexpected diff to a shared doc during code review — which is exactly the "reviewable by eye" control AC-5's own `why:` argues is not good enough for this item's privacy property. ONE RECURRING COST IS NAMED HERE RATHER THAN DISCOVERED BY WHOEVER PAYS IT: because the branch half of the floor is derived, a new Tier-1 branch added to either table reddens this criterion immediately, and discharging it needs a census row carrying a count, a scan command and verbatim stdout — all of which need the live vault, which no caged builder can read — so a routine package change (WI-022 just added a whole company table) is blocked on a conductor pass, and under (iv) that pass now also re-freezes the digest. That is LESSONS #45's intended friction and it is not weakened here; it is written down because round 4 weakened AC-5(c) to a containment specifically to remove paired edits across the cage boundary, and the derived floor reintroduces one in the other direction, so the next branch author should be told rather than surprised.
 check: test_every_census_corruption_class_has_a_specimen_with_a_verdict
 kind: test
@@ -1359,15 +1423,15 @@ kind: test
 
 ```criteria
 id: AC-4
-desc: Loading the materialized corpus through the repositories produces exactly the declared skip surface, asserted PER REPOSITORY. THE DOMAIN OF EVERY EQUALITY IN THIS CRITERION IS ONE REPOSITORY, NEVER A UNION ACROSS THEM — the manifest declares `{repository_type: {path: reason}}`, keyed by each repository's own `type_name` (`repositories/base.py:191`). THE SET OF REPOSITORIES IS DERIVED, NOT LISTED: the sweep takes the concrete `BaseRepository` subclasses the package exports (`obsidian_schemas/repositories/__init__.py`'s `__all__`, `:14-21` — the imports end at `:12`, and an earlier draft's `:8-20` cite spanned both and matched neither; excluding `BaseRepository` itself) and asserts the manifest declares a mapping for exactly that set, keyed by `type_name` — the same runtime read of an exported declaration AC-2 makes against `TYPE_TO_MODEL` and AC-3 against the Tier-1 tables' `branch_id`, applied here because a hand-written "the four repositories are person, company, meeting, book" is the same transcription that let AC-3's floor sample its own branch table, and a fifth repository added later would otherwise join the corpus's blind spot silently instead of failing until it has declared skips and a declared loadable count. WHICH READ IS MEANT IS PINNED, BECAUSE THE TWO AVAILABLE ONES ARE NOT EQUIVALENT: the sweep iterates the names `obsidian_schemas/repositories/__init__.py` EXPORTS (`__all__`, `:14-21`) and keeps those that are concrete `BaseRepository` subclasses — deterministic, and a fixed list the package authors — never `BaseRepository.__subclasses__()`, whose answer depends on which modules happen to have been imported. THAT EXPORT LIST IS FILTERED, NEVER ITERATED WHOLE, because it is not homogeneous: `__all__` also carries `VaultPathNotConfiguredError` (`:16`), an EXCEPTION rather than a repository, which the concrete-`BaseRepository`-subclass filter drops — the filter as stated already handles it, and saying so here is what saves the build a round spent discovering that a six-name export list does not mean six repositories. And one implementability detail is settled here rather than at build time: `type_name` is an abstract `@property` (`base.py:189-193`), readable off an INSTANCE and not off the class, so each repository must be instantiated against the materialized vault before the manifest's key set can be compared — which legs (a) and (c) do anyway, so this is ordering rather than a gap. Four today — `person`, `company`, `meeting`, `book` — and the derived set is asserted NON-EMPTY and of exactly that size (LESSONS #46, for the same reason AC-2's and AC-3's derivations are: a read that silently resolves to nothing is green, and the size at the moment of writing is the cheapest form of having seen it red). The other four `TYPE_TO_MODEL` members have no repository at all, so they are AC-2's parser-level business alone — and that asymmetry FOLLOWS from the two derivations rather than being separately checked, which is what an earlier draft claimed. Saying it was "itself checked" described an assertion of the form `A - B == A - B`: with both sides derived and no expected value declared, it passes for any package and asserts nothing. It costs nothing to drop, because a fifth repository is already caught by the derived sweep proper — which demands a declared mapping and a declared loadable count for it — and keeping it would have made this criterion its own counterexample to the governing rule it states three sentences later. WHAT IS DERIVED IS THE POPULATION AND NEVER THE ORACLE, AND THE LINE MATTERS: which repositories exist is a fact the package declares and must be read from it, while WHAT each one is expected to own — the globs and the ownership outcomes spelled out below — is the hand-written expected value a wrong-but-self-consistent implementation must MISMATCH (WI-286), so reading those from the code under test would turn this criterion into a mirror of it. THE SKIP-REASON CODOMAIN IS MADE READABLE BY THIS ITEM AND IS THEN READ, BECAUSE TODAY THERE IS NOTHING TO READ AND AN EARLIER DRAFT OF THIS CRITERION CLAIMED OTHERWISE: `_skip_reason` (`repositories/base.py:41-47`) returns three BARE STRING LITERALS — `:44`, `:46`, `:47` — with a type comment on `SkippedNote.reason` at `:37`, and the package exports no frozenset, tuple, dict or enum of them anywhere, so unlike `TYPE_TO_MODEL` (a dict AC-2 reads), the `branch_id` union (two exported tuples AC-3 reads) and this criterion's own repository set (`__all__`), there is no declaration here at all and the only thing anyone has ever been able to do with this codomain is hand-transcribe it, which `tests/test_loud_fail_load.py:187-188` does today (P20). SO THE FIX IS TO CREATE THE DECLARATION RATHER THAN TO KEEP TRANSCRIBING IT, AND IT IS ONE LINE OF PACKAGE CHANGE INSIDE THIS ITEM'S BUILD: `repositories/base.py` gains a module-level `SKIP_REASONS` frozenset whose members `_skip_reason` returns BY NAME rather than as re-spelled literals (`obsidian_schemas/**` is in this project's `write_authority`, P7), and this criterion reads it at test time exactly as AC-2 reads `TYPE_TO_MODEL`. AN EXPORT ON ITS OWN WOULD BE DECORATION — NOTHING WOULD MAKE A FOURTH ARM UPDATE IT — SO IT IS TIED TO THE FUNCTION BY A SYNTAX DERIVATION IN THE ONE PLACE THIS TREE PERMITS ONE: `tests/derivations.py`, the standing shared scan module and the only file under `obsidian_schemas/` or `tests/` allowed to name `ast` (P9), gains ONE scan returning the set of string values `_skip_reason`'s own body can return — every `Return` whose value is a `str` Constant, plus every `Return` of a module-level Name bound in that file to a `str` Constant — and the criterion asserts that set EQUALS `SKIP_REASONS`. THE EQUALITY DIRECTION IS WHAT MAKES THAT WALL HOLD RATHER THAN MERELY EXIST, and it has three consequences worth stating so a builder does not weaken it to a containment: an arm added to `_skip_reason` without a matching frozenset member is RED at that equality; an arm whose return the scan CANNOT resolve to a literal makes the scan silently UNDER-read, which the equality reports RED instead of passing green (LESSONS #46 — the failure mode of every derived read in this document); and `SKIP_REASONS` is additionally asserted NON-EMPTY and of size exactly 3 at the moment of writing, which is the POPULATION's size and never an oracle, since what each specimen must produce stays hand-declared in the manifest. ON TOP OF THAT DECLARATION the criterion asserts that the corpus carries at least one specimen for each member and that the UNION over the four declared per-repository mappings' reasons is EQUAL to `SKIP_REASONS` — so a corpus missing a reason is RED, and a fourth reason added to the package later genuinely does fail until it has a specimen, which is now a property this criterion HAS rather than one it merely stated. THE DOUBLE-OWNERSHIP OF THE TWO UNTYPED CLASSES IS DECLARED EXPECTED BEHAVIOUR, NOT A BUILD-TIME SURPRISE: ownership is decided by `_note_skip` on the error's `declared_type` (`base.py:267-275`), and `FrontmatterParseError` carries `declared_type=None` always (`errors.py:65-67`) while a `UnicodeDecodeError` carries the attribute not at all, so both fall to `_owns(None)`, which returns `Path(self.file_pattern).stem != "*"` (`base.py:258-265`) — TRUE for person and company (both inherit `@*.md`, `base.py:196-198`) and for meeting (`Meeting *.md`, `meeting.py:51-54`), FALSE for book (`*.md`, the catch-all, `book.py:50-53`). Combined with the flat directory's glob partition, the manifest therefore declares, and the test asserts: a malformed-frontmatter or unreadable specimen FILENAMED `@<name>.md` appears in BOTH person's and company's mappings and in NEITHER meeting's (its glob does not match) nor book's (its glob matches but its catch-all stem declines ownership); the same specimen filenamed `Meeting <date> - <title>.md` appears in meeting's mapping ONLY; and a `schema-drift` specimen, which does carry a `declared_type` (`errors.py:70-71`), appears ONLY in the mapping of the repository whose `type_name` equals it. Three legs. (a) SKIPPED — for EACH of the four repositories independently, the mapping `{note.path: note.reason for note in repo.skipped_notes}` after loading the materialized vault EQUALS that repository's declared mapping, both directions: a malformed specimen that silently loads anyway is RED, a well-formed note a repository wrongly skips is RED, and an untyped skip that moves between owners is RED in two mappings at once. (b) THE PLANTED DISCRIMINATORS — the corpus contains an untyped specimen under EACH of the two owning globs (one `@<name>.md`, one `Meeting <date> - <title>.md`), and book's declared mapping over the untyped classes is asserted EMPTY: without the second filename a stub that records untyped skips in one repository only is indistinguishable from the real rule, and without book's empty assertion the catch-all arm of `_owns` is never exercised by anything. (c) LOADED — `len(repo.get_all())` for each of the four repositories equals that repository's declared loadable count, and the resolvable identities declared in the manifest all resolve, so a corpus whose malformed members poison the surrounding load is RED rather than merely under-reported.
-why: WI-020 built `SkippedNote` because an unloadable note used to vanish at DEBUG — invisible to the cache, so `resolve()` missed it and `find_or_create_stub` minted a duplicate, the dup-proliferation class WI-119/WI-125 exist to fight (`base.py:29-34`). That surface has never had a vault on disk containing one of each and stating which is which, so nothing today would notice a regression that reclassified `schema-drift` as `unreadable` or that swallowed a malformed note without recording it. Set equality in both directions is what makes leg (a) an oracle rather than a membership check: `skipped_count >= 3` is passed by a repository that skips everything, and `skipped_count == 3` is passed by one that skips the three WRONG notes. But a both-directions equality with an UNSTATED DOMAIN is not an oracle either, and that was this criterion's real gap: a union over all repositories and a per-repository mapping are two different declared manifests, each passes its own reading, and only the per-repository one goes RED when a regression moves an untyped skip between owners — which is the exact regression this surface exists to catch, because ownership is what decides whether a bad note is VISIBLE to the repository that would otherwise mint a duplicate for it. Declaring the double-ownership rather than discovering it is the WI-144 economy: a build that meets it as a surprise reads two repositories reporting "the same" note, concludes the test is wrong, and quietly relaxes the equality to a union — losing the property. Leg (b) is WI-286's planting rule applied to this criterion's own discriminant: the corpus, not the code, has to supply the case that tells the per-repository rule apart from every cheaper approximation of it, and book's empty mapping is the only assertion in the suite that the catch-all glob DECLINES ownership by design. Leg (c) exists because the failure that actually costs data is not the skip, it is the blast radius — a parse failure that aborts the directory walk leaves the cache silently short, and the only way to see it is to declare beforehand how many notes SHOULD have loaded. DERIVING THE REPOSITORY SET RATHER THAN LISTING IT WAS ADDED IN THE SAME PASS THAT DERIVED AC-3's CLASS FLOOR, AND FOR THE SAME REASON RATHER THAN FOR SYMMETRY: this criterion's whole subject is that a note's VISIBILITY is a per-repository fact, so the one thing that must not be hand-maintained is which repositories there are — a fifth one added to the package would inherit `_owns`, take part in the same glob partition over the same flat directory, and be entirely absent from a hand-listed sweep, which is the exact silent under-coverage AC-3's floor was found doing over the branch table. It is also the cheapest possible version of the fix: the subclasses are already exported and `type_name` is already the key the manifest uses. The oracle stays hand-written on purpose and the criterion says so, because the failure this leg exists to catch is a regression in ownership, and an expected value read from the code that computes it agrees with the regression. THE SKIP-REASON CODOMAIN WAS THE SEVENTH INSTANCE OF THIS DOCUMENT'S ONE RECURRING DEFECT, AND IT IS THE FIRST THAT COULD NOT BE FIXED BY READING SOMETHING — WHICH IS WHY THE FIX CREATES A DECLARATION INSTEAD. Two independent round-9 reads — the architect's and the AC red-team's, from a duplication angle and from a satisfiable-with-nothing-real-behind-it angle — found the same fact: this criterion put `_skip_reason`'s reasons on the DERIVED side of the document's residue list and stated a consequence ("a fourth reason added to the package later fails until it has a specimen") that only a derivation delivers, while the package declares no set to read. Both sides of the equality were hand-typed, so a builder who added a fourth arm — a `PermissionError` distinguished as `unreadable-permission`, say; WI-020's own `base.py:29-34` already distinguishes skip incidents by cause — would ship a GREEN criterion with the new failure class in exactly the blind spot `SkippedNote` was built to close, one layer up from where WI-020 closed it. That is a green-over-wrong route rather than a loud one, which is what separates it from round 8's two instances and makes it worth a package change. THE ALTERNATIVE WAS OFFERED AND IS REJECTED FOR A STATED REASON: the honest cheap move was to keep the set hand-written, delete the false consequence and move it into the residue list beside this criterion's ownership oracle. It is rejected because the residue list's own membership test is "there is no declaration to read", and the other four members earn that by their SUBJECT — whether a field's value IS a name, what a shape class should be called, what a repository OUGHT to own — all judgment. Which strings `_skip_reason` can emit is not judgment, it is mechanical, and this is the determinism boundary the whole document is organised around: a mechanical fact carried by a transcription is a defect wherever it appears, and the remedy for the one classification vocabulary that never got the module-level-literal treatment the package gives `TYPE_TO_MODEL`, `TIER1_BRANCHES`, `ENTITY_BODY_CONFIG` and `_GENERIC_ORG_SUFFIXES` is to give it that treatment. It is solve-in-one-place besides — the three strings live in a return chain, a type comment and `tests/test_loud_fail_load.py:187-188` today, and the criterion would have added a fourth home. AND THE EXPORT IS DELIBERATELY NOT TRUSTED ON ITS OWN, WHICH IS THE PART TO KEEP IF THIS CRITERION IS EDITED AGAIN. `TYPE_TO_MODEL` cannot silently fall out of step with the package because dispatch depends on it; a `SKIP_REASONS` frozenset nothing consumes CAN, and a criterion that read it and stopped there would have re-created the same false consequence in a nicer-looking form — the fold breeding its own next finding, which this document has recorded three times. Binding it to `_skip_reason`'s own returns by a syntax scan in `tests/derivations.py` is what closes that, it needs no new machinery (the module exists, is importable, and single-homes `ast` by a standing wall), and asserting EQUALITY rather than containment is what makes the scan's own under-read — the LESSONS #46 failure every derived read in this document shares — report RED instead of green.
+desc: Loading the materialized corpus through the repositories produces exactly the declared skip surface, asserted PER REPOSITORY. THE DOMAIN OF EVERY EQUALITY IN THIS CRITERION IS ONE REPOSITORY, NEVER A UNION ACROSS THEM — the manifest declares `{repository_type: {path: reason}}`, keyed by each repository's own `type_name` (`repositories/base.py:191`). THE SET OF REPOSITORIES IS DERIVED, NOT LISTED: the sweep takes the concrete `BaseRepository` subclasses the package exports (`obsidian_schemas/repositories/__init__.py`'s `__all__`, `:14-21` — the imports end at `:12`, and an earlier draft's `:8-20` cite spanned both and matched neither; excluding `BaseRepository` itself) and asserts the manifest declares a mapping for exactly that set, keyed by `type_name` — the same runtime read of an exported declaration AC-2 makes against `TYPE_TO_MODEL` and AC-3 against the Tier-1 tables' `branch_id`, applied here because a hand-written "the four repositories are person, company, meeting, book" is the same transcription that let AC-3's floor sample its own branch table, and a fifth repository added later would otherwise join the corpus's blind spot silently instead of failing until it has declared skips and a declared loadable count. WHICH READ IS MEANT IS PINNED, BECAUSE THE TWO AVAILABLE ONES ARE NOT EQUIVALENT: the sweep iterates the names `obsidian_schemas/repositories/__init__.py` EXPORTS (`__all__`, `:14-21`) and keeps those that are concrete `BaseRepository` subclasses — deterministic, and a fixed list the package authors — never `BaseRepository.__subclasses__()`, whose answer depends on which modules happen to have been imported. THAT EXPORT LIST IS FILTERED, NEVER ITERATED WHOLE, because it is not homogeneous: `__all__` also carries `VaultPathNotConfiguredError` (`:16`), an EXCEPTION rather than a repository, which the concrete-`BaseRepository`-subclass filter drops — the filter as stated already handles it, and saying so here is what saves the build a round spent discovering that a six-name export list does not mean six repositories. And one implementability detail is settled here rather than at build time: `type_name` is an abstract `@property` (`base.py:189-193`), readable off an INSTANCE and not off the class, so each repository must be instantiated against the materialized vault before the manifest's key set can be compared — which legs (a) and (c) do anyway, so this is ordering rather than a gap. Four today — `person`, `company`, `meeting`, `book` — and the derived set is asserted NON-EMPTY and of exactly that size (LESSONS #46, for the same reason AC-2's and AC-3's derivations are: a read that silently resolves to nothing is green, and the size at the moment of writing is the cheapest form of having seen it red). The other four `TYPE_TO_MODEL` members have no repository at all, so they are AC-2's parser-level business alone — and that asymmetry FOLLOWS from the two derivations rather than being separately checked, which is what an earlier draft claimed. Saying it was "itself checked" described an assertion of the form `A - B == A - B`: with both sides derived and no expected value declared, it passes for any package and asserts nothing. It costs nothing to drop, because a fifth repository is already caught by the derived sweep proper — which demands a declared mapping and a declared loadable count for it — and keeping it would have made this criterion its own counterexample to the governing rule it states three sentences later. WHAT IS DERIVED IS THE POPULATION AND NEVER THE ORACLE, AND THE LINE MATTERS: which repositories exist is a fact the package declares and must be read from it, while WHAT each one is expected to own — the globs and the ownership outcomes spelled out below — is the hand-written expected value a wrong-but-self-consistent implementation must MISMATCH (WI-286), so reading those from the code under test would turn this criterion into a mirror of it. THE SKIP-REASON CODOMAIN IS MADE READABLE BY THIS ITEM AND IS THEN READ, BECAUSE TODAY THERE IS NOTHING TO READ AND AN EARLIER DRAFT OF THIS CRITERION CLAIMED OTHERWISE: `_skip_reason` (`repositories/base.py:41-47`) returns three BARE STRING LITERALS — `:44`, `:46`, `:47` — with a type comment on `SkippedNote.reason` at `:37`, and the package exports no frozenset, tuple, dict or enum of them anywhere, so unlike `TYPE_TO_MODEL` (a dict AC-2 reads), the `branch_id` union (two exported tuples AC-3 reads) and this criterion's own repository set (`__all__`), there is no declaration here at all and the only thing anyone has ever been able to do with this codomain is hand-transcribe it, which THREE hand-typed sites do today (P20, corrected — the enumeration was short by two until a grep for the three literals over every `*.py` in this worktree was actually run, and §4's disposition table now carries all of them with a ruling each): `tests/test_loud_fail_load.py:187-188` transcribes the WHOLE codomain, `tests/test_loud_fail_load.py:209` re-spells `unreadable` twenty-two lines below it inside the same function, and `tests/test_name_gate.py:152` re-spells `unreadable` in a module that was not previously a write target. All three are closed by Task 11 and `tests/test_name_gate.py` gains a `## Write Targets` fence for the third. Two sites are deliberately NOT closed and are kept unchanged, because neither is a transcription of the vocabulary: the `#` type comment on `SkippedNote.reason` (`base.py:37`), which documents the declaration two lines beneath it, and the running-prose docstring sentence at `errors.py:112`. SO THE FIX IS TO CREATE THE DECLARATION RATHER THAN TO KEEP TRANSCRIBING IT, AND IT IS ONE LINE OF PACKAGE CHANGE INSIDE THIS ITEM'S BUILD: `repositories/base.py` gains a module-level `SKIP_REASONS` frozenset whose members `_skip_reason` returns BY NAME rather than as re-spelled literals (`obsidian_schemas/**` is in this project's `write_authority`, P7), and this criterion reads it at test time exactly as AC-2 reads `TYPE_TO_MODEL`. AN EXPORT ON ITS OWN WOULD BE DECORATION — NOTHING WOULD MAKE A FOURTH ARM UPDATE IT — SO IT IS TIED TO THE FUNCTION BY A SYNTAX DERIVATION IN THE ONE PLACE THIS TREE PERMITS ONE: `tests/derivations.py`, the standing shared scan module and the only file under `obsidian_schemas/` or `tests/` allowed to name `ast` (P9), gains ONE scan returning the set of string values `_skip_reason`'s own body can return — every `Return` whose value is a `str` Constant, plus every `Return` of a module-level Name bound in that file to a `str` Constant — and the criterion asserts that set EQUALS `SKIP_REASONS`. THE EQUALITY DIRECTION IS WHAT MAKES THAT WALL HOLD RATHER THAN MERELY EXIST, and it has three consequences worth stating so a builder does not weaken it to a containment: an arm added to `_skip_reason` without a matching frozenset member is RED at that equality; an arm whose return the scan CANNOT resolve to a literal makes the scan silently UNDER-read, which the equality reports RED instead of passing green (LESSONS #46 — the failure mode of every derived read in this document); and `SKIP_REASONS` is additionally asserted NON-EMPTY and of size exactly 3 at the moment of writing, which is the POPULATION's size and never an oracle, since what each specimen must produce stays hand-declared in the manifest. AND THE CLASS IS CLOSED WITH ONE RULE RATHER THAN THREE REPOINTED LINES, BECAUSE AN ENUMERATION IN PROSE GOES STALE AND A WALL DOES NOT: a SECOND syntax scan in `tests/derivations.py`, `skip_reason_literal_sites`, returns every file under `python_files_under(PACKAGE_ROOT, TESTS_ROOT)` containing a `str` Constant EQUAL to a member of `SKIP_REASONS`, and this criterion asserts that set EQUALS exactly two named homes — `obsidian_schemas/repositories/base.py`, THE DECLARATION, and `tests/test_fixture_vault.py`, THE SPELLING PIN — so a fifth hand-typed site anywhere under the package or the suite is RED with the file named and its remedy is one import. It reads parsed SYNTAX and never source text for a reason the two KEPT sites make concrete: `ast` drops `#` comments entirely, so `base.py:37`'s type comment is invisible to it, and a docstring is ONE Constant whose value is the whole docstring, so `errors.py:112`'s prose mention is not equal to any member — a text grep would have to carve an exception for both, and an exception is the escape hatch this criterion has been folded for twice. The SECOND home is not a weakening but the repair of one the fold would otherwise have caused, and it is stated so nobody removes it as untidy: `tests/test_loud_fail_load.py:187-188` is today the ONLY thing in the tree pinning the literal SPELLINGS, and once it reads `SKIP_REASONS` both sides of that comparison move together, so a rename of `"schema-drift"` — a value consumers read off `SkippedNote.reason` — would pass every check in this criterion; the spellings are therefore hand-pinned ONCE, as `SKIP_REASONS == {"malformed-frontmatter", "schema-drift", "unreadable"}` in `tests/test_fixture_vault.py`, which is the one place a rename should have to be a deliberate edit. Because that universe grows with every file this item adds, `tests/fixture_vault.py` is a member of it, which is why the manifest IMPORTS the three constants for `SKIPS`'s reason values rather than re-spelling them (§3) — and WHICH constant a filename maps to remains the hand-declared oracle, so nothing about leg (a)'s both-directions equality is read from the code under test. ON TOP OF THAT DECLARATION the criterion asserts that the corpus carries at least one specimen for each member and that the UNION over the four declared per-repository mappings' reasons is EQUAL to `SKIP_REASONS` — so a corpus missing a reason is RED, and a fourth reason added to the package later genuinely does fail until it has a specimen, which is now a property this criterion HAS rather than one it merely stated. THE DOUBLE-OWNERSHIP OF THE TWO UNTYPED CLASSES IS DECLARED EXPECTED BEHAVIOUR, NOT A BUILD-TIME SURPRISE: ownership is decided by `_note_skip` on the error's `declared_type` (`base.py:267-275`), and `FrontmatterParseError` carries `declared_type=None` always (`errors.py:65-67`) while a `UnicodeDecodeError` carries the attribute not at all, so both fall to `_owns(None)`, which returns `Path(self.file_pattern).stem != "*"` (`base.py:258-265`) — TRUE for person and company (both inherit `@*.md`, `base.py:196-198`) and for meeting (`Meeting *.md`, `meeting.py:51-54`), FALSE for book (`*.md`, the catch-all, `book.py:50-53`). Combined with the flat directory's glob partition, the manifest therefore declares, and the test asserts: a malformed-frontmatter or unreadable specimen FILENAMED `@<name>.md` appears in BOTH person's and company's mappings and in NEITHER meeting's (its glob does not match) nor book's (its glob matches but its catch-all stem declines ownership); the same specimen filenamed `Meeting <date> - <title>.md` appears in meeting's mapping ONLY; and a `schema-drift` specimen, which does carry a `declared_type` (`errors.py:70-71`), appears ONLY in the mapping of the repository whose `type_name` equals it. Three legs. (a) SKIPPED — for EACH of the four repositories independently, the mapping `{note.path: note.reason for note in repo.skipped_notes}` after loading the materialized vault EQUALS that repository's declared mapping, both directions: a malformed specimen that silently loads anyway is RED, a well-formed note a repository wrongly skips is RED, and an untyped skip that moves between owners is RED in two mappings at once. (b) THE PLANTED DISCRIMINATORS — the corpus contains an untyped specimen under EACH of the two owning globs (one `@<name>.md`, one `Meeting <date> - <title>.md`), and book's declared mapping over the untyped classes is asserted EMPTY: without the second filename a stub that records untyped skips in one repository only is indistinguishable from the real rule, and without book's empty assertion the catch-all arm of `_owns` is never exercised by anything. (c) LOADED — `len(repo.get_all())` for each of the four repositories equals that repository's declared loadable count, and the resolvable identities declared in the manifest all resolve, so a corpus whose malformed members poison the surrounding load is RED rather than merely under-reported.
+why: WI-020 built `SkippedNote` because an unloadable note used to vanish at DEBUG — invisible to the cache, so `resolve()` missed it and `find_or_create_stub` minted a duplicate, the dup-proliferation class WI-119/WI-125 exist to fight (`base.py:29-34`). That surface has never had a vault on disk containing one of each and stating which is which, so nothing today would notice a regression that reclassified `schema-drift` as `unreadable` or that swallowed a malformed note without recording it. Set equality in both directions is what makes leg (a) an oracle rather than a membership check: `skipped_count >= 3` is passed by a repository that skips everything, and `skipped_count == 3` is passed by one that skips the three WRONG notes. But a both-directions equality with an UNSTATED DOMAIN is not an oracle either, and that was this criterion's real gap: a union over all repositories and a per-repository mapping are two different declared manifests, each passes its own reading, and only the per-repository one goes RED when a regression moves an untyped skip between owners — which is the exact regression this surface exists to catch, because ownership is what decides whether a bad note is VISIBLE to the repository that would otherwise mint a duplicate for it. Declaring the double-ownership rather than discovering it is the WI-144 economy: a build that meets it as a surprise reads two repositories reporting "the same" note, concludes the test is wrong, and quietly relaxes the equality to a union — losing the property. Leg (b) is WI-286's planting rule applied to this criterion's own discriminant: the corpus, not the code, has to supply the case that tells the per-repository rule apart from every cheaper approximation of it, and book's empty mapping is the only assertion in the suite that the catch-all glob DECLINES ownership by design. Leg (c) exists because the failure that actually costs data is not the skip, it is the blast radius — a parse failure that aborts the directory walk leaves the cache silently short, and the only way to see it is to declare beforehand how many notes SHOULD have loaded. DERIVING THE REPOSITORY SET RATHER THAN LISTING IT WAS ADDED IN THE SAME PASS THAT DERIVED AC-3's CLASS FLOOR, AND FOR THE SAME REASON RATHER THAN FOR SYMMETRY: this criterion's whole subject is that a note's VISIBILITY is a per-repository fact, so the one thing that must not be hand-maintained is which repositories there are — a fifth one added to the package would inherit `_owns`, take part in the same glob partition over the same flat directory, and be entirely absent from a hand-listed sweep, which is the exact silent under-coverage AC-3's floor was found doing over the branch table. It is also the cheapest possible version of the fix: the subclasses are already exported and `type_name` is already the key the manifest uses. The oracle stays hand-written on purpose and the criterion says so, because the failure this leg exists to catch is a regression in ownership, and an expected value read from the code that computes it agrees with the regression. THE SKIP-REASON CODOMAIN WAS THE SEVENTH INSTANCE OF THIS DOCUMENT'S ONE RECURRING DEFECT, AND IT IS THE FIRST THAT COULD NOT BE FIXED BY READING SOMETHING — WHICH IS WHY THE FIX CREATES A DECLARATION INSTEAD. Two independent round-9 reads — the architect's and the AC red-team's, from a duplication angle and from a satisfiable-with-nothing-real-behind-it angle — found the same fact: this criterion put `_skip_reason`'s reasons on the DERIVED side of the document's residue list and stated a consequence ("a fourth reason added to the package later fails until it has a specimen") that only a derivation delivers, while the package declares no set to read. Both sides of the equality were hand-typed, so a builder who added a fourth arm — a `PermissionError` distinguished as `unreadable-permission`, say; WI-020's own `base.py:29-34` already distinguishes skip incidents by cause — would ship a GREEN criterion with the new failure class in exactly the blind spot `SkippedNote` was built to close, one layer up from where WI-020 closed it. That is a green-over-wrong route rather than a loud one, which is what separates it from round 8's two instances and makes it worth a package change. THE ALTERNATIVE WAS OFFERED AND IS REJECTED FOR A STATED REASON: the honest cheap move was to keep the set hand-written, delete the false consequence and move it into the residue list beside this criterion's ownership oracle. It is rejected because the residue list's own membership test is "there is no declaration to read", and the other four members earn that by their SUBJECT — whether a field's value IS a name, what a shape class should be called, what a repository OUGHT to own — all judgment. Which strings `_skip_reason` can emit is not judgment, it is mechanical, and this is the determinism boundary the whole document is organised around: a mechanical fact carried by a transcription is a defect wherever it appears, and the remedy for the one classification vocabulary that never got the module-level-literal treatment the package gives `TYPE_TO_MODEL`, `TIER1_BRANCHES`, `ENTITY_BODY_CONFIG` and `_GENERIC_ORG_SUFFIXES` is to give it that treatment. It is solve-in-one-place besides, and the enumeration behind that argument is now the grep's rather than memory's: the three strings live in a return chain (`base.py:44`, `:46`, `:47`), a `#` type comment (`:37`), a running-prose docstring sentence (`errors.py:112`) and THREE hand-typed test sites — `tests/test_loud_fail_load.py:187-188` (the whole codomain), `tests/test_loud_fail_load.py:209` and `tests/test_name_gate.py:152` (one member each) — and the criterion would have added a seventh. An earlier draft of this sentence named only the first, the second and one of the three test sites; the short list mattered because it was the ARGUMENT, and because it left the builder a judgment the spec had not made — repointing `:187-188` puts `:209` on the same screen with nothing saying whether it is in scope. §4 now carries a disposition table naming every site with a ruling, Task 11 closes all three test sites, and the two kept sites are kept for a stated reason rather than by omission. AND THE EXPORT IS DELIBERATELY NOT TRUSTED ON ITS OWN, WHICH IS THE PART TO KEEP IF THIS CRITERION IS EDITED AGAIN. `TYPE_TO_MODEL` cannot silently fall out of step with the package because dispatch depends on it; a `SKIP_REASONS` frozenset nothing consumes CAN, and a criterion that read it and stopped there would have re-created the same false consequence in a nicer-looking form — the fold breeding its own next finding, which this document has recorded three times. Binding it to `_skip_reason`'s own returns by a syntax scan in `tests/derivations.py` is what closes that, it needs no new machinery (the module exists, is importable, and single-homes `ast` by a standing wall), and asserting EQUALITY rather than containment is what makes the scan's own under-read — the LESSONS #46 failure every derived read in this document shares — report RED instead of green.
 check: test_the_skip_surface_over_the_corpus_equals_its_declared_reasons
 kind: test
 ```
 
 ```criteria
 id: AC-5
-desc: No corpus note can carry a live identifier — an email, a phone number, a profile URL OR A NAME — asserted structurally rather than by inspection. THE REACH OF EVERY LEG IS every file under `tests/fixtures/vault/` PLUS `tests/fixture_vault.py` itself, because the manifest restates each specimen's field values as AC-2's declared oracle and a wall that scanned only the corpus would miss a real name typed into the oracle. Five legs. (a) RESERVED RANGES, derived not hand-listed — the test scans those bytes for every email-shaped, phone-shaped and profile-URL-shaped token and asserts each one is inside a reserved range: emails only under RFC 2606 / RFC 6761 reserved names (`example.com`, `example.net`, `example.org`, or a `.test` / `.invalid` / `.example` TLD); phones only inside reserved fictional ranges (UK `+44 7700 900xxx`, NANP `555-01xx`); profile URLs only under a declared placeholder form. The scan is over ALL bytes in reach rather than a field list, so it needs no enumeration to be total — but the fields that carry these shapes are named for the corpus author's benefit, since every one of them must be constructed: `Person.emails` (`models.py:81`), `Person.phones` (`:82`), `Person.whatsapp` (`:83`, a JID whose digits `normalize_phone` splits at the `@` — `phone_normalization.py:39-55`), `Person.linkedin` (`:86`), `Person.slack` (`:87`), `Company.website` (`:129`), `Company.linkedin` (`:131`), `Book.isbn` (`:165`), `Book.source_url` (`:168`) and `Explore.url` (`:223`). (b) NAME CLOSURE, SPLIT BY POSITION AND BY TOKEN KIND — THE SPLIT IS THE WALL. `fixture_vault.py` declares THREE literal frozensets and no computed membership: `NAME_POOL` (the constructed given names, surnames and company words the specimens are built from), `CONNECTIVE_SET` (the corruption classes' own non-identifying furniture, FIXED BY ENUMERATION AT EXACTLY `{"Me", "My", "Dave"}` — the package's OWN calendar/arrow/transcript prefix vocabulary, whose union across the three prefix regexes that spell a capitalized alternative is exactly that set: `name_cleaning.py:46` `_CALENDAR_PREFIX_RE` matches `^(Dave|Me|My)\s*[-/]\s+` and `:54` `_ARROW_PREFIX_RE` matches `^(Dave|Me|My)\s*[→⟶⇒➜↦⇨]\s*`, while `:55` `_ME_TO_PREFIX_RE` matches `^(Me|My)\s+to\s+` and carries NO `Dave` alternative — an earlier draft of this criterion said all three matched `(Dave|Me|My)`, which is wrong about `:55` and right about the union, and the union is what the set is; the test asserts that equality against the literal set written into this criterion, so the set cannot grow without an AC change and is never a build-time choice; the lowercase and punctuation connectives the classes also need, `to`, `->` and `→`, are NOT members, because the stated extractor cannot produce them and a member the closure can never exercise is a declaration that lies, and the mail-header prefixes `Re`, `Fwd` and `Fw` are NOT members for the harder version of the same reason — a Grep over the whole tree finds them in no Tier-1 branch, no recovery regex and no candidate census class, so no census row could ever measure one and no corpus specimen could ever honestly carry one, P11; AND THE SET IS ENUMERATED FROM THE WHOLE FURNITURE SURFACE RATHER THAN SAMPLED FROM THREE REGEXES OF ONE FILE — that surface is SIXTEEN regexes in two files and there is no third — the eleven of `name_validation.py` (`:66`, `:74`, `:82`, `:101`, `:107`, `:110`, `:113`, `:120`, `:123`, `:351`, `:445`) and the five prefix/suffix regexes of `name_cleaning.py` (`:46`, `:54`, `:55`, `:56`, `:57`) — plus both Tier-1 tables, the ten person branches (`name_validation.py:190-309`) and the five company ones (`:371-438`), with P16 recording the complete pass and P17 recording that no regex anywhere else in the package carries furniture. APPLYING THE RUN RULE THIS CRITERION PINS DOWN BELOW TO THE LITERAL SPELLING EACH REGEX CARRIES, THE UNION OF EXTRACTED FURNITURE TOKENS IS EXACTLY `{Me, My, Dave}` AND NO MEMBER IS ADDED — the two branches the earlier sampling omitted are the reason the rule had to be pinned first, and neither adds one. `archive_prefix` (`name_validation.py:110`, `^z+Archived\b`; recovery arm `name_cleaning.py:56`, `^z+Archived\s*-\s*`) contributes NOTHING, because `zArchived`/`zzArchived` is one run beginning lowercase and the run rule yields no token from it; that is not a reading chosen for convenience, since all five real specimens this repository commits for the branch spell it exactly that way with no exception (P15), so `Archived` is NOT a member and putting it in would plant an unexercisable literal in a frozen set — round 4's defect authored by a fold instead of by a builder. `unknown_contact` (`name_validation.py:113`, `unknown\s+contact` under `re.IGNORECASE`; recovery arm `name_cleaning.py:57`, `\s+unknown\s+contact\b`) contributes nothing FROM THE CODE either, both regexes spelling the literal lowercase — but it is the one branch whose answer THIS REPOSITORY'S COMMITTED SPECIMENS leave open, because `IGNORECASE` hands the letter-case to the live vault and this repository commits BOTH forms: the lowercase suffix form the branch's own "WhatsApp scanner artifact" comment describes (`tests/test_name_validation.py:248`, `:254`; `tests/test_name_cleaning.py:135`, `:140`) and a capitalized standalone form (`tests/test_name_gate.py:96`; `tests/test_lint_vault_fix_gate.py:58`; and the branch's own display `specimen=` field at `name_validation.py:274`). THE FLAG ITSELF IS NOT WHAT MAKES THAT CELL SPECIAL, AND SAYING SO KEEPS THIS SENTENCE HONEST: `re.IGNORECASE` is carried by EIGHT of the sixteen regexes (P17 — all five of `name_cleaning.py`'s and `name_validation.py`'s `:82`, `:110`, `:113`; `:74` does not carry it), so the code pins the live casing of `Me`/`My`/`Dave` no more tightly than `unknown contact`'s. What separates them is the CORPUS: every committed specimen of the three prefix branches spells them canonically with no `ME`/`DAVE` variant anywhere in the tree (P16), while `unknown_contact` is committed both ways. The reconciliation instruction below is written general for exactly that reason and needs no widening — if the census measures a live `ME - X` form, it is absorbed at the same one-time edit. THAT ONE RESIDUAL DEGREE OF FREEDOM IS CLOSED BY RECONCILIATION RATHER THAN BY A GUESS: `CONNECTIVE_SET` therefore carries the SAME ONE-TIME PRE-ORIGINATION RECONCILIATION INSTRUCTION AC-3's CLASS FLOOR CARRIES FOR ITS HAND-LISTED HALF (the branch half of that floor needs none, being read from the package at test time; this set needs one for the same reason those six shape classes do — the regexes declare patterns, not token lists, so there is no declaration to read) — before Dave signs, this literal set is reconciled ONCE against the census's measured character profiles, so that if the census measures the live `unknown_contact` form as capitalized then `Unknown` and `Contact` are added HERE, in this criterion, and if it measures the lowercase suffix form they are not; the same reconciliation runs for any other furniture class whose measured profile would put a capitalized non-name run into an identity position. AFTER THAT ONE EDIT THE SET IS FROZEN EXACTLY AS IT IS NOW — asserted equal to the literal written in this criterion, unable to grow without an AC change — so the safety property is untouched, and the instruction adds NO obligation over members the builder does not author, because the set still carries no non-vacuity clause of any kind. THE CHEAPER ALTERNATIVE IS NAMED AND REJECTED so a builder does not reach for it: authoring the specimen in the lowercase form whatever the census measured would hold the set at three members for free, but it destroys the character profile the specimen exists to carry, which is the same argument that keeps the "lowercase it for green" dodge out of AC-2's declared oracle and AC-3's declared verdict), and `PROSE_ALLOWLIST` (the ordinary English of the note bodies plus this module's own identifiers, docstring and comment vocabulary). THE EXTRACTOR IS STATED ONCE AND ITS "RUN" IS PINNED TO ONE READING, BECAUSE TWO READINGS OF IT RETURN DIFFERENT ANSWERS ON THE SAME BYTES AND THE DIFFERENCE DECIDES A FROZEN SET'S OWN MEMBERSHIP: decode every byte in reach with `errors="replace"`; a RUN is a MAXIMAL contiguous span of characters drawn from the class {Unicode letters, combining marks, `'`, `-`} — maximal meaning the span is bounded only by a character OUTSIDE that class (whitespace, a digit, any other punctuation, or the end of input) and NEVER restarted at an internal capital, so there is no camelCase splitting; a run is EXTRACTED as a token iff its FIRST character is an uppercase or non-ASCII letter; and an extracted run has leading and trailing `'` and `-` trimmed before it is compared against any set. FOUR WORKED CONSEQUENCES, WRITTEN OUT SO THE RULE IS CHECKABLE RATHER THAN INTERPRETABLE: `McDonald` is ONE token `McDonald`, never `Mc` plus `Donald`; `d'Angelo` is ONE run beginning with the lowercase `d` and therefore yields NO token (the extractor-domain residue already named in `why:`, not a new hole); `Zeta-9` yields `Zeta` (the run is `Zeta-`, trimmed); and — the consequence that settles `CONNECTIVE_SET`'s membership above — `zArchived` and `zzArchived` are each ONE run beginning with the lowercase `z` and yield NO TOKEN AT ALL. The maximal reading is chosen over the capital-restarting one for two stated reasons rather than by default: it is the reading that every real specimen this repository has ever committed for the `archive_prefix` branch is consistent with, all five of them spelling the prefix with nothing between the `z` and the capital (P15), and it is the reading that gives an ordinary hyphenated or Mc-prefixed surname the one answer a name needs. It is applied to two DISJOINT POSITION SETS with different rules. ONE ADMISSION IS DERIVED FROM THE PACKAGE RATHER THAN DECLARED HERE: an identity-position token whose `str.lower()` is a member of `name_cleaning._GENERIC_ORG_SUFFIXES` (`name_cleaning.py:58` — exactly `support`, `ltd`, `inc`, `corp`, `group`, `team`, `limited`, `llc`) is admissible with no `NAME_POOL` membership and no census row. THE COMPARISON OPERATION IS NAMED RATHER THAN DESCRIBED: the test lowercases with `str.lower()`, which is what the package itself does at `:148`, `:185` and `:191` — an earlier draft said "casefolded", which the package nowhere does; the eight members are ASCII so `lower` and `casefold` agree on them, but the corpus deliberately carries non-ASCII specimens and the criterion should name the operation its own test performs. It is READ from the package rather than written into `fixture_vault.py` precisely so a builder looking for the cheapest green cannot pad it, and it exists because the identity-position list below now reaches `Person.company` and `Book.publisher`: a specimen written `Voxleaf Ltd` would otherwise oblige the conductor to certify that `Ltd` occurs zero times in a vault of 2,159 company notes, which is not a claim anyone can honestly make, and none of the eight members can hide a person. **IDENTITY POSITIONS — ENUMERATED FIELD BY FIELD AGAINST `models.py`, NEVER NAMED BY CATEGORY, AND THE ENUMERATION IS ITS OWN RULE'S OUTPUT.** The rule is stated in THREE CLAUSES so a ninth entity type or a new field is CLASSIFIED rather than missed — and stated in three rather than one because a single "iff its value names a PERSON or an ORGANISATION" did not generate the list written under it in either direction, which is a criterion that is buildable two ways by its own reconciliation instruction. **CLAUSE 1 — NAMING.** A declared field is an identity position iff its VALUE IS a person's or an organisation's name: the whole scalar, or each element of the list, being such a name or a wikilink to a note that holds one. It is deliberately "IS a name", not "COULD CONTAIN one": the second reading sweeps every free-text field into the pool and obliges the conductor to certify ordinary English words with zero-hit live-vault rows, which is finding 1's unsatisfiable-obligation shape rebuilt on purpose. **CLAUSE 2 — DECLARED OVER-CONSTRAINT, so reconciliation does not delete it.** Plus the four entity `title` fields — `Book.title` (`:160`), `Watch.title` (`:193`), `Explore.title` (`:222`), `Exploration.title` (`:295`). A book, a film, a link and a living document are not people or organisations, so clause 1 does NOT reach them; they are in the list ON PURPOSE and this clause is the authority a later reconciliation reads before removing them. The reason: a title is the human-written display string of a note whose live original the corpus author is copying a character profile from, so transcribing a real one is the same slip as transcribing a real name, and it costs nothing extra — `## Write Targets` already requires every identity-position token in a specimen to be a constructed string, naming "a naturally-worded meeting title" as the example. **CLAUSE 3 — UNDECLARED KEYS, BY DEFAULT AND WITH NO OPT-OUT.** `BaseEntity` sets `model_config = ConfigDict(extra="allow", ...)` (`models.py:31-32`), so a corpus note may carry frontmatter keys no model declares — a `manager:` or `introduced_by:` on a forward-compatibility or schema-drift specimen — and clauses 1 and 2, being enumerations over DECLARED fields, cannot reach them at all. Any manifest-declared value for a key the note's model class does not declare is therefore an IDENTITY POSITION, full stop: there is no manifest flag that marks one prose, because a builder-settable exemption is the escape hatch this criterion has now been folded for twice. The default is satisfiable by construction rather than being an obligation over a set nobody authors — the corpus author chooses both which undeclared keys exist and what they hold, and the only cost of the default is that those values must be short constructed tokens rather than sentences. **THE CURRENT ANSWER**, reconciled field by field against every member of `TYPE_TO_MODEL` (the full pass is P14): every corpus filename stem (with the declared filename grammar's `@` sigil and `Meeting <date> - ` prefix stripped), plus the manifest's declared values for `Person.name` (`models.py:79`), `Person.aliases` (`:80`), `Person.company` (`:84`), `Company.name` (`:128`), `Book.title` (`:160`), `Book.author` (`:161`), `Book.publisher` (`:166`), `Watch.title` (`:193`), `Watch.director` (`:195`), `Watch.streaming_service` (`:199`), `Watch.recommended_by` (`:200`), `Explore.title` (`:222`), `Explore.source` (`:224` — "where you found it / who mentioned it"), `GiftIdea.for_person` (`:242`, frontmatter alias `for`), `GiftIdea.source` (`:243`), `Meeting.attendees` (`:261`), `Exploration.title` (`:295`) and `Exploration.related` (`:299`), plus every undeclared key's declared value under clause 3. **FOUR EXCLUSIONS, EACH ARGUED, AND ONE CORRECTION.** `Person.title` (`:85`) is EXCLUDED: it is a JOB title, it names nobody, and forcing `Director` into a pool that owes a zero-hit live-vault row would manufacture an unsatisfiable obligation on purpose — `Person.company` (`:84`) and `Person.title` (`:85`) are different fields and only the first carries identity. `Meeting.topics` (`:262`) is EXCLUDED as free prose for the same reason. `Exploration.origin` (`:300`, glossed "What sparked this - problem, article, conversation" at `:281`) is EXCLUDED on the same argument and it is the closest call in the list: it is a SENTENCE rather than a name, so clause 1 does not reach it and clause 1's "could contain" reading is the one that breaks the criterion — the residue is stated plainly below rather than closed by a fifth clause. `Exploration.graduated_to` (`:301`, glossed `[[Project]]` at `:282`) is EXCLUDED: a project is neither a person nor an organisation, and a constructed project name like `Q3 Migration` would put ordinary words into a pool owing zero-hit rows — finding 1's shape again. And `Meeting` DECLARES NO `title` FIELD AT ALL (`:259-263` — `date`, `attendees`, `topics`, `meeting_id`; `BaseEntity` adds only `type` and `tags`, `:39-40`), so the phrase this list replaced named a field the schema does not have; a meeting's title is not lost, because it lives only in the filename and the stem scan already reaches it. The list is reconciled against the schema BY APPLYING ALL THREE CLAUSES, BEFORE origination, exactly as AC-3's CLASS FLOOR reconciles its hand-listed half, so a field added to a model costs one edit here rather than a re-sign. IT IS HAND-LISTED RATHER THAN DERIVED FOR A STATED REASON AND NOT BY OVERSIGHT: `models.py` declares the FIELDS but nothing in it declares which of them hold a person's or an organisation's name, so unlike AC-2's `TYPE_TO_MODEL`, AC-3's `branch_id`s and AC-4's repository set there is no population to read — the classification is judgment, which is why it sits with a stated rule, a recorded field-by-field pass (P14) and a reconciliation instruction instead of a runtime read. Every token extracted from an identity position MUST be in `NAME_POOL ∪ CONNECTIVE_SET` or be an admitted org suffix. `PROSE_ALLOWLIST` IS NOT A TERM IN THIS ASSERTION and is structurally unreachable from it; the test additionally asserts `PROSE_ALLOWLIST` is DISJOINT from the identity-position token set, so no token can hold both roles and adding a surname to the allowlist buys nothing whatsoever for a `name:` value, an `aliases` entry, a title field or a filename stem. **FREE-PROSE POSITIONS** — everything else in reach: note bodies, non-identity frontmatter values, and `fixture_vault.py`'s own source. Tokens here must be in `NAME_POOL ∪ CONNECTIVE_SET ∪ PROSE_ALLOWLIST`. **NON-VACUITY, `NAME_POOL` ONLY** — every `NAME_POOL` entry occurs as an extracted token in at least one IDENTITY position; "somewhere in the reach" is deliberately NOT the bar, because a pool padded through a note body would satisfy it. It is scoped to `NAME_POOL` because `NAME_POOL` is the one declared set THE BUILDER AUTHORS, so it is satisfiable by construction — declare only what the corpus uses. **`CONNECTIVE_SET` CARRIES NO NON-VACUITY OBLIGATION, AND ITS ABSENCE IS A FIX RATHER THAN A RELAXATION.** A mandatory occurrence clause over a set the builder does NOT author is the defect generator this criterion has now bred three times (`to`/`->`/`→`, then `Re`/`Fwd`/`Fw`): every such set has produced at least one member the corpus cannot exercise, and each earlier fold pruned the member and kept the clause. Nothing is lost by dropping it, because exercising the furniture was never the wall — what stops `CONNECTIVE_SET` becoming a second escape hatch is that it is frozen by literal enumeration IN this criterion and asserted equal to it, and coverage of whatever connective the live vault actually produces is already guaranteed by AC-3(i), which requires a specimen for every MEASURED census class and, correctly, can never demand one for a class the vault does not have. The single corpus member that is not valid UTF-8 is exempt from the token scan and instead has its COMPLETE bytes declared in the manifest as a LOWERCASE hex literal and asserted byte-equal — reviewed rather than silently skipped past the wall, and lowercase so the literal yields no extracted token and can never itself become a reason to grow the allowlist. (c) POOL PROVENANCE — SCOPED TO `NAME_POOL` ALONE, AND A CONTAINMENT RATHER THAN AN EQUALITY. `docs/vault-shape-census.md` carries a pool table whose rows each give a certified token, the shape class it is constructed to carry, and the conductor's live-vault non-occurrence scan for it (the command run and its verbatim stdout, showing `0` hits as a name token anywhere in the vault — `## Write Targets` requires that command to emit a COUNT, so an honest zero result records verbatim as `0` rather than as nothing). The test asserts that `NAME_POOL` ⊆ the census's pool table — ONE DIRECTION, and the direction matters — that every row carries a non-empty command and a non-empty stdout, and that the table's token set is DISJOINT from `CONNECTIVE_SET`. AND IT ASSERTS CENSUS FIXITY FIRST, BEFORE IT TRUSTS ANY ROW OF THAT TABLE: `sha256` over `docs/vault-shape-census.md`'s bytes equals the `CENSUS_DIGEST` literal declared in AC-3(iv) and frozen by the same signature that freezes this criterion. This leg is asserted HERE as well as in AC-3 and not merely inherited from it, because each criterion's `check:` is its own test function and an unguarded AC-5 is the worse of the two exposures: the pool table is where this criterion's entire ground truth lives, the suite cannot re-derive a single one of its non-occurrence claims, and `docs/**` is builder-writable in full (`pipeline-runners.yaml:34-38`, P7), so without the fixity assertion a builder who wants a convenient, easy-to-spell pool token — one that may collide with a real name in a vault the builder cannot see and has no way to check — adds a row asserting a scan that was never run, with fabricated command and stdout text satisfying every other check this leg makes (non-empty command, non-empty stdout, containment, disjointness), and `## Intent`'s sentence about Dave's contacts' real names has no machine check standing behind it at all. THE VALUE'S LOCATION IS THE WALL, not the digest: it is read from the signed AC-3 fence in `docs/vault-fixtures.md`, never from a constant in `tests/fixture_vault.py`, because a constant the build owns is updated in the same commit that edits the file it digests. The residue is stated rather than papered over: a build that deletes the assertion outright is the ordinary "did not implement the criterion" exposure every AC here carries — caught by the battery and by code review — and is not a bypass of this leg, whose subject is the expected value's home. THE DIRECTION IS NOT A WEAKENING AND THE REASON IS AN ORDERING FACT ABOUT THIS PIPELINE, NOT A PREFERENCE: the census is a PRECONDITION that lands in HEAD before Dave signs these criteria and long before any corpus exists, while `NAME_POOL` is declared in-cage by a build that has not happened, so a both-directions equality would ask the earlier artifact to predict the later one's exact token set — and a census that certifies one token the build does not end up using would go RED with no in-cage remedy except inventing a note to consume it. Closure is not weakened by a byte: a token with no row still cannot enter an identity position, which is the entire property, and a certified-but-unused row is not a leak because it carries its own scan. It also removes this item's dominant recurring cost — under an equality every corpus edit is a paired edit across the cage boundary, and under a containment it is not. The leg is the same read-the-artifact-and-assert-its-shape move AC-3 makes: hermetic, no subprocess and no vault read. The connectives are exempt from provenance because a non-occurrence claim about them is unmakeable, not merely tedious: `Me`, `My` and `Dave` are the live stored-name prefix forms this vault actually produces — `name_validation.py:238-248` carries `specimen="Me to David Field"` on its `me_to_prefix` Tier-1 branch, `:226-236` carries `Dave - Thomas Gatten` on `calendar_prefix`, and `name_cleaning.py:46`/`:54`/`:55` strip exactly `(Dave|Me|My)` — so a zero-hit row for any of them would be a false statement inside the artifact whose whole job is to be the trustworthy ledger. The exemption's ground is the code's own vocabulary and NOT a guarantee about the census's counts: an earlier draft justified it by saying AC-3 requires the census to report `Me to ` prefixes with a non-zero count, which AC-3 no longer promises now that any class may be ruled ABSENT. It does not need to promise it — `Dave|Me|My` being live prefix vocabulary in this package is a fact about `name_cleaning.py`, readable without the census, and it is what makes the non-occurrence claim unmakeable whatever the census measures. (d) THE PROPERTY IS NOT PAID FOR — every reserved phone in the corpus still normalizes through `normalize_phone` to a stable digits-only value (`phone_normalization.py:39-55` splits off the WhatsApp JID suffix and then strips every non-digit, so `+44 7700 900123` yields `447700900123`; the package emits E.164 nowhere and none is asserted here), and `phones_match` (`:58-90`) still matches that value against the reserved number's `0`-prefixed and `+44`-prefixed variants, so the reservation does not cost the shape the fixture exists to exercise. (e) HERMETIC — materialization writes only underneath the caller's `dest`, and the corpus contains no absolute filesystem path: no occurrence of `/Users/`, and no live vault path in any note or in the manifest.
+desc: No corpus note can carry a live identifier — an email, a phone number, a profile URL OR A NAME — asserted structurally rather than by inspection. THE REACH OF EVERY LEG IS every file under `tests/fixtures/vault/` PLUS `tests/fixture_vault.py` itself, because the manifest restates each specimen's field values as AC-2's declared oracle and a wall that scanned only the corpus would miss a real name typed into the oracle. Five legs. (a) RESERVED RANGES, derived not hand-listed — the test scans those bytes for every email-shaped, phone-shaped and profile-URL-shaped token and asserts each one is inside a reserved range: emails only under RFC 2606 / RFC 6761 reserved names (`example.com`, `example.net`, `example.org`, or a `.test` / `.invalid` / `.example` TLD); phones only inside reserved fictional ranges (UK `+44 7700 900xxx` — the Ofcom drama block, IN EITHER OF ITS TWO SPELLINGS, the international `447700900xxx` and the national `07700900xxx`, which are ONE range and not two, because `normalize_phone` strips the `+` and keeps the leading `0`; NANP `555-01xx`); profile URLs only under a declared placeholder form. The scan is over ALL bytes in reach rather than a field list, so it needs no enumeration to be total — but the fields that carry these shapes are named for the corpus author's benefit, since every one of them must be constructed: `Person.emails` (`models.py:81`), `Person.phones` (`:82`), `Person.whatsapp` (`:83`, a JID whose digits `normalize_phone` splits at the `@` — `phone_normalization.py:39-55`), `Person.linkedin` (`:86`), `Person.slack` (`:87`), `Company.website` (`:129`), `Company.linkedin` (`:131`), `Book.isbn` (`:165`), `Book.source_url` (`:168`) and `Explore.url` (`:223`). AND THE MANIFEST'S OWN DECLARED HEX LITERALS ARE EXCISED FROM THE TEXT BEFORE THE SPAN WALK, DECIDED HERE FOR THE SAME REASON §6.4 DECIDES THE ISBN AND IN THE SAME BREATH, BECAUSE WITHOUT IT THIS LEG IS RED BY CONSTRUCTION OVER A WHOLLY CORRECT CORPUS. The reach includes `tests/fixture_vault.py`, which BY §3's OWN DESIGN carries `CORPUS_DIGEST` (64 lowercase hex) and, for the single non-UTF-8 member, `NoteSpec.raw_bytes_hex` — that note's COMPLETE bytes in lowercase hex, which leg (b) requires to be declared there and asserted byte-equal — and printable ASCII hex-encodes to bytes whose FIRST NIBBLE IS `2`–`7`, always a digit, so a nine-digit run inside such a literal is STRUCTURAL rather than unlucky: the five bytes of `type:` encode to `747970653a`, whose first nine characters are the phone-shaped run `747970653`, and `normalize_phone("747970653")` matches neither reserved pattern. A 64-character sha256 hex literal is a smaller instance of the same class — it carries a ≥9-digit run often enough that a merely RE-TAKEN digest could redden the leg on nothing but a legitimate corpus edit. THE EXCISED SET IS THEREFORE EXACTLY THE MANIFEST'S DECLARED HEX LITERALS, BY NAME AND NEVER BY SHAPE: `CORPUS_DIGEST`, every non-`None` `NoteSpec.raw_bytes_hex`, and the optional restatement of AC-3(iv)'s `CENSUS_DIGEST` that AC-3(iv) permits `fixture_vault.py` to carry for readability — and nothing else. Each is asserted FIRST to be well-formed lowercase hex of even length (`CORPUS_DIGEST` exactly 64 characters, a restated `CENSUS_DIGEST` exactly 64). AND THE PRESENCE ASSERTION'S DOMAIN IS THE REACH, NEVER THE INDIVIDUAL FILE, WHICH IS STATED HERE BECAUSE THE TWO READINGS DIFFER BY ~50 REDs OVER A WHOLLY CORRECT CORPUS: each declared literal is asserted to OCCUR SOMEWHERE IN THE REACH — the union of the bytes of every file this leg scans, tested ONCE against that union — while the EXCISION is applied to EVERY file's text independently, whether or not that file contains the literal, an excision of an absent substring being a no-op that costs nothing. The per-file reading is the harmful one and is excluded by name: `CORPUS_DIGEST` and every `NoteSpec.raw_bytes_hex` live in `tests/fixture_vault.py` BY §3's OWN DESIGN and appear in no corpus note at all, so a per-file presence assertion would hold for exactly one of the ~51 files in reach and be RED on the other ~50, on a corpus with nothing wrong with it — the same criterion-versus-code fork the word "corpus-relative" closed in AC-1(a), with the same absence of any in-cage remedy once these criteria are signed (the builder facing it could only narrow a signed criterion or delete the assertion). The union domain is what the anti-hiding-place argument actually wants and loses nothing: an exemption declared for a literal that occurs NOWHERE in reach is still RED rather than free, so the exemption still cannot become a hiding place. The three surfaces that restate this — `## Design` §6.4, Task 8, and `## Edge Cases`'s "A declared hex literal read as a phone" — say the same thing in the same words. It is an author-declared, named exemption asserted by equality exactly as `RESERVED_ISBN` is, so it can no more be padded than that one can: any other ≥9-digit run anywhere in reach is still scored as a phone and still RED. The excision is scoped to THIS leg's shape scan alone — leg (b)'s token scan is unaffected (a lowercase hex literal yields no extracted token, which is why leg (b) already requires that casing) and leg (e)'s absolute-path scan is unaffected. (b) NAME CLOSURE, SPLIT BY POSITION AND BY TOKEN KIND — THE SPLIT IS THE WALL. `fixture_vault.py` declares THREE literal frozensets and no computed membership: `NAME_POOL` (the constructed given names, surnames and company words the specimens are built from), `CONNECTIVE_SET` (the corruption classes' own non-identifying furniture, FIXED BY ENUMERATION AT EXACTLY `{"Me", "My", "Dave"}` — the package's OWN calendar/arrow/transcript prefix vocabulary, whose union across the three prefix regexes that spell a capitalized alternative is exactly that set: `name_cleaning.py:46` `_CALENDAR_PREFIX_RE` matches `^(Dave|Me|My)\s*[-/]\s+` and `:54` `_ARROW_PREFIX_RE` matches `^(Dave|Me|My)\s*[→⟶⇒➜↦⇨]\s*`, while `:55` `_ME_TO_PREFIX_RE` matches `^(Me|My)\s+to\s+` and carries NO `Dave` alternative — an earlier draft of this criterion said all three matched `(Dave|Me|My)`, which is wrong about `:55` and right about the union, and the union is what the set is; the test asserts that equality against the literal set written into this criterion, so the set cannot grow without an AC change and is never a build-time choice; the lowercase and punctuation connectives the classes also need, `to`, `->` and `→`, are NOT members, because the stated extractor cannot produce them and a member the closure can never exercise is a declaration that lies, and the mail-header prefixes `Re`, `Fwd` and `Fw` are NOT members for the harder version of the same reason — a Grep over the whole tree finds them in no Tier-1 branch, no recovery regex and no candidate census class, so no census row could ever measure one and no corpus specimen could ever honestly carry one, P11; AND THE SET IS ENUMERATED FROM THE WHOLE FURNITURE SURFACE RATHER THAN SAMPLED FROM THREE REGEXES OF ONE FILE — that surface is SIXTEEN regexes in two files and there is no third — the eleven of `name_validation.py` (`:66`, `:74`, `:82`, `:101`, `:107`, `:110`, `:113`, `:120`, `:123`, `:351`, `:445`) and the five prefix/suffix regexes of `name_cleaning.py` (`:46`, `:54`, `:55`, `:56`, `:57`) — plus both Tier-1 tables, the ten person branches (`name_validation.py:190-309`) and the five company ones (`:371-438`), with P16 recording the complete pass and P17 recording that no regex anywhere else in the package carries furniture. APPLYING THE RUN RULE THIS CRITERION PINS DOWN BELOW TO THE LITERAL SPELLING EACH REGEX CARRIES, THE UNION OF EXTRACTED FURNITURE TOKENS IS EXACTLY `{Me, My, Dave}` AND NO MEMBER IS ADDED — the two branches the earlier sampling omitted are the reason the rule had to be pinned first, and neither adds one. `archive_prefix` (`name_validation.py:110`, `^z+Archived\b`; recovery arm `name_cleaning.py:56`, `^z+Archived\s*-\s*`) contributes NOTHING, because `zArchived`/`zzArchived` is one run beginning lowercase and the run rule yields no token from it; that is not a reading chosen for convenience, since all five real specimens this repository commits for the branch spell it exactly that way with no exception (P15), so `Archived` is NOT a member and putting it in would plant an unexercisable literal in a frozen set — round 4's defect authored by a fold instead of by a builder. `unknown_contact` (`name_validation.py:113`, `unknown\s+contact` under `re.IGNORECASE`; recovery arm `name_cleaning.py:57`, `\s+unknown\s+contact\b`) contributes nothing FROM THE CODE either, both regexes spelling the literal lowercase — but it is the one branch whose answer THIS REPOSITORY'S COMMITTED SPECIMENS leave open, because `IGNORECASE` hands the letter-case to the live vault and this repository commits BOTH forms: the lowercase suffix form the branch's own "WhatsApp scanner artifact" comment describes (`tests/test_name_validation.py:248`, `:254`; `tests/test_name_cleaning.py:135`, `:140`) and a capitalized standalone form (`tests/test_name_gate.py:96`; `tests/test_lint_vault_fix_gate.py:58`; and the branch's own display `specimen=` field at `name_validation.py:274`). THE FLAG ITSELF IS NOT WHAT MAKES THAT CELL SPECIAL, AND SAYING SO KEEPS THIS SENTENCE HONEST: `re.IGNORECASE` is carried by EIGHT of the sixteen regexes (P17 — all five of `name_cleaning.py`'s and `name_validation.py`'s `:82`, `:110`, `:113`; `:74` does not carry it), so the code pins the live casing of `Me`/`My`/`Dave` no more tightly than `unknown contact`'s. What separates them is the CORPUS: every committed specimen of the three prefix branches spells them canonically with no `ME`/`DAVE` variant anywhere in the tree (P16), while `unknown_contact` is committed both ways. The reconciliation instruction below is written general for exactly that reason and needs no widening — if the census measures a live `ME - X` form, it is absorbed at the same one-time edit. THAT ONE RESIDUAL DEGREE OF FREEDOM IS CLOSED BY RECONCILIATION RATHER THAN BY A GUESS: `CONNECTIVE_SET` therefore carries the SAME ONE-TIME PRE-ORIGINATION RECONCILIATION INSTRUCTION AC-3's CLASS FLOOR CARRIES FOR ITS HAND-LISTED HALF (the branch half of that floor needs none, being read from the package at test time; this set needs one for the same reason those six shape classes do — the regexes declare patterns, not token lists, so there is no declaration to read) — before Dave signs, this literal set is reconciled ONCE against the census's measured character profiles, so that if the census measures the live `unknown_contact` form as capitalized then `Unknown` and `Contact` are added HERE, in this criterion, and if it measures the lowercase suffix form they are not; the same reconciliation runs for any other furniture class whose measured profile would put a capitalized non-name run into an identity position. AFTER THAT ONE EDIT THE SET IS FROZEN EXACTLY AS IT IS NOW — asserted equal to the literal written in this criterion, unable to grow without an AC change — so the safety property is untouched, and the instruction adds NO obligation over members the builder does not author, because the set still carries no non-vacuity clause of any kind. THE CHEAPER ALTERNATIVE IS NAMED AND REJECTED so a builder does not reach for it: authoring the specimen in the lowercase form whatever the census measured would hold the set at three members for free, but it destroys the character profile the specimen exists to carry, which is the same argument that keeps the "lowercase it for green" dodge out of AC-2's declared oracle and AC-3's declared verdict), and `PROSE_ALLOWLIST` (the ordinary English of the note bodies plus this module's own identifiers, docstring and comment vocabulary). THE EXTRACTOR IS STATED ONCE AND ITS "RUN" IS PINNED TO ONE READING, BECAUSE TWO READINGS OF IT RETURN DIFFERENT ANSWERS ON THE SAME BYTES AND THE DIFFERENCE DECIDES A FROZEN SET'S OWN MEMBERSHIP: decode every byte in reach with `errors="replace"`; a RUN is a MAXIMAL contiguous span of characters drawn from the class {Unicode letters, combining marks, `'`, `-`} — maximal meaning the span is bounded only by a character OUTSIDE that class (whitespace, a digit, any other punctuation, or the end of input) and NEVER restarted at an internal capital, so there is no camelCase splitting; a run is EXTRACTED as a token iff its FIRST character is an uppercase or non-ASCII letter; and an extracted run has leading and trailing `'` and `-` trimmed before it is compared against any set. FOUR WORKED CONSEQUENCES, WRITTEN OUT SO THE RULE IS CHECKABLE RATHER THAN INTERPRETABLE: `McDonald` is ONE token `McDonald`, never `Mc` plus `Donald`; `d'Angelo` is ONE run beginning with the lowercase `d` and therefore yields NO token (the extractor-domain residue already named in `why:`, not a new hole); `Zeta-9` yields `Zeta` (the run is `Zeta-`, trimmed); and — the consequence that settles `CONNECTIVE_SET`'s membership above — `zArchived` and `zzArchived` are each ONE run beginning with the lowercase `z` and yield NO TOKEN AT ALL. The maximal reading is chosen over the capital-restarting one for two stated reasons rather than by default: it is the reading that every real specimen this repository has ever committed for the `archive_prefix` branch is consistent with, all five of them spelling the prefix with nothing between the `z` and the capital (P15), and it is the reading that gives an ordinary hyphenated or Mc-prefixed surname the one answer a name needs. It is applied to two DISJOINT POSITION SETS with different rules. ONE ADMISSION IS DERIVED FROM THE PACKAGE RATHER THAN DECLARED HERE: an identity-position token whose `str.lower()` is a member of `name_cleaning._GENERIC_ORG_SUFFIXES` (`name_cleaning.py:58` — exactly `support`, `ltd`, `inc`, `corp`, `group`, `team`, `limited`, `llc`) is admissible with no `NAME_POOL` membership and no census row. THE COMPARISON OPERATION IS NAMED RATHER THAN DESCRIBED: the test lowercases with `str.lower()`, which is what the package itself does at `:148`, `:185` and `:191` — an earlier draft said "casefolded", which the package nowhere does; the eight members are ASCII so `lower` and `casefold` agree on them, but the corpus deliberately carries non-ASCII specimens and the criterion should name the operation its own test performs. It is READ from the package rather than written into `fixture_vault.py` precisely so a builder looking for the cheapest green cannot pad it, and it exists because the identity-position list below now reaches `Person.company` and `Book.publisher`: a specimen written `Voxleaf Ltd` would otherwise oblige the conductor to certify that `Ltd` occurs zero times in a vault of 2,159 company notes, which is not a claim anyone can honestly make, and none of the eight members can hide a person. **IDENTITY POSITIONS — ENUMERATED FIELD BY FIELD AGAINST `models.py`, NEVER NAMED BY CATEGORY, AND THE ENUMERATION IS ITS OWN RULE'S OUTPUT.** The rule is stated in THREE CLAUSES so a ninth entity type or a new field is CLASSIFIED rather than missed — and stated in three rather than one because a single "iff its value names a PERSON or an ORGANISATION" did not generate the list written under it in either direction, which is a criterion that is buildable two ways by its own reconciliation instruction. **CLAUSE 1 — NAMING.** A declared field is an identity position iff its VALUE IS a person's or an organisation's name: the whole scalar, or each element of the list, being such a name or a wikilink to a note that holds one. It is deliberately "IS a name", not "COULD CONTAIN one": the second reading sweeps every free-text field into the pool and obliges the conductor to certify ordinary English words with zero-hit live-vault rows, which is finding 1's unsatisfiable-obligation shape rebuilt on purpose. **CLAUSE 2 — DECLARED OVER-CONSTRAINT, so reconciliation does not delete it.** Plus the four entity `title` fields — `Book.title` (`:160`), `Watch.title` (`:193`), `Explore.title` (`:222`), `Exploration.title` (`:295`). A book, a film, a link and a living document are not people or organisations, so clause 1 does NOT reach them; they are in the list ON PURPOSE and this clause is the authority a later reconciliation reads before removing them. The reason: a title is the human-written display string of a note whose live original the corpus author is copying a character profile from, so transcribing a real one is the same slip as transcribing a real name, and it costs nothing extra — `## Write Targets` already requires every identity-position token in a specimen to be a constructed string, naming "a naturally-worded meeting title" as the example. **CLAUSE 3 — UNDECLARED KEYS, BY DEFAULT AND WITH NO OPT-OUT.** `BaseEntity` sets `model_config = ConfigDict(extra="allow", ...)` (`models.py:31-32`), so a corpus note may carry frontmatter keys no model declares — a `manager:` or `introduced_by:` on a forward-compatibility or schema-drift specimen — and clauses 1 and 2, being enumerations over DECLARED fields, cannot reach them at all. Any manifest-declared value for a key the note's model class does not declare is therefore an IDENTITY POSITION, full stop: there is no manifest flag that marks one prose, because a builder-settable exemption is the escape hatch this criterion has now been folded for twice. The default is satisfiable by construction rather than being an obligation over a set nobody authors — the corpus author chooses both which undeclared keys exist and what they hold, and the only cost of the default is that those values must be short constructed tokens rather than sentences. **THE CURRENT ANSWER**, reconciled field by field against every member of `TYPE_TO_MODEL` (the full pass is P14): every corpus filename stem (with the declared filename grammar's `@` sigil and `Meeting <date> - ` prefix stripped), plus the manifest's declared values for `Person.name` (`models.py:79`), `Person.aliases` (`:80`), `Person.company` (`:84`), `Company.name` (`:128`), `Book.title` (`:160`), `Book.author` (`:161`), `Book.publisher` (`:166`), `Watch.title` (`:193`), `Watch.director` (`:195`), `Watch.streaming_service` (`:199`), `Watch.recommended_by` (`:200`), `Explore.title` (`:222`), `Explore.source` (`:224` — "where you found it / who mentioned it"), `GiftIdea.for_person` (`:242`, frontmatter alias `for`), `GiftIdea.source` (`:243`), `Meeting.attendees` (`:261`), `Exploration.title` (`:295`) and `Exploration.related` (`:299`), plus every undeclared key's declared value under clause 3. **FOUR EXCLUSIONS, EACH ARGUED, AND ONE CORRECTION.** `Person.title` (`:85`) is EXCLUDED: it is a JOB title, it names nobody, and forcing `Director` into a pool that owes a zero-hit live-vault row would manufacture an unsatisfiable obligation on purpose — `Person.company` (`:84`) and `Person.title` (`:85`) are different fields and only the first carries identity. `Meeting.topics` (`:262`) is EXCLUDED as free prose for the same reason. `Exploration.origin` (`:300`, glossed "What sparked this - problem, article, conversation" at `:281`) is EXCLUDED on the same argument and it is the closest call in the list: it is a SENTENCE rather than a name, so clause 1 does not reach it and clause 1's "could contain" reading is the one that breaks the criterion — the residue is stated plainly below rather than closed by a fifth clause. `Exploration.graduated_to` (`:301`, glossed `[[Project]]` at `:282`) is EXCLUDED: a project is neither a person nor an organisation, and a constructed project name like `Q3 Migration` would put ordinary words into a pool owing zero-hit rows — finding 1's shape again. And `Meeting` DECLARES NO `title` FIELD AT ALL (`:259-263` — `date`, `attendees`, `topics`, `meeting_id`; `BaseEntity` adds only `type` and `tags`, `:39-40`), so the phrase this list replaced named a field the schema does not have; a meeting's title is not lost, because it lives only in the filename and the stem scan already reaches it. The list is reconciled against the schema BY APPLYING ALL THREE CLAUSES, BEFORE origination, exactly as AC-3's CLASS FLOOR reconciles its hand-listed half, so a field added to a model costs one edit here rather than a re-sign. IT IS HAND-LISTED RATHER THAN DERIVED FOR A STATED REASON AND NOT BY OVERSIGHT: `models.py` declares the FIELDS but nothing in it declares which of them hold a person's or an organisation's name, so unlike AC-2's `TYPE_TO_MODEL`, AC-3's `branch_id`s and AC-4's repository set there is no population to read — the classification is judgment, which is why it sits with a stated rule, a recorded field-by-field pass (P14) and a reconciliation instruction instead of a runtime read. Every token extracted from an identity position MUST be in `NAME_POOL ∪ CONNECTIVE_SET` or be an admitted org suffix. `PROSE_ALLOWLIST` IS NOT A TERM IN THIS ASSERTION and is structurally unreachable from it; the test additionally asserts `PROSE_ALLOWLIST` is DISJOINT from the identity-position token set, so no token can hold both roles and adding a surname to the allowlist buys nothing whatsoever for a `name:` value, an `aliases` entry, a title field or a filename stem. **FREE-PROSE POSITIONS** — everything else in reach: note bodies, non-identity frontmatter values, and `fixture_vault.py`'s own source. Tokens here must be in `NAME_POOL ∪ CONNECTIVE_SET ∪ PROSE_ALLOWLIST`. **NON-VACUITY, `NAME_POOL` ONLY** — every `NAME_POOL` entry occurs as an extracted token in at least one IDENTITY position; "somewhere in the reach" is deliberately NOT the bar, because a pool padded through a note body would satisfy it. It is scoped to `NAME_POOL` because `NAME_POOL` is the one declared set THE BUILDER AUTHORS, so it is satisfiable by construction — declare only what the corpus uses. **`CONNECTIVE_SET` CARRIES NO NON-VACUITY OBLIGATION, AND ITS ABSENCE IS A FIX RATHER THAN A RELAXATION.** A mandatory occurrence clause over a set the builder does NOT author is the defect generator this criterion has now bred three times (`to`/`->`/`→`, then `Re`/`Fwd`/`Fw`): every such set has produced at least one member the corpus cannot exercise, and each earlier fold pruned the member and kept the clause. Nothing is lost by dropping it, because exercising the furniture was never the wall — what stops `CONNECTIVE_SET` becoming a second escape hatch is that it is frozen by literal enumeration IN this criterion and asserted equal to it, and coverage of whatever connective the live vault actually produces is already guaranteed by AC-3(i), which requires a specimen for every MEASURED census class and, correctly, can never demand one for a class the vault does not have. The single corpus member that is not valid UTF-8 is exempt from the token scan and instead has its COMPLETE bytes declared in the manifest as a LOWERCASE hex literal and asserted byte-equal — reviewed rather than silently skipped past the wall, and lowercase so the literal yields no extracted token and can never itself become a reason to grow the allowlist. (c) POOL PROVENANCE — SCOPED TO `NAME_POOL` ALONE, AND A CONTAINMENT RATHER THAN AN EQUALITY. `docs/vault-shape-census.md` carries a pool table whose rows each give a certified token, the shape class it is constructed to carry, and the conductor's live-vault non-occurrence scan for it (the command run and its verbatim stdout, showing `0` hits as a name token anywhere in the vault — `## Write Targets` requires that command to emit a COUNT, so an honest zero result records verbatim as `0` rather than as nothing). The test asserts that `NAME_POOL` ⊆ the census's pool table — ONE DIRECTION, and the direction matters — that every row carries a non-empty command and a non-empty stdout, and that the table's token set is DISJOINT from `CONNECTIVE_SET`. AND IT ASSERTS CENSUS FIXITY FIRST, BEFORE IT TRUSTS ANY ROW OF THAT TABLE: `sha256` over `docs/vault-shape-census.md`'s bytes equals the `CENSUS_DIGEST` literal declared in AC-3(iv) and frozen by the same signature that freezes this criterion. This leg is asserted HERE as well as in AC-3 and not merely inherited from it, because each criterion's `check:` is its own test function and an unguarded AC-5 is the worse of the two exposures: the pool table is where this criterion's entire ground truth lives, the suite cannot re-derive a single one of its non-occurrence claims, and `docs/**` is builder-writable in full (`pipeline-runners.yaml:34-38`, P7), so without the fixity assertion a builder who wants a convenient, easy-to-spell pool token — one that may collide with a real name in a vault the builder cannot see and has no way to check — adds a row asserting a scan that was never run, with fabricated command and stdout text satisfying every other check this leg makes (non-empty command, non-empty stdout, containment, disjointness), and `## Intent`'s sentence about Dave's contacts' real names has no machine check standing behind it at all. THE VALUE'S LOCATION IS THE WALL, not the digest: it is read from the signed AC-3 fence in `docs/vault-fixtures.md`, never from a constant in `tests/fixture_vault.py`, because a constant the build owns is updated in the same commit that edits the file it digests. The residue is stated rather than papered over: a build that deletes the assertion outright is the ordinary "did not implement the criterion" exposure every AC here carries — caught by the battery and by code review — and is not a bypass of this leg, whose subject is the expected value's home. THE DIRECTION IS NOT A WEAKENING AND THE REASON IS AN ORDERING FACT ABOUT THIS PIPELINE, NOT A PREFERENCE: the census is a PRECONDITION that lands in HEAD before Dave signs these criteria and long before any corpus exists, while `NAME_POOL` is declared in-cage by a build that has not happened, so a both-directions equality would ask the earlier artifact to predict the later one's exact token set — and a census that certifies one token the build does not end up using would go RED with no in-cage remedy except inventing a note to consume it. Closure is not weakened by a byte: a token with no row still cannot enter an identity position, which is the entire property, and a certified-but-unused row is not a leak because it carries its own scan. It also removes this item's dominant recurring cost — under an equality every corpus edit is a paired edit across the cage boundary, and under a containment it is not. The leg is the same read-the-artifact-and-assert-its-shape move AC-3 makes: hermetic, no subprocess and no vault read. The connectives are exempt from provenance because a non-occurrence claim about them is unmakeable, not merely tedious: `Me`, `My` and `Dave` are the live stored-name prefix forms this vault actually produces — `name_validation.py:238-248` carries `specimen="Me to David Field"` on its `me_to_prefix` Tier-1 branch, `:226-236` carries `Dave - Thomas Gatten` on `calendar_prefix`, and `name_cleaning.py:46`/`:54`/`:55` strip exactly `(Dave|Me|My)` — so a zero-hit row for any of them would be a false statement inside the artifact whose whole job is to be the trustworthy ledger. The exemption's ground is the code's own vocabulary and NOT a guarantee about the census's counts: an earlier draft justified it by saying AC-3 requires the census to report `Me to ` prefixes with a non-zero count, which AC-3 no longer promises now that any class may be ruled ABSENT. It does not need to promise it — `Dave|Me|My` being live prefix vocabulary in this package is a fact about `name_cleaning.py`, readable without the census, and it is what makes the non-occurrence claim unmakeable whatever the census measures. (d) THE PROPERTY IS NOT PAID FOR — every reserved phone in the corpus still normalizes through `normalize_phone` to a stable digits-only value (`phone_normalization.py:39-55` splits off the WhatsApp JID suffix and then strips every non-digit, so `+44 7700 900123` yields `447700900123`; the package emits E.164 nowhere and none is asserted here), and `phones_match` (`:58-90`) still matches that value against the reserved number's `0`-prefixed and `+44`-prefixed variants, so the reservation does not cost the shape the fixture exists to exercise. (e) HERMETIC — materialization writes only underneath the caller's `dest`, and the corpus contains no absolute filesystem path: no occurrence of `/Users/`, and no live vault path in any note or in the manifest.
 why: This package installs `-e` into three consumer repos and its git history is permanent — a real address, number, profile URL or NAME committed here is not meaningfully retractable, which is why the 2026-07-05 routing note put this item on Opus in the first place. Legs (b) and (c) exist because the first draft of this criterion walled two of the three categories `## Intent` names and left the third — and names are the field D1's amendment says the corpus exists to carry the shape of, so the uncovered category was the likeliest one to be transcribed verbatim: a specimen whose email is correctly moved under `@example.com` and whose phone is correctly moved into the drama range, but whose `name:` is still the live vault's, passes AC-1 (the digest freezes whatever bytes exist), AC-2 (the manifest declares whatever name is present as "expected"), AC-3 (per-specimen verdicts test refusal behaviour, not identity) and the old AC-5 (no email/phone/URL violation) all green. Names have no RFC 2606, so the wall cannot be a reserved-range rule and CANNOT be a denylist either — committing a list of real names to catch real names would be the leak it is meant to prevent. Closure is the available structural form: every name-shaped token in an IDENTITY position must have been deliberately added to a declared pool, which turns "transcribed by accident" into "typed the real name into the pool and the census's provenance table as well". THE POSITION SPLIT IS WHAT MAKES THAT CLOSURE REAL, and it is the correction of a first attempt that failed on its own terms. That attempt ran ONE undifferentiated scan over the whole reach and offered two buckets — the pool, or a prose allowlist "of the ordinary vocabulary the note bodies and YAML keys need". The allowlist was unbounded, owed no census row, and was consulted from the same positions the wall exists to police, so the cheapest green for a specimen carrying the live vault's real surname was to type the surname into the allowlist, where a real name is not visibly out of place: the wall's bypass was larger, cheaper and more heterogeneous than the wall, which is not closure. The reach makes that worse rather than better, and the reach is still right — `fixture_vault.py` is a Python module and every capitalized identifier in it (`Path`, `SkippedNote`, `NameGateRefusal`, `UnicodeDecodeError`, the `AC-`/`WI-` prose) is an extracted token, so an allowlist covering it must be large and heterogeneous on day one. Splitting by POSITION rather than by bucket makes the size of the allowlist stop mattering: it is reachable only from free prose and is asserted disjoint from every identity token, so it can grow to whatever the module's vocabulary needs without ever being able to admit a token into the field that carries identity. TWO CHEAPER ALTERNATIVES ARE REJECTED HERE so a builder does not rediscover them. Putting the census provenance obligation on the allowlist too collapses it into the pool — it taxes every docstring word with a conductor scan and doubles the two-artifact join for no privacy gain, since prose is not where identity lives. Dropping the allowlist entirely and forcing all prose through the pool is the same move by another name and makes the pool table unreviewable, which destroys the mitigating control's own premise: what a human reviews is a few hundred declared IDENTITY tokens once. Likewise the CONNECTIVE split: a first draft put connectives and names in one pool under a type tag and then demanded a zero-hit live-vault row for every member, which is unsatisfiable by construction for `Me` — AC-3 charges the same artifact with reporting `Me to ` prefixes as a measured, non-zero class — so every route through it was either a RED criterion or a fabricated row. Connectives are exempt from provenance because non-occurrence is not a claim that can honestly be made about them; the exemption is safe ONLY because the set is frozen by enumeration in the criterion, which is what stops it becoming the same escape hatch the allowlist was, and it is asserted disjoint from the census table so nothing can be smuggled across the boundary in either direction. THE FOURTH FOLD REMOVED THE GENERATOR RATHER THAN ITS LATEST INSTANCE, AND THAT IS THE ONE THING TO KEEP IF THIS CRITERION IS EVER EDITED AGAIN. Three consecutive independent reads found a defect of a single family: a mandatory obligation over a declared set THE BUILDER DOES NOT AUTHOR — first a non-occurrence row demanded of `Me`, then an occurrence demanded of `to`/`->`/`→`, then an occurrence demanded of `Re`/`Fwd`/`Fw`, tokens that a Grep shows occur nowhere in this repository outside this document (P11). Each earlier fold pruned the member and kept the clause, which is why the family kept producing. Dropping `CONNECTIVE_SET`'s non-vacuity and making (c)'s pool relation a CONTAINMENT removes both surviving instances of the pattern at once, and the property they were nominally protecting is not lost: padding is prevented by the literal enumeration and by the per-token census scan, not by exercise. The same reading is why the identity-position list is now ENUMERATED against `models.py` with line cites instead of named by category — the previous phrase, "the company/meeting title fields", is exactly how `Person.company` was missed, and reading the models field by field showed it had also named a field `Meeting` does not have (`:259-263`) while missing `Meeting.attendees` (`:261`), `Book.author` (`:161`), `Watch.director` (`:195`), `Watch.recommended_by` (`:200`), `Explore.source` (`:224`) and `GiftIdea.for_person` (`:242`). Patching the one field named would have left six doors of the same shape one entity type over; stating the generating rule and the enumeration closes the family the way dropping non-vacuity closes the other one. THE FIFTH FOLD IS WHY THAT RULE IS NOW THREE CLAUSES INSTEAD OF ONE, AND THE LESSON IS NARROWER THAN THE FOURTH FOLD'S. Stating a one-line rule and then enumerating under it is not the same as enumerating BY it: two independent reads applied the single rule to `models.py` field by field and got a list that differed from the written one in both directions — it omitted `Exploration.related` (`:299`), whose own docstring (`:280`) glosses its members as `[[Other Exploration]], [[Person]], etc.`, and it included four media-`title` fields the rule plainly excludes. The omission was the expensive direction, because `related` is a field whose value IS a person link and the criterion scored it free prose: a real contact's name written there went RED once on the free-prose leg and the cheapest green was ONE `PROSE_ALLOWLIST` entry — no pool membership, no census row — which is the exact bypass rounds 1 through 4 were each raised to close. And it was live rather than theoretical for this corpus specifically: AC-2 derives its sweep from `set(TYPE_TO_MODEL)`, `exploration` is a member, P4 measures ZERO `exploration` references anywhere under `tests/`, so this corpus is guaranteed to contain the first `exploration` fixture anyone has authored — hand-written from a live note's shape, by an author with nothing to copy from, and `related:` is the field that shape hangs on. The inclusion direction cost nothing yet but was the same defect: a criterion whose own reconciliation instruction ("reconciled against the schema BEFORE origination") tells a later reader to re-derive the list from the rule, while the rule as written deletes four listed fields, is buildable two ways — the WI-144 shape. Clause 2 fixes that by making the over-constraint DECLARED rather than accidental, so the reconciliation preserves it instead of pruning it on the rule's own authority; clause 3 reaches the one door no enumeration over declared fields can, since `extra="allow"` (`:31-32`) means a specimen may carry keys no model declares. The two undecided siblings are decided rather than left: `Watch.streaming_service` (`:199`) names an organisation exactly as `Book.publisher` (`:166`) does and is now listed with it, and `GiftIdea.source` (`:243`) is listed alongside its glossed sibling `Explore.source` (`:224`) because a gift idea's source is plausibly whoever suggested it — the same value kind must not get opposite answers inside one enumeration, which is what produced this finding. AND THE THIRD PLACE THE MACHINE STOPS IS NOW NAMED WITH THE OTHER TWO, because clause 1's "IS a name, not COULD CONTAIN one" is what buys the criterion its satisfiability: a real name written into `Exploration.origin` (`:300`), `Meeting.topics` (`:262`) or a note body is walled by the free-prose leg and the pool's human review, not by the closure, and one allowlist entry is its cheapest green. That residue is not new and is not a regression — note BODIES have been on that side since round 1 and always will be, because prose cannot be closed against a pool without taxing every English word with a conductor scan (the alternative rejected two paragraphs above). What the fold guarantees is the line's PLACEMENT: no field whose value IS a name sits on the prose side of it, which is what `Exploration.related` was doing. The org-suffix admission is derived from `name_cleaning._GENERIC_ORG_SUFFIXES` rather than hand-declared for the same discipline: a fourth hand-written literal set is what the generator eats, and a set read from the package cannot be padded by whoever is looking for the cheapest green. Say plainly where the machine stops: the suite is hermetic and cannot read the live vault, so the GROUND TRUTH that a pool token does not name a real contact is the conductor's recorded scan in the census, not an in-suite assertion — leg (c) asserts that the scan was run and recorded for every token, and the census's re-runnable command is what a later reader checks it against. That is the mitigating control, named and tied to a criterion rather than left as D4's unstated "reviewable by eye" aside — and it is a real reduction, because what a human now reviews is a few hundred declared tokens once, not fifty notes of free text every time the corpus changes. THE SECOND PLACE THE MACHINE STOPS IS THE EXTRACTOR'S OWN DOMAIN, and it is named here rather than chased with another clause. The extractor takes runs beginning with an uppercase or non-ASCII letter, so an identity value written entirely in lowercase yields no token and is outside the wall — the same fact that (correctly) keeps `to`, `->` and `→` out of `CONNECTIVE_SET`. A deliberate "lowercase it to get green" dodge is therefore not closed by machine, and deliberately is not: it destroys the character profile the specimen exists to carry, so AC-2(b)'s hand-written declared oracle and AC-3's declared per-specimen verdict both go RED on it, and the residue is covered by the same one-time human review of the pool table. A fifth clause bolted on to close it would be a mandatory obligation over something the criterion cannot see — the shape of every finding this criterion has produced so far. THE SIXTH FOLD PINNED THE EXTRACTOR'S "RUN" AND THEN RE-ENUMERATED THE FURNITURE SURFACE IN THAT ORDER, AND THE ORDER IS THE WHOLE LESSON. The finding arrived as two halves that disagreed: one read said `CONNECTIVE_SET` was sampled from three of the five prefix/suffix regexes in `name_cleaning.py` and should gain `Archived`, `Unknown` and `Contact`; the other said that literal fix is contradicted by this repository's own specimens, because the criterion's extractor never said what a "run" is and, under the plain maximal-span reading, `zArchived` yields no token at all — so `Archived` would be an unexercisable literal in a frozen set, which is exactly the round-4 defect with a gate's fold as its author instead of a builder. Both halves are right and the resolution is sequencing, not a compromise: the membership question is not answerable until the extraction rule is, so the rule is stated first (maximal span, no camelCase restart, first character decides, trim `'`/`-`), with four worked examples so it is checked rather than interpreted, and only THEN is the surface re-enumerated by applying it. Done in that order the answer is that the set does not move: the fifteen regexes' own literal spellings extract to exactly `{Me, My, Dave}`, `archive_prefix` contributes nothing under the reading every committed specimen for it supports (P15, five specimens, no exceptions), and `unknown_contact` contributes nothing from the code because both its regexes spell the literal lowercase. What the re-enumeration did buy is the one genuinely undecided cell being named instead of guessed: `re.IGNORECASE` on `name_validation.py:113` puts the letter-case of the live `unknown contact` form in the vault's hands rather than the code's, and this repository already commits it BOTH ways, so no amount of reading `obsidian_schemas/` settles it. That cell gets AC-3's own remedy — a one-time pre-origination reconciliation against the census, which lands in HEAD while these are still drafts — rather than a fifth hand-written literal or a guess frozen by signature. It is worth being explicit that the reconciliation instruction is NOT the round-4 generator returning: the generator was a mandatory obligation over a set the builder does not author, and this set still carries no occurrence obligation at all; what it now carries is a one-time edit, made by the author before signature, against an artifact that exists by then, after which the set is as frozen as it was before. The general rule the two closures share, and the one to attach if this criterion is edited again: EVERY SET AC-5 DECLARES IS ENUMERATED BY APPLYING A STATED RULE TO A NAMED, ENUMERABLE SURFACE — round 5 needed `models.py` read field by field, this round needed the sixteen regexes read one by one, and both defects were "enumerated by sampling" rather than by the rule. Leg (d) is the honest cost check: a reserved-range rule that broke `normalize_phone`'s own fixtures would have bought privacy by deleting the property, and the UK drama range and NANP 555-01xx are chosen precisely because they are well-formed dialable-shaped numbers that will never ring. The leg names the digits-only output rather than E.164 because that is what the function actually produces — it strips every non-digit (`phone_normalization.py:39-55`), so the leading `+` does not survive and nothing in this package emits E.164; asserting E.164 would have been a criterion the corpus cannot satisfy no matter how well the reserved ranges were chosen, and `phones_match`'s `44`/`0` and `1`/10-digit arms (`:58-90`) are the property worth protecting anyway. Leg (e) keeps the corpus portable — a fixture carrying `/Users/davewascha/...` is both a small leak and a note that means something different on any other machine, and D6's eventual export to the consumer repos depends on the bytes travelling unchanged.
 check: test_no_corpus_note_carries_a_live_identifier
 kind: test
@@ -1421,11 +1485,18 @@ rather than inherited from that round's prose.
 | D-5 | The skip-reason vocabulary is the one classification in this package that is DECLARED nowhere a test can read. | `repositories/base.py:44`, `:46`, `:47` are bare return literals; `:37` is a type comment; `repositories/__init__.py:14-21` exports four repositories, `BaseRepository` and `VaultPathNotConfiguredError` and nothing else. Contrast `TYPE_TO_MODEL` (`models.py:309-318`), `ENTITY_BODY_CONFIG` (`body_sections.py:303-324`), `TIER1_BRANCHES` / `COMPANY_TIER1_BRANCHES` (`name_validation.py:190-309`, `:371-438`), `_GENERIC_ORG_SUFFIXES` (`name_cleaning.py:58`) — every one of them a module-level literal. | P20; re-read here, both files in full. |
 | D-6 | Half the corpus is notes the write door now REFUSES to create, so byte copy is the only mechanism that can carry them. | `writer.py:252-253` calls `gate_write` on the assembled payload before serializing; `name_gate.py:361-363` runs `validate_strict` over `TIER1_BRANCHES` for `person` and `:340-341` over `COMPANY_TIER1_BRANCHES` for `company`; `Tier1Branch.matches` (`name_validation.py:179-184`) is the predicate. A note whose `name:` is `Dave -> Thomas Gatten (Adzact)` cannot be written through that door. | Re-read here. |
 | D-7 | A corpus laid out one-subdirectory-per-type is globbed by NOTHING. | `load()` calls `self.vault_path.glob(self.file_pattern)` — non-recursive (`repositories/base.py:231`); `person.py` and `company.py` declare no `file_pattern` and inherit `@*.md` (`base.py:195-198`); `meeting.py:51-54` declares `Meeting *.md`; `book.py:50-53` declares `*.md`. | Re-read here; the data audit ran the same read. |
-
+| D-8 | The conveyor does NOT necessarily run a `kind: test` check under this project's interpreter, so a check module that executes the library and lacks the bridge reports `ModuleNotFoundError` against a floor that is green in the same tree. | `tests/ac_interpreter.py:7-25` states the mechanism and records the observed outcome ("five-of-five criteria, with a floor that was green in the same tree"); `:123-130` is the no-op fast path, `:150-155` the `os.execve` delegation, `:136-148` the fail-closed raises; six modules call it as their first statement (`tests/test_company_name_contract.py:25`, `tests/test_address_splitter.py:38`, `tests/test_name_gate_identifiers.py:41`, `tests/test_name_gate_refusals.py:41`, `tests/test_name_gate_wall.py:40`, `tests/test_name_gate_delta_rule.py:37`); `tests/test_ac_interpreter.py:40` scopes the standing wall to `docs/write-door-bypasses.md`, so this item is outside it; `docs/identity-engine-endgame.md:2742-2746` prices the scar. | Read here in full, all nine files. |
+| D-9 | The three skip-reason strings are hand-typed at THREE test sites, not one; and printable ASCII hex-encodes to digit-first nibbles, so a hex literal in reach carries phone-shaped runs by construction. | A grep for the three literals over every `*.py` in this worktree returns `obsidian_schemas/repositories/base.py:37`, `:44`, `:46`, `:47`, `obsidian_schemas/errors.py:112`, `tests/test_loud_fail_load.py:188`, `:209` and `tests/test_name_gate.py:152` — eight sites, of which three are hand-typed test comparisons. For the hex half: the five bytes of `type:` encode to `747970653a`, whose first nine characters are the ≥9-digit run `747970653`, and §6.4's phone predicate matches any maximal `[0-9+()\-. ]` span with ≥9 digits. | Grep run and every site read here; the hex encoding is arithmetic, not a measurement. |
 **Not a diagnosis and marked as such.** "A frozen corpus would have caught bug X" is nowhere in this
 spec, because no such bug is on the record. The item's warrant is D-1 through D-7, which are facts
 about absence and about mechanism, not about a breakage anyone has observed. That also decides
-Verification's incident-replay question — see `## Verification`.
+Verification's incident-replay question — see `## Verification`. **D-8 and D-9 are a different kind
+and are separated here rather than counted with the seven:** they are load-bearing claims about how
+the BUILD PIPELINE and this spec's own predicates behave, added when a review round found each one
+about to cost a build attempt, and neither is an incident this package suffered. They do not make
+this an incident-class item (WI-173) — WI-021's battery, which D-8 cites, is another item's incident,
+already closed by another item's shipped bridge, and this item's obligation is to CALL that bridge
+rather than to replay anything.
 
 ---
 
@@ -1489,7 +1560,20 @@ the RULE SET a corpus must satisfy, so the builder assembles rather than invents
    exactly one of that type's notes is the manifest's `roundtrip_representative` — which must be
    GATE-CLEAN in the door's own sense (§5.3).
 2. **Class coverage.** Every census class row with `status: MEASURED` has at least one specimen
-   note, carrying that row's character profile.
+   note, carrying that row's character profile. **A note is the SPECIMEN for a class iff it DECLARES
+   that class id in its `NoteSpec.shape_classes`, and that declaration is the only thing AC-3(i)'s
+   equality reads** — so a note whose `shape_classes` is `()` is the specimen of nothing, is outside
+   assertion (i) in both directions, and is not a criterion violation. Most corpus members are in
+   exactly that position already (the eight type representatives, the skip specimens, the collision
+   members), and rule 7's two discriminators join them. Against the LANDED census this rule names
+   SIX classes and no others: `diacritics`, `hyphenated_surname`, `whitespace_damage`,
+   `stem_name_divergence`, `postal_address_in_name`, `pure_digit`. The other ten rows are ABSENT and
+   oblige no specimen; declaring one of them in any note's `shape_classes` is RED under AC-3(i),
+   which is scoped to MEASURED rows.
+   *One shape the census records with NO class row and therefore NO specimen owed, named so a
+   builder does not plant one:* an emoji-only stored name (`✨🌙 ✨`), which the census's prose files
+   under `diacritics`' seventh non-ASCII name and rules out of the class floor because nothing in the
+   package refuses it. It is recorded there for WI-026, not for this corpus.
 3. **Skip coverage.** Every member of `SKIP_REASONS` has at least one specimen, and the two untyped
    classes are planted TWICE — once as `@<Name>.md`, once as `Meeting <date> - <Title>.md` — which
    is AC-4(b)'s discriminator (§5.4).
@@ -1499,12 +1583,35 @@ the RULE SET a corpus must satisfy, so the builder assembles rather than invents
    `UnicodeDecodeError`, which is neither `FrontmatterParseError` nor `SchemaDriftError` and falls
    to `_skip_reason`'s third arm (`base.py:47`). A `chmod`-based specimen is NOT reached for; git
    does not carry a mode that makes a file unreadable to its owner.
-5. **The collision.** At least three distinct filenames share one stored `name:` — the same-name
-   collision class. Whether that is one class or two with stem/name divergence is the CENSUS's
-   ruling, not the builder's (`## Approach`).
-6. **Size.** ~50 notes. The number is an approximation and no criterion asserts it; rules 1-5 are
+5. **The collision.** At least three distinct filenames share one stored `name:`. **The CENSUS has
+   now ruled, and the ruling changes what this note is DECLARED as rather than whether it is
+   planted.** The landed artifact rules `same_name_collision` ABSENT (count 0 — the largest live
+   collision is two) and `stem_name_divergence` MEASURED (count 8), so they are TWO classes and only
+   the second is on AC-3(i)'s MEASURED side. The three-filename collision is STILL PLANTED — §3's
+   `LOADABLE` arithmetic depends on it, and it is the only thing in the corpus that exercises
+   `_get_cache_key`'s collapse — but it is declared under `shape_classes = ("stem_name_divergence",)`
+   (structurally, a flat corpus's collision IS a divergence, which is the census's own reading at its
+   ONE-or-TWO ruling) and **never as a `same_name_collision` specimen, which would be RED against that
+   ABSENT row.** An earlier draft of this rule left the naming to "the CENSUS's ruling" while the
+   ruling did not yet exist; it exists now and is written in rather than pointed at.
+6. **Size.** ~50 notes. The number is an approximation and no criterion asserts it; rules 1-7 are
    what the corpus must satisfy, and if the census measures more classes than fifty notes can carry
    comfortably, the corpus grows and nothing in this spec moves.
+7. **The two AC-1(c) discriminators — MANDATORY MEMBERS THAT ARE THE SPECIMEN OF NO CLASS, and this
+   rule is the reason they can exist at all.** AC-1(c) obliges the corpus to carry at least one note
+   whose stored `name:` matches a live Tier-1 branch, with "an arrow-connective descriptor and a
+   path-hostile name … both present, named in the manifest as such". The landed census rules
+   `arrow_connective` (count 0) and `path_hostile` (count 0) BOTH ABSENT, so neither is a MEASURED
+   class and neither may be declared in any note's `shape_classes` without breaking AC-3(i)'s
+   both-directions equality. The two obligations are reconciled by giving them DIFFERENT manifest
+   fields: the two notes carry `shape_classes = ()` and are named by `NoteSpec.discriminator`, a
+   dedicated field holding the `branch_id` of the live branch their `name:` trips (§3). "Named in the
+   manifest as such" is satisfied by that field — AC-1(c)'s test reads `discriminator`, never
+   `shape_classes` (Task 4) — and AC-3(i)'s covered-class set never sees them. Both notes are
+   `person`-typed, neither is any type's `roundtrip_representative` (rule 1 forbids it: the door
+   refuses them), and their identity tokens are constructed from `NAME_POOL` like every other
+   specimen's. The corpus is buildable exactly ONE way as a result; before this rule it was buildable
+   two, and one of the two was RED with no in-cage remedy once these criteria were signed.
 
 #### §1.4 What is NOT in the corpus
 
@@ -1563,15 +1670,18 @@ LOUD parse failure, never a skipped row (§5.5).
 
 ```
     ```census-meta
-    snapshot: 2026-09-08
-    vault_notes_person: 1147
-    vault_notes_company: 2159
+    snapshot: 2026-09-07
+    vault_notes_person: 1150
+    vault_notes_company: 659
     ```
 ```
 
 `census-meta` keys beyond `snapshot` are free-form `vault_notes_<type>` counts; the reader requires
 `snapshot` and ignores the rest, so the conductor can record per-type totals without a paired spec
-edit.
+edit. The three values above are the LANDED artifact's own, quoted rather than invented — an earlier
+draft of this example carried a guessed date and a company figure taken from the 2026-07 corpus
+audit, which is a stated-number-versus-actual-artifact divergence in an illustrative block and is
+aligned here because this document's examples are read as descriptions of the file the build parses.
 
 **These three fences are the artifact's whole machine surface.** Everything else in the file — the
 `lint_vault` auto-fix shapes the precondition fence asks for, the ONE-class-or-TWO ruling, the
@@ -1579,10 +1689,33 @@ postal-address ruling — is prose the conductor writes and a human reads. Nothi
 it, and nothing in the suite may start to: the digest (AC-3(iv)) is what makes the prose trustworthy,
 not a parser.
 
+**"Outside the PARSER" is not "outside every check", and the distinction is M1's whole subject —
+stated here so the sentence above is not read as forbidding the fold.** The rule above is about
+STRUCTURE: no assertion may depend on the meaning, ordering or presence of a prose bullet, because
+prose is where the conductor writes what no schema anticipated. M1 adds an assertion that depends on
+none of those things — it decodes the WHOLE file, prose and fences alike, as a byte stream and runs
+§6.1's identity-token extractor over it (§6.5). The file's prose is therefore outside the suite's
+parser and INSIDE the suite's identity scan, which is the only way the artifact the privacy wall
+depends on can itself be inside that wall. A conductor may rewrite any prose bullet freely; what
+they may not do is put an uncertified identity token in one.
+
 ### §3. Data model — the manifest module `tests/fixture_vault.py`
 
-Three things and no test logic. Imports: `hashlib`, `unicodedata`, `dataclasses`, `pathlib`,
-`typing`. **It must not name `ast`** (§11, W-1) and must contain no URL and no absolute path.
+Three things and no test logic. Imports: `hashlib`, `dataclasses`, `pathlib`,
+`typing`, plus ONE package import — `from obsidian_schemas.repositories.base import
+MALFORMED_FRONTMATTER, SCHEMA_DRIFT, UNREADABLE` — because `SKIPS`'s reason values are those
+constants and never re-spelled literals (§4's single-home rule; a manifest that re-spells them is a
+member of the wall's population and re-opens the transcription this item closes). **It must not name
+`ast`** (§11, W-1) and must contain no URL and no absolute path. **`unicodedata` is deliberately NOT
+in that list, and its absence is the module's boundary rather than an oversight:** the only consumer
+is the identity-token extractor's `_runs` (§6.1), which lives in `tests/test_fixture_vault.py` with
+the rest of the test logic — an unused `unicodedata` here would invite a builder to put the extractor
+in the manifest, which `## Approach`'s "three things and no test logic" forbids. §6.1, Task 8 and the
+Self-Review Dry Run all place it in the check module; P-7 lists the item's whole stdlib surface across
+both modules. That package import is why this module is
+no longer stdlib-only, and it is also why nothing about the bridge below changes for it: this module
+is never a check module, and every module that imports it either runs under the floor or opens with
+the bridge itself.
 
 ```python
 """The frozen fixture corpus and its DECLARED oracle (WI-016).
@@ -1617,13 +1750,21 @@ class NoteSpec:
     declared_type: Optional[str]        # the note's `type:` value; None when nothing legible
     fields: Optional[dict]              # DECLARED expected parsed values; None for a skip specimen
     undeclared: dict                    # values for keys the model does not declare (extra="allow")
-    shape_classes: tuple                # census class ids this note is the specimen for
+    shape_classes: tuple                # census class ids this note is the specimen for; () for a
+                                        # note that is the specimen of no class — the ONLY field
+                                        # AC-3(i)'s covered-class equality reads
+    discriminator: str = ""             # AC-1(c) ONLY: the branch_id of the live Tier-1 branch this
+                                        # note's `name:` trips. "" for every other note. Read by
+                                        # AC-1(c) and by NOTHING else — never by AC-3
     verdict: Optional[Verdict]
     roundtrip_representative: bool
     raw_bytes_hex: Optional[str]        # ONLY the non-UTF-8 member; lowercase hex, complete bytes
 
 NOTES: dict[str, NoteSpec]              # keyed by filename, corpus-relative, no directory part
-SKIPS: dict[str, dict[str, str]]        # {repository type_name: {filename: reason}}
+SKIPS: dict[str, dict[str, str]]        # {repository type_name: {filename: reason}}; the reason
+                                        # values are the imported constants, never re-spelled
+                                        # literals — WHICH constant a given filename maps to stays
+                                        # the hand-declared oracle (§4)
 LOADABLE: dict[str, int]                # {repository type_name: expected len(repo.get_all())}
 RESOLVABLE: tuple                       # ((query, expected Person.name), ...) for PersonRepository.resolve
 IDENTITY_FIELDS: dict[str, tuple]       # {entity type: field names that are identity positions}
@@ -1642,6 +1783,68 @@ parser agrees with itself. The reviewer's cheapest tell that this rule was broke
 mapping that reproduces the parser's normalisations (dates coerced to strings by
 `_normalize_frontmatter`, `parser.py:111-134`) on a note whose frontmatter does not show them.
 
+**`discriminator` and `shape_classes` are two fields because AC-1(c) and AC-3(i) ask two different
+questions, and one field could not answer both.** AC-1(c) asks "is a note whose `name:` trips a live
+Tier-1 branch present, and is it NAMED as such in the manifest?" — a question about the DOOR's
+behaviour, which is a fact about the package and is true whatever the live vault contains. AC-3(i)
+asks "does the corpus's declared class coverage equal the census's MEASURED rows?" — a question about
+the VAULT's distribution. The landed census answers the second with `arrow_connective: ABSENT` and
+`path_hostile: ABSENT` while the first still obliges both notes, so a single field naming the class
+would satisfy AC-1(c) and break AC-3(i)'s equality, and an empty single field would satisfy AC-3(i)
+and leave AC-1(c)'s "named as such" satisfied by nothing the manifest declares. Two fields, read by
+two criteria, and neither criterion's text moves. **The discriminator value is a `branch_id` and is
+asserted to be one:** AC-1(c)'s test checks each non-empty `discriminator` is a member of
+`{record.branch_id for record in TIER1_BRANCHES + COMPANY_TIER1_BRANCHES}` — the same runtime read
+AC-3(iii) makes — so the field cannot be padded with a free-text label, and it names the same
+vocabulary the census's branch rows are keyed on without joining that criterion's equality.
+
+**AND `Verdict.pattern` IS THE OTHER VOCABULARY OF THE SAME DECLARATION — the rule is stated once,
+here, because `Tier1Branch` carries two same-shaped string fields and this document had them
+crossed.** *A declared refusal `Verdict`'s `pattern` is the RECORD'S `pattern` FIELD, never its
+`branch_id`.* `Tier1Branch`'s own docstring settles it (`name_validation.py:152-154`): `branch_id`
+"is the sweep's unit and is unique in the tuple", while `pattern` "is the stable key the branch
+RAISES and is deliberately not unique". `branch_id` is therefore what a POPULATION is keyed on —
+AC-3(iii)'s floor, the census's branch-row ids, `NoteSpec.discriminator` — and `pattern` is what an
+EXCEPTION carries, which is the only thing a `Verdict` of `kind="refusal"` asserts. The two disagree
+on real records and the disagreement is silent: `pure_digit` raises `pure_digit_name`
+(`name_validation.py:284-285`), and `arrow_connective`, `calendar_prefix` and `me_to_prefix` all
+raise the shared `calendar_prefix` (`:216`, `:228`, `:240`). **That non-uniqueness is why a
+`Verdict.pattern` cannot be read as naming a branch and is not asked to:** which branch a specimen is
+the specimen OF is answered by `shape_classes` (AC-3) or by `discriminator` (AC-1(c)), both keyed on
+`branch_id`; `Verdict.pattern` answers only "what does the refusal this specimen produces carry?".
+
+**The WI-226 sweep this rule closes, run over the whole class rather than the instance in front of
+it, and DECLARED so the next reader checks it instead of repeating it.** The generator is *a
+literal this spec pins that must come from a NAMED FIELD of a NAMED in-tree declaration, where the
+declaration carries more than one field of that shape.* Every such pin in this document, swept one
+at a time:
+
+1. **`Verdict.pattern`** → `Tier1Branch.pattern`. **The instance: it was pinned from `branch_id` and
+   is corrected in §5.3, Task 6 and `## Self-Review Dry Run` in this edit.**
+2. **`NoteSpec.discriminator`** → `Tier1Branch.branch_id`. Its two values, `arrow_connective`
+   (`:215`) and `path_hostile` (`:250`), are branch ids, and Task 4 asserts membership in the derived
+   `branch_id` set rather than trusting the spelling. Correct.
+3. **`shape_classes` and the census's class-row ids** → the census's `census-class.id`, which AC-3
+   fixes to be the `branch_id` itself for a branch-backed row. The six MEASURED ids of §1.3 rule 2
+   include `pure_digit`, which is a `branch_id` and so a correct class id. Correct — **and this is
+   exactly why the instance was invisible: the same word is right one field over.**
+4. **`SKIPS`'s reason values** → `_skip_reason`'s own return literals (`base.py:44`, `:46`, `:47`),
+   imported as constants and pinned once by spelling in Task 2. Correct.
+5. **`SKIPS`'s and `LOADABLE`'s keys** → `BaseRepository.type_name`'s returns (`person.py:190`,
+   `company.py:68`, `meeting.py:49`, `book.py:48`), never the class names. Correct.
+6. **`CONNECTIVE_SET`** → the prefix regexes' own alternatives (P16). Correct.
+7. **Task 12's W-1 expected set** → `modules_using_ast`'s return, which is a list of USE records
+   whose `.module` is the id (`tests/derivations.py:630`, projected as `{use.module for use in live}`
+   by the shipped wall at `tests/test_name_gate_wall.py:1136-1138`). **The NEXT LEVEL of the ladder,
+   found by this sweep and closed in the same edit: right declaration, right field, wrong PROJECTION
+   of the return.** Task 12 stated the call unprojected and is corrected there.
+
+`RESERVED_ISBN`, §6.4's phone patterns and §1.2's filename grammar are author-declared and draw on no
+upstream vocabulary, so they are not members. **The sub-cell the ladder ends at, declared because it
+is the one a later reader would re-derive:** a pinned value can be correct and still not identify its
+source record, because `pattern` is deliberately non-unique — which is a reason to key populations on
+`branch_id` and never a reason to spell a `Verdict` with one.
+
 **`SKIPS` is keyed by repository, never a union.** Ownership is a joint function of the FILENAME and
 the error's `declared_type` (§5.4), so the same untyped specimen legitimately appears in two
 repositories' mappings at once and in neither of the other two's. A union manifest cannot express
@@ -1655,6 +1858,85 @@ meeting (`meeting.py:56-62`), `title.lower()` for book (`book.py:55-57`). §1.3'
 collision therefore contributes THREE to `load()` and ONE to `get_all()`. This is the single most
 likely place a builder declares a number that is off by two, so it is stated here rather than
 discovered at build; AC-4(c)'s "declared loadable count" is the `get_all()` quantity.
+
+#### §3.1 The CHECK module's preamble — `tests/test_fixture_vault.py` opens with the interpreter bridge
+
+**This is the single highest-cost thing to get wrong in the whole plan, it is invisible from inside
+the floor, and this project already paid for it once.** `tests/test_fixture_vault.py` hosts all five
+`kind: test` checks, and every one of them EXECUTES the library: they import `TYPE_TO_MODEL`,
+`ENTITY_BODY_CONFIG`, `TIER1_BRANCHES` / `COMPANY_TIER1_BRANCHES`, `parse_markdown_file`,
+`write_markdown_file`, all four repositories, `normalize_phone`, `clean_person_name` and the new
+`SKIP_REASONS` — every one of them behind `pydantic`. The conveyor does NOT run a check under this
+project's interpreter by default: `tests/ac_interpreter.py:7-25` records the mechanism in as many
+words — the battery discovers the check by source scan and runs `<some python> -c "<importlib
+bootstrap>" <module path> <check name>`, and that interpreter "defaults to the ADVANCER's
+`sys.executable` and is only this project's venv when the driver passes `--ac-python`". When it is
+not, `import pydantic` fails at the check module's very first package import and every criterion of
+the item reports `exit 1: ModuleNotFoundError` — "the exact battery output WI-021's first build
+attempt drew, on five-of-five criteria, with a floor that was green in the same tree."
+
+So `tests/test_fixture_vault.py` opens exactly as this project's six other library-executing check
+modules do — `tests/test_company_name_contract.py:25`, `tests/test_address_splitter.py:38`,
+`tests/test_name_gate_identifiers.py:41`, `tests/test_name_gate_refusals.py:41`,
+`tests/test_name_gate_wall.py:40`, `tests/test_name_gate_delta_rule.py:37` — with the bridge as its
+FIRST executable statement, ahead of every package import:
+
+```python
+"""… module docstring, including the CORPUS_COUPLING: line …"""
+
+# FIRST, ahead of every package import: the conveyor may run this module's check
+# under an interpreter that is not this project's, where the imports below cannot
+# resolve. A no-op under the floor command and under CI (WI-021; see
+# `tests/ac_interpreter.py` for the failure this closes).
+from tests.ac_interpreter import ensure_project_interpreter
+
+ensure_project_interpreter(__file__)
+
+import hashlib  # noqa: E402 — everything below runs only once the interpreter is right
+…
+from obsidian_schemas.models import TYPE_TO_MODEL
+from tests.fixture_vault import CORPUS_DIGEST, NOTES, materialize_vault
+```
+
+**What the call does, stated precisely, because P-4 asserts this suite makes no subprocess.** It is a
+NO-OP whenever the running interpreter can import the package's runtime deps —
+`runtime_deps_importable()` is a `find_spec("pydantic")` and returns before anything else happens
+(`tests/ac_interpreter.py:123-130`), so under the floor command and under CI the collected module
+imports and runs byte-identically to a module with no bridge at all. Only under a FOREIGN interpreter
+does it act, and even then it does not spawn a child: it `os.execve`s, REPLACING this process with
+the same one check under `<root>/.venv/bin/python` (`:150-155`). It never degrades to a skip or a
+green — an unrecognized invocation shape, a missing interpreter, or a delegation that still cannot
+import the deps RAISES with the command a human can run by hand (`:136-148`).
+
+**Why nothing else in this item catches its absence, which is the reason it is prescribed here rather
+than left to the builder's judgment.** The FLOOR runs under `.venv/bin/python` and stays green with
+or without the bridge — that is the split `tests/ac_interpreter.py:30-33` names. The standing wall
+over the bridge, `tests/test_ac_interpreter.py`, derives its criterion set from
+`docs/write-door-bypasses.md` (`:40`), WI-021's doc, so this item's checks are outside its population
+(§11, W-10 states this correctly). And §11's own sweep predicate — modules that READ the text of
+files they did not name — structurally cannot reach a capability-injection convention. Task 12
+therefore closes it by RUNNING the parity check rather than by asserting the source text (§11, W-16):
+for EVERY check name this document's own `criteria` fences declare — derived with
+`tests/test_ac_interpreter.py`'s shipped, fence-scoped `criterion_checks` (`:57-73`), never a hand
+list — the check is resolved to its module with that module's shipped `check_module` (`:76-87`) and
+run in the conveyor's exact shape under `sys.executable -S` with that module's shipped `run_foreign`
+(`:90-95`), and must exit 0 AND carry the `[ac_interpreter]` delegation marker on stderr — both
+halves of the shipped wall's own oracle (`tests/test_ac_interpreter.py:111-115` and `:116-120`),
+because `-S` strips `site` and not an ambient install, so exit 0 alone is green over a child that
+imported the project's deps and proved nothing. Three shipped predicates, no re-implementation, and a
+sixth criterion
+added later joins the sweep on the day it is written. Per-CHECK rather than per-module on purpose:
+a missing preamble is a module-scoped failure, but a check that reaches for something the delegated
+path lacks is not, and the per-check form is the one that catches both. The cost is six foreign
+runs — one per criterion plus the nonexistent-check near-miss that module also ships (`:126-138`) —
+which is the shape `tests/test_ac_interpreter.py` already performs on every floor run today
+(P-4b).
+
+**The manifest module needs no bridge and must not grow one.** `tests/fixture_vault.py` is not a
+check module — no `check:` name resolves to it, and it defines no `test_*` function — so it is never
+the target of the conveyor's bootstrap and has no single check to delegate; `ensure_project_interpreter`
+would RAISE there under a foreign interpreter rather than help (`:142-148`). It is reached only
+through a module that already opened with the bridge, or under the floor.
 
 ### §4. The one package change — `SKIP_REASONS` and its binding
 
@@ -1675,9 +1957,9 @@ and `_skip_reason` returns those names rather than re-spelled literals. The docs
 `SkippedNote.reason` (`base.py:37`) keeps its type comment; nothing else in the package changes.
 
 **The export alone is deliberately not trusted.** `TYPE_TO_MODEL` cannot drift because dispatch
-depends on it; a `SKIP_REASONS` nothing consumes can. So `tests/derivations.py` gains ONE scan —
-and it lands there and nowhere else because `ast` is single-homed to that module by a standing set
-equality (§11, W-1):
+depends on it; a `SKIP_REASONS` nothing consumes can. So `tests/derivations.py` gains the FIRST of
+its two new scans (the second, `skip_reason_literal_sites`, is below) — and both land there and
+nowhere else because `ast` is single-homed to that module by a standing set equality (§11, W-1):
 
 ```python
 def skip_reason_return_values(path: Path, func_name: str = "_skip_reason") -> set:
@@ -1697,11 +1979,81 @@ def skip_reason_return_values(path: Path, func_name: str = "_skip_reason") -> se
 It reuses the module's existing plumbing — `_parse` (`:213`), `_iter_functions` (`:217`),
 `_own_body_nodes` (`:243`) — exactly as `falsy_returns_in` (`:1366`) and
 `parse_frontmatter_exit_sites` (`:543`) already do. It is a new shared derivation but does NOT join
-`tests/test_loud_fail_harness.py`'s `six` dict (`:79-88`), which that module's own docstring
-declares a REQUIRED SUBSET rather than a cardinality bound (`:18-20`) — checked, not assumed.
+`tests/test_loud_fail_harness.py`'s `six` dict (`:79-87`, with `len(six) == 6` at `:88` and the
+homing loop at `:93-97`), which that module's own docstring declares a REQUIRED SUBSET rather than a
+cardinality bound (`:18-20`) — checked, not assumed.
 
 AC-4 then asserts `skip_reason_return_values(base.py) == SKIP_REASONS`. **Equality, never
 containment** — that is what makes the scan's own silent under-read report RED.
+
+**Every home the vocabulary has, enumerated by GREP rather than by memory, with a ruling on each —
+and no count in the heading, because the enumeration is what set Task 11's scope and a count is what
+went wrong.** Earlier drafts of this section and of AC-4's `why:` said "a return chain, a type
+comment and `tests/test_loud_fail_load.py:187-188`", which is short by two hand-typed test sites. A
+grep for the three literals over every `*.py` in this worktree returns exactly these, and the table
+rules on each:
+
+| Site | Shape | Disposition |
+|---|---|---|
+| `obsidian_schemas/repositories/base.py:44`, `:46`, `:47` | the return chain | becomes the three named constants (Task 2). This is the DECLARATION |
+| `obsidian_schemas/repositories/base.py:37` | `reason: str  # "malformed-frontmatter" \| "schema-drift" \| "unreadable"` — a `#` comment | kept, unchanged. A comment is invisible to `ast` and to every scan below; it is documentation of the declaration two lines under it |
+| `obsidian_schemas/errors.py:112` | a docstring sentence mentioning `_skip_reason`'s `"unreadable"` in running prose | kept, unchanged, and `obsidian_schemas/errors.py` stays on `## Scope Boundary`'s unchanged list. The string constant is the whole docstring, not the member, so it is not a transcription of the vocabulary and no scan matches it |
+| `tests/test_loud_fail_load.py:187-188` | `{n.reason for n in repo.skipped_notes} == {"malformed-frontmatter", "schema-drift", "unreadable"}` — the whole codomain, hand-typed | CLOSED by Task 11: reads `SKIP_REASONS` |
+| `tests/test_loud_fail_load.py:209` | `[n for n in repo.skipped_notes if n.reason == "unreadable"]` — ONE member, hand-typed, inside the very function Task 11 edits, twenty-two lines below the line it repoints | CLOSED by Task 11: reads `UNREADABLE`. Leaving it would put an unrepointed copy on the same screen as a repointed one and hand the next reader a judgment the spec declined to make |
+| `tests/test_name_gate.py:152` | `assert _skip_reason(exc) == "unreadable"` — ONE member, hand-typed, in a module that was not previously a write target | CLOSED by Task 11: reads `UNREADABLE`. `tests/test_name_gate.py` therefore gains a `## Write Targets` fence |
+
+Neither of the two newly-named sites carried a green-over-wrong route — both fail LOUD on a rename —
+which is why this is a correction rather than a redesign. It is recorded at this length because the
+short enumeration is the document's own recurring family (round 7's "eight of the ten", round 8's
+four-item residue, the data audit's P10) landing in the spec-writer's text, and because the SHORT
+LIST WAS THE ARGUMENT: §4's solve-in-one-place case and AC-4's `why:` both rested on it.
+
+**So the fold closes the CLASS, not the three instances — the enumeration above can go stale again
+and a wall cannot (WI-226).** What GENERATES this family is that a consumer wanting one of these
+strings has nothing to import, so it types the string; and after Task 2 it has something to import.
+`tests/derivations.py` therefore gains a SECOND scan beside the first:
+
+```python
+def skip_reason_literal_sites(files, reasons) -> set:
+    """Every file under `files` containing a `str` Constant EQUAL to a member of
+    `reasons`, as repo-relative module ids.
+
+    Read off parsed syntax, never source text, for the reason the disposition
+    table gives: a text grep cannot tell a declaration from the `#` comment two
+    lines above it or from a docstring sentence that merely mentions the word,
+    and both of those are legitimate and must stay. `ast` drops comments
+    entirely, and a docstring is ONE Constant whose value is the whole docstring
+    — so equality against a member matches neither.
+    """
+```
+
+and AC-4 asserts
+
+```python
+skip_reason_literal_sites(python_files_under(PACKAGE_ROOT, TESTS_ROOT), SKIP_REASONS) == {
+    "obsidian_schemas/repositories/base.py",   # THE declaration
+    "tests/test_fixture_vault.py",             # THE spelling pin, below
+}
+```
+
+**Set EQUALITY over two named homes, and each home has a stated job.** A fifth site typed anywhere
+under `obsidian_schemas/` or `tests/` is RED with the file named, and the remedy is one import. The
+universe GROWS with every file this item adds, so `tests/fixture_vault.py` is a member of it — which
+is exactly why §3 has that module import the constants rather than re-spell them, and why the
+manifest's declared reason VALUES are the constants while WHICH constant a given filename maps to
+stays the hand-declared oracle AC-4(a) needs.
+
+**The second home exists because the fold would otherwise DELETE a property, and that is worth
+stating rather than discovering.** Today `tests/test_loud_fail_load.py:187-188` is the only thing in
+the tree pinning the literal SPELLINGS of the three reasons — `SkippedNote.reason` is a value
+consumers read, and a rename from `"schema-drift"` to `"schema_drift"` is a contract break. Repoint
+that line at `SKIP_REASONS` and both sides of the comparison move together, so nothing catches the
+rename any more; `skip_reason_return_values == SKIP_REASONS` does not either, for the same reason.
+So the spellings are pinned ONCE, by hand, in `tests/test_fixture_vault.py`'s Task 2 test —
+`SKIP_REASONS == {"malformed-frontmatter", "schema-drift", "unreadable"}` — which is the one place a
+rename should have to be a deliberate edit, and it is the second legal home the wall names. Pinning
+it there rather than back in `test_loud_fail_load.py` keeps the declaration and its pin in the two
+files this item owns.
 
 ### §5. Flow — what happens in what order, and every branch
 
@@ -1724,6 +2076,12 @@ mtime the corpus does not declare), not `read_text`/`write_text` (which would ra
 member and would normalise line endings on the others), and never `write_markdown_file`,
 `write_frontmatter`, `repo.save()` or `create_stub` — those route through `gate_write`
 (`writer.py:252-253`) and are exactly what refuses half the corpus (D-6).
+
+**Idempotent, and it never empties.** A second call against the same `dest` overwrites each corpus
+member with identical bytes and leaves everything else in that directory alone — there is no
+`rmtree`, no `glob`-and-unlink, no "clean first" branch, and none may be added. AC-1(b) asserts both
+halves by calling `materialize_vault` twice with a foreign file planted between the calls (Task 4),
+so the rule `## Edge Cases` decides is exercised rather than only written down.
 
 `write_bytes` and `mkdir` are members of `PATH_MUTATION_NAMES` (`tests/derivations.py:50-53`), but
 the filesystem-single-homing wall's universe is `python_files_under(PACKAGE_ROOT, SCRIPTS_ROOT)`
@@ -1748,6 +2106,14 @@ The NUL framing is not decoration: without a separator, a rename that moves byte
 and the content field produces the same digest. The walk is the SAME walk `materialize_vault`
 performs, which is what lets AC-1(b) assert the digest over the materialized tree equals the digest
 over the corpus with no second traversal rule to keep in step.
+
+**The criterion and this code name the SAME key, and they now say so in the same words.** AC-1(a)
+reads "corpus-relative POSIX path", which in one flat directory is exactly this `path.name`. That is
+the whole of the agreement, and it is stated because the criterion's earlier draft said
+"repo-relative": under that reading leg (b) is unsatisfiable — the materialized tree sits under a
+caller-supplied temp directory with no repo-relative path — so a builder following the criterion and
+a builder following this code would have shipped two different digests. Nothing else about the walk
+changes.
 
 #### §5.3 AC-2's round trip, per `TYPE_TO_MODEL` member
 
@@ -1777,6 +2143,36 @@ predicate — "no record matches" — is therefore strictly stricter than the do
 It is a conservative over-constraint on a representative that must be clean regardless, so it costs
 nothing; the corpus simply must not pick the `pure_digit` specimen as its `person` representative,
 which rule 1 of §1.3 already forbids.
+
+**And the same narrowing BITES on AC-3's side, where it decides a declared value rather than merely
+over-constraining one — so it is pinned here rather than left to the builder.** The landed census
+rules `pure_digit` MEASURED (count 2, specimen `447700900123`), so §1.3 rule 2 obliges a specimen and
+Task 6 obliges a declared `Verdict` for it. Which verdict is correct is a function of a field the
+corpus author chooses: `allow_phone_sentinel` is `bool(introduced.get("phones")) and
+name_text.strip().lstrip("+").isdigit()` (`name_gate.py:355-358`), so a digit-named note that ALSO
+declares `phones` is passed by the door and its verdict would be `loads`, not `refusal`. **The
+corpus's `pure_digit` specimen declares NO `phones`**, and its manifest `Verdict` is therefore
+`kind="refusal"` with `pattern="pure_digit_name"`. That is the profile the census measured — its two
+live members are a phone stored as the whole name on a note with nothing else in that field — and it
+is the only choice under which the specimen exercises the branch it is the specimen OF. Its stored
+`name:` carries the `+` (`+447700900123`), which is the measured profile the census's prose records
+and which leg (a) still accepts: the phone span normalizes to `447700900123` and matches
+`^447700900\d{3}$` (§6.4) with or without it.
+
+**The `pattern` VALUE is `pure_digit_name` and not `pure_digit`, corrected 2026-09-08 after a review
+round drove this literal through the code that raises it — and the correction is recorded rather than
+quietly applied, because this is the ONE value the paragraph above tells the builder they are not
+free to choose.** Traced end to end: the record at `name_validation.py:283-294` carries
+`branch_id="pure_digit"` (`:284`) and `pattern="pure_digit_name"` (`:285`); `_raise_on_tier1` raises
+`NameValidationError(branch.pattern, branch.detail(name))` (`:678`), whose `__init__` binds
+`self.pattern = pattern` (`:463`); the gate's person arm catches it and re-raises through the single
+`_refuse` construction site as `NameGateRefusal(exc.pattern)` (`name_gate.py:365`, site at `:142`).
+So the object Task 6 catches carries `.pattern == "pure_digit_name"`, which is what §3's
+`Verdict.pattern` field means in as many words ("`kind == "refusal"`: the `NameGateRefusal.pattern`
+expected"). The earlier draft pinned `pure_digit`, which is the record's `branch_id`; a builder
+trusting it would have authored a wholly correct corpus and reddened Task 6 with the spec against
+them, in the one paragraph that removes their judgment. §3 states the general rule this instance is
+a member of, and the sweep that closed the class is there too.
 
 **The narrowing arm.** The types with no body config are read at test time as
 `set(TYPE_TO_MODEL) - set(ENTITY_BODY_CONFIG)` — `{watch, explore, gift-idea}` today, asserted to
@@ -1827,6 +2223,16 @@ FENCE-SCOPED, asserting exactly one such declaration inside that fence and that 
 (iii). Assertion (iii)'s branch half is `{record.branch_id for record in
 TIER1_BRANCHES + COMPANY_TIER1_BRANCHES}`, asserted non-empty and of size exactly 10, in BOTH
 directions against the branch-shaped census rows.
+
+**Assertion (i)'s MANIFEST side is exactly `{c for spec in NOTES.values() for c in
+spec.shape_classes}` and nothing else.** It is a union over a DECLARED field, so a note with
+`shape_classes = ()` contributes nothing and is outside the equality in both directions — which is
+what lets the corpus carry mandatory members that are the specimen of no class: the eight type
+representatives, the skip specimens, and §1.3 rule 7's two AC-1(c) discriminators, whose branches the
+landed census rules ABSENT. `NoteSpec.discriminator` is NOT read here and must not be: it names a
+branch, not a census class, and folding it into this set would put an ABSENT id on the MEASURED side
+and redden a wholly correct corpus. Against the landed census the equality's expected value is the
+six MEASURED ids named in §1.3 rule 2.
 
 The fixity assertion runs FIRST, before any row of either table is trusted. AC-5's check re-asserts
 it independently rather than inheriting it, because each `check:` is its own test function invoked
@@ -1915,6 +2321,22 @@ The non-UTF-8 member is EXEMPT from the token scan and instead has its complete 
 `NoteSpec.raw_bytes_hex` as a LOWERCASE hex literal and asserted byte-equal — reviewed rather than
 skipped past the wall, and lowercase so the literal itself yields no extracted token.
 
+**THE GRANULARITY OF A POOL ROW IS THE EXTRACTOR'S, NOT A READER'S — stated here because §6.3's
+containment is unsatisfiable if the two artifacts disagree about what a token is.** `identity_tokens`
+never splits a run at an internal hyphen or an internal capital, so a hyphen-fused pair is ONE token:
+`Anne-Sophie Legrain` yields `{Anne-Sophie, Legrain}`, and Task 9's shape battery asserts exactly
+that. A specimen carrying such a pair therefore needs the COMPOUND certified in the census's pool
+table; certifying `Anne` and `Sophie` separately certifies two tokens the extractor never produces
+and leaves the one it does produce uncertified. Two of the landed census's six MEASURED specimens
+carry this profile by construction — `hyphenated_surname`'s `Oskaline Brenvik-Tarnquil` and
+`postal_address_in_name`'s `25 Corvallen Ravensby-3rd Pellworth-Wexlund 8`, whose extracted tokens are
+`{Oskaline, Brenvik-Tarnquil}` and `{Corvallen, Ravensby, Pellworth-Wexlund}` respectively (the `-`
+before `3rd` is trimmed and `rd` begins lowercase, so it yields nothing) — and dropping the hyphen
+would destroy the character profile each specimen exists to carry, so the compound row is the only
+available arm. The landed artifact certifies both compounds alongside their halves; `## Write
+Targets`'s extension states the rule for every later census pass, and M2's abort gate (§6.5, Task 3)
+is what enforces it before a single corpus byte is authored.
+
 #### §6.3 Pool provenance (leg c)
 
 `NAME_POOL ⊆ {row.token for row in census pool rows}` — a CONTAINMENT, one direction. Every pool row
@@ -1924,7 +2346,13 @@ carries a non-empty `command` and non-empty `stdout`. The pool table's token set
 #### §6.4 Reserved ranges (leg a), and the one thing the criterion's field list makes ambiguous
 
 The scan is over ALL bytes in reach rather than a field list, so it needs no enumeration to be
-total:
+total — precisely, over `excise(text, DECLARED_HEX_LITERALS)` for each file in reach, the excision
+being the named, author-declared exemption argued three paragraphs down. **Two domains, and they are
+different on purpose (AC-5(a)):** the EXCISION is per file — applied to every file's text whether or
+not that file contains the literal, an excision of an absent substring being a no-op — while the
+PRESENCE assertion that keeps the exemption honest is over the REACH, asserted once against the union
+of every scanned file's bytes. Per-file presence would be RED on the ~50 corpus notes, none of which
+carries `CORPUS_DIGEST` or a `raw_bytes_hex`.
 
 - **Email-shaped:** `[\w.+-]+@[\w.-]+\.\w+`. Its domain must be `example.com`, `example.net` or
   `example.org`, or carry a `.test` / `.invalid` / `.example` TLD (RFC 2606 / RFC 6761).
@@ -1932,8 +2360,24 @@ total:
   concrete reading of AC-5(a)'s "a declared placeholder form": the declared form IS "host under a
   reserved name", which reuses one rule instead of minting a second and cannot be padded.
 - **Phone-shaped:** a maximal contiguous span over `[0-9+()\-. ]` whose digit count is ≥ 9. Its
-  `normalize_phone` value (`phone_normalization.py:39-55`) must match `^44770090\d{4}$` (the UK
-  Ofcom drama range, `+44 7700 900000-900999`) or `^1?\d{3}55501\d{2}$` (NANP `555-01xx`).
+  `normalize_phone` value (`phone_normalization.py:39-55`) must match ONE OF THREE patterns —
+  `^447700900\d{3}$` or `^07700900\d{3}$` (the UK Ofcom drama range `+44 7700 900000-900999`, in its
+  international and its national spelling; `normalize_phone` strips every non-digit, so the `+` is
+  gone and the national form keeps its leading `0`) or `^1?\d{3}55501\d{2}$` (NANP `555-01xx`, with
+  the optional country code). **Both UK spellings are admitted because they are ONE range, and the
+  block is pinned to `900xxx` exactly rather than to `90xxxx`:** a stored `07700 900456` is the
+  ordinary national spelling of a drama number and would be RED under an international-only rule
+  while being exactly as unreachable, and a `\d{4}` tail would have quietly admitted
+  `+44 7700 901234`, which is a live allocatable number and not reserved at all. Task 9 drives all
+  four accepted spellings and that near-miss through this predicate.
+
+**Each of the three is ONE named function in `tests/test_fixture_vault.py`, and that is a WI-235
+requirement rather than a style note.** `reserved_email_violations(text)`,
+`reserved_url_violations(text)` and `reserved_phone_violations(text)` each take a string and return
+the offending tokens; leg (a) calls exactly these three over `excise(text, DECLARED_HEX_LITERALS)`
+for every file in reach, and Task 9 drives its planted battery through the SAME three objects — never
+a re-implementation, never a regex re-typed into the fixture test. A fixture battery driving a
+private copy of the predicate proves the copy, which is the failure WI-235 exists to name.
 
 **The ISBN, decided here because leg (a) names `Book.isbn` (`models.py:165`) among the fields that
 carry these shapes and an ISBN-13 is a 13-digit run that the phone predicate matches.** An ISBN is
@@ -1946,28 +2390,150 @@ generator round 4 removed. The corpus's `date:`, `created:` and `Meeting <YYYYMM
 8-digit runs and are below the threshold by construction; a `.md` file with any other ≥9-digit run
 is RED, which is the property.
 
+**The manifest's own hex literals, decided in the same place and by the same rule — and this is the
+second instance of the ISBN's class, not a new question.** The reach is the corpus PLUS
+`tests/fixture_vault.py`, and §3 puts two hex literals in that module on purpose: `CORPUS_DIGEST`,
+and `NoteSpec.raw_bytes_hex` for the one non-UTF-8 member, whose COMPLETE bytes §6.2 requires to be
+declared there in lowercase hex and asserted byte-equal. Hex is not phone-safe: printable ASCII
+encodes to bytes whose first nibble is `2`–`7`, always a digit, and `a`–`f` are the only characters
+that break a digit span — so `type:` alone encodes to `747970653a`, giving the nine-digit run
+`747970653`, which `normalize_phone` maps to neither reserved pattern. Leg (a) would therefore be RED
+on a corpus that is entirely correct, and a re-taken `CORPUS_DIGEST` could redden it again at random
+(a 64-character sha256 hex string carries a ≥9-digit run roughly a third of the time). **The
+decision:** before the span walk, the scan EXCISES the manifest's declared hex literals from the text
+— `CORPUS_DIGEST`, every non-`None` `raw_bytes_hex`, and the optional `CENSUS_DIGEST` restatement
+AC-3(iv) permits — each asserted first to be well-formed lowercase hex of even length (64 for either
+digest) and asserted to occur SOMEWHERE IN THE REACH, once against the union of every scanned file's
+bytes rather than once per file. Named literals, asserted by equality,
+authored by the builder: the same three properties that keep `RESERVED_ISBN` from being a padding
+surface, and the reason neither exemption is the generator round 4 removed. Concretely, the leg
+scans `excise(text, DECLARED_HEX_LITERALS)` rather than `text`, where
+`DECLARED_HEX_LITERALS = {CORPUS_DIGEST} | {s.raw_bytes_hex for s in NOTES.values() if s.raw_bytes_hex}`
+plus the restatement when it exists. Legs (b) and (e) scan the UNEXCISED text: a lowercase hex
+literal yields no extracted token and contains no absolute path, so neither needs the exemption and
+neither gets it.
+
 **Leg (d), the cost check.** For every reserved phone in the corpus, `normalize_phone` still yields
 the digits-only value (`+44 7700 900123` → `447700900123`; the package emits E.164 nowhere and none
 is asserted), and `phones_match` (`:58-90`) still matches it against the number's `0`-prefixed and
 `+44`-prefixed variants. **Leg (e), hermeticity.** `materialize_vault` writes only underneath the
 caller's `dest`; no file in reach contains `/Users/` or any absolute filesystem path.
 
+#### §6.5 The census's own bytes are inside the wall — the 2026-09-08 threat model's M1 and M2
+
+The threat model found the one place nineteen gate rounds of enumeration review never pointed the
+wall: **the wall's own REACH.** AC-5's declared reach is `tests/fixtures/vault/` plus
+`tests/fixture_vault.py`; `docs/vault-shape-census.md` is neither, §2 puts its prose outside the
+suite's parser, `## Write Targets`'s constructed-token charge is scoped by its own words to the
+specimen and pool columns, and the tree has no repo-wide markdown scan over `docs/` at all
+(`tests/test_vault_path_required.py:387` excludes it by name). The conductor wrote two real
+live-vault values into the one part of the artifact the spec left uncharged, exactly as the spec
+permitted — and AC-3(iv) and AC-5(c) would then have asserted those bytes IMMUTABLE. The instance is
+closed (the conductor re-authored the prose against the constructed specimens already beside it, and
+AC-3(iv)'s digest was re-taken); what follows closes the CLASS, so the next census refresh cannot
+reopen it with nothing to notice.
+
+**M1 — the standing assertion (Task 8).** *AC-5's check additionally scans the WHOLE of
+`docs/vault-shape-census.md` — its prose as well as its fence rows — with §6.1's `identity_tokens`,
+and asserts every token it yields is in that artifact's own certified pool table, in
+`CONNECTIVE_SET`, or admitted by `str.lower() in _GENERIC_ORG_SUFFIXES`, with the residue in a
+declared `CENSUS_PROSE_ALLOWLIST` frozenset asserted DISJOINT from the pool table, so the artifact
+the privacy wall depends on is itself inside the wall.*
+
+Six things about that sentence, each decided here rather than at build time:
+
+1. **The subject is the file's WHOLE bytes**, decoded once with `errors="replace"` exactly as §6.1
+   decodes the corpus — prose bullets, the Method section, the `lint_vault` table and every fence
+   alike. There is no position split here and none is wanted: the census has no field whose value is
+   declared prose, so every extracted token faces the same four buckets.
+2. **The four admissions are the artifact's OWN pool table, `CONNECTIVE_SET`, the derived org-suffix
+   set, and `CENSUS_PROSE_ALLOWLIST`** — the first three exactly as §6.2 admits them for the corpus's
+   identity positions, so no new admission rule is minted. The pool table is read from the same
+   parsed `census-pool` rows §6.3 reads; `CONNECTIVE_SET` is the frozen `{"Me", "My", "Dave"}`, which
+   is why the `whitespace_damage` specimen's `Dave` and the Method section's `Dave` both pass.
+3. **`CENSUS_PROSE_ALLOWLIST` lives in `tests/test_fixture_vault.py`, NOT in the manifest**, and the
+   placement is load-bearing rather than tidy: AC-5(b) is signed text and says `fixture_vault.py`
+   "declares THREE literal frozensets and no computed membership", naming them. A fourth frozenset
+   there would make a signed sentence false. It is also the honest home — the set is the census's
+   ordinary technical vocabulary (`MEASURED`, `ABSENT`, `Ofcom`, `Unicode`, `Templates`, `Python`,
+   `LIVE`, the `WI`/`AC` prose, the `TIER1_BRANCHES`-style symbol names the Method section cites),
+   which is a property of the ARTIFACT the check reads and not of the corpus the manifest declares.
+   **ITS MEMBERSHIP IS AUTHORED AGAINST THE LANDED ARTIFACT AND NOT AGAINST THE LIST ABOVE, and that
+   is a rule rather than a caveat:** the set is exactly the RESIDUE Task 8's scan returns over
+   `docs/vault-shape-census.md` AS IT STANDS — every token `identity_tokens` yields that is not a
+   pool row, not a `CONNECTIVE_SET` member and not an admitted org suffix — so the builder reads the
+   list above as an EXAMPLE of the kind and the artifact as the source of the members. The landed
+   census already needs at least two the list does not name, both in one Method bullet at
+   `docs/vault-shape-census.md:17` (`DaveRemoteVault`, the vault folder's name, and `Obsidian`), and
+   a builder treating the list as a specification hits them at Task 8 and cannot tell an omission
+   from a leak. Nothing else moves with this clause: the four admissions are unchanged and the
+   DISJOINTNESS assertion of item 4 is what keeps the residue honest whatever it turns out to hold —
+   an uncertified token the builder cannot recognise as technical vocabulary is M2's abort at Task 3
+   and a conductor pass, never a member added to make a red go away.
+4. **The disjointness assertion is what stops it becoming the bypass** `PROSE_ALLOWLIST` was found to
+   be at round 2: `CENSUS_PROSE_ALLOWLIST ∩ {row.token for row in census pool rows} == ∅`, so no token
+   can hold both roles, and a name cannot be quietly moved from the certified table into the
+   allowlist. It is not a claim that a real name CANNOT be typed into the allowlist — it is the same
+   bar AC-5(b) sets for the corpus: a real name can only arrive by someone deliberately typing it
+   into a declared set that a human reviews, never by transcription.
+5. **The scan does NOT extend leg (e)'s no-absolute-path rule to this file**, and that is the threat
+   model's own ruling routed against rather than an omission: it recorded the Method section's vault
+   path as a NON-blocking note, on the ground that it names no person and is what makes every command
+   re-runnable. (The conductor's re-author removed it anyway, and the census now says so at its own
+   Method bullet; nothing here asserts either way.)
+6. **The coupling is declared, not implied (WI-278).** This is a third property consumed from
+   `docs/vault-shape-census.md` by `tests/test_fixture_vault.py`, and the file is pinned by DIGEST —
+   AC-3(iv)'s fixity assertion runs first, before any of these tokens is trusted, exactly as it does
+   for the class and pool tables. The module's `CORPUS_COUPLING:` line names it; `## Verification`
+   carries the same sentence.
+
+**M2 — the early half (Task 3).** *The Implementation Plan's precondition abort gate additionally
+REFUSES, before any corpus byte is authored, when running §6.1's `identity_tokens` over
+`docs/vault-shape-census.md` yields a token that the artifact's own pool table does not certify and
+that is neither a `CONNECTIVE_SET` member nor an admitted `_GENERIC_ORG_SUFFIXES` member.*
+
+The gate is the same predicate one build phase earlier, run by the builder as an inspection and
+recorded in the Build Log, and it catches TWO distinct leaks with one read — which is why the threat
+model asked for it and why the spec-review round's third finding folds into it rather than beside it:
+
+- **A leaking census** (M1's subject): a real live-vault value in a prose bullet or a specimen column
+  is an uncertified token, so the gate stops the build at Task 3 instead of at Task 8, before ~50
+  notes have been authored against an artifact that will have to be re-authored anyway.
+- **A census whose pool table is certified at the WRONG GRANULARITY** (§6.2's compound-token rule):
+  a specimen carrying `Brenvik-Tarnquil` whose table certifies only `Brenvik` and `Tarnquil` yields
+  an uncertified compound under `identity_tokens`, which the gate names. Without the gate that
+  divergence surfaces at Task 8 as a RED leg over a wholly correct corpus, with every authorised
+  remedy closed — the census is unwritable by the builder (`## Scope Boundary`), digested by two
+  signed criteria, and the specimen's hyphen is the profile it exists to carry.
+
+The gate's output is a REFUSAL and never a repair: the builder does not author, amend or normalise a
+byte of the census, does not add a pool row, and does not drop the hyphen. It STOPS under the Abort
+Protocol with the offending tokens named in the Build Log, and the remedy is a conductor pass — one
+census edit, one re-taken digest, one AC-3(iv) edit, one D4b re-sign. That cost is the reason the
+gate exists at Task 3 rather than the reason to skip it.
+
 ### §7. Integration points
 
 | Surface | Today | After | Who reads it |
 |---|---|---|---|
-| `obsidian_schemas/repositories/base.py` | three bare return literals, no declaration (D-5) | `SKIP_REASONS` + three named constants; `_skip_reason` returns them by name | AC-4; `tests/test_loud_fail_load.py:187-188` |
-| `tests/derivations.py` | 14+ shared scans, `ast` single-homed (`:14-17`, `:24`) | one more scan, `skip_reason_return_values` | AC-4 |
+| `obsidian_schemas/repositories/base.py` | three bare return literals, no declaration (D-5) | `SKIP_REASONS` + three named constants; `_skip_reason` returns them by name | AC-4; `tests/fixture_vault.py`'s `SKIPS`; and the three sites Task 11 repoints — `tests/test_loud_fail_load.py:187-188`, `:209`, `tests/test_name_gate.py:152` (§4's disposition table). The `#` type comment at `:37` and `errors.py:112`'s prose stay as they are |
+| `tests/derivations.py` | 14+ shared scans, `ast` single-homed (`:14-17`, `:24`) | TWO more scans — `skip_reason_return_values` (binding) and `skip_reason_literal_sites` (the class-closing wall, §4) | AC-4 |
+| `tests/test_loud_fail_load.py`, `tests/test_name_gate.py` | three hand-typed spellings of `_skip_reason`'s codomain | all three import the declared constants | the floor; and §4's wall, which is RED if any is left |
+| `docs/vault-shape-census.md` | the conductor's landed precondition (2026-09-07, prose re-authored 2026-09-08) | UNCHANGED — READ, never written, by this build (`## Scope Boundary`) | `tests/test_fixture_vault.py`: the digest (AC-3(iv), AC-5(c)), the `census-class` and `census-pool` fences (AC-3, AC-5(c)), and — NEW, M1 — the whole file's bytes through `identity_tokens` (§6.5). Three properties, one file, one digest |
 | `tests/fixtures/vault/` | does not exist (D-1) | the corpus | `tests/fixture_vault.py` only |
-| `tests/fixture_vault.py` | does not exist | manifest + digest + materializer | the five checks, and every later test that wants a vault |
-| `tests/test_fixture_vault.py` | does not exist | the five checks + three batteries | the conveyor's AC battery, and the floor |
-| `tests/test_parser.py`, `tests/test_writer.py`, `tests/test_repositories.py` | nine private vault helpers over thirteen files (D-1) | three of them gain a corpus-backed top-level test; two lose an inline heredoc | the floor |
+| `tests/fixture_vault.py` | does not exist | manifest + digest + materializer; imports the three reason constants | the five checks, and every later test that wants a vault |
+| `tests/ac_interpreter.py` | the shipped interpreter bridge, used by six check modules (`:123`) | UNCHANGED — this item is its seventh caller | `tests/test_fixture_vault.py`'s first statement (§3.1) |
+| `tests/test_ac_interpreter.py` | WI-021's battery-parity wall, scoped to `docs/write-door-bypasses.md` (`:40`) | UNCHANGED — its `criterion_checks` (`:57-73`), `check_module` (`:76-87`) and `run_foreign` (`:90-95`) are IMPORTED and driven over this item's own `criteria` fences | Task 12's parity run (§11, W-16) |
+| `tests/test_fixture_vault.py` | does not exist | the five checks + four batteries, opening with the interpreter bridge | the conveyor's AC battery, and the floor |
+| `tests/test_parser.py`, `tests/test_writer.py`, `tests/test_repositories.py` | a private vault helper per file, thirteen files, no shared corpus (D-1) | three of them gain a corpus-backed top-level test; two lose an inline heredoc | the floor |
 
 **Nothing outside this repository changes.** `pyproject.toml:38-39` packages `obsidian_schemas`
 only, so `tests/fixture_vault.py` is not importable by HAL9000, Exocortex or orchestrator even after
 this ships (P8) — which is D6's measured deferral, not a regression. The one package change is
-purely additive: a new module-level name, no signature change, no behaviour change, so the three
-consumers' `-e` installs pick up a constant nobody yet calls.
+purely additive: four new module-level names (`MALFORMED_FRONTMATTER`, `SCHEMA_DRIFT`, `UNREADABLE`,
+`SKIP_REASONS`), no signature change, and no behaviour change — `_skip_reason` returns the same three
+strings by a different spelling of the same values — so the three consumers' `-e` installs pick up
+constants nobody yet calls.
 
 ### §8. Configuration
 
@@ -2020,11 +2586,18 @@ production. An `ABSENT` row with count `0` satisfies assertion (iii), never ente
 equality, and obliges no specimen. Writing the zero row is always right and never the cause of a
 failure.
 
-**§9.5 The extractor's domain, and the two places the machine stops.** An identity value written
+**§9.5 The extractor's domain, and the places the machine stops.** An identity value written
 entirely in lowercase yields no token and is outside the wall; a real name written into
 `Exploration.origin`, `Meeting.topics` or a note body is walled by the free-prose leg and the pool's
 one-time human review, not by the closure. Both are named in AC-5's `why:` and neither is closed by
-a further clause, deliberately.
+a further clause, deliberately. **M1 adds a third of the same kind and it is stated here with them
+rather than claimed away:** a name typed deliberately into `CENSUS_PROSE_ALLOWLIST` passes the census
+scan, exactly as a name typed deliberately into `NAME_POOL` and the census's pool table passes the
+corpus scan. The disjointness assertion stops the allowlist being used to launder a token that is
+also a certified pool row, and nothing stops someone typing a real name into a declared set that a
+human reads — which is the bar AC-5(b) has set since round 2 and the most a hermetic suite can assert
+about a value it cannot check against a vault it cannot read. What M1 removes is the case that needed
+no deliberation at all: transcription into prose nobody was scanning.
 
 ### §10. Prerequisites & Assumptions
 
@@ -2034,16 +2607,69 @@ its CONTENT) immediately before the spawn and refuses the drive if it is absent.
 conductor act the cage cannot perform: the suite is hermetic and no caged builder can read the live
 vault.
 
-**P-2 — the one-time pre-origination edit has happened, and it is THREE things in one edit.** After
-the census lands and BEFORE Dave signs: (a) AC-3(iv)'s `CENSUS_DIGEST` declaration is filled with
-the `sha256` of the landed file's bytes; (b) AC-3's SIX hand-listed shape classes are reconciled
-against the census's own naming; (c) AC-5(b)'s `CONNECTIVE_SET` is reconciled once against the
-census's measured character profiles — if the census measures a capitalized `unknown contact` form,
-`Unknown` and `Contact` are added to the literal set in the criterion; if the lowercase suffix form,
-they are not. Architect round 10's note 2 rides along: one clause settling whether `_skip_reason`
-returning re-spelled literals is legal, which this spec answers by prescribing the by-name form
-(§4). **Origination must not proceed while AC-3(iv)'s placeholder stands.** A correction before the
-digest is taken is free; a correction after signature costs a D4b re-sign.
+**P-2 — the one-time pre-origination edit HAS HAPPENED, and the window it opened is CLOSED. Written
+in the past tense as of 2026-09-08, because every sentence of this prerequisite that still reads as
+an instruction is a sentence a later gate would price as free when it is not.** Dave signed on
+2026-09-08 (`## AC Sign-off`, `signed_at: 2026-09-08T01:14:48+01:00`). The three things the edit
+settled, each recorded with its outcome rather than as a pending act:
+
+- **(a) AC-3(iv)'s `CENSUS_DIGEST` was filled** with the `sha256` of the landed census's bytes. The
+  placeholder is gone and no origination waited on it.
+- **(b) AC-3's SIX hand-listed shape classes were reconciled** against the census's own naming, and
+  AC-3 records the result in place: `diacritics`, `hyphenated_surname`, `whitespace_damage`,
+  `stem_name_divergence`, `same_name_collision`, `postal_address_in_name`, with the ONE-or-TWO
+  ruling settled as TWO (collision ABSENT, divergence MEASURED).
+- **(c) AC-5(b)'s `CONNECTIVE_SET` was reconciled** against the census's measured character profiles.
+  The artifact measures the lowercase `unknown contact` suffix form and no capitalized standalone
+  one, and no `ME -` / `DAVE -` variant anywhere, so **the set stays exactly `{"Me", "My", "Dave"}`**
+  and `Unknown` / `Contact` were NOT added. The question that had been open since round 6 is answered
+  by the artifact rather than by a guess.
+
+**Architect round 10's note 2 rode along and the ride EXPIRED rather than being taken, which is
+recorded rather than left to be rediscovered.** That note observes that AC-4's "`_skip_reason`
+returns them BY NAME rather than as re-spelled literals" is prose the first arm of
+`skip_reason_return_values` cannot discriminate, since that scan resolves a module-level `str` Name
+and a bare literal to the same value. The note was routed to this one-time edit; the edit is past, and
+the clause was not added. **It stays NON-BLOCKING and is re-deferred deliberately:** §4 and Task 2
+prescribe the by-name form explicitly, no safety property depends on the spelling, and the wall that
+matters — `skip_reason_literal_sites`, W-15's set equality over the vocabulary's legal homes — is
+unaffected either way, because `base.py` is a declared home under both spellings. Closing it now
+would be a D4b re-sign bought for a clause with no red behind it.
+
+**What the window's closure means for every OTHER correction, and it is the fact findings 2 and 3 of
+the 2026-09-08 spec review turn on.** A criterion correction is no longer a word in a draft: it
+invalidates the `ac-signoff` hash (D4b) and costs a re-sign and a second interruption of Dave. So a
+defect found after this point is fixed in `## Design`, `## Implementation Plan` or `## Write Targets`
+wherever that is possible, and escalated to Dave only when it genuinely is not. §1.3 rule 7 and §3's
+`NoteSpec.discriminator` are exactly that move: AC-1(c) and AC-3(i) were reconciled by giving them two
+manifest fields rather than by editing either criterion.
+
+**One correction WAS made inside the signed span after signature, and the single re-sign it owes is
+named here so it is not discovered by a linter.** The threat model's M1 remediation and the spec
+review's compound-token finding both required conductor edits to `docs/vault-shape-census.md`; both
+landed in one census pass, one digest was re-taken over the corrected bytes, and AC-3(iv)'s declared
+`CENSUS_DIGEST` moved with it (from the `585d639` value frozen in
+`docs/spec-reviews/WI-016-dave-review-2026-09-08.md` to the value AC-3(iv) now carries). That edit is
+the reason `## Acceptance Criteria`'s frozen-preamble correction was taken in the same breath rather
+than deferred: **the span is already dirty and owes exactly ONE re-sign**, which covers the AC-3(iv)
+digest, the preamble's now-false "Not yet frozen" sentence, and nothing else — no AC's promise,
+actor, scope, oracle or exception has moved, which is what a Check 12 diff classification will find.
+No further edit inside `## Intent` or `## Acceptance Criteria` is authorised by this spec.
+
+**As of 2026-09-08 that re-sign is still UNTAKEN, and the classification a reviewing gate has already
+run is recorded here so granting it is cheap rather than a fresh audit.** `## AC Sign-off` carries
+`ac_hash: 2696ecd667a7` and `ac_hash_AC-3: eab359ff9e39`; both are stale against the section as it
+now stands, and the conveyor refuses `specced → ready` on the `ac_hash` currency check whatever any
+gate recommends — so this stands between the item and `ready` and no amount of spec-writing
+discharges it. The 2026-09-08 spec review round 5 compared the evolved `## Acceptance Criteria`
+against the frozen text at `docs/spec-reviews/WI-016-dave-review-2026-09-08.md` criterion by
+criterion and found AC-1, AC-2, AC-4 and AC-5 unchanged and AC-3's only diff to be the
+`CENSUS_DIGEST` literal (`625efeee…` at `:377` → `4cb7945f…` now). Under Check 12's taxonomy that is
+an evidence-pointer update forced by a conductor remediation: **not strength-weakening, not
+actor-swap, not scope-narrowing, not oracle-swap, and not exception-carving-by-addition.** It is a
+conductor/Dave act and is named here rather than left for a linter; §10 P-10 records the two other
+conductor acts that should ride the same pass, since a further census correction re-takes the digest
+and one re-sign covers all of it.
 
 **P-3 — atomic landing, checked against the PRE-DRIVE floor.** The census lands ALONE in the live
 tree, before the build worktree exists, and the floor must be green at that moment. It is: the only
@@ -2055,9 +2681,34 @@ no bijection or symmetry the pre-drive floor enforces, and a lone precondition c
 BUILDER's own changes are a different matter: `SKIP_REASONS`, `skip_reason_return_values` and AC-4's
 check are three halves of one invariant and land in ONE commit.
 
-**P-4 — the suite stays hermetic and ~1s.** No network, no live-vault read, no subprocess in any
-check. `pipeline-runners.yaml:7-8` makes the floor command the AC battery's own interpreter, and
-`seed_deps: [.venv]` (`:18-19`) is what puts it in the worktree.
+**P-4 — the suite stays hermetic, and the AC battery reaches this project's interpreter through the
+BRIDGE rather than through a YAML comment.** No network and no live-vault read anywhere. No
+subprocess in any of the five `kind: test` CHECKS — and that promise now has the one clause it needs
+to be true: `ensure_project_interpreter(__file__)`, which each check module must open with, is a
+`find_spec("pydantic")` and returns immediately under the floor command and under CI
+(`tests/ac_interpreter.py:123-130`), and under a FOREIGN interpreter it does not spawn a child either
+— it `os.execve`s, replacing the process with the same one check under `<root>/.venv/bin/python`
+(`:150-155`). The one place this item does make subprocesses is Task 12's battery-parity test, which
+is a floor-graded test and not an AC check, and which runs the same shape
+`tests/test_ac_interpreter.py` already runs on every floor run today.
+
+**An earlier draft of this prerequisite asserted the opposite premise and it is corrected here rather
+than quietly dropped.** It read "`pipeline-runners.yaml:7-8` makes the floor command the AC battery's
+own interpreter", which takes a comment in that YAML as a guarantee. It is not one:
+`tests/ac_interpreter.py:14-20` says in as many words that the battery's interpreter "defaults to the
+ADVANCER's `sys.executable` and is only this project's venv when the driver passes `--ac-python`",
+and that when it is not, every criterion of the item reports `ModuleNotFoundError` against a floor
+that is green in the same tree. This item's five checks are the most library-executing set this repo
+has shipped, so the bridge is load-bearing rather than ceremonial; §3.1 prescribes it.
+`seed_deps: [.venv]` (`pipeline-runners.yaml:18-19`) is what puts `<root>/.venv/bin/python` in the
+battery's worktree for the bridge to delegate TO, which is the real thing that YAML contributes here.
+
+**P-4b — the floor's wall-clock, stated as a property and not a number.** CLAUDE.md's "~1s" is an
+anchor, not an invariant, and Task 1's baseline is what this build measures against. The six foreign
+runs Task 12 adds — one per `check:` name, plus the near-miss control — are the same shape
+`tests/test_ac_interpreter.py` already performs inside
+today's measured floor, so the marginal cost is known rather than estimated; if it is material it is
+visible in Task 12's recorded floor run beside Task 1's, which is the instrument.
 
 **P-5 — every `check:` is a top-level zero-argument `def test_*(` that signals failure by RAISING.**
 The battery invokes it as `getattr(mod, name)()` with no fixture machinery
@@ -2065,23 +2716,139 @@ The battery invokes it as `getattr(mod, name)()` with no fixture machinery
 `tmp_path`. A returned `False` exits 0 and reads as PASS.
 
 **P-6 — each check name resolves to exactly ONE `tests/test_*.py`.** That is the conveyor's
-discovery rule and this project asserts it (`tests/test_ac_interpreter.py:76-87`). All five names
-live in `tests/test_fixture_vault.py` and appear as a top-level `def` nowhere else — including in
-no docstring or comment of another test module.
+discovery rule and this project asserts it (`tests/test_ac_interpreter.py:76-87`, a `def <name>(`
+substring scan over `TESTS_ROOT.glob("test_*.py")`). All five `check:` names live in
+`tests/test_fixture_vault.py` and appear as a top-level `def` nowhere else — including in no
+docstring or comment of another test module. **The rule binds more than the five, and Task 12
+therefore DERIVES the list rather than counting it.** Every top-level `def test_` this item writes is
+subject to the same uniqueness scan, not only the ones an AC names: `tests/test_fixture_vault.py`
+gains the five checks plus Task 2's binding test, Task 9's extractor battery and Task 12's own three
+tests, and Task 10 adds three more in three other modules. Stating a number in the OBLIGATION is how
+a plan drifts from itself — an earlier draft of Task 12 said "the six new check names" against a plan
+that already defined twice that many, and the figure moved again when Task 12 gained its third test —
+so the obligation is written as a predicate over the modules' own `def test_` sets and no count
+appears in it. A count DOES appear in the dated sweep below, and the two are different things: the
+sweep is a measurement taken on a day and labelled with it, while the obligation is what Task 12 runs.
+`tests/fixture_vault.py` deliberately defines none: it is not collected (`pyproject.toml:41-43`)
+and is not a check module (§3.1).
+
+**And the obligation was CHECKED against the tree's EXISTING `def <name>(` set, not only within this
+item's own additions — because a name is unique only relative to what is already there, and this
+paragraph previously asserted the rule while checking one side of it.** `check_module` is a
+`def <name>(` SUBSTRING scan over `TESTS_ROOT.glob("test_*.py")` that RAISES on anything but exactly
+one match (`tests/test_ac_interpreter.py:76-87`), so the collision this rule must survive is with a
+name ANOTHER item already shipped, which no sweep confined to this plan can see. The sweep, run in
+this worktree 2026-09-08 over every `def <name>(` occurrence in the tree — not only top-level
+definitions, because the scan is a substring scan and a docstring or comment spelling the same form
+would count too — for all THIRTEEN top-level `def test_` names this item adds (Task 2's binding test;
+Tasks 4-9's six; Task 10's three; Task 12's three): **twelve resolve to zero existing occurrences and
+one collided.** Task 12's wall test was named
+`test_wall_membership_is_closed_by_running_each_walls_predicate`, which
+`tests/test_name_gate_wall.py:1057` has defined since WI-022 — the CALLER, at `:1073`, of the
+`_check_the_ast_capability_stays_single_homed` helper (`:1132`) §11's W-1 anchors on, and named as
+that item's Task 16 `verify:` at `docs/write-door-bypasses.md:4593`. Under the old name this item's own
+uniqueness assertion would have raised `resolves to 2 module(s)` over this item's own file, and Task
+12's `verify:` declaration would not have resolved under the conveyor's D10b rule. It is renamed
+inside this item to
+`test_the_fixture_vault_files_close_their_wall_memberships_by_running_each_predicate` (Task 12),
+which the same sweep returns zero occurrences for; repointing from the other side is forbidden by
+`## Scope Boundary`, which puts `tests/test_name_gate_wall.py` on the unchanged list. The collision
+was CONCEPTUAL as well as lexical — WI-022's function runs every standing wall's predicate over ITS
+item's final text, which is the same sentence this item's test would have carried — so the rename
+names the item rather than merely disambiguating the string.
+
+**The authoring-time sweep is not the wall; it is the same rule read one build earlier.** Task 12's
+derived obligation runs `check_module` over every top-level `def test_` this item's write targets
+define, from those modules' own source at test time, so a collision introduced after this paragraph
+was written — by this item's builder or by a sibling item landing first — is RED at the build's last
+task with the two modules named, rather than at the conveyor. Nothing here relies on the sweep above
+being repeated by hand.
 
 **P-7 — Python ≥ 3.10 (`pyproject.toml:11`), stdlib only.** `hashlib`, `unicodedata`, `pathlib`,
-`dataclasses`. No new dependency.
+`dataclasses`, `fnmatch` — across BOTH new modules, split as §3 gives it: `unicodedata` is the
+extractor's and `fnmatch` is Task 12's W-14 arm's, so both belong to `tests/test_fixture_vault.py`
+alone; the rest to the manifest. No new dependency. **The ≥ 3.10 floor is load-bearing in exactly one
+place and it is stated rather than discovered at build time:** `tomllib` is 3.11-only, so Task 12's
+W-14 arm must not reach for it and reads `pyproject.toml`'s two declared keys with a helper that
+RAISES rather than defaults (§11, W-14).
 
 **P-8 — trust boundary.** The corpus is untrusted-shaped input by design (that is the point) but is
 IN-REPO and never crosses a network. The one boundary that matters is the reverse direction: real
 personal data crossing INTO permanent git history, which AC-5 makes structurally impossible rather
 than intended.
 
-**P-9 — no `## Threat Model` section exists on this document**, so no `kind: required` mitigation is
-outstanding and this spec authors no `## Mitigation Folds` section. Checked rather than assumed: the
-standing gate rounds are architect ×10, AC red-team ×9 and data-premise ×1, none of them a threat
-model. If a threat-modeler runs before `→ ready`, its required mitigations must be folded into
-`## Design` and the Implementation Plan and recorded there before the transition.
+**P-9 — `## Threat Model` sections DO exist on this document (2026-09-08, rounds 1 and 2), ROUND 2 is
+the latest speaking round, and both of its `kind: required` mitigations are FOLDED.** This
+prerequisite read "no `## Threat Model` section exists … and this spec authors no
+`## Mitigation Folds` section"
+through ten gate rounds; it was true when written and the 2026-09-08 threat model is what ended it,
+which is why it is rewritten in place rather than annotated. The state now: round 1 returned REVISE
+with `M1` (`landed: Task 8`) and `M2` (`landed: Task 3`), and **round 2 confirmed both folded and
+RE-EMITTED the two `mitigation` fences BYTE-IDENTICALLY**, so the latest speaking round's required
+set is the same two ids with the same `desc` text and the fold records stay fresh without being
+re-quoted. M1 is folded into `## Design` §6.5 and Task
+8, M2 into §6.5 and the Implementation Plan's precondition abort gate as re-run by Task 3; both are
+recorded in `## Mitigation Folds` with the `desc` copied verbatim, the exact Design sentence, the
+`Task N` ordinal and that task's own work and verify text. **Round 2's own blocking finding minted no
+M3 and says so:** its subject is this document's gate prose rather than the build, no
+Implementation-Plan task can carry a redaction of a settled gate section, and the round explicitly
+declines to ask for a machine wall over `docs/vault-fixtures.md` — so its two halves are §10 P-10(a)
+and `## Scope Boundary`'s standing authoring rules, neither of which is a fold. **The conveyor's D8c rule refuses
+`specced → ready` while any required mitigation of the latest speaking round lacks a complete, fresh
+fold record, and a `fold` fence written outside `## Mitigation Folds` is not a record** — the section
+is a `##` sibling of `## Threat Model` and nothing about the landing lives inside the modeler's own
+round, which is append-only and carries fences the conveyor routes on. If a LATER threat-model round
+runs, its required mitigations must be folded the same way and `## Mitigation Folds` restated in
+place, since that section carries no rounds and two records for one id are dropped as an unresolvable
+contradiction.
+
+**One thing M1's fold deliberately does NOT do, named because it would be the wrong reading of it:
+`docs/vault-shape-census.md` does not become a write target.** M1 asks the SUITE to scan the
+artifact's bytes; it asks nobody to edit them. The file stays on `## Scope Boundary`'s unchanged list
+and stays the `kind: precondition` fence's subject in `## Write Targets`, the builder READS it and
+never writes it, and M2's gate is a refusal rather than a repair. Turning it into a builder-writable
+path would hand the build the very ledger AC-3(iv) exists to put out of its reach.
+
+**P-10 — the CONDUCTOR acts this item still owes, one of them done and two outstanding, recorded in
+one place because none is the spec-writer's to take and a gate that finds them scattered re-raises
+them.** Everything below is outside `## Design`, `## Implementation Plan` and `## Write Targets`,
+which is the test §10 P-2 sets for what may be fixed here versus escalated.
+
+- **(a) The gate-round redaction — DONE, and the closure is recorded rather than assumed.** Threat
+  model round 2's blocking finding was that round 1's remediation of `docs/vault-shape-census.md`
+  moved two novel live-vault values into THIS document rather than out of the repository: four prose
+  positions in `## Threat Model — 2026-09-08`'s finding and one inside that round's verdict `note:`.
+  A conductor pass has since replaced all five in place with a bracketed redaction naming each
+  value's LOCATION (its census row) and CHARACTER PROFILE, leaving the finding legible and
+  re-checkable — which is the shape both gates asked for. **One thing this document CANNOT settle
+  from inside the cage and says so rather than implying otherwise:** no gate or spec-writer here has
+  a shell, so whether the round-1 section was already in a commit before the redaction — and
+  therefore whether this was prevention or damage limitation — is a one-command question for the
+  conductor and is not answered here. The durable half of that finding IS the spec-writer's and is
+  landed: `## Scope Boundary`'s standing authoring rules.
+- **(b) The `ac-signoff` re-sign — OUTSTANDING.** Exactly one, its scope and its Check 12
+  classification recorded in P-2 above. It is what the conveyor's `ac_hash` currency check refuses
+  `specced → ready` on.
+- **(c) `docs/vault-shape-census.md:19`'s Method bullet — OUTSTANDING, and it should ride (b).** The
+  bullet reads that the absolute vault path "is deliberately not recorded here (AC-5(e)'s
+  no-absolute-path rule, **extended to this artifact by M1**)". It is not extended: §6.5 item 5 and
+  Task 8 both say in terms that M1's scan does NOT extend leg (e) to the census, routing against the
+  threat model round 1's own recorded ruling that the path is machine-local, names no person and is
+  non-blocking. Nothing leaks today — the path is gone — but the artifact asserts a wall that does
+  not exist, and a later census refresh re-adding the path would pass M1 green with its own Method
+  bullet claiming otherwise. **The fix is one line in the census (drop the M1 citation, or state the
+  omission as the conductor's own convention), and it belongs in the same pass as (b) because a
+  census edit re-takes the digest and AC-3(iv) moves with it — bundled it costs nothing extra;
+  taken separately it costs a second re-sign.** It is NOT closed by widening M1's scan, which would
+  reverse a ruling two threat-model rounds have kept.
+- **(d) The rounds-drawer copy — UNBLOCKED, and the ORDER is why it is recorded here.** Architect
+  round 10's note 3 asks the conductor to move this document's settled rounds into
+  `docs/vault-fixtures-rounds.md`. That drawer is byte-for-byte, append-only and never rewritten, so
+  a copy taken BEFORE (a) would have put the two values past the reach of any redaction. (a) is done,
+  so the copy is now safe to take. Two things it does not disturb, checked rather than assumed:
+  AC-3(iv)'s `CENSUS_DIGEST` read is FENCE-SCOPED, and Task 12's "exactly five `check:` names" pin
+  reads `criteria` fences only, of which this document holds five and all inside
+  `## Acceptance Criteria`.
 
 ### §11. Standing walls this item's files join, and what each requires (WI-301)
 
@@ -2095,7 +2862,7 @@ anything the run returns that this table did not.
 
 | # | Wall (check → predicate) | Universe | What it requires of this item's files |
 |---|---|---|---|
-| W-1 | `_check_the_ast_capability_stays_single_homed` (`tests/test_name_gate_wall.py:1136`) → `modules_using_ast` | `python_files_under(PACKAGE_ROOT, TESTS_ROOT)` — GROWS with every file this item adds | set EQUALITY to `{"tests/derivations.py"}`. `tests/fixture_vault.py` and `tests/test_fixture_vault.py` must NOT import or attribute-access `ast`; `skip_reason_return_values` lands in `derivations.py` for exactly this reason (§4) |
+| W-1 | `_check_the_ast_capability_stays_single_homed` (`tests/test_name_gate_wall.py:_check_the_ast_capability_stays_single_homed:1132`, live assertion at `:1136-1138`) → `modules_using_ast` | `python_files_under(PACKAGE_ROOT, TESTS_ROOT)` — GROWS with every file this item adds | set EQUALITY to `{"tests/derivations.py"}` over the PROJECTED module ids — `modules_using_ast` returns USE RECORDS (`tests/derivations.py:630`) and the shipped assertion projects them as `{use.module for use in live}` (`:1136-1138`), which is the form Task 12 must call. `tests/fixture_vault.py` and `tests/test_fixture_vault.py` must NOT import or attribute-access `ast`; `skip_reason_return_values` lands in `derivations.py` for exactly this reason (§4) |
 | W-2 | `test_derivations_are_single_sourced` (`tests/test_loud_fail_harness.py:65`, live assertion at `:103`) | same | the IDENTICAL live assertion, re-run from a second module. Also asserts the `six` dict's six names are six distinct objects homed in `tests.derivations` (`:79-97`) — a REQUIRED SUBSET by `:18-20`, so the new scan does not join it and `len(six) == 6` does not move |
 | W-3 | `test_filesystem_mutation_is_single_homed` (`tests/test_write_routing.py:87`) | `python_files_under(PACKAGE_ROOT, SCRIPTS_ROOT)` | `repositories/base.py` is a member and must gain no filesystem-mutation capability. A frozenset and three string constants introduce none. `tests/` is OUT of this universe, which is what makes `materialize_vault`'s `write_bytes` legal (§5.1) |
 | W-4 | `test_every_derived_loader_records_a_derivation_stamp` (`tests/test_write_routing.py:361`) → `base_repository_subclasses` / `functions_calling` | `python_files_under(PACKAGE_ROOT)` and `(PACKAGE_ROOT, SCRIPTS_ROOT)` | `base.py` must gain no `parse_markdown_file` call. It gains none |
@@ -2108,15 +2875,50 @@ anything the run returns that this table did not.
 | W-11 | `test_the_tier1_surface_is_reified_totally…` (`tests/test_name_gate.py`) → `vars(name_validation)` `*_RE` census | `name_validation.py`'s module namespace | this item adds no regex and no branch. Green, and named so the next reader can tell it was checked |
 | W-12 | `tests/test_lint_vault_fix_gate.py` | derives from `SCRIPTS_ROOT` but NAMES `lint_vault.py` (`:44`) | universe does not grow. Not a member |
 | W-13 | `tests/test_company_name_contract.py:855` | NAMES `docs/company-name-corpus-audit.md` | universe does not grow. Not a member |
-| W-14 | pytest collection (`pyproject.toml:41-43`) | `testpaths = ["tests"]`, `python_files = ["test_*.py"]` | `tests/fixture_vault.py` is not collected (no `test_` prefix) and `tests/fixtures/vault/*.md` is not collected (not `.py`). No `conftest.py` is added — P2 records its absence as load-bearing |
+| W-14 | pytest collection (`pyproject.toml:41-43`) — **the ONE row with no callable predicate, declared LOUDLY rather than skipped (WI-301)** | `testpaths = ["tests"]`, `python_files = ["test_*.py"]` | `tests/fixture_vault.py` is not collected (no `test_` prefix) and `tests/fixtures/vault/*.md` is not collected (not `.py`). No `conftest.py` is added — P2 records its absence as load-bearing. pytest ships no importable "would this path be collected" membership function in the build profile and `tomllib` is 3.11-only against P-7's ≥ 3.10 floor, so Task 12 drives the CONFIG'S OWN declared `python_files` globs — read from `pyproject.toml` by a helper that RAISES rather than defaults — through `fnmatch`, with `tests/test_fixture_vault.py`'s own name as the positive control that stops the matcher passing by matching nothing |
+| W-15 | `skip_reason_literal_sites` (§4) — **MINTED BY THIS ITEM**, Tasks 2 and 11 | `python_files_under(PACKAGE_ROOT, TESTS_ROOT)` — GROWS with every file this item adds | set EQUALITY to `{"obsidian_schemas/repositories/base.py", "tests/test_fixture_vault.py"}`. So `tests/fixture_vault.py` must IMPORT the three reason constants rather than re-spell them (§3), `tests/test_fixture_vault.py` carries the one hand-typed spelling pin and nothing else, and Task 11's three repointed sites are obligations of this row rather than tidying |
+| W-16 | battery parity under the conveyor's interpreter — `criterion_checks` (`tests/test_ac_interpreter.py:57-73`), `check_module` (`:76-87`), `run_foreign` (`:90-95`), **IMPORTED and driven over THIS document's `criteria` fences**, Task 12 | this item's five `check:` names | each must exit 0 under `sys.executable -S` in the conveyor's argv shape **AND have got there by DELEGATING — `"[ac_interpreter]" in proc.stderr` — which is the shipped wall's own second clause and not an embellishment**: the shipped `test_every_acceptance_criterion_passes_under_the_conveyors_interpreter` asserts both (`tests/test_ac_interpreter.py:111-115` for the exit code, `:116-120` for the marker, whose failure message is "exited 0 WITHOUT delegating — the foreign interpreter imported the project's deps, so this run proves nothing about the battery's conditions"), and it ships a near-miss control beside it (`test_a_failing_delegated_check_is_red_not_silently_green`, `:126-138`) proving a nonexistent check is RED under the same shape. Exit 0 ALONE is a wall-shaped no-op here, because `-S` strips `site` but not an ambient or CI install: on any interpreter where the runtime deps survive `-S`, every check exits 0 without ever delegating, the parity test is green, and `## Verification`'s mutation 9 — the only mutation whose GREEN half is the finding — never fires, leaving R9 uncovered by the one thing this document says can cover it (§3.1 is invisible to the floor by design, W-10's population does not reach this item, and this sweep's own predicate structurally cannot see a capability injection). Both clauses are true only if `tests/test_fixture_vault.py` opens with `ensure_project_interpreter(__file__)` (§3.1). `tests/test_ac_interpreter.py`'s OWN live assertions are scoped to `docs/write-door-bypasses.md` (`:40`), so this item is outside its population and must run the parity itself — the wall is real but its universe does not reach here, which is why this row exists rather than a claim that W-10 covers it |
 
 **Checked and cleared, so the next reader can tell they were checked rather than missed.** The
 repo-wide markdown scan (W-8) excludes `docs`, so neither this document nor the census joins it.
+**That exclusion is the measurement behind the 2026-09-08 threat model's finding and is repeated here
+with its consequence rather than left as a clearance:** there is no standing wall of ANY kind over
+`docs/` in this repository, which is why the census's prose could carry a real live-vault value with
+every check in this document green, and why M1's scan (§6.5, Task 8) is a wall this item MINTS rather
+than a membership it joins. It is not a `## Write Targets` obligation on the census either — the scan
+reads that file and never writes it, so no row of this table moves and the file stays on
+`## Scope Boundary`'s unchanged list.
 There is no `docs/**`-globbing fixture wall in this project (the local convention is the
 `CORPUS_COUPLING:` docstring line, `tests/test_company_name_contract.py:15` and
 `tests/test_ac_interpreter.py:23`, which §3 and the new test module both carry) — so WI-278's
 corpus-coupling rule is discharged by DECLARATION here rather than by a standing sweep, and the
-declaration names what each module pins and what property it consumes.
+declaration names what each module pins and what property it consumes. **The interpreter bridge is
+the other project convention with no standing sweep behind it**, and it is the one this item was
+about to miss: six check modules call `ensure_project_interpreter(__file__)` as their first statement
+(`tests/test_company_name_contract.py:25`, `tests/test_address_splitter.py:38`,
+`tests/test_name_gate_identifiers.py:41`, `tests/test_name_gate_refusals.py:41`,
+`tests/test_name_gate_wall.py:40`, `tests/test_name_gate_delta_rule.py:37`) and nothing sweeps for
+its absence, because this sweep's own predicate — modules that READ the text of files they did not
+name — structurally cannot reach a capability INJECTION. `tests/test_fixture_vault.py` is the seventh
+caller (§3.1) and W-16 is how membership is closed by RUNNING rather than by reading.
+
+**The four modules this sweep RETURNED and the table does not otherwise name, recorded so
+"read and discarded" is distinguishable from "not reached".** The predicate returns fourteen
+modules; the rows above name nine of them plus `tests/derivations.py`. The remaining four are
+`tests/test_loud_fail_write.py`, `tests/test_loud_fail_parse.py`, `tests/test_address_splitter.py`
+and `tests/test_concurrent_access.py`. Each was read at FILE granularity: every one of them sweeps
+`python_files_under(PACKAGE_ROOT)`, which contains the edited `repositories/base.py`, and none is
+disturbed by a frozenset plus three string constants and three return statements that now name them.
+The one worth spelling out is `tests/test_concurrent_access.py:1077-1089`, which carries FOUR
+hardcoded count pins over package-derived populations —
+`len(functions_reserializing_parsed_frontmatter(files)) == 4` (`:1077`),
+`len(non_completed_write_sites(files)) == 8` (`:1085`),
+`len(base_repository_subclasses(files)) == 4` (`:1088`) and
+`len(load_file_implementations(...)) == 3` (`:1089`) — the WI-229 count-pin shape exactly. None
+moves: this item adds no function that reserializes parsed frontmatter, no falsy return in a write
+path (`_skip_reason` returns a non-empty string on every arm, W-5), no `BaseRepository` subclass and
+no `_load_file` implementation. That is asserted here and RE-ASSERTED by running: those four modules
+are in Task 12's floor run, and the floor is where a moved pin shows up.
 
 ---
 
@@ -2188,7 +2990,35 @@ ABORTS under the Implementation Plan's precondition gate rather than inventing a
 **Two census rows that cannot have distinct specimens.** *Case:* same-name collision and stem/name
 divergence are structurally the same shape in a flat directory. *Decision:* the CENSUS rules whether
 they are one class or two; if one, it writes one row, the manifest's covered-class set follows, and
-AC-3(i) is satisfied by a fifteen-row table as readily as a sixteen-row one.
+AC-3(i) is satisfied by a fifteen-row table as readily as a sixteen-row one. **RULED, 2026-09-07:
+TWO classes** — `same_name_collision` ABSENT (count 0; the largest live collision is two notes) and
+`stem_name_divergence` MEASURED (count 8). *Consequence, which is a change to what the corpus
+DECLARES and not to what it holds:* §1.3 rule 5's three-filename collision is still planted, because
+§3's `LOADABLE` arithmetic and `_get_cache_key`'s collapse depend on it, but it is declared under
+`shape_classes = ("stem_name_divergence",)` and never as a `same_name_collision` specimen, which
+would be RED against that ABSENT row under AC-3(i).
+
+**A criterion that obliges a specimen for a class the census rules ABSENT.** *Case:* AC-1(c) obliges
+an arrow-connective and a path-hostile `name:` specimen "named in the manifest as such"; the landed
+census rules both classes ABSENT, and AC-3(i)'s reverse direction makes a specimen belonging to no
+MEASURED class RED. *Decision:* the two obligations are answered by two DIFFERENT manifest fields —
+`shape_classes = ()` and `NoteSpec.discriminator = "<branch_id>"` (§1.3 rule 7, §3, Task 4). *Reasoning:*
+the questions are different in kind. AC-1(c) is about the DOOR's behaviour, which is a fact about the
+package and true whatever the vault holds; AC-3(i) is about the VAULT's distribution. One field
+cannot answer both, and both criteria are signed, so the reconciliation had to land in the manifest
+rather than in either criterion. Exercised by Verification mutation 15 in both directions.
+
+**An identity token in the CENSUS itself.** *Case:* the artifact AC-3 and AC-5(c) delegate their
+entire oracle to carries a real live-vault name — in a prose bullet, which no fence parses and which
+`## Design` §2 puts outside the suite's parser. *Decision:* the census's whole byte stream is inside
+the identity closure it certifies (M1, §6.5, Task 8), and the same predicate runs one build phase
+earlier as a REFUSAL in the precondition abort gate (M2, Task 3). Neither authorises the builder to
+edit the artifact: the gate STOPS and the remedy is a conductor pass. *Reasoning:* AC-3(iv) and
+AC-5(c) digest this file, so without the closure the build does not merely ship such a leak, it
+asserts it immutable — and the census refresh R7 names as certain-eventually would reopen it with
+nothing to notice. The residue is the same one AC-5(b) carries and is not enlarged: a name typed
+deliberately into `CENSUS_PROSE_ALLOWLIST` is a name a human reviews, which is the most a structural
+wall can do about a value the hermetic suite cannot check against the vault.
 
 **A ninth entity type, a fifth repository, an eleventh Tier-1 branch, a fourth skip reason.**
 *Case:* the package grows after this lands. *Decision:* each is RED immediately and by design —
@@ -2206,6 +3036,22 @@ argument; the residue is what the pool's one-time human review covers.
 ≥9 digits. *Decision:* one author-declared `RESERVED_ISBN` literal, asserted by equality (§6.4).
 *Reasoning:* an ISBN is not a phone and has no reserved range; equality against a one-member literal
 cannot be padded and imposes no obligation over anything the builder does not author.
+
+**A declared hex literal read as a phone — the ISBN's own class, closed at the second member rather
+than at the first.** *Case:* leg (a)'s reach includes `tests/fixture_vault.py`, which by §3's design
+carries `CORPUS_DIGEST` and `NoteSpec.raw_bytes_hex` (a full note's bytes in lowercase hex).
+Printable ASCII hex-encodes to first nibbles `2`–`7`, all digits, so `type:` alone yields the
+nine-digit run `747970653` and the leg is RED on a wholly correct corpus; a re-taken 64-character
+digest can redden it again at random. *Decision:* the scan excises the manifest's DECLARED hex
+literals — `CORPUS_DIGEST`, every non-`None` `raw_bytes_hex`, and AC-3(iv)'s optional `CENSUS_DIGEST`
+restatement — before the span walk, each asserted well-formed lowercase hex of even length and
+asserted to OCCUR SOMEWHERE IN THE REACH, once against the union of the scanned files' bytes rather
+than once per file, while the excision runs per file regardless (§6.4, AC-5(a), Task 8). *Reasoning:* the ISBN
+decision was correct and stopped one instance short, in the same document that had already introduced
+two longer hex literals of its own. Excision by NAME keeps the exemption author-declared and
+equality-asserted, so it cannot be padded; excision by SHAPE (a "hex-looking run" rule) would have
+been the padding surface, because a builder could then spell any awkward run as hex. Legs (b) and (e)
+scan the unexcised text and are unaffected.
 
 **OPEN: None.**
 
@@ -2225,8 +3071,18 @@ for every `branch_id` in `TIER1_BRANCHES + COMPANY_TIER1_BRANCHES`; and one ```c
 certified token, each with `token`, `class`, a counting `command` and a `stdout` of `0`. Also confirm
 AC-3(iv)'s `CENSUS_DIGEST` declaration inside the AC-3 `criteria` fence of `docs/vault-fixtures.md`
 holds a real 64-character lowercase hex value and not the placeholder, and that `sha256` over the
-census's bytes EQUALS it. **If any of that is absent, STOP at Task 2 under the Abort Protocol and
-hand off to the conductor** — record in the Build Log exactly which fence, key or digit is missing.
+census's bytes EQUALS it. **AND — the threat model's M2, and the last thing checked because it needs
+the parsed pool table the checks above establish — run §6.1's `identity_tokens` over the WHOLE of
+`docs/vault-shape-census.md`, prose and fences alike, and confirm every token it yields is in that
+artifact's own `census-pool` token set, in `CONNECTIVE_SET` (`{"Me", "My", "Dave"}`), or admitted by
+`str.lower() in name_cleaning._GENERIC_ORG_SUFFIXES`, with any remainder being ordinary technical
+vocabulary the census's prose needs** (§6.5). Two failures this one read catches, and both are RED at
+Task 8 with no in-cage remedy if it is skipped: a real live-vault name transcribed into a prose
+bullet or a specimen column, and a pool table certified at WORD granularity where the extractor
+produces a hyphen-fused COMPOUND (`Brenvik-Tarnquil`, `Pellworth-Wexlund` — §6.2). **If any of that
+is absent, STOP at Task 2 under the Abort Protocol and hand off to the conductor** — record in the
+Build Log exactly which fence, key or digit is missing, and for the M2 arm the exact uncertified
+tokens and where in the file each occurs.
 Do NOT author or amend a single byte of the census, do NOT fill the digest, and do NOT narrow any
 task's assertions to fit the artifact as found: the evidence is a live-vault execution the cage
 cannot perform, so anything written there would be fabrication (the D2 rejection, and the WI-024
@@ -2246,35 +3102,76 @@ paragraph is the only thing standing between an incomplete census and a burned b
 - [ ] **Task 2 — Declare the skip-reason codomain and BIND it to the function.** In
   `obsidian_schemas/repositories/base.py`, add the three module-level reason constants and the
   `SKIP_REASONS` frozenset exactly as §4 gives, and change `_skip_reason`'s three arms to return
-  those names. In `tests/derivations.py`, add `skip_reason_return_values` per §4, reusing `_parse`
+  those names. Leave the `#` type comment at `:37` exactly as it is. In `tests/derivations.py`, add
+  BOTH scans per §4 — `skip_reason_return_values` and `skip_reason_literal_sites` — reusing `_parse`
   (`:213`), `_iter_functions` (`:217`) and `_own_body_nodes` (`:243`); an unresolvable return raises
-  `AssertionError` naming module, function and lineno. Create `tests/test_fixture_vault.py` with its
-  module docstring (including its `CORPUS_COUPLING:` line naming `docs/vault-shape-census.md` and
-  `docs/vault-fixtures.md` and the properties it consumes from each) and ONE test,
-  `test_skip_reason_declaration_binds_to_its_functions_returns`, which (a) asserts
+  `AssertionError` naming module, function and lineno. Create `tests/test_fixture_vault.py`, and its
+  FIRST executable statement is the interpreter bridge, ahead of every package import, exactly as
+  §3.1 gives it and exactly as `tests/test_name_gate_wall.py:38-40` does: `from tests.ac_interpreter
+  import ensure_project_interpreter` then `ensure_project_interpreter(__file__)`, with `# noqa: E402`
+  on the first import below it. All five of this item's checks execute the library behind pydantic
+  and the conveyor does not necessarily run them under this project's interpreter
+  (`tests/ac_interpreter.py:7-25`); the floor cannot see the omission, so it is written here rather
+  than left to judgment. Then the module docstring (including its `CORPUS_COUPLING:` line naming
+  `docs/vault-shape-census.md` and `docs/vault-fixtures.md` and the properties it consumes from each)
+  and ONE test, `test_skip_reason_declaration_binds_to_its_functions_returns`, which (a) asserts
   `skip_reason_return_values(PACKAGE_ROOT / "repositories" / "base.py") == SKIP_REASONS`, (b)
-  asserts `SKIP_REASONS` is non-empty and of size exactly 3, and (c) drives PLANTED source through
-  the SAME predicate the live assertion calls — never a re-implementation — written under
-  `tests/support.temp_dir()`. Shapes that MUST resolve: `return "literal"`; `return NAME` where
-  `NAME` is a module-level `str` constant; two arms in one function; an arm inside an `if` and one
-  inside a `for`. Shapes that must RAISE rather than be silently dropped: `return name_var` where
-  `name_var` is a local; `return f"{x}"`; `return CHOICES[0]`. A near-miss that must NOT contribute:
-  a `return` of a string inside a NESTED function of the same name.
+  asserts `SKIP_REASONS` is non-empty and of size exactly 3, (c) carries the ONE hand-typed spelling
+  pin the vocabulary keeps — `SKIP_REASONS == {"malformed-frontmatter", "schema-drift",
+  "unreadable"}` — which is this module's membership of W-15 and the reason the wall's expected set
+  has two homes rather than one, and (d) drives PLANTED source
+  through the SAME predicates the live assertions call — never a re-implementation — written under
+  `tests/support.temp_dir()`. Shapes that MUST resolve for `skip_reason_return_values`:
+  `return "literal"`; `return NAME` where `NAME` is a module-level `str` constant; two arms in one
+  function; an arm inside an `if` and one inside a `for`. Shapes that must RAISE rather than be
+  silently dropped: `return name_var` where `name_var` is a local; `return f"{x}"`;
+  `return CHOICES[0]`. A near-miss that must NOT contribute: a `return` of a string inside a NESTED
+  function of the same name. `skip_reason_literal_sites` gets its planted battery HERE too, while the
+  LIVE set-equality that consumes it waits for Task 11 — the predicate is proven in this sitting, the
+  wall it feeds is asserted in the sitting that makes it true, and neither task is verified against a
+  red. Shapes that MUST be returned by `skip_reason_literal_sites`: a bare
+  `x = "unreadable"`; a member inside a set/list/dict literal; a member as a call argument; a member
+  in an `==` comparison. Near-misses it must NOT return: a `#` comment naming all three (the
+  `base.py:37` shape); a docstring whose PROSE contains the word (the `errors.py:112` shape); a
+  string that merely CONTAINS a member as a substring; the constant NAMES `UNREADABLE` /
+  `SCHEMA_DRIFT` / `MALFORMED_FRONTMATTER` used as identifiers.
   verify: test_skip_reason_declaration_binds_to_its_functions_returns
 
-- [ ] **Task 3 — Author the corpus.** Create `tests/fixtures/vault/` and write the ~50 notes per
+- [ ] **Task 3 — Run the precondition abort gate, INCLUDING its M2 arm, then author the corpus.**
+  **FIRST, before a single corpus byte is written, re-run the precondition gate above in full and run
+  its M2 arm — the threat model's `M2`, folded here (§6.5).** Apply §6.1's run rule to the WHOLE of
+  `docs/vault-shape-census.md`, prose and fences alike (an ad-hoc one-liner or a REPL paste of §6.1's
+  `identity_tokens` is the right instrument at this task — the standing form of the same predicate
+  lands at Task 8), and confirm every token it yields is in the artifact's own `census-pool` token
+  set, in `CONNECTIVE_SET` (`{"Me", "My", "Dave"}`), or admitted by `str.lower() in
+  name_cleaning._GENERIC_ORG_SUFFIXES`, the remainder being ordinary technical vocabulary. **If any
+  identity-shaped token is uncertified — a real live-vault name transcribed into a prose bullet, or a
+  hyphen-fused compound whose halves alone are certified — STOP under the Abort Protocol with those
+  exact tokens and their locations in the Build Log.** Do not author, amend or normalise a byte of the
+  census, do not add a pool row, do not drop a hyphen, and do not author a corpus against an artifact
+  that will have to be re-authored: the remedy is a conductor pass (one census edit, one re-taken
+  digest, one AC-3(iv) edit, one D4b re-sign), and the whole value of running this at Task 3 rather
+  than discovering it at Task 8 is that ~50 notes have not yet been written against it.
+  **THEN** create `tests/fixtures/vault/` and write the ~50 notes per
   §1.1-§1.4, assembled from the landed census: one note per `TYPE_TO_MODEL` member with exactly one
   `roundtrip_representative` each; one specimen per MEASURED census class carrying that row's
-  character profile with CONSTRUCTED identity tokens; one specimen per `SKIP_REASONS` member with
+  character profile with CONSTRUCTED identity tokens, declared in `shape_classes` — the SIX MEASURED
+  ids and no others (§1.3 rule 2); one specimen per `SKIP_REASONS` member with
   the two untyped classes planted under BOTH owning globs; exactly one member that is not valid
-  UTF-8; at least three filenames sharing one stored `name:`; every email under an RFC 2606 domain,
-  every phone in `447700900xxx` or `555-01xx`, every URL host reserved, and the single
+  UTF-8; at least three filenames sharing one stored `name:`, declared under
+  `shape_classes = ("stem_name_divergence",)` and NEVER as a `same_name_collision` specimen, which
+  the census rules ABSENT (§1.3 rule 5); the TWO AC-1(c) discriminator members — one
+  arrow-connective, one path-hostile — carrying `shape_classes = ()` and their `branch_id` in
+  `NoteSpec.discriminator` (§1.3 rule 7, §3); the `pure_digit` specimen declaring NO `phones`, so its
+  declared `Verdict` is the refusal rather than a load (§5.3); every email under an RFC 2606 domain,
+  every phone in `447700900xxx` / `07700900xxx` (the same drama block in either spelling, §6.4) or
+  NPA-`555-01xx`, every URL host reserved, and the single
   `RESERVED_ISBN`. No note may contain `\w+Repository\(\s*\)` (§11, W-8). Record in the Build Log
-  the file count, the per-type and per-census-class tally, and the confirmation that exactly one
-  member raises `UnicodeDecodeError` under `read_text(encoding="utf-8")`.
-  **Verify:** the tallies are in the Build Log; the corpus's first standing artifact is Task 4's
-  digest.
-  verify: hand-run — the corpus is inert bytes with no standing check until Task 4 lands the digest and the manifest; the act is an inspection recorded in the Build Log (file count, per-type and per-class tally, and the one-member UTF-8 probe).
+  the M2 gate's result, the file count, the per-type and per-census-class tally, and the confirmation
+  that exactly one member raises `UnicodeDecodeError` under `read_text(encoding="utf-8")`.
+  **Verify:** the M2 gate's result and the tallies are in the Build Log; the corpus's first standing
+  artifact is Task 4's digest and M2's standing form is Task 8's M1 assertion.
+  verify: hand-run — the M2 abort gate is a pre-authoring inspection whose whole point is to run BEFORE any artifact exists, and the corpus is inert bytes with no standing check until Task 4 lands the digest and the manifest; both acts are recorded in the Build Log (the gate's uncertified-token result, the file count, the per-type and per-class tally, and the one-member UTF-8 probe), and the standing form of the same predicate is Task 8's M1 assertion.
 
 - [ ] **Task 4 — Land the manifest module and AC-1.** Create `tests/fixture_vault.py` exactly as §3
   gives — docstring with the `CORPUS_COUPLING:` line, the load-bearing `name_cleaning.py:58`
@@ -2283,13 +3180,41 @@ paragraph is the only thing standing between an incomplete census and a burned b
   `corpus_digest` (§5.2). Compute `CORPUS_DIGEST` with the recipe and paste it in. It must not name
   `ast`, must contain no URL and no absolute path. Then add
   `test_fixture_vault_is_frozen_and_materialized_by_byte_copy` to `tests/test_fixture_vault.py`:
-  leg (a) recomputes the digest and compares; leg (b) materializes into a fresh
-  `tests/support.temp_dir()` and asserts the same relative name set, the same per-file bytes and the
-  same digest; leg (c) asserts the corpus holds at least one arrow-connective and one path-hostile
+  leg (a) recomputes the digest and compares — the digest's key is the FILENAME (`path.name`), which
+  is what AC-1(a)'s "corpus-relative POSIX path" means in a flat directory and what makes leg (b)
+  satisfiable at all; leg (b) materializes into a fresh `tests/support.temp_dir()` and asserts the
+  same relative name set, the same per-file bytes and the same digest, THEN writes a foreign file
+  into that same `dest`, calls `materialize_vault(dest)` a SECOND time, and asserts that every corpus
+  member is still byte-identical, that the digest over the corpus members is unchanged, and that the
+  foreign file is still there — the idempotency and no-clean rules `## Edge Cases` decides, exercised
+  rather than only written down, and the assertion that would go RED if a later "clean the
+  destination first" branch were added; leg (c) asserts the corpus holds at least one arrow-connective and one path-hostile
   `name:` specimen NAMED as such in the manifest, that materialization succeeds with them present
-  and byte-identical, and — the planted discriminator — that
-  `write_markdown_file(<fresh dir>, frontmatter=<that specimen's declared frontmatter>)` raises
-  `NameGateRefusal` on exactly those members.
+  and byte-identical, and — the planted discriminator — that a write through the gated door refuses
+  them.
+  **"NAMED as such in the manifest" is read off `NoteSpec.discriminator` and NEVER off
+  `shape_classes`, which is §1.3 rule 7 and is the one place this leg could be built two ways.** The
+  test asserts `{spec.discriminator for spec in NOTES.values() if spec.discriminator} ⊇
+  {"arrow_connective", "path_hostile"}`, that every non-empty `discriminator` is a member of
+  `{record.branch_id for record in TIER1_BRANCHES + COMPANY_TIER1_BRANCHES}` (so the field cannot be
+  padded with a free-text label), and that both those notes carry `shape_classes == ()`. Reading
+  `shape_classes` here instead would put two ids the landed census rules ABSENT into AC-3(i)'s
+  covered-class set and redden AC-3 over a wholly correct corpus, with no in-cage remedy now that
+  both criteria are signed (§3 argues the two-field split; §5.5 states which field AC-3 reads).
+  Then, on those same members,
+  `write_markdown_file(<fresh dir> / <that specimen's filename>,
+  frontmatter=<that specimen's declared frontmatter>)` raises `NameGateRefusal` on exactly those
+  members. **The first argument is the note's own FILE path, never the directory** — `writer.py:160-169`
+  takes `file_path` first and `:205` uses `Path(file_path)` as the note's path, which is the shape
+  §5.3 already gives (`write_markdown_file(fresh_dir / filename, entity=doc.entity)`); an earlier
+  draft of this leg passed the directory and is corrected here rather than left for the builder to
+  reconcile against §5.3. The `frontmatter=` arm rather than `entity=` is deliberate and its refusal
+  is reached, not assumed: it enters at `writer.py:234-238` with `gate_whole_record = False`, and the
+  ONE `gate_write` call at `writer.py:252-253` passes `declared_type=fm.get("type")` — so a `person`
+  specimen reaches `name_gate.py`'s person arm at `:349-365`, whose `NameValidator().validate_strict`
+  refusal is re-raised as `NameGateRefusal` by the single `_refuse` site (`name_gate.py:142`). That
+  path never reads `whole_record`, so the discriminator holds on this arm and does not depend on
+  constructing a model for a name the gate exists to refuse.
   verify: test_fixture_vault_is_frozen_and_materialized_by_byte_copy
 
 - [ ] **Task 5 — AC-2: the type-registry sweep.** Add
@@ -2314,10 +3239,35 @@ paragraph is the only thing standing between an incomplete census and a burned b
   covered classes, (ii) the per-row shape check conditional on status, and (iii) the class floor —
   branch half derived as `{record.branch_id for record in TIER1_BRANCHES + COMPANY_TIER1_BRANCHES}`,
   asserted non-empty and of size exactly 10 and in BOTH directions over branch-keyed rows, plus the
-  six hand-listed shape classes. For each floor class, assert the manifest's declared `Verdict`:
-  a `NameGateRefusal` carrying the named `.pattern` when the specimen's name is re-introduced through
-  a write arm, or `clean_person_name` output equal to the declared string, or a declared successful
-  byte-identical load.
+  six hand-listed shape classes. For each floor class WHOSE CENSUS ROW IS `MEASURED`, assert the
+  manifest's declared `Verdict`: a `NameGateRefusal` carrying the named `.pattern` when the
+  specimen's name is re-introduced through a write arm, or `clean_person_name` output equal to the
+  declared string, or a declared successful byte-identical load. **The `MEASURED` qualifier is
+  load-bearing and not a hedge:** AC-3(iii) makes the floor a check on the ROW's presence at either
+  status, and AC-3 says in as many words that "a live vault holding no empty-named note gets an
+  ABSENT row … and obliges no specimen" — so an ABSENT class has no specimen and therefore no
+  `Verdict` to declare, and demanding one would redden the honest census this criterion exists to
+  reward. §9.4 names `empty` as the likely ABSENT row, so the case is expected rather than
+  hypothetical. An ABSENT row's obligations are assertion (ii)'s alone: count exactly 0, a non-empty
+  command, non-empty stdout, an affirmative ruling, and NO specimen. **Against the LANDED census the
+  MEASURED set is exactly six** — `diacritics`, `hyphenated_surname`, `whitespace_damage`,
+  `stem_name_divergence`, `postal_address_in_name`, `pure_digit` — so those six carry a declared
+  `Verdict` and the other ten rows carry none. **The one whose verdict is not free to choose is
+  `pure_digit`, and §5.3 pins it:** `allow_phone_sentinel` (`name_gate.py:355-358`) passes a
+  digit-named note that ALSO declares `phones`, so the corpus's `pure_digit` specimen declares no
+  `phones` and its declared `Verdict` is `kind="refusal"`, `pattern="pure_digit_name"`. **That value
+  is the RECORD'S `pattern` FIELD and not its `branch_id`, which is the rule §3 states for every
+  declared refusal `Verdict` in this manifest and is not a spelling choice here:**
+  `name_validation.py:284-285` gives the record `branch_id="pure_digit"` and
+  `pattern="pure_digit_name"`, `:678` raises `NameValidationError(branch.pattern, …)`, `:463` binds
+  it, and `name_gate.py:365` re-raises it through the single `_refuse` site — so the
+  `NameGateRefusal` this assertion catches carries `.pattern == "pure_digit_name"`. An earlier draft
+  of this task pinned `pure_digit` and would have been RED against a wholly correct corpus.
+  Assertion (i)'s manifest side is the union of `shape_classes` over `NOTES` and reads no other
+  field — in particular NOT `NoteSpec.discriminator`, whose two values name branches the census rules
+  ABSENT (§5.5, §1.3 rule 7); note that `shape_classes` legitimately carries the string `pure_digit`
+  for this same specimen, because a census class id for a branch-backed row IS the `branch_id`, which
+  is the adjacency that hid the defect.
   verify: test_every_census_corruption_class_has_a_specimen_with_a_verdict
 
 - [ ] **Task 7 — AC-4: the skip surface, per repository.** Fill `SKIPS`, `LOADABLE` and `RESOLVABLE`
@@ -2335,13 +3285,43 @@ paragraph is the only thing standing between an incomplete census and a burned b
   `IDENTITY_FIELDS` and `RESERVED_ISBN` to the manifest, and the extractor of §6.1 to
   `tests/test_fixture_vault.py`. Add `test_no_corpus_note_carries_a_live_identifier` asserting
   census fixity first, then legs (a) through (e) per §6.2-§6.4 over the full reach (every file under
-  `tests/fixtures/vault/` plus `tests/fixture_vault.py`): reserved ranges; the position-split name
+  `tests/fixtures/vault/` plus `tests/fixture_vault.py`): reserved ranges, whose scan runs over
+  `excise(text, DECLARED_HEX_LITERALS)` and NOT over the raw text — `DECLARED_HEX_LITERALS` being
+  `{CORPUS_DIGEST} | {s.raw_bytes_hex for s in NOTES.values() if s.raw_bytes_hex}` plus the optional
+  `CENSUS_DIGEST` restatement, each asserted first to be well-formed lowercase hex of even length
+  (64 for either digest) and asserted to OCCUR SOMEWHERE IN THE REACH — the union of every scanned
+  file's bytes, asserted ONCE against that union and NEVER per file, while the excision itself runs
+  over every file's text whether or not that file holds the literal — so an exemption declared for a
+  literal absent from the whole reach is RED while the ~50 corpus notes that legitimately carry none
+  of them are not (§6.4, AC-5(a); without the excision the leg is RED by construction, because
+  `type:` hex-encodes to `747970653a` and its first nine characters are a phone-shaped run); the
+  position-split name
   closure with `PROSE_ALLOWLIST` asserted DISJOINT from the identity token set and not a term in the
   identity assertion; `CONNECTIVE_SET` asserted equal to the literal in AC-5(b); `NAME_POOL`
   non-vacuity over IDENTITY positions only; `NAME_POOL ⊆` the census pool table with the table
   disjoint from `CONNECTIVE_SET`; the non-UTF-8 member's declared lowercase hex bytes asserted
   byte-equal; `normalize_phone` / `phones_match` still holding over every reserved number; and no
   `/Users/` and no absolute path anywhere in reach.
+  **THEN, IN THE SAME CHECK, THE THREAT MODEL'S `M1` — THE CENSUS'S OWN BYTES JOIN THE CLOSURE THEY
+  CERTIFY (§6.5).** Add a `CENSUS_PROSE_ALLOWLIST` frozenset to `tests/test_fixture_vault.py` — NOT
+  to the manifest, whose three literal frozensets AC-5(b) names and freezes — holding the census's
+  ordinary technical vocabulary and nothing else. **Author its members from the LANDED artifact and
+  never from §6.5 item 3's illustrative list: the set is exactly this scan's own residue over
+  `docs/vault-shape-census.md` as it stands** (the landed file needs at least `DaveRemoteVault` and
+  `Obsidian`, both at `:17`, which no surface in this document names), and a token you cannot place
+  as the census's technical vocabulary is M2's abort at Task 3 rather than a member added here.
+  Then, after the census-fixity assertion has already
+  run and before any of the artifact's rows is trusted, decode the WHOLE of
+  `docs/vault-shape-census.md` with `errors="replace"`, run the SAME `identity_tokens` object leg (b)
+  calls over prose and fences alike, and assert that every token it yields is in the artifact's own
+  `{row.token for row in census pool rows}`, in `CONNECTIVE_SET`, admitted by `str.lower() in
+  _GENERIC_ORG_SUFFIXES`, or in `CENSUS_PROSE_ALLOWLIST` — and that `CENSUS_PROSE_ALLOWLIST` is
+  DISJOINT from that pool-row token set, which is what stops it becoming the bypass AC-5(b)'s own
+  `PROSE_ALLOWLIST` was found to be at round 2. Assert the pool-row token set is NON-EMPTY first
+  (LESSONS #46: a reader that finds nothing admits everything). This scan does NOT extend leg (e)'s
+  absolute-path rule to the census, which the threat model recorded rather than folded and which is
+  routed against here rather than re-decided. The census is READ and never written: it stays on
+  `## Scope Boundary`'s unchanged list and this task adds no `## Write Targets` path for it (§10 P-9).
   verify: test_no_corpus_note_carries_a_live_identifier
 
 - [ ] **Task 9 — Drive the extractor's claimed shapes through the extractor (WI-235).** AC-5's whole
@@ -2355,6 +3335,51 @@ paragraph is the only thing standing between an incomplete census and a burned b
   wikilink → `{Voxleaf, Kelmarra}`. Near-misses that must NOT yield a token: `d'Angelo`;
   `zArchived - Rosie` → `{Rosie}` and never `Archived`; `zzArchived`; `-Voxleaf`;
   `447700900123`; `dave@example.com` → `{}` from its lowercase runs.
+  **And the SAME treatment for leg (a)'s reserved-range predicate, because §6.4's hex excision is a
+  NARROWING and WI-235's rule is that a narrowing nobody drives can silently swallow the claimed
+  shapes.** In the same test, drive planted strings through the SAME phone/email/URL predicates the
+  live leg calls — `reserved_phone_violations`, `reserved_email_violations` and
+  `reserved_url_violations` by name (§6.4), the same function OBJECTS leg (a) calls and never a
+  re-typed regex. **Every literal below was worked through §6.4's three phone patterns by hand, and
+  the earlier draft's phone battery did not survive that pass — two of its six fixtures were RED
+  against fully correct code, which is the WI-149 shape and is recorded rather than quietly fixed.**
+  It listed `(555) 015-0123` as ACCEPTED (`normalize_phone` → `5550150123`, which fails
+  `^1?\d{3}55501\d{2}$`: the NANP fictional form is NPA-555-01XX, so the `555` must be the EXCHANGE
+  and not the area code) and `+1 415 555 0199` as REFUSED (→ `14155550199`, which MATCHES that
+  pattern through the `1?` arm — `555-0199` is squarely inside the fictional block). The corrected
+  battery, each fixture given with the digits-only value the predicate actually sees. Must be SCORED
+  and ACCEPTED: `+44 7700 900123` (→ `447700900123`), `07700 900456` (→ `07700900456`, the national
+  spelling of the SAME drama block and the reason §6.4 carries two UK patterns rather than one),
+  `(415) 555-0123` (→ `4155550123`) and `+1 415 555 0199` (→ `14155550199`, the
+  optional-country-code arm). Must be SCORED and REFUSED (so the wall is not vacuous):
+  `+44 7700 901234` (→ `447700901234` — the near-miss ONE digit outside the drama block, and
+  exactly the shape §6.4's earlier `^44770090\d{4}$` tail would have admitted, so this fixture is
+  what holds the tightening in place), `+44 20 7946 0958` (→ `442079460958`),
+  `t.kelmarra@voxleaf.co` and `https://linkedin.com/in/someone`. Must be EXCISED rather than scored:
+  the exact `CORPUS_DIGEST` string, the exact `raw_bytes_hex` string. Must still be SCORED even
+  though it looks like the exempt class: a ≥9-digit run that is a PREFIX or SUFFIX of no declared
+  literal, and a lowercase-hex-shaped run that is not one of the declared literals — the excision is
+  by NAME and by equality, never by shape, and this is the near-miss that proves it.
+  **On the planted literals themselves, because `## Scope Boundary` says this item "declines to add
+  more" real-looking data and `tests/test_fixture_vault.py` is the ONE new module AC-5's reach
+  deliberately excludes — so nothing walls what is typed here.** The two fixtures that were
+  real-looking identifiers rather than package vocabulary are GONE from the list above:
+  `naomi@speechmatics.com` (a real-looking address at a real company, already in the tree at
+  `tests/test_name_validation.py:268`, `:274`, `:453`) is replaced by `t.kelmarra@voxleaf.co`, and
+  `+44 7911 123456` (a live allocatable UK mobile prefix, in the tree nowhere) by
+  `+44 20 7946 0958`, which is Ofcom's reserved London drama block — it can never ring AND it is
+  outside every range leg (a) admits, so it proves refusal strictly better than a number that might
+  belong to someone. `voxleaf` and `kelmarra` are this document's own constructed vocabulary and name
+  no real person or organisation. **The NAME fixtures stay, and that is the deliberate reading rather
+  than an oversight:** `José García`, `Anne-Sophie Legrain`, `Dave -> Thomas Gatten`, `Me to David
+  Field` and `zArchived - Rosie` are the PACKAGE'S OWN declared specimens — `name_validation.py:217`
+  and `:241` carry two of them verbatim in their branches' `specimen=` fields, and the rest are the
+  shape examples `tests/test_name_validation.py:363`, `:377`, `:442`, `:446` and
+  `tests/test_name_cleaning.py:35` already commit — and the extractor's whole job is to resolve
+  exactly the shapes this package declares, so a constructed substitute would test a shape the
+  package does not have. Re-typing a literal already committed in this tree adds no personal data
+  and is what "declines to add MORE" means; introducing a new real-looking identifier is what it
+  forbids, and the two above were the only instances.
   verify: test_the_identity_token_extractor_resolves_its_claimed_shapes
 
 - [ ] **Task 10 — D5's proof set.** Per §9.1: in `tests/test_parser.py` delete
@@ -2367,25 +3392,120 @@ paragraph is the only thing standing between an incomplete census and a burned b
   asserting each repository's `LOADABLE` count over a materialized corpus; do NOT touch `temp_vault`.
   verify: test_corpus_person_note_parses_to_its_declared_values test_corpus_note_round_trips_through_the_write_door test_corpus_vault_loads_through_every_repository
 
-- [ ] **Task 11 — Close the skip-reason vocabulary's second home.** In `tests/test_loud_fail_load.py`
-  replace the hand-typed three-string set at `:187-188` with `SKIP_REASONS`, imported from
-  `obsidian_schemas.repositories.base`. This is the copy §4's own solve-in-one-place argument names,
-  and the change is strictly stronger, not merely tidier.
-  verify: test_skip_surface_detail_is_bounded
+- [ ] **Task 11 — Close the skip-reason vocabulary's other homes, ALL THREE, and land the wall that
+  keeps them closed.** §4's disposition table is the scope and it is a grep's output, not a memory's.
+  (a) In `tests/test_loud_fail_load.py`, replace the hand-typed three-string set at `:187-188` with
+  `SKIP_REASONS` — strictly stronger, not merely tidier (a fourth reason with no specimen in that
+  module's matrix vault goes RED where the hand-typed set stays green). (b) In the SAME function,
+  twenty-two lines down, `:209`'s `n.reason == "unreadable"` reads the `UNREADABLE` constant. (c) In
+  `tests/test_name_gate.py:152`, `assert _skip_reason(exc) == "unreadable"` reads `UNREADABLE`. All
+  three import from `obsidian_schemas.repositories.base`; no assertion changes meaning, because each
+  constant's value is the string it replaces. Leave `base.py:37`'s `#` type comment and
+  `errors.py:112`'s prose docstring untouched — §4 rules both KEPT, and the wall below cannot see
+  either. (d) Then add the LIVE set-equality to
+  `test_skip_reason_declaration_binds_to_its_functions_returns`:
+  `skip_reason_literal_sites(python_files_under(PACKAGE_ROOT, TESTS_ROOT), SKIP_REASONS) ==
+  {"obsidian_schemas/repositories/base.py", "tests/test_fixture_vault.py"}`. It lands in THIS sitting
+  rather than Task 2's because this is the sitting that makes it true, so no task is ever verified
+  against a red; Task 2 already proved the predicate against planted shapes. This is the fold that
+  closes the CLASS rather than the three instances (§11, W-15): a fifth hand-typed site anywhere
+  under `obsidian_schemas/` or `tests/` is RED with the file named, and its remedy is one import.
+  verify: test_skip_surface_detail_is_bounded test_skip_reason_declaration_binds_to_its_functions_returns
 
 - [ ] **Task 12 — Run every wall's own predicate against the final text, and the floor.** For each
-  row of §11 whose universe GROWS with this item's files (W-1, W-2, W-8, W-10, W-14), CALL that
-  wall's own shipped predicate on the final bytes rather than reasoning about which shapes match:
-  `modules_using_ast(python_files_under(PACKAGE_ROOT, TESTS_ROOT))` must return
-  `{"tests/derivations.py"}`; the repo-wide markdown scan must return zero offenders over
-  `tests/fixtures/vault/`; each of the six new check names must resolve to exactly one
-  `tests/test_*.py`; pytest must collect no corpus file. Add
-  `test_wall_membership_is_closed_by_running_each_walls_predicate` recording those runs as standing
-  assertions. **Anything the RUN returns that §11 did not name is NAMED in the Build Log and
+  row of §11 whose universe GROWS with this item's files (W-1, W-2, W-8, W-10, W-14, W-15), CALL that
+  wall's own shipped predicate on the final bytes rather than reasoning about which shapes match, and
+  **every one of the six rows below either names the callable it calls or declares that it has none,
+  because "the scan must return zero offenders" is a reasoning-about-shapes instruction wearing a
+  predicate's clothes — the class this round closes, not the two rows that raised it:**
+  `{use.module for use in modules_using_ast(python_files_under(PACKAGE_ROOT, TESTS_ROOT))}` must
+  equal `{"tests/derivations.py"}`, which is W-1 AND W-2 in one call because W-2's row is the
+  IDENTICAL live assertion re-run from a second module (§11) and re-typing it here would be the
+  re-implementation this task exists to forbid. **The PROJECTION is part of the call and not
+  shorthand for it, corrected 2026-09-08:** `modules_using_ast` returns a list of USE RECORDS, not
+  module ids (`tests/derivations.py:630`), and the shipped wall this row anchors on projects them
+  itself — `homes = {use.module for use in live}` at
+  `tests/test_name_gate_wall.py:_check_the_ast_capability_stays_single_homed:1136-1138`. An earlier
+  draft wrote the call unprojected, comparing a list of records against a set of strings, which is
+  the one row of the six whose stated form does not typecheck in the task whose whole subject is
+  CALLING predicates rather than reasoning about them; for W-8, import `_scanned_markdown_files` and `NO_ARG_CONSTRUCTION`
+  from `tests/test_vault_path_required.py` (`:421` and `:382`, private and imported by name on
+  purpose — this is the wall's OWN generator and matcher, and the alternative is re-rolling its
+  exclusion set) and assert first that the generator's output INTERSECTED with
+  `tests/fixtures/vault/` is non-empty and equals the corpus's own file set — the non-vacuity clause,
+  without which "zero offenders" is satisfied identically by a scan that never reaches the corpus —
+  and then that `NO_ARG_CONSTRUCTION.search` finds nothing in any of them, read with
+  `errors="replace"` exactly as `:451` does; `skip_reason_literal_sites` must return the two declared
+  homes. **W-14 is the one row with no callable predicate, and it is declared LOUDLY here rather than
+  skipped or quietly reasoned (WI-301).** pytest ships no importable "would this path be collected"
+  membership function in the build profile, and `tomllib` is 3.11-only against P-7's ≥ 3.10 floor, so
+  the strongest available arm is to drive the CONFIG'S OWN declared values: a module-level helper
+  `_declared_pytest_python_files()` reads `pyproject.toml`'s text, locates
+  `[tool.pytest.ini_options]` and returns the `python_files` list, RAISING `AssertionError` naming the
+  file when the section, the key, or a parseable bracketed list of quoted globs is absent — it must
+  never default to `test_*.py`, because a silent default is a green over a config that moved. Then
+  assert with `fnmatch.fnmatch(path.name, pattern)` that NO path under `tests/fixtures/vault/` and not
+  `tests/fixture_vault.py` matches any declared glob, that `tests/` gained no `conftest.py`, and — the
+  near-miss control that stops the matcher passing by matching nothing (WI-235) — that
+  `tests/test_fixture_vault.py`'s own name DOES match one of them. **W-10's arm is the paragraph that
+  follows, and its callable is `check_module` — six rows, five shipped callables and one declared
+  absence, with nothing left to reason about. The check-name uniqueness
+  obligation is DERIVED, never counted:**
+  for every top-level `def test_` this item's write targets define — read from those modules' own
+  source at test time, never from a list in this plan — `tests/test_ac_interpreter.py`'s shipped
+  `check_module` (`:76-87`) must resolve it to exactly one `tests/test_*.py`. That covers this item's
+  five `check:` names and every other test it adds with one predicate, and an earlier draft of this
+  task said "the six new check names" against a plan that defines twice that many — the drift a count
+  invites and a predicate cannot, which is why no number is written here even now that this round has
+  added one more test to this very task. Add
+  `test_the_fixture_vault_files_close_their_wall_memberships_by_running_each_predicate` recording
+  those runs as standing assertions. **Its name says WHOSE walls it grades, and that is a correction
+  rather than a style choice:** an earlier draft of this task called it
+  `test_wall_membership_is_closed_by_running_each_walls_predicate`, which
+  `tests/test_name_gate_wall.py:1057` has defined since WI-022 (that item's Task 16 `verify:`,
+  `docs/write-door-bypasses.md:4593`) — and it is the CALLER, at `:1073`, of the very
+  `_check_the_ast_capability_stays_single_homed` helper (`:1132`) §11 W-1 anchors on. `check_module` is a
+  `def <name>(` SUBSTRING scan that RAISES on anything but exactly one match
+  (`tests/test_ac_interpreter.py:76-87`), so the old name would have made THIS task's own derived
+  uniqueness assertion raise `resolves to 2 module(s)` over THIS task's own file, and its `verify:`
+  declaration irresolvable under the conveyor's D10b rule — with the only other remedy sitting in
+  another item's shipped wall, which `## Scope Boundary` forbids touching. The collision was also
+  conceptual, not merely lexical: WI-022's function runs every standing wall's predicate over ITS
+  item's final text, so both names must say whose. P-6 carries the sweep that found it.
+  **Then close W-16 by RUNNING it, which is the only thing that can prove §3.1's bridge
+  is actually there:** add `test_this_items_checks_pass_under_the_conveyors_interpreter`, which takes
+  the check names from `criterion_checks(<repo root from this module's own __file__> / "docs" /
+  "vault-fixtures.md")` — the shipped, fence-scoped reader at `tests/test_ac_interpreter.py:57-73`,
+  imported from that module along with `check_module` and `run_foreign`, the root derived from
+  `Path(__file__).resolve().parent.parent` exactly as `tests/derivations.py:28` and
+  `tests/test_ac_interpreter.py:38` derive theirs and never from the cwd, so only `check:` keys
+  inside a
+  ```criteria fence are read and this document's gate sections cannot contribute — asserts the list
+  is non-empty and of size exactly 5 (LESSONS #46: a fence reader that finds nothing is green), and
+  for EACH name runs the shipped `run_foreign(check_module(name), name)` (`:90-95`) and asserts
+  BOTH HALVES OF THE SHIPPED ORACLE, not exit 0 alone: `proc.returncode == 0` AND
+  `"[ac_interpreter]" in proc.stderr`, failing with the child's captured stdout and stderr. **The
+  delegation marker is the half that makes the run mean anything and it is copied from the wall this
+  task imports, not invented here** — `tests/test_ac_interpreter.py:111-115` asserts the exit code
+  and `:116-120` the marker, the latter's own message being "exited 0 WITHOUT delegating — the
+  foreign interpreter imported the project's deps, so this run proves nothing about the battery's
+  conditions". `-S` strips `site`, not an ambient or CI install, so on an interpreter where pydantic
+  survives `-S` every check exits 0 having never delegated; asserting exit 0 alone would make this
+  test green over a run that proves nothing and would stop mutation 9 from ever firing, which is a
+  count-of-exit-codes oracle with no shape and no near-miss (WI-235). **And add the near-miss the
+  shipped module carries, as its own check:** `test_a_nonexistent_check_is_red_under_the_conveyors_interpreter`,
+  which takes `criterion_checks(...)[0]`, resolves its module with `check_module`, calls
+  `run_foreign(module, "test_this_check_does_not_exist_anywhere")` and asserts the return code is
+  NON-zero AND that `"[ac_interpreter]"` is in the child's stderr — so the bridge cannot pass by
+  exiting 0 whatever the child did, and the failing run is proven to have gone through the bridge
+  rather than around it. That is `tests/test_ac_interpreter.py:126-138`'s own shape driven over this
+  document's fences; both additions are the shipped module's own assertions, so neither is a
+  re-implementation and neither adds a predicate. Three shipped predicates, no
+  re-implementation. **Anything the RUN returns that §11 did not name is NAMED in the Build Log and
   SATISFIED — never worked around, and never satisfied by narrowing the wall.** Then run the floor
-  command and record the passing case count beside Task 1's baseline; it must be GREEN and the count
-  must be higher.
-  verify: test_wall_membership_is_closed_by_running_each_walls_predicate
+  command and record the passing case count and the wall-clock beside Task 1's baseline; it must be
+  GREEN and the count must be higher.
+  verify: test_the_fixture_vault_files_close_their_wall_memberships_by_running_each_predicate test_this_items_checks_pass_under_the_conveyors_interpreter test_a_nonexistent_check_is_red_under_the_conveyors_interpreter
 
 ---
 
@@ -2407,7 +3527,8 @@ the Build Log, and each mutation is REVERTED:
 3. Replace `materialize_vault`'s `write_bytes` with `write_text` → RED on the non-UTF-8 member with
    a `UnicodeDecodeError`, which is leg (b)'s point.
 4. Point `materialize_vault` at `repo.save()` → `NameGateRefusal` on the arrow-connective and
-   path-hostile members, AC-1(c) RED.
+   path-hostile members — §1.3 rule 7's two `discriminator` members, which carry
+   `shape_classes = ()` and are named by `NoteSpec.discriminator` — AC-1(c) RED.
 5. Add a fourth arm to `_skip_reason` without a `SKIP_REASONS` member → AC-4 RED at the scan
    equality. Add the member without a corpus specimen → AC-4 RED at the union equality.
 6. Edit one byte of `docs/vault-shape-census.md` → AC-3(iv) AND AC-5(c) both RED. Both, not one:
@@ -2416,6 +3537,40 @@ the Build Log, and each mutation is REVERTED:
    AC-3(iv) before any row is read, which is the exact forgery round 8 found unguarded.
 8. Put a token in a `name:` that is not in `NAME_POOL` → AC-5(b) RED, and adding it to
    `PROSE_ALLOWLIST` does not clear it (the disjointness assertion).
+9. **Delete `ensure_project_interpreter(__file__)` from `tests/test_fixture_vault.py` → the FLOOR
+   STAYS GREEN, and `test_this_items_checks_pass_under_the_conveyors_interpreter` goes RED with the
+   child's `ModuleNotFoundError: No module named 'pydantic'` on five of five checks.** This is the
+   most important mutation in the list and the only one whose green half is the finding: the floor
+   cannot see this defect, which is why §3.1 exists and why W-16 is closed by running rather than by
+   reading source text. **It fires only because that check asserts the DELEGATION MARKER as well as
+   the exit code** (Task 12, §11 W-16): on an interpreter where the project's deps survive `-S` — an
+   ambient or CI install rather than a venv — the mutated module still exits 0, and an exit-code-only
+   oracle would report this mutation GREEN. The marker is what proves the child actually lacked
+   pydantic, so it is what makes this line an observation rather than a claim.
+10. Hand-type `"unreadable"` into any module under `obsidian_schemas/` or `tests/` → W-15 RED naming
+    that file. Put it in a `#` comment or in running docstring prose instead → still GREEN, which is
+    the discrimination §4 requires and the reason the wall reads syntax rather than text.
+11. Add `shutil.rmtree(dest)` to the top of `materialize_vault` → AC-1(b) RED on the surviving
+    foreign file, which is the no-clean rule that had no test before this round.
+12. Remove §6.4's hex excision → AC-5(a) RED on `747970653` inside `raw_bytes_hex`, over a corpus
+    that is entirely correct. Widen the excision from named literals to a hex-SHAPED rule → Task 9's
+    near-miss (a lowercase-hex-shaped run that is not a declared literal) goes RED, which is what
+    stops the exemption becoming a padding surface.
+13. **M1.** Add an uncertified identity token to `docs/vault-shape-census.md`'s PROSE — a plausible
+    surname in a bullet beneath a class row, which no fence parses and which every check in this
+    document passed before this round → AC-5 RED naming that token, and AC-3(iv)/AC-5(c) RED first at
+    the digest. Add it to `CENSUS_PROSE_ALLOWLIST` instead → still RED, if the token is also a
+    pool-table row (the disjointness assertion); and if it is not, the token is now typed into a
+    declared set a human reviews, which is the bar AC-5(b) sets for the corpus and the most a
+    structural wall can do about a value nobody can check against a vault the suite cannot read.
+14. **M1's own vacuity.** Point the census scan at a file with no `census-pool` fences → RED at the
+    non-empty pool-row assertion rather than green, because an empty admitted set admits nothing and
+    a scan over a file with no tokens admits everything (LESSONS #46).
+15. **The two-field split (spec review round 4, finding 2).** Move the two AC-1(c) discriminators'
+    branch ids from `NoteSpec.discriminator` into `shape_classes` → AC-3(i) RED, because
+    `arrow_connective` and `path_hostile` are ABSENT rows and the covered-class set now exceeds the
+    MEASURED set. Empty `discriminator` on both instead → AC-1(c) RED at the `⊇` assertion. The
+    corpus is buildable exactly one way, which is the point of the split.
 
 **Mutate-and-observe is not sufficient and Task 9 is the complementary half.** The mutations above
 are authored from the same mental model as the code; the extractor's claimed match-shapes are driven
@@ -2429,21 +3584,69 @@ unaffected; `pyproject.toml:38-39` packages `obsidian_schemas` only, so nothing 
 reaches them either way (P8). No consumer smoke test is prescribed, because there is no change for
 one to exercise.
 
-**Regression — DERIVED from the edited surfaces, not inherited.** Sweeping the resolved test root for
-modules that name each `## Write Targets` path returns, and every one of these must still pass:
+**Regression — DERIVED from the edited surfaces, not inherited, and THE PREDICATE IS STATED BEFORE ITS
+OUTPUT because an earlier draft's did not generate the list written under it.** The predicate is
+"modules AFFECTED BY AN EDIT to this `## Write Targets` path", which has three arms and needs all
+three — a module can be affected without naming the path: (A) it NAMES the path or IMPORTS the
+module in its own text; (B) it reaches the path through a DIRECTORY SWEEP it did not name the file
+in (`python_files_under(PACKAGE_ROOT, …)`); (C) it EXERCISES the edited code at run time. Every
+module below was placed by reading it, and each row says which arm put it there. Every one must still
+pass:
 
-- `obsidian_schemas/repositories/base.py` → `tests/test_loud_fail_load.py`,
-  `tests/test_loud_fail_parse.py`, `tests/test_name_gate.py`, `tests/test_name_gate_wall.py`,
-  `tests/test_vault_path_required.py`, `tests/test_company_name_contract.py`,
-  `tests/test_write_routing.py`, `tests/test_repositories.py`, `tests/test_concurrent_access.py`.
-- `tests/derivations.py` → the twelve modules that import it:
-  `tests/test_write_routing.py`, `tests/test_vault_path_required.py`, `tests/test_name_gate_wall.py`,
-  `tests/test_name_gate.py`, `tests/test_loud_fail_write.py`, `tests/test_loud_fail_parse.py`,
-  `tests/test_loud_fail_load.py`, `tests/test_loud_fail_harness.py`,
-  `tests/test_lint_vault_fix_gate.py`, `tests/test_concurrent_access.py`,
-  `tests/test_company_name_contract.py`, `tests/test_address_splitter.py`.
+- `obsidian_schemas/repositories/base.py` → **arm A, the six that name it** (`repositories/base.py`,
+  `repositories.base` or `from …repositories import base` in their own text):
+  `tests/test_vault_path_required.py`, `tests/test_name_gate_wall.py`, `tests/test_name_gate.py`,
+  `tests/test_loud_fail_parse.py`, `tests/test_loud_fail_load.py`,
+  `tests/test_company_name_contract.py`. **Arm B, two more:** `tests/test_write_routing.py`
+  (`python_files_under(PACKAGE_ROOT, SCRIPTS_ROOT)` at `:91` and `:370`) and
+  `tests/test_concurrent_access.py` (`python_files_under(PACKAGE_ROOT)` at `:1074`), both of which
+  grade `base.py` without ever naming it — this is the arm that makes the four count pins at
+  `:1077-1089` (§11) part of this item's regression surface. **Arm C, one:**
+  `tests/test_repositories.py`, which instantiates every `BaseRepository` subclass and is also a
+  Task 10 target.
+- `tests/derivations.py` → **arm A, and the count is TEN, not twelve — this is the sweep's actual
+  output rather than a remembered list.** The ten modules carrying `from tests.derivations import`:
+  `tests/test_write_routing.py` (`:22`), `tests/test_name_gate_wall.py` (`:57`),
+  `tests/test_loud_fail_write.py` (`:23`), `tests/test_loud_fail_parse.py` (`:43`),
+  `tests/test_loud_fail_load.py` (`:23`), `tests/test_loud_fail_harness.py` (`:23`),
+  `tests/test_lint_vault_fix_gate.py` (`:33`), `tests/test_company_name_contract.py` (`:55`),
+  `tests/test_address_splitter.py` (`:44`) and `tests/test_concurrent_access.py` (`:1064`, a
+  function-local import inside `test_wi020_derivations_survive_the_routing`). **The two an earlier
+  draft listed here do NOT belong to this row and the correction is recorded rather than silently
+  applied:** `tests/test_vault_path_required.py` contains no occurrence of the string `derivations`
+  at all, and `tests/test_name_gate.py`'s single occurrence is the one-line docstring mention at
+  `:15`. Neither imports the module. Both are already in the `base.py` row above, correctly, so the
+  error cost nothing at build — it is corrected because this paragraph advertises itself as derived
+  and `## Intent`'s exhaustion claims are read as true, which is the standard the fifth instance of
+  this document's stated-number-versus-actual-list family has to be held to.
+- `tests/derivations.py`, second arm — **the six test modules that NAME the path in a one-line
+  single-homing declaration without importing it**, whose declaration this item's edit to
+  `derivations.py` must leave true: `tests/test_name_gate.py` (`:15`),
+  `tests/test_name_gate_identifiers.py` (`:32`), `tests/test_name_gate_refusals.py` (`:32`),
+  `tests/test_name_gate_delta_rule.py` (`:28`), `tests/test_phone_normalization.py` (`:22`) and
+  `tests/test_ac_interpreter.py` (`:29`). Two non-test modules under the same root carry the same
+  sentence — `tests/support.py` (`:17`) and `tests/ac_interpreter.py` (`:23`) — and are named here
+  for the same reason. Adding two scans to `derivations.py` keeps every one of those declarations
+  true, because the new capability lands in the single home they name rather than beside it.
 - `tests/test_parser.py`, `tests/test_writer.py`, `tests/test_repositories.py`,
-  `tests/test_loud_fail_load.py` → themselves, in full.
+  `tests/test_loud_fail_load.py`, `tests/test_name_gate.py` → themselves, in full. The last two are
+  Task 11's targets: `test_skip_surface_detail_is_bounded` (`tests/test_loud_fail_load.py:167`, the
+  function that holds both `:187-188` and `:209`) and
+  `test_name_gate_refusal_is_a_loud_fail_leaf_carrying_a_pattern`
+  (`tests/test_name_gate.py:109`, which holds `:152`) must still pass with the constants in place,
+  and they must, because each constant's value is the literal it replaces.
+- **Read but not written, and named because a regression there is this item's fault too:**
+  `tests/test_ac_interpreter.py` — Task 12 IMPORTS its `criterion_checks`, `check_module` and
+  `run_foreign` rather than re-implementing them, and `tests/ac_interpreter.py`'s
+  `ensure_project_interpreter` is called by the new check module. **`tests/test_vault_path_required.py`
+  joins this row for the same reason:** Task 12's W-8 arm imports its `_scanned_markdown_files`
+  (`:421`) and `NO_ARG_CONSTRUCTION` (`:382`) so the wall is closed by calling the wall's own
+  generator and matcher rather than by re-rolling its exclusion set — which makes a rename of either
+  private name this item's red, and is why the module is BOTH here and on `## Scope Boundary`'s
+  unchanged list. It is already in the `base.py` row above under arm A, so this is a second reason
+  rather than a new module. None of the three files is edited (none is a `## Write Targets` path),
+  and every one of their own tests must still pass unchanged. `pyproject.toml` is read by the same
+  task's W-14 arm and is likewise unwritten; it carries no tests of its own.
 
 **No incident replay (WI-173), and the reason rather than an omission.** This item is greenfield
 against absence: `## Verified Diagnosis` records that no observed breakage is load-bearing anywhere
@@ -2458,7 +3661,26 @@ takes. `tests/fixture_vault.py` reads `tests/fixtures/vault/` and carries FROZEN
 `docs/vault-shape-census.md` and `docs/vault-fixtures.md` and pins them by DIGEST and by fence
 grammar respectively, declaring both in its `CORPUS_COUPLING:` line with the property each supplies.
 Neither selects a member by size, name or position, and neither rolls a membership glob a leaf
-already declares.
+already declares. **M1 adds a THIRD property consumed from `docs/vault-shape-census.md` — its whole
+byte stream, prose included, run through this module's own `identity_tokens` (§6.5) — and it is on
+the SAME arm by the same mechanism:** the file is frozen bytes as far as this suite is concerned,
+pinned by the `CENSUS_DIGEST` assertion that runs before it, so the scan cannot be moved underneath
+by an ordinary ship. The `CORPUS_COUPLING:` line names all three properties. It is worth being
+explicit that this is not the WI-267 hazard the rule exists for: the docs splitter rewrites
+work-item docs on ordinary ships, and the census carries no `id: WI-*` and is not one — and if it
+ever were rewritten, AC-3(iv) is RED before this scan runs, which is the loud outcome rather than the
+silent one. **Task 12's parity test adds a THIRD read of `docs/vault-fixtures.md` — and its near-miss control
+`test_a_nonexistent_check_is_red_under_the_conveyors_interpreter` a fourth, through the same call and
+so on the same arm — and takes the
+same arm by a stronger route:** it does not roll its own fence reader, it calls
+`tests/test_ac_interpreter.py`'s shipped `criterion_checks` (`:57-73`) — the probe whose behaviour
+the test consumes — so the coupling is to that leaf's own predicate rather than to a glob or a
+layout. Its one live-population assertion, "exactly five `check:` names", is pinned by equality
+because this document's `criteria` fences are a FROZEN population once Dave signs (WI-295): a
+criterion added later is an AC edit and a re-sign, not ordinary drift. The one way it goes RED for a
+non-defect is a future gate round quoting a WHOLE ```criteria fence into this document, and the
+remedy is the convention this document already depends on for AC-3(iv) — gate sections quote
+criterion TEXT, never a whole fence. Named here so the next gate is told rather than surprised.
 
 ---
 
@@ -2484,9 +3706,61 @@ already declares.
   ones.
 - **Not touching the company Tier-1 arm.** §9.3 — WI-022 shipped its own refusal sweep and this item
   does not duplicate it.
+- **Not rewriting the two KEPT skip-reason mentions.** `base.py:37`'s `#` type comment documents the
+  declaration two lines beneath it, and `errors.py:112`'s docstring sentence mentions `"unreadable"`
+  in running prose. Neither is a transcription of the vocabulary, W-15 reads syntax and so matches
+  neither, and `obsidian_schemas/errors.py` stays on the unchanged list below. §4's disposition table
+  is the authority; a builder who "finishes the job" by editing them is doing work this spec ruled
+  out.
+- **Not widening the interpreter bridge beyond this item's own check module.** `tests/test_name_gate.py`
+  is a Task 11 write target for one line and does not carry `ensure_project_interpreter`; adding one
+  there is a different item's decision and is out of scope here.
 - **Not adding a `conftest.py`.** P2 records its absence as load-bearing
   (`tests/derivations.py:9-12`), and `tests/support.py` already supplies the fixture-free equivalents
   a zero-argument check needs.
+- **Not renaming, extending or otherwise touching WI-022's
+  `test_wall_membership_is_closed_by_running_each_walls_predicate`
+  (`tests/test_name_gate_wall.py:1057`).** It is that item's Task 16 `verify:`
+  (`docs/write-door-bypasses.md:4593`) and grades ITS item's final text. This item's wall test carried
+  the same name in an earlier draft; the collision is resolved from THIS side by the rename in Task 12
+  (P-6 carries the sweep), because the other three arms — renaming theirs, extending theirs, or
+  widening their module to cover this item — each edit another item's shipped wall.
+
+**Standing authoring rules for this item's own DOCUMENTS, added 2026-09-08 at the threat model round
+2's instruction — and stated as ONE class rather than as the two instances that raised them, because
+the two are the same generator one surface apart.** *The generator: an identity-shaped value entering
+one of this item's artifacts through a surface no wall reaches.* The corpus is walled by AC-5(b); the
+census is walled by M1 and M2. What is left over is every OTHER artifact this item writes, and none
+of them is walled by anything — `tests/test_vault_path_required.py:387` excludes `docs` from the only
+repo-wide markdown scan, and AC-5's reach is `tests/fixtures/vault/` plus `tests/fixture_vault.py`
+and nothing else. **These rules are the whole of the closure for that residue and they bind every
+actor who writes here — conductor, gate and builder alike. They are outside the hash-signed span and
+cost no re-sign.**
+
+- **A gate reporting a LEAKED IDENTIFIER in this item's documents names the value's LOCATION and
+  CHARACTER PROFILE, never the value.** A file-and-line citation plus the constructed specimen
+  already declared beside it in the census leaves the finding fully legible and fully re-checkable,
+  which is what round 1 itself demanded of the census and what the landed census demonstrates is
+  practicable — its `stem_name_divergence` bullet describes eight live shapes and quotes none. The
+  scar is precise: threat model round 1 found two novel live-vault values in
+  `docs/vault-shape-census.md` and, in reporting them, quoted both into `docs/vault-fixtures.md` at
+  four prose positions and once inside its own verdict `note:` — so the remediation moved the leak
+  one artifact over rather than ending it, and the values were then measured by round 2 as occurring
+  in exactly one file in the worktree, which is the same test round 1 used to call them NEW. The
+  conductor has since redacted all five positions in place; this rule is what stops the next gate
+  re-deriving the mistake with the same good intentions.
+- **The same rule binds `tests/test_fixture_vault.py`, which is the ONE module this item adds that
+  AC-5's reach deliberately excludes** (it quotes refused fixtures, corruption specimens and
+  pre-existing tree literals by design, so an identity scan over it is RED by construction and a
+  fourth declared exemption is not worth minting — threat model rounds 1 and 2 both ruled so). Its
+  planted literals are governed by hand: **re-typing an identifier ALREADY COMMITTED in this tree
+  adds no personal data and is permitted; introducing a NEW real-looking identifier is not.** Task 9
+  applies this to the two instances it found and records the reading; the rule is stated here so it
+  covers every literal a later task or a later item plants in that module, not only those two.
+- **And the rule follows a round into the drawer.** `### Archived Rounds` sends settled gate rounds
+  to `docs/vault-fixtures-rounds.md` byte-for-byte, append-only, **never rewritten**, so a value that
+  reaches the drawer is past the reach of any redaction. The ORDER is therefore load-bearing and is
+  recorded in §10 P-10: redact first, copy second.
 
 **Unchanged files — the builder must not touch these.** `obsidian_schemas/models.py`,
 `obsidian_schemas/name_validation.py`, `obsidian_schemas/name_cleaning.py`,
@@ -2494,11 +3768,78 @@ already declares.
 `obsidian_schemas/body_sections.py`, `obsidian_schemas/phone_normalization.py`,
 `obsidian_schemas/vault_io.py`, `obsidian_schemas/errors.py`, every repository module except
 `base.py`, `scripts/lint_vault.py`, `pyproject.toml`, `pipeline-runners.yaml`, `CLAUDE.md`,
-`README.md`, `SESSION_LOG.md`, `state/**`, and `docs/vault-shape-census.md` — the last being the
-conductor's precondition, which the builder READS and never writes. The tempting "while I'm here"
-edits this list exists to stop: widening `_GENERIC_ORG_SUFFIXES` to make an identity token admissible
-(§6.2 says why that set is read from the package and not declared), and narrowing a Tier-1 regex to
-make a specimen behave.
+`README.md`, `SESSION_LOG.md`, `state/**`, `docs/vault-shape-census.md` — the last being the
+conductor's precondition, which the builder READS and never writes, **and which NEITHER 2026-09-08
+threat-model round changes — not round 1's M1 and M2, and not round 2, whose finding asks for no
+builder act at all: M1 has the SUITE scan that file's bytes and M2 has the BUILDER refuse
+on what it finds there, and neither authorises an edit. If M2's gate fires, the builder STOPS under
+the Abort Protocol and hands off; it does not add a pool row, re-word a prose bullet, drop a hyphen
+or re-take a digest. Handing the build write access to the ledger AC-3(iv) exists to put out of its
+reach would defeat both criteria that read it** — `tests/ac_interpreter.py`
+plus `tests/test_ac_interpreter.py`, both of which this item IMPORTS FROM and neither of which it
+edits, `tests/test_name_gate_wall.py`, whose `:1057` name this item renames AROUND rather than into
+(the "Not renaming, extending or otherwise touching WI-022's …" bullet in the list above), and
+`tests/test_vault_path_required.py`, from which Task 12 IMPORTS
+`_scanned_markdown_files` and `NO_ARG_CONSTRUCTION` and which it must not edit to make the import
+public. **Two files on this list are READ by the build and reading is not touching:**
+`docs/vault-shape-census.md` as above, and `pyproject.toml`, whose `[tool.pytest.ini_options]` keys
+Task 12's W-14 arm parses — that arm exists precisely so the config is not restated in a test, and a
+builder who "fixes" a red there by editing the config has inverted the wall. The tempting
+"while I'm here" edits this list exists to stop: widening
+`_GENERIC_ORG_SUFFIXES` to make an identity token admissible (§6.2 says why that set is read from the
+package and not declared); narrowing a Tier-1 regex to make a specimen behave; and — the new one,
+because Task 12 puts the file under the builder's nose — widening
+`tests/test_ac_interpreter.py`'s `WORK_ITEM_DOC` (`:40`) from `docs/write-door-bypasses.md` to cover
+this item as well. That is another item's wall with another item's scope; this item runs the parity
+itself, in its own module, from the shipped predicates (§11, W-16).
+
+---
+
+## Mitigation Folds
+
+**`## Threat Model — 2026-09-08 (round 2)` is the LATEST SPEAKING ROUND on this document**, and it
+re-emitted round 1's two `kind: required` mitigation fences BYTE-IDENTICALLY — same ids, same `desc`
+text, same `landed:` ordinals — which is why the two records below are unchanged in `desc` and are
+fresh against that round rather than against round 1. Each mitigation is folded into `## Design` §6.5
+AND into the Implementation-Plan task its fence names. This section carries no rounds, holds exactly
+one record per id, and is restated IN PLACE whenever a later threat model runs or a folded task's own
+text moves — which it did this round: Task 8's body gained the `CENSUS_PROSE_ALLOWLIST` authoring
+clause, so M1's `work:` quote moved with it in the same edit. Round 2's own blocking finding mints no
+third mitigation and the round says why: its subject is a settled gate section of this document, no
+plan task can carry that remedy, and a `landed: Task N` for it would be false.
+
+```fold
+id: M1
+desc: Every identity-shaped token in docs/vault-shape-census.md's own bytes — its prose as well as its fence rows — is asserted to be in that artifact's certified pool table, CONNECTIVE_SET, or an admitted _GENERIC_ORG_SUFFIXES member, with any residue in a declared allowlist asserted DISJOINT from the pool table, so the artifact the privacy wall depends on is itself inside the wall.
+design: AC-5's check additionally scans the WHOLE of `docs/vault-shape-census.md` — its prose as well as its fence rows — with §6.1's `identity_tokens`, and asserts every token it yields is in that artifact's own certified pool table, in `CONNECTIVE_SET`, or admitted by `str.lower() in _GENERIC_ORG_SUFFIXES`, with the residue in a declared `CENSUS_PROSE_ALLOWLIST` frozenset asserted DISJOINT from the pool table, so the artifact the privacy wall depends on is itself inside the wall.
+landed: Task 8
+work: THEN, IN THE SAME CHECK, THE THREAT MODEL'S `M1` — THE CENSUS'S OWN BYTES JOIN THE CLOSURE THEY CERTIFY (§6.5). Add a `CENSUS_PROSE_ALLOWLIST` frozenset to `tests/test_fixture_vault.py` — NOT to the manifest, whose three literal frozensets AC-5(b) names and freezes — holding the census's ordinary technical vocabulary and nothing else. Author its members from the LANDED artifact and never from §6.5 item 3's illustrative list: the set is exactly this scan's own residue over `docs/vault-shape-census.md` as it stands (the landed file needs at least `DaveRemoteVault` and `Obsidian`, both at `:17`, which no surface in this document names), and a token you cannot place as the census's technical vocabulary is M2's abort at Task 3 rather than a member added here. Then, after the census-fixity assertion has already run and before any of the artifact's rows is trusted, decode the WHOLE of `docs/vault-shape-census.md` with `errors="replace"`, run the SAME `identity_tokens` object leg (b) calls over prose and fences alike, and assert that every token it yields is in the artifact's own `{row.token for row in census pool rows}`, in `CONNECTIVE_SET`, admitted by `str.lower() in _GENERIC_ORG_SUFFIXES`, or in `CENSUS_PROSE_ALLOWLIST` — and that `CENSUS_PROSE_ALLOWLIST` is DISJOINT from that pool-row token set, which is what stops it becoming the bypass AC-5(b)'s own `PROSE_ALLOWLIST` was found to be at round 2. Assert the pool-row token set is NON-EMPTY first (LESSONS #46: a reader that finds nothing admits everything). This scan does NOT extend leg (e)'s absolute-path rule to the census, which the threat model recorded rather than folded and which is routed against here rather than re-decided. The census is READ and never written: it stays on `## Scope Boundary`'s unchanged list and this task adds no `## Write Targets` path for it (§10 P-9). verify: test_no_corpus_note_carries_a_live_identifier
+```
+
+```fold
+id: M2
+desc: The Implementation Plan's precondition abort gate additionally REFUSES when docs/vault-shape-census.md carries an identity-position token its own pool table does not certify, so a leaking census stops the build before any corpus byte is authored rather than at the last task.
+design: The Implementation Plan's precondition abort gate additionally REFUSES, before any corpus byte is authored, when running §6.1's `identity_tokens` over `docs/vault-shape-census.md` yields a token that the artifact's own pool table does not certify and that is neither a `CONNECTIVE_SET` member nor an admitted `_GENERIC_ORG_SUFFIXES` member.
+landed: Task 3
+work: FIRST, before a single corpus byte is written, re-run the precondition gate above in full and run its M2 arm — the threat model's `M2`, folded here (§6.5). Apply §6.1's run rule to the WHOLE of `docs/vault-shape-census.md`, prose and fences alike, and confirm every token it yields is in the artifact's own `census-pool` token set, in `CONNECTIVE_SET` (`{"Me", "My", "Dave"}`), or admitted by `str.lower() in name_cleaning._GENERIC_ORG_SUFFIXES`, the remainder being ordinary technical vocabulary. If any identity-shaped token is uncertified — a real live-vault name transcribed into a prose bullet, or a hyphen-fused compound whose halves alone are certified — STOP under the Abort Protocol with those exact tokens and their locations in the Build Log. Do not author, amend or normalise a byte of the census, do not add a pool row, do not drop a hyphen, and do not author a corpus against an artifact that will have to be re-authored: the remedy is a conductor pass (one census edit, one re-taken digest, one AC-3(iv) edit, one D4b re-sign), and the whole value of running this at Task 3 rather than discovering it at Task 8 is that ~50 notes have not yet been written against it. THEN create `tests/fixtures/vault/` and write the ~50 notes per §1.1-§1.4, assembled from the landed census, with the SIX MEASURED ids and no others in `shape_classes`, the three-filename collision declared under `stem_name_divergence`, the TWO AC-1(c) discriminators carrying `shape_classes = ()` and their `branch_id` in `NoteSpec.discriminator`, and the `pure_digit` specimen declaring no `phones`. verify: hand-run — the M2 abort gate is a pre-authoring inspection whose whole point is to run BEFORE any artifact exists, and the corpus is inert bytes with no standing check until Task 4 lands the digest and the manifest; both acts are recorded in the Build Log (the gate's uncertified-token result, the file count, the per-type and per-class tally, and the one-member UTF-8 probe), and the standing form of the same predicate is Task 8's M1 assertion.
+```
+
+**Why the pair rather than either one alone, stated so the next reader can see the fold is not
+duplicated work.** M1 is the STANDING assertion and is what makes the closure durable — it fires on
+every floor run, so the census refresh R7 names as certain-eventually cannot reopen this with nothing
+to notice. M2 is the SAME predicate one build phase earlier and is what makes the failure affordable:
+without it a leaking or wrongly-granular census is discovered at Task 8, after ~50 notes have been
+authored against an artifact that must be re-authored, and with every in-cage remedy closed (the
+builder may not write the census, and two signed criteria digest it). Neither replaces the other, and
+the threat model asked for both for exactly that reason.
+
+**And the second thing M2's arm catches was found by a different gate, which is why the two folds
+land together.** The 2026-09-08 spec review's third finding is that the census's pool table certified
+identity tokens at WORD granularity while AC-5(b)'s pinned run rule emits hyphen-joined COMPOUND
+tokens, so two MEASURED specimens the corpus is obliged to carry could not satisfy AC-5(b) and (c) at
+all. Run through `identity_tokens`, M2's gate is precisely the check that catches that — the
+uncertified token it names is the compound — so the granularity rule is stated once in `## Write
+Targets` and §6.2 and enforced once, here, rather than given a wall of its own.
 
 ---
 
@@ -2506,19 +3847,22 @@ make a specimen behave.
 
 | # | What could go wrong | Likelihood / impact | Mitigation |
 |---|---|---|---|
-| R1 | **A real person's name enters permanent git history.** The corpus is authored from live-vault shapes; a moment's transcription puts a real surname in a `name:`. | Low / **irreversible** — this package installs `-e` into three repos and its history is permanent. | AC-5(b)'s position-split closure makes it structurally impossible rather than intended: an identity-position token must be in `NAME_POOL`, and `NAME_POOL ⊆` the census's pool table, every row of which carries a conductor-run zero-hit scan. The prose allowlist is unreachable from an identity position and asserted disjoint from it. Residue (all-lowercase values, note bodies, prose fields) is named in §9.5 and covered by the pool table's one-time human review. |
+| R1 | **A real person's name enters permanent git history.** The corpus is authored from live-vault shapes; a moment's transcription puts a real surname in a `name:`. | Low / **irreversible** — this package installs `-e` into three repos and its history is permanent. | AC-5(b)'s position-split closure makes it structurally impossible rather than intended: an identity-position token must be in `NAME_POOL`, and `NAME_POOL ⊆` the census's pool table, every row of which carries a conductor-run zero-hit scan. The prose allowlist is unreachable from an identity position and asserted disjoint from it. Residue (all-lowercase values, note bodies, prose fields) is named in §9.5 and covered by the pool table's one-time human review. **AND THE WALL'S REACH NOW INCLUDES THE ARTIFACT THE WALL DEPENDS ON, which is where this risk actually fired (threat model, 2026-09-08):** the census's own prose sat outside AC-5's declared reach, outside §2's parser rule and outside `## Write Targets`'s constructed-token charge, and two real live-vault values were written there — then digested by two signed criteria, so the build would not merely have shipped the leak, it would have asserted it immutable. The instance is closed by a conductor re-author; the CLASS is closed by M1's standing scan over the census's whole byte stream and M2's abort gate one build phase earlier (§6.5, `## Mitigation Folds`), so the next census refresh cannot reopen it with nothing to notice. **AND A SECOND MEMBER OF THE SAME CLASS FIRED ONE ARTIFACT OVER, found by threat model round 2 and recorded here because this cell's "irreversible" rating is one of the three self-descriptions it falsified:** round 1's remediation removed the two values from the census by QUOTING them into this document's own gate prose — four positions plus a verdict `note:` — where no wall of any kind reaches, since `tests/test_vault_path_required.py:387` excludes `docs` from the only repo-wide markdown scan. The instance is closed by the conductor's 2026-09-08 redaction of all five positions in place (§10 P-10(a)); the CLASS is closed by `## Scope Boundary`'s standing authoring rules, which bind every actor writing to this item's documents and to `tests/test_fixture_vault.py` — the one module AC-5's reach deliberately excludes — and which state the ordering that keeps the append-only rounds drawer from freezing a leak past redaction. Those rules are prose rather than a wall on purpose and the reason is stated rather than assumed: this document quotes REFUSED fixtures, corruption specimens and four pre-existing tree literals by design, so an identity scan over it is RED by construction and both threat-model rounds declined to ask for one. |
 | R2 | **The census is edited by the build to make a check pass.** `docs/**` is builder-writable in full (P7) and the pipeline's only merge-boundary wall over docs is scoped to work-item docs (P19). | Medium / high — it defeats the ledger AC-3 and AC-5 both delegate their entire oracle to. | AC-3(iv): `sha256` over the census's bytes equals a literal in the SIGNED criterion, which the build cannot reach; AC-5(c) asserts it independently rather than inheriting it. Verification's mutation 7 exercises exactly this route. |
 | R3 | **The corpus is authored from the existing test literals instead of the census** — the D2 shortcut, which needs no conductor act and is the cheapest thing available. | Medium / high — the corpus certifies only what the last five authors thought of and is structurally blind to the tail, which is the item's whole reason to exist. | AC-3(i)'s both-directions equality against the census's MEASURED rows; the Implementation Plan's abort gate; and the fact that the census must be in HEAD before the builder is armed (P-1). |
 | R4 | **The manifest is generated by parsing the corpus**, so AC-2 asserts the parser agrees with itself. | Medium / high — a green suite that has verified nothing. | Stated in §3 as the rule and in AC-2's `why:` as the single most likely shortcut; the reviewer's tell is a `fields` mapping reproducing the parser's own normalisations. Not machine-checkable, and said so rather than claimed otherwise. |
 | R5 | **`LOADABLE` is declared as the file count or `load()`'s return**, and AC-4(c) is off by two because of the three-way name collision. | High / low — it fails LOUD at build, costing a round. | §3 states the arithmetic with the three cache-key rules cited, which is exactly the "declared rather than discovered" economy. |
 | R6 | **The census lands in a syntax the reader does not parse** — pipe tables against fences, or a `command` containing `\|`. | Was HIGH before this spec / medium impact. | §2 pins the fence grammar and the `## Write Targets` extension says so above the fences, so the conductor and the builder read one specification. |
 | R7 | **A later branch, type, repository or skip reason reddens the floor with no in-cage remedy** — a new Tier-1 branch needs a census row, which needs the live vault. | Certain, eventually / low-to-medium | Named in AC-3's `why:`, in §5.3 and in Edge Cases rather than discovered by whoever pays it. It is LESSONS #45's intended friction and is not weakened here. |
-| R8 | **The suite stops being ~1s and hermetic.** ~50 notes byte-copied per materializing test, over five AC checks plus three migrated tests. | Low / medium | Byte copy of ~50 small files is microseconds; no check makes a subprocess, network or live-vault call, and P-4 states it. If a later test materializes in a loop, that is the thing to notice — the floor's wall-clock is the instrument. |
+| R8 | **The suite stops being ~1s and hermetic.** ~50 notes byte-copied per materializing test, over five AC checks plus three migrated tests, plus Task 12's SIX foreign-interpreter runs — one per `check:` name plus the near-miss control. | Low / medium | Byte copy of ~50 small files is microseconds; no AC CHECK makes a subprocess, network or live-vault call (P-4). Those six foreign runs are the shape `tests/test_ac_interpreter.py` already performs on every floor run, so the marginal cost is known rather than estimated (P-4b), and Task 12 records the wall-clock beside Task 1's baseline. If a later test materializes in a loop, that is the thing to notice — the floor's wall-clock is the instrument. |
+| R9 | **The AC battery reports five-of-five `ModuleNotFoundError` against a green floor.** All five checks execute the library behind pydantic, and the conveyor's interpreter defaults to the ADVANCER's `sys.executable` unless the driver passes `--ac-python` (`tests/ac_interpreter.py:14-20`). | Was CERTAIN before this round / a burned build attempt — WI-021 drew exactly this output, and `docs/identity-engine-endgame.md:2744` records the cost as "a build-exit round bought for nothing". | §3.1 prescribes `ensure_project_interpreter(__file__)` as the check module's first statement, the convention six sibling modules already follow; §11 W-16 and Task 12 close it by RUNNING each check under `sys.executable -S` in the conveyor's shape, because the floor is structurally blind to it (Verification mutation 9). The run asserts BOTH halves of the shipped wall's oracle — exit 0 AND the `[ac_interpreter]` delegation marker (`tests/test_ac_interpreter.py:111-115`, `:116-120`) — plus that module's own nonexistent-check near-miss (`:126-138`), because `-S` strips `site` and not an ambient install: exit-code-only parity is green over a run that never delegated, and this risk would be back untouched. |
+| R10 | **A leg goes RED on a wholly correct corpus.** AC-5(a)'s ≥9-digit phone predicate runs over `tests/fixture_vault.py`, which by design carries full-file and digest hex literals; hex-encoded printable ASCII is a digit run. | Was CERTAIN before this round / low impact but a build round each time, and no in-cage remedy the document authorised. | §6.4's named-literal excision, asserted well-formed and asserted present SOMEWHERE IN THE REACH — the union of the scanned files' bytes, never per file, since no corpus note carries a digest and a per-file presence assertion would rebuild this exact risk on ~50 correct notes — with Task 9's near-miss battery stopping it from widening into a shape rule. Same class as the ISBN decision, closed at both members this time rather than at the first. The phone predicate itself is the third member and is closed in the same place: §6.4 admits the drama block in both its spellings, so a note storing the ordinary national `07700 900456` is not RED. **TWO FURTHER MEMBERS OF THIS EXACT CLASS WERE FOUND 2026-09-08 BY THE ONE READ NO PRIOR ROUND HAD DONE — walking the SIGNED criteria against the LANDED census's actual rows rather than against the code — and both are closed in `## Design` rather than by an AC edit, which is the only affordable arm now that the criteria are frozen.** (a) AC-1(c) obliges an arrow-connective and a path-hostile specimen "named in the manifest as such" while the census rules both classes ABSENT, so naming them in `shape_classes` breaks AC-3(i)'s equality and leaving it empty leaves "named as such" unsatisfied: closed by §1.3 rule 7 and `NoteSpec.discriminator`, two manifest fields for two questions, no criterion text touched. (b) The census's pool table certified at WORD granularity while AC-5(b)'s run rule emits hyphen-fused COMPOUNDS, so two obliged MEASURED specimens could satisfy neither AC-5(b) nor AC-5(c): closed by one conductor pass adding the compound rows, by the granularity rule stated in `## Write Targets` and §6.2, and by M2's abort gate catching it before a corpus byte is authored. **The generator behind all four members is one thing and it is named here rather than left for a fifth: a criterion clause whose satisfiability depends on an artifact the criterion cannot see, frozen by signature before anyone walked it against that artifact's actual rows.** The sweep that generalisation demands was run this round over every clause in AC-1 through AC-5 that quantifies over the census, and `## Self-Review Dry Run` records what it found — including one member neither gate raised (§1.3 rule 5's collision, which the census rules ABSENT). |
 
-**Migration path / rollback.** Everything is additive: a new directory, two new modules, one
-frozenset, one scan function, three test additions and two test deletions. Rollback is `git revert`
-of one commit, and no consumer, no persisted state and no live vault is touched. There is no shadow
-mode and none is needed, because nothing in production reads any of it.
+**Migration path / rollback.** Everything is additive except three one-line constant substitutions:
+a new directory, two new modules, one frozenset and three named constants, TWO scan functions, three
+test additions, two test deletions, and the three repointed skip-reason literals of Task 11.
+Rollback is `git revert` of one commit, and no consumer, no persisted state and no live vault is
+touched. There is no shadow mode and none is needed, because nothing in production reads any of it.
 
 ---
 
@@ -2541,27 +3885,355 @@ absolute per CLAUDE.md. No task requires a decision this document does not make.
    §4 and §11 W-1: `ast` is single-homed to `tests/derivations.py` by a set EQUALITY asserted from
    two modules, so a syntax-reading predicate anywhere else is RED by construction.
 
+**Three more, added 2026-09-07 because the first spec-review round asked exactly them and this
+document did not answer any of them.** They are recorded here rather than only fixed, because each
+was a build round and two had no in-cage remedy:
+
+4. *"Does this check module need the interpreter bridge the other six check modules open with?"* —
+   YES, and it is the first executable statement: §3.1 gives the exact preamble, P-4 and P-4b give
+   what it does and what it costs, D-8 grounds the claim, §11 W-16 and Task 12 close it by RUNNING
+   each check the way the conveyor does. The floor cannot see its absence, which is why no earlier
+   round caught it.
+5. *"Leg (a) is RED on a nine-digit run inside my own `raw_bytes_hex` literal — is that a corpus
+   defect or a criterion I should exempt?"* — Neither: it is a NAMED excision the criterion itself
+   authorises. AC-5(a) and §6.4 give the excised set (`CORPUS_DIGEST`, every `raw_bytes_hex`, the
+   optional `CENSUS_DIGEST` restatement), the well-formedness and presence assertions that keep it
+   from becoming a hiding place — the presence one taken over the REACH and not per file, see
+   question 7 — and Task 9's near-miss battery that keeps it from widening into a
+   shape rule.
+6. *"Do I key the digest on the repo-relative path AC-1(a) names, or on the file name §5.2 hashes?"*
+   — On the FILENAME, and both texts now say so. AC-1(a) reads "corpus-relative", which in one flat
+   directory is `path.name`; the earlier "repo-relative" wording made leg (b) unsatisfiable, and
+   §5.2 records the correction so the agreement is checkable from either end.
+
+**Three more, added 2026-09-07 because the SECOND spec-review round asked exactly them — and two of
+the three land on text the first round's own folds added, which is this document's recorded
+fold-breeds-its-next-finding shape rather than a re-opening.**
+
+7. *"`CORPUS_DIGEST` is in no corpus note — do I assert the excised literal is present in EACH file,
+   or somewhere in the reach?"* — SOMEWHERE IN THE REACH, asserted once against the union of the
+   scanned files' bytes, while the excision runs per file regardless. AC-5(a) says it in the text
+   that gets signed, and §6.4, Task 8 and `## Edge Cases`'s hex entry repeat it in the same words.
+   The per-file reading would be RED on ~50 wholly correct notes and, once these criteria were
+   signed, would have had no in-cage remedy except narrowing a signed criterion.
+8. *"The shipped wall I am importing from fails a check that exits 0 without delegating — do I
+   assert that too, or only the exit code?"* — BOTH, plus the near-miss. Task 12 and §11 W-16 name
+   `proc.returncode == 0` AND `"[ac_interpreter]" in proc.stderr`
+   (`tests/test_ac_interpreter.py:111-115`, `:116-120`), and add
+   `test_a_nonexistent_check_is_red_under_the_conveyors_interpreter` mirroring `:126-138`. Exit code
+   alone is a wall-shaped no-op wherever the deps survive `-S`, and it would silently disarm
+   Verification's mutation 9 — the one mutation whose GREEN half is the finding.
+9. *"The regression list says `tests/test_vault_path_required.py` imports `derivations.py`, and it
+   does not name the module at all — which of the two is wrong?"* — The list was. `## Verification`'s
+   regression paragraph now states its predicate in three arms before its output and gives the
+   sweep's actual result: TEN importers of `tests/derivations.py`, not twelve, with the two
+   over-listed modules named and their correct rows given. It cost nothing at build — both were
+   already in the `base.py` row — and is corrected because the paragraph advertises itself as derived
+   and this document's exhaustion claims are read as true.
+
+**Three more, added 2026-09-08 because the THIRD spec-review round asked exactly them — and unlike
+rounds 1 and 2, none of the three lands on folded material. They are in plan text that has stood
+since the Design first landed, which is the reason the third is recorded as a rule change rather than
+a fix.**
+
+10. *"Task 12 tells me to add `test_wall_membership_is_closed_by_running_each_walls_predicate`, and
+    `tests/test_name_gate_wall.py:1057` already has one — do I rename mine, rename theirs, or extend
+    the existing test?"* — RENAME MINE, and the plan now carries the renamed name rather than the
+    question. Task 12's wall test is
+    `test_the_fixture_vault_files_close_their_wall_memberships_by_running_each_predicate`; renaming
+    WI-022's is forbidden by `## Scope Boundary`, which puts `tests/test_name_gate_wall.py` on the
+    unchanged list, and extending it would put this item's assertions in another item's module.
+    P-6 carries the sweep that found the collision and the reason the rename names the item: the
+    collision was conceptual as well as lexical, since WI-022's function grades ITS item's final text
+    with the same sentence.
+11. *"Task 12 says CALL each wall's own shipped predicate — what do I call for W-8 and W-14?"* — For
+    W-8, `_scanned_markdown_files` and `NO_ARG_CONSTRUCTION`, imported by name from
+    `tests/test_vault_path_required.py` (`:421`, `:382`), with the non-vacuity clause first. For
+    W-14 there is NO callable, and Task 12 and §11's W-14 row now say so in as many words rather than
+    leaving the builder to infer it: pytest ships no importable collection-membership function in the
+    build profile, so the arm is the config's own declared `python_files` globs driven through
+    `fnmatch`, read by a helper that raises rather than defaults, with a positive control. Two of the
+    task's six rows previously read as predicates and were reasoning.
+12. *"Is a name unique because this plan uses it once, or because the tree does not already have
+    it?"* — Because the TREE does not. P-6 stated the uniqueness rule correctly and checked it only
+    within this item's own additions, which is the one side of the rule that cannot find a collision.
+    It now records the sweep run against every `def <name>(` occurrence already in the tree for all
+    thirteen names this item adds, and names the one that collided.
+
+**Three more, added 2026-09-08 after the FOURTH spec-review round and the item's first threat model.
+All three are of one family, and the family is different from every family before it: none is an
+enumeration defect, and none was findable by reading the code. Each is a SIGNED criterion clause
+meeting the LANDED census's actual rows for the first time.**
+
+13. *"Task 8 and Task 3 are named as `landed:` sites for M1 and M2 and neither task mentions them —
+    do I invent the fold, or am I reading the pre-threat-model plan?"* — Neither: both are folded.
+    §6.5 carries the Design half of each with the exact sentence, Task 8 carries M1's standing scan
+    and the `CENSUS_PROSE_ALLOWLIST` it needs, Task 3 carries M2's abort-gate arm ahead of its first
+    authored byte, and `## Mitigation Folds` records both with `desc` copied verbatim. §10 P-9, which
+    asserted for ten rounds that no threat model existed, is rewritten rather than annotated.
+14. *"The census rules `arrow_connective` and `path_hostile` ABSENT and AC-1(c) tells me to plant both
+    and name them in the manifest — which criterion do I redden?"* — NEITHER. §1.3 rule 7 and §3's
+    `NoteSpec.discriminator` give the two obligations two fields: `shape_classes = ()` keeps them out
+    of AC-3(i)'s covered-class equality, and `discriminator` — asserted to hold a real `branch_id`, so
+    it cannot be padded — satisfies "named in the manifest as such". Task 4 reads `discriminator`,
+    §5.5 states that AC-3 reads `shape_classes` and nothing else, and Verification mutation 15 drives
+    both wrong answers.
+15. *"`identity_tokens` gives me `Brenvik-Tarnquil` and the pool table certifies `Brenvik` and
+    `Tarnquil` separately — do I add a row to a file I am forbidden to touch, or drop the hyphen the
+    class is named for?"* — Neither, and the question no longer arises: the conductor's 2026-09-08
+    census pass added the compound rows, `## Write Targets`'s extension and §6.2 state that a pool
+    row's subject is an EXTRACTED token under §6.1's rule with `Anne-Sophie` as the worked case, and
+    M2's abort gate refuses at Task 3 rather than reddening at Task 8 if a later pass regresses. If
+    the gate ever fires, the answer is STOP — never a pool row the builder writes, never a dropped
+    hyphen.
+
+**The WI-226 sweep, run because findings 14 and 15 share a GENERATOR and closing them one at a time
+would have left the next member for the next round.** The generator: *a criterion clause whose
+satisfiability depends on the census, frozen by signature before anyone walked it against the
+census's actual rows.* So every clause in AC-1 through AC-5 that quantifies over the landed artifact
+was walked against it, one at a time, rather than only the two the review named. **The sweep found
+one member neither gate raised**, and it is closed in the same edit: **§1.3 rule 5's mandated
+three-filename collision.** The census rules `same_name_collision` ABSENT (largest live collision:
+two) and `stem_name_divergence` MEASURED, so a note declaring `shape_classes =
+("same_name_collision",)` is RED under AC-3(i) exactly as an `arrow_connective` declaration would be
+— and rule 5 previously deferred the naming to "the CENSUS's ruling", which had not yet been made.
+Rule 5 now says the collision is still planted (§3's `LOADABLE` arithmetic needs it) and is declared
+under `stem_name_divergence`. The rest of the sweep, declared so the next reader can check it rather
+than repeat it: AC-3(iii)'s floor resolves to sixteen rows and the artifact carries sixteen fences;
+AC-3(i)'s expected covered set is the SIX MEASURED ids, named in §1.3 rule 2 and in Task 6;
+AC-3(ii)'s non-empty-stdout leg is satisfiable at both statuses because every landed command emits a
+count; AC-3(iv)'s digest is filled and re-taken; AC-5(b)'s `CONNECTIVE_SET` reconciliation is settled
+by the artifact at `{Me, My, Dave}` (P-2(c)); AC-5(c)'s disjointness holds, the landed pool table
+writing no row for any connective by design; AC-5(a)'s reserved ranges hold over every landed
+specimen, including `pure_digit`'s `447700900123`; and AC-2 quantifies over `TYPE_TO_MODEL` alone and
+touches the census nowhere. **The next level of the ladder, swept and declared:** the same question
+asked of the OTHER artifact these criteria read — `docs/vault-fixtures.md` itself, via AC-3(iv)'s
+fence-scoped digest read and Task 12's `criterion_checks` — returns the "exactly five `check:` names"
+pin, which `## Verification`'s corpus-coupling paragraph already prices as a FROZEN population with
+its one non-defect RED named. No third artifact is read by any criterion.
+
+**Three more, added 2026-09-08 after the FIFTH spec-review round and the item's SECOND threat model.
+They are a third distinct family: not an enumeration defect, not a signed clause meeting the census
+for the first time, but a spec-pinned LITERAL never driven through the code that produces it — plus
+one gate finding whose remedy was never the spec-writer's at all.**
+
+16. *"Task 6 tells me the `pure_digit` specimen's declared `Verdict` is `pattern="pure_digit"`, and
+    the refusal I catch carries `pattern="pure_digit_name"` — is my specimen wrong, is the manifest
+    wrong, or is the assertion wrong?"* — **The SPEC was wrong, and it is fixed rather than left to
+    the builder's judgment**, which is the whole point: this is the one paragraph in the document
+    that tells the builder which verdict they are not free to choose. §5.3 and Task 6 now pin
+    `pattern="pure_digit_name"`, traced through `name_validation.py:284-285` → `:678` → `:463` →
+    `name_gate.py:365`; §3 states the general rule (a declared refusal `Verdict`'s `pattern` is the
+    record's `pattern` field, never its `branch_id`) and carries the seven-item sweep that closed
+    the class it belongs to. The defect was invisible because the same word is CORRECT one field
+    over: `pure_digit` is the right value for `shape_classes` and for `discriminator`, both of which
+    key on `branch_id`.
+17. *"The threat model's latest round returned REVISE over a leak in this document and nothing in
+    the spec answers it — am I reading a plan that has been superseded?"* — **No, and the plan was
+    never the subject.** Threat model round 2's finding was about this document's own gate prose, and
+    its remedy had two halves belonging to two different actors: the conductor's redaction (done —
+    §10 P-10(a)) and a standing authoring rule (landed — `## Scope Boundary`'s three bullets, stated
+    as one class covering the census, this document, `tests/test_fixture_vault.py` and the rounds
+    drawer). Neither half touches a task. What DOES stand between this item and `ready` is the
+    untaken `ac-signoff` re-sign, which is P-2's and P-10(b)'s and is a Dave act.
+18. *"Task 12's W-1 row tells me `modules_using_ast(...)` must return a set of module ids and it
+    returns use records — do I project it, or am I calling the wrong predicate?"* — **PROJECT it, and
+    the task now says so in the call it prescribes**:
+    `{use.module for use in modules_using_ast(python_files_under(PACKAGE_ROOT, TESTS_ROOT))}`, which
+    is the shipped wall's own line at `tests/test_name_gate_wall.py:1136-1138`. §11's W-1 row carries
+    the same projection. It is the same generator as question 16 one level up — right declaration,
+    right field, wrong shape of its return — and is closed in the same sweep.
+
 **Scanned the rest of the document for what these claims now contradict.** Three places needed
-reconciling and all three are reconciled in place rather than left to a reviewer:
+reconciling when the Design first landed, the second review round added four more, the third added
+three, the fourth added six, and this round adds five. All are reconciled in place rather than left
+to a reviewer:
+
+- **The `pure_digit` `Verdict` literal moved in THREE places and nowhere else**, found by searching
+  the document for `pattern="` rather than by remembering: §5.3's pinning paragraph, Task 6's
+  MEASURED-verdict paragraph, and this section's own reconciliation bullet. §3's `Verdict` field
+  comment ("the `NameGateRefusal.pattern` expected") was already right and is what the correction is
+  measured against. **AC-3's signed text does NOT move and must not:** it says only "carrying the
+  named `pattern` on its `.pattern` attribute", which is true of `pure_digit_name` and was always
+  the criterion's own wording — the defect was entirely in `## Design` and `## Implementation Plan`,
+  which is why it costs no re-sign. AC-3's capitalised "THE KEY IS `branch_id` AND NEVER `pattern`"
+  is about the class FLOOR's key and is likewise untouched and still correct; §3's new rule is its
+  complement rather than its contradiction, and both cite the same docstring at
+  `name_validation.py:152-154`.
+- **`## Scope Boundary` gained three standing authoring bullets and they are declared as covering a
+  CLASS, so nothing else in the document has to carry a copy.** Task 9's paragraph about its own
+  planted literals is the instance the second bullet generalises and is left in place unchanged —
+  it applies the rule and records the two fixtures it moved, which is the reading the rule now makes
+  standing. §9.5's "places the machine stops" is unaffected: those are residues AC-5 cannot close by
+  machine, while these are rules for surfaces AC-5 does not reach at all.
+- **§10 gained P-10 and P-2 gained a paragraph, and between them every act this item owes that is
+  NOT the spec-writer's is in one place.** Nothing in `## Design`, `## Implementation Plan` or
+  `## Write Targets` moves for any of them — checked, because P-2's own test for what may be fixed
+  here rather than escalated is exactly that. The rounds-drawer bullet is the only one with an
+  ORDERING constraint and it is now satisfiable in either order, since the redaction is done.
+- **`CENSUS_PROSE_ALLOWLIST`'s membership rule is stated in TWO places and they use one wording**
+  (§6.5 item 3, Task 8), and Task 8's `work:` quote in `## Mitigation Folds` moved with it in the
+  same edit — a fold record whose `work:` no longer reproduces its task's text is stale, and the
+  conveyor's D8c rule reads it. M1's `desc` and `design:` are untouched, because the rule narrows how
+  the residue set is AUTHORED and changes nothing the mitigation asserts.
+- **`base.py:195-198` is now the span at three of the four sites that cite it** — `## Approach`,
+  D-7 and `### Constraints discovered` — and AC-4's `desc` deliberately keeps `:196-198`, with the
+  reason recorded at the Constraints site so a later round reads a decision rather than a
+  divergence. Both spans resolve to the same `file_pattern` property and support the same claim.
+
+- **`CENSUS_PROSE_ALLOWLIST` is declared in `tests/test_fixture_vault.py` and NOT in the manifest,
+  and that placement is forced by a signed sentence.** AC-5(b) says `fixture_vault.py` "declares
+  THREE literal frozensets and no computed membership" and names them; a fourth there would make
+  signed text false and cost a re-sign for a set that is a property of the census rather than of the
+  corpus. §3's import list, §6.5 item 3, `## Write Targets`'s `tests/fixture_vault.py` fence ("AC-5's
+  three literal frozensets") and its `tests/test_fixture_vault.py` fence all now say the same thing.
+  W-15 is unaffected: the extractor only yields runs beginning with an uppercase or non-ASCII letter,
+  so no `SKIP_REASONS` member — all three lowercase — can be a member of this set, and the wall's
+  two declared homes do not move.
+- **§10 P-9 is rewritten from "no `## Threat Model` exists" to the fold's state, and nothing else in
+  the document asserted that absence** — checked by searching for the claim rather than by
+  remembering. The three earlier spec-review rounds each recorded it in their own gate sections,
+  which are settled rounds and are not edited.
+- **M1 makes `tests/test_fixture_vault.py` read `docs/vault-shape-census.md` for a THIRD property, so
+  `## Verification`'s WI-278 paragraph and §7's integration table both moved with it.** The arm does
+  not change: the file is pinned by digest and the fixity assertion runs first. §11's cleared
+  paragraph now records that there is no standing wall over `docs/` at all — the measurement behind
+  the threat model's finding — and that M1 is a wall this item MINTS rather than one it joins.
+- **`## Write Targets` gains no path from either fold, and that is asserted rather than assumed.** M1
+  and M2 both READ the census; §10 P-9, Task 8, Task 3 and `## Scope Boundary` each say the builder
+  never writes it, and the `kind: precondition` fence is untouched. The two folds' write surface is
+  `tests/test_fixture_vault.py`, already declared.
+- **`### Examples of done` was NOT edited and its third paragraph is still true.** It says the
+  arrow-connective and path-hostile specimens "are refused by the gate", which is AC-1(c)'s
+  discriminator property and is exactly what Task 4 asserts; it says nothing about which manifest
+  field names them. It sits inside the hash-signed `## Acceptance Criteria` span, so editing it would
+  have cost a per-section hash for no correction. `## Design` §5.1's byte-copy argument is likewise
+  untouched and untouchable by this fold: it is about the door refusing the specimens, not about how
+  the manifest labels them.
+- **The `pure_digit` specimen's declared `Verdict` is pinned in TWO places and they agree.** §5.3
+  states the `allow_phone_sentinel` narrowing and its AC-3 consequence; Task 6 states the resulting
+  declaration (`refusal` / `pattern="pure_digit_name"`, no `phones` on the specimen); Task 3 states
+  the authoring rule. Before this round §5.3 stated the narrowing only for AC-2's GATE-CLEAN
+  predicate, where it is a harmless over-constraint, and said nothing where it decides a declared
+  value. **The VALUE was `pure_digit` until 2026-09-08 and was wrong — the record's `branch_id`
+  where its `pattern` was meant — and both sites moved in one edit along with the rule §3 now states
+  and the sweep that closed its class.**
+
+- **Task 12's wall test is renamed and NOTHING else in the document moves with it**, checked by
+  searching for the old string rather than by remembering: the only two live occurrences were Task
+  12's body and Task 12's `verify:` line. `## Verification`'s mutation list, `## Write Targets`, §11
+  and the AC fences never named it — every name an AC or a downstream paragraph DOES depend on is
+  untouched: the five `check:` names, plus
+  `test_this_items_checks_pass_under_the_conveyors_interpreter` and
+  `test_a_nonexistent_check_is_red_under_the_conveyors_interpreter`, which mutation 9 and the
+  corpus-coupling paragraph name respectively. The rename adds NO `## Write Targets` path: `tests/test_name_gate_wall.py` stays
+  unwritten, which is the arm to take, because repointing from that side would edit another item's
+  shipped wall.
+- **Task 12's W-14 arm introduces the item's first `fnmatch` use and P-7 had to move with it.** P-7's
+  stdlib list now carries `fnmatch`, assigns it to `tests/test_fixture_vault.py` alongside
+  `unicodedata`, and states the one place the ≥ 3.10 floor is load-bearing — `tomllib` is 3.11-only,
+  so the W-14 arm may not reach for it. P-4's hermeticity split is unaffected: the arm reads a file
+  and matches strings, and makes no subprocess.
+- **Task 4's leg (c) call shape now agrees with §5.3.** Both say the first argument is the note's own
+  file path (`<dir> / <filename>`), which is what `writer.py:160-169` takes and what `:205` turns into
+  the note's path; the earlier "`<fresh dir>`" spelling left the plan and the design disagreeing about
+  a signature, which is the buildable-two-ways shape. The `frontmatter=` arm is kept and its refusal
+  path is now traced to `name_gate.py:349-365` and the single `_refuse` site at `:142`, so AC-1(c)'s
+  discriminator is grounded rather than assumed.
 
 - `## Approach` says `fixture_vault.py` holds "three things and no test logic". §3 keeps that: the
   census reader, the extractor and every assertion live in `tests/test_fixture_vault.py`, and the
   manifest module gains only declarations plus the two functions `## Approach` already names.
 - `## Approach` fixes the package-side scope at exactly two files. §7 and `## Write Targets` name
-  four TEST files beyond the new ones (`test_parser`, `test_writer`, `test_repositories`,
-  `test_loud_fail_load`); none is a package file, so the two-file claim is untouched, and D5 already
-  authorises the first three. `test_loud_fail_load.py` is the fourth and is Task 11, taken on
-  architect round 10's note 1 because it is one line and closes the copy §4's own argument cites.
+  FIVE test files beyond the two new ones (`test_parser`, `test_writer`, `test_repositories`,
+  `test_loud_fail_load`, `test_name_gate`); none is a package file, so the two-file claim is
+  untouched, and D5 already authorises the first three. The last two are Task 11 — three one-line
+  constant substitutions, taken because §4's wall asserts set EQUALITY over the vocabulary's legal
+  homes and an unrepointed site is RED, so "leave it" was not an available arm. `## Approach` now
+  carries a dated amendment saying so, rather than diverging quietly from `## Design`.
 - AC-3(iv)'s uniqueness read is FENCE-SCOPED, so this spec's several mentions of the
   `CENSUS_DIGEST` declaration — all outside the AC-3 `criteria` fence — cannot turn it RED. Checked
   deliberately, because a file-wide read would have been broken by this section.
+- **`## Approach`'s "three things and no test logic" now has ONE package import in it** (§3), because
+  W-15 sweeps `tests/fixture_vault.py` and a re-spelled reason literal there would redden the wall.
+  The claim survives: an import is not test logic, and the module still declares and materializes
+  and asserts nothing.
+- **P-4's hermeticity claim is now split** between the five AC CHECKS (no subprocess, unchanged) and
+  Task 12's battery-parity tests (six subprocesses across two floor-graded tests, neither a check).
+  R8 carries
+  the cost and P-4b says where it is measured. The earlier flat "no subprocess in any check" would
+  have contradicted Task 12 the moment it was written.
+- **AC-1(b)'s reach grew by one call** — the second `materialize_vault` with a foreign file planted
+  — which is why `## Edge Cases`'s idempotency entry no longer resolves a rule nothing exercises,
+  and why Verification gained mutation 11. §5.1 states the no-clean rule at the code, so the
+  criterion, the design and the edge case now say one thing in three places.
+- **`## Verified Diagnosis` gained D-8 and D-9 and its closing paragraph had to move with them**:
+  the "D-1 through D-7 are facts about absence" sentence was true and would have read as a claim
+  about NINE rows. The paragraph now separates the two kinds and says why neither new row makes this
+  an incident-class item.
+- **The hex excision's presence domain is stated in FOUR places and they now use one wording**:
+  AC-5(a), §6.4, Task 8 and `## Edge Cases`'s hex entry all say "somewhere in the reach, once against
+  the union, excision applied per file regardless". R10's mitigation cell carries the same sentence,
+  because it was the cell claiming this risk closed.
+- **§6.4's phone predicate moved and three things had to move with it.** It now admits the drama
+  block in BOTH spellings (`^447700900\d{3}$`, `^07700900\d{3}$`) and pins the block to `900xxx`
+  rather than `90xxxx`. AC-5(a)'s parenthetical names both spellings as one range; Task 3's authoring
+  rule names both; Task 9's battery is re-derived against the three regexes literal by literal, which
+  is what found that two of its six earlier fixtures were RED against correct code. Nothing else in
+  the document quotes a phone pattern — `447700900123` at `## Exploration Notes` and in Task 9's
+  extractor near-misses is a VALUE and is still accepted by the tightened rule.
+- **`unicodedata` left §3's import list and P-7 had to say where it went.** §3 now states its absence
+  as the manifest module's boundary, P-7 splits the item's stdlib surface across the two modules, and
+  §6.1 — which was always the extractor's home — is unchanged. `## Approach`'s "three things and no
+  test logic" is what the correction protects.
+- **Task 12 gained a THIRD test and four cost sentences had to move with it.** The new
+  `test_a_nonexistent_check_is_red_under_the_conveyors_interpreter` is a top-level `def test_` in a
+  declared write target, so W-10's uniqueness rule binds it and Task 12's own derived uniqueness
+  predicate covers it without an edit; its name is in the task's `verify:` line. It also makes the
+  foreign-run count SIX rather than five, which is stated in §3.1's cost sentence, P-4b, R8 and this
+  section's own P-4 reconciliation — every place the old number appeared, found by searching for it
+  rather than by remembering. And it adds no `criteria` fence, so the "exactly five `check:`
+  names" pin does not move.
+- **Task 6 gained the `MEASURED` qualifier and it agrees with AC-3 rather than narrowing it.** AC-3
+  already said an ABSENT row "obliges no specimen"; the plan task said "for each floor class" and
+  read as demanding a `Verdict` for a class that has none. §9.4 names `empty` as the likely ABSENT
+  row, so the qualifier is exercised rather than decorative.
 
 **Bar check.** Design cites `file:line` and quotes the code at every integration point; every
 population a criterion sweeps is READ from its declaration and every oracle is hand-declared;
-`## Verified Diagnosis` grounds seven claims in falsifiable artifacts; Edge Cases covers all ten
-categories with `OPEN: None`; every plan task carries a canonical ordinal, a checkbox and a
-lowercase `verify:` declaration; `## Write Targets` names every path the build touches and nothing
-else, and extends the ideation-authored precondition fence rather than replacing it.
+`## Verified Diagnosis` grounds NINE claims in falsifiable artifacts — D-1 through D-7 about this
+package, D-8 and D-9 about the build pipeline and this spec's own predicates, separated in the
+section's closing paragraph because only the first seven bear on whether the item is worth doing;
+Edge Cases covers all ten categories with `OPEN: None`; every plan task carries a canonical ordinal,
+a checkbox and a lowercase `verify:` declaration; `## Write Targets` names every path the build
+touches and nothing else, and extends the ideation-authored precondition fence rather than replacing
+it. **Check 8 (mitigations) is discharged for the first time on this item:** the 2026-09-08 threat
+model is the latest and only speaking round, both of its `kind: required` mitigations are folded into
+`## Design` §6.5 AND into the Implementation-Plan task each fence names, and `## Mitigation Folds`
+carries one `fold` fence per id with `desc` copied verbatim from that round, the exact Design
+sentence, the `Task N` ordinal and that task's own work and verify text — which is what the
+conveyor's D8c rule reads and what §10 P-9 now describes instead of denying. **The 2026-09-08 threat
+model ROUND 2 is now the latest speaking round and it re-emitted M1 and M2 byte-identically, so the
+two fold records stay fresh against it; `## Mitigation Folds` is restated in place as that section's
+rule requires, and this round's only change to it is Task 8's `work:` quote moving with Task 8's own
+text.** Round 2's blocking finding minted no M3 — it says so itself, and for a stated reason: no
+Implementation-Plan task can carry a redaction of a settled gate section, so a `landed: Task N` would
+be false. Its two halves are §10 P-10(a) (conductor, done) and `## Scope Boundary`'s standing
+authoring rules (spec-writer, landed this round). **Check 12 (AC drift)
+fires and the answer is unchanged in substance:** no criterion's promise, actor, scope, oracle or
+exception has moved this round either — **this round's blocking criterion-versus-code finding was
+resolved entirely in `## Design` and `## Implementation Plan`, because AC-3's own wording ("carrying
+the named `pattern`") was correct and only the Design's pinned value was not.** Two edits inside the
+hash-signed span exist and both are declared in
+§10 P-2 — AC-3(iv)'s `CENSUS_DIGEST`, re-taken by the conductor over the corrected census, and this
+section's own preamble sentence, which had come to assert the criteria were unfrozen. They owe ONE
+re-sign between them, it is still UNTAKEN, and P-2 records the diff classification a reviewing gate
+has already run against the frozen artifact so granting it costs no fresh audit. Everything the two blocking criterion-versus-artifact findings needed was
+landed in `## Design`, `## Implementation Plan` and `## Write Targets` precisely so no third edit was
+required. **Check 4's test-coupling clause is now discharged for every resolved edge case:** the
+idempotency and no-clean rules are asserted by AC-1(b)'s second `materialize_vault` call, the ISBN
+and hex-literal collisions by Task 9's near-miss battery, and the `-Voxleaf` run rule by Task 9's
+shape battery — the three that previously resolved in prose with nothing exercising them.
 
 ## Architectural Review — 2026-09-06 (round 6)
 
@@ -3815,4 +5487,1011 @@ verdict: PROMOTE
 date: 2026-09-07
 model: claude-opus-5
 note: First data-premise round; Class 1+2 both fire and I re-ran P1–P20's predicates in THIS worktree rather than trusting the table's stale currency note (measured in cage-wt-pul8uspy, WI-022 delta now committed here) — all reproduce exactly, including the three derived populations criteria quantify over (83/13 literals, 8-vs-5 type/body-config, ten branch_ids) and the flat-glob ownership rule AC-4 declares, which is the code's actual behaviour at base.py:196-198/:265/:268. Counterexample hunt over four enumerable domains found five false-by-design member classes, all already dispositioned, and the two candidates I constructed to falsify the universals (GiftIdea's `for` alias round-trip; a concrete repository outside `__all__`) both came back clean — writer.py:112-117 emits the alias, four subclasses and four exports. The live-vault shape distribution is unsettled BY DESIGN and no criterion asserts it: AC-3 runs against whatever the census declares with ABSENT first-class, AC-5(c) is a containment for exactly that ordering reason, so this is grounding sequenced behind a digest-frozen precondition, not grounding skipped. One non-blocking defect: P10's "35 in code" is one short of its own six-file enumeration (36); the Problem statement's own phrasing is correct and nothing quantifies over it.
+```
+
+## Spec Review — 2026-09-07
+
+**Recommendation: REVISE — return to spec writer (gaps to fix)**
+
+First spec-review round on this item. Rulings on record: the AC-5 structural-wall-vs-middle-path sufficiency question is Dave's and is recorded above for sign-off; the census's absence from HEAD is SEQUENCING rather than a grounding gap (data-premise round, 2026-09-07) — I route against both rather than re-litigating either, and nothing below touches AC-5's scope question.
+
+Read from line 1 in full, then walked the bar from scratch rather than against the prior rounds' gap lists. The gates that ran before me reviewed the exploration and the criteria; the `## Design`, `## Implementation Plan`, `## Verification`, `## Scope Boundary` and `## Risk Analysis` sections are new material this round and no gate has read them. Two of the four blocking findings below are in that new material and are build-stoppers; the other two are one-line corrections in text about to be frozen by signature.
+
+### Citation verification
+
+Every `file:line` in the document was read at its cited lines in this worktree. **All verified ✓** — including every one AC-1 through AC-5 and `## Design` lean on, and every one the round-7/8/9 folds rest on. Specifically re-read and confirmed exact: `repositories/base.py` `_skip_reason` `:41-47` with bare literals at `:44`/`:46`/`:47` and the type comment at `:37`; `_owns` `:258-265`; `_note_skip` `:267-275`; `file_pattern` default `:195-198`; `load()`'s glob `:231`; `type_name` abstract `@property` `:189-193`; `_get_cache_key` `:309-311`; `get_all` `:334-342`; `save()` `:381-383`. `repositories/__init__.py` imports end `:12`, `__all__` `:14-21` with `VaultPathNotConfiguredError` at `:16`. `models.py` every field cite in P14 and AC-5(b), `extra="allow"` `:31-32`, `TYPE_TO_MODEL` `:309-318` (8), `Meeting` `:259-263` declaring no `title`. `name_validation.py` ten `branch_id`s at `:192`–`:301`, `COMPANY_TIER1_BRANCHES` `:371-438` (five), `Tier1Branch.matches` `:179-184`, the docstring's branch_id-unique/pattern-not-unique statement `:152-154`, and the eleven regexes with `re.IGNORECASE` on `:82`/`:110`/`:113` and NOT on `:74`. `name_cleaning.py:46`/`:54`/`:55`/`:56`/`:57`/`:58`, and `.lower()` (never `casefold`) at `:148` (via the `last = words[-1].lower()` binding at `:147`), `:185`, `:191`. `name_gate.py:319`, `:329-343`, `:340-341`, `:344`, `:355-358`, `:361-363`. `writer.py:112-117`, `:134`, `:252-253`. `parser.py:238`. `body_sections.py:303-324`, `:320-323`, `:337-338`. `phone_normalization.py:39-55`, `:58-90`. `errors.py:65-67`, `:70-71`, `:112`. `meeting.py:51-54`/`:56-62`, `book.py:50-53`/`:55-57`/`:59-87`, `person.py:1327`. `derivations.py:9-12`, `:14-17`, `:24`, `:50-53`, `:213`, `:217`, `:243`, `:543`, `:620`, `:1366`. `test_write_routing.py:87`/`:91`, `test_loud_fail_load.py:76`/`:121`/`:167`/`:187-188`, `test_vault_path_required.py:382`/`:387`/`:421`/`:436`/`:451`, `test_ac_interpreter.py:23`/`:40`/`:76-87`, `test_name_gate_wall.py:1136`, `test_loud_fail_harness.py:18-20`/`:65`/`:79-97`/`:103`, `test_name_gate.py:211-213`, `test_company_name_contract.py:15`/`:359-459`/`:369`/`:855`, `support.py:1-19`, `test_parser.py:213-241`, `test_writer.py:293`/`:296`, `test_repositories.py:15-263`. `pipeline-runners.yaml:7-8`/`:18-19`/`:34-38`, `pyproject.toml:11`/`:38-39`/`:41-43`.
+
+Two navigational nits, not drift and not blocking: `## Design` §4 cites the `six` dict as `tests/test_loud_fail_harness.py:79-88` while §11 W-2 cites `:79-97` for the same object (the literal is `:79-87`, the `len(six) == 6` assertion `:88`, the homing loop `:93-97`); and W-1 anchors on the live assertion line `:1136` rather than the `def` at `:1132`. Both resolve to the right thing.
+
+### Blocking issues
+
+**1. `tests/test_fixture_vault.py` hosts five AC checks that EXECUTE the library, and the spec never gives it this project's interpreter bridge — the exact failure `tests/ac_interpreter.py` exists to record.** `tests/ac_interpreter.py:7-25` states the mechanism in as many words: the conveyor runs a `kind: test` check under an interpreter it chooses, that interpreter "defaults to the ADVANCER's `sys.executable` and is only this project's venv when the driver passes `--ac-python`", and when it is not, "`import pydantic` fails at the check module's very first package import and every criterion of this item reports `exit 1: ModuleNotFoundError`" — "the exact battery output WI-021's first build attempt drew, on five-of-five criteria, with a floor that was green in the same tree." The remedy is a project convention with six live users, verified here: `tests/test_company_name_contract.py:25`, `tests/test_address_splitter.py:38`, `tests/test_name_gate_identifiers.py:41`, `tests/test_name_gate_refusals.py:41`, `tests/test_name_gate_wall.py:40`, `tests/test_name_gate_delta_rule.py:37` each call `ensure_project_interpreter(__file__)` as their FIRST statement, ahead of every package import; `docs/identity-engine-endgame.md:2744` records the same scar's cost as "a build-exit round bought for nothing." WI-016's five checks are the most library-executing set this repo has shipped — they import `TYPE_TO_MODEL`, `ENTITY_BODY_CONFIG`, `TIER1_BRANCHES`/`COMPANY_TIER1_BRANCHES`, `parse_markdown_file`, `write_markdown_file`, all four repositories, `normalize_phone`, `clean_person_name` and the new `SKIP_REASONS`, every one of them behind pydantic. The spec instead asserts the opposite premise: `## Design` §10 P-4 says "`pipeline-runners.yaml:7-8` makes the floor command the AC battery's own interpreter", which reads a comment in that YAML as a guarantee, and `pipeline-runners.yaml:7-8` is exactly the sentence `tests/ac_interpreter.py:14-20` says is only conditionally true. Nothing catches this before the battery: the FLOOR runs under `.venv/bin/python` and stays green, `tests/test_ac_interpreter.py`'s live wall is scoped to `docs/write-door-bypasses.md` (`:40`, W-10 states this correctly), and §11's sweep predicate — "modules that READ the text of files they did not name" — structurally cannot reach a capability-injection convention. **Fix:** §3/§4 and Task 2 prescribe `tests/test_fixture_vault.py`'s contents down to its docstring's `CORPUS_COUPLING:` line; add `ensure_project_interpreter(__file__)` as its first statement ahead of every package import, note it in §7's integration table and in §11's "checked and cleared" paragraph, and correct P-4 so its premise is the bridge rather than the YAML comment. P-4's "no subprocess in any check" needs one clause too: the bridge is a no-op under the floor and re-execs only under a foreign interpreter.
+
+**2. AC-5(a)'s phone-shaped scan runs over `tests/fixture_vault.py`, which by §3's own design carries a full-file HEX literal — so the leg is RED by construction.** AC-5 declares "THE REACH OF EVERY LEG IS every file under `tests/fixtures/vault/` PLUS `tests/fixture_vault.py` itself", and §6.4 defines phone-shaped as "a maximal contiguous span over `[0-9+()\-. ]` whose digit count is ≥ 9" whose `normalize_phone` value must match `^44770090\d{4}$` or `^1?\d{3}55501\d{2}$`. §3 gives `NoteSpec.raw_bytes_hex` — "ONLY the non-UTF-8 member; lowercase hex, complete bytes" — and §6.2 requires that member's complete bytes be declared there and asserted byte-equal. Printable ASCII hex-encodes to bytes whose first nibble is `2`–`7`, i.e. always a digit, so nine-digit runs are not merely probable but structural: the five bytes of `type:` encode to `747970653a`, whose first nine characters are a nine-digit run. `normalize_phone("747970653")` matches neither reserved pattern, so leg (a) reddens on a corpus that is entirely correct, and the builder has no stated remedy. `CORPUS_DIGEST` is a second, smaller instance of the same class: a 64-character sha256 hex literal carries a ≥9-digit run roughly a third of the time, so the same leg can go red on nothing but a re-taken digest. This is precisely the collision §6.4 already recognised and settled one instance short — it decides the ISBN case ("an ISBN-13 is a 13-digit run that the phone predicate matches") and stops there, having introduced two longer hex literals of its own. **Fix:** decide it where §6.4 decides the ISBN — either exempt the manifest's declared hex literals from the phone predicate by name (`CORPUS_DIGEST`, `NoteSpec.raw_bytes_hex`, and the optional restatement of the census digest AC-3(iv) permits), or scope leg (a)'s byte scan so those declared literals are excluded before the span walk. Whichever arm is taken, say so in AC-5(a) as well as in §6.4, because the criterion is the text that gets signed. Task 8 and the Edge Cases entry for the ISBN are the other two surfaces that state this behaviour.
+
+**3. AC-1(a)'s digest key contradicts AC-1(b) and `## Design` §5.2, and under its literal reading leg (b) can never pass.** AC-1(a) declares the digest "computed over the corpus as `sha256` of the sorted sequence of (**repo-relative POSIX path**, file bytes)". AC-1(b) requires "the digest over the materialized tree equal to the same constant" — and the materialized tree lives under a caller-supplied temp directory, which has no repo-relative path at all. §5.2's code resolves it the only way that works, hashing `path.name` with NUL framing, and §5.2 says outright that this is "the SAME walk `materialize_vault` performs, which is what lets AC-1(b) assert the digest over the materialized tree equals the digest over the corpus". So the document is buildable two ways by its own text: a builder following the criterion keys on the repo-relative path and leg (b) is unsatisfiable; a builder following §5.2 keys on the name and the signed criterion misdescribes its own oracle. The corpus is one flat directory, so the two coincide once "repo-relative" becomes "corpus-relative" — one word, free while AC-1 is a draft, a D4b re-sign afterwards. AC-1 has drawn no finding in ten rounds because no round before this one had §5.2 to compare it against.
+
+**4. The skip-reason vocabulary's home enumeration is wrong by two, and it is the enumeration that sets Task 11's scope.** AC-4's `why:` states "the three strings live in a return chain, a type comment and `tests/test_loud_fail_load.py:187-188` today, and the criterion would have added a fourth home", `## Design` §4 rests its solve-in-one-place argument on the same list, §7's integration table names the same single reader, and the `tests/test_loud_fail_load.py` `## Write Targets` fence says "the **one line** at `:187-188`". A grep for the three literals over every `*.py` in this worktree returns two further hand-typed sites neither named nor dispositioned anywhere in the document: `tests/test_loud_fail_load.py:209` (`unreadable = [n for n in repo.skipped_notes if n.reason == "unreadable"]`, inside the very function Task 11 edits, twenty-two lines below the line it repoints) and `tests/test_name_gate.py:152` (`assert _skip_reason(exc) == "unreadable"`, in a file that is not a declared write target). Neither carries a green-over-wrong route — both fail loud on a rename — which is why this is a one-line correction rather than a redesign, but it is the document's own recurring family (round 7's "eight of the ten", round 8's four-item residue, the data audit's P10 summary) landing in the spec-writer's text, and it leaves the builder a judgment call the spec does not resolve: repointing `:187-188` puts `:209` on the same screen with nothing saying whether it is in scope. **Fix:** correct the enumeration in AC-4's `why:`, §4 and the `tests/test_loud_fail_load.py` fence to name all four sites, and say for each of the two new ones whether Task 11 closes it or whether it stays (with the reason). If `tests/test_name_gate.py` is to be repointed it needs a `## Write Targets` fence; if it is not, `## Scope Boundary`'s unchanged-files list should say so.
+
+### Non-blocking notes
+
+- **Task 12 says "each of the six new check names must resolve to exactly one `tests/test_*.py`", and the plan defines eleven.** `tests/test_fixture_vault.py` gains eight top-level checks (Task 2's binding test, the five AC checks, Task 9's extractor battery, Task 12's own wall-membership test) and Task 10 adds three more in three other modules. §11 W-10's "this item's five `check:` names" is correct for the AC set it is about; Task 12's "six" is correct for nothing. The uniqueness rule (`tests/test_ac_interpreter.py:76-87`, substring `def <name>(` over `TESTS_ROOT.glob("test_*.py")`) binds all eleven. Deriving the list at test time from the module's own `def test_` set rather than counting would close it for good.
+- **§11's census discards four modules its own sweep returns, without recording the discard.** Running the stated predicate here, thirteen test modules plus `tests/derivations.py` derive paths from the repo roots — the fourteen §11 claims. The table and its "checked and cleared" paragraph name nine of them; `tests/test_loud_fail_write.py`, `tests/test_loud_fail_parse.py`, `tests/test_address_splitter.py` and `tests/test_concurrent_access.py` appear nowhere. I read all four: each sweeps `python_files_under(PACKAGE_ROOT)`, which contains the edited `repositories/base.py`, and none is disturbed by a frozenset plus three string constants — so the discard is correct. It is worth one line anyway, because `tests/test_concurrent_access.py:1077-1089` carries four hardcoded count pins over package-derived populations (`writers == 4`, `non_completed_write_sites == 8`, `base_repository_subclasses == 4`, `load_file_implementations == 3`) and a reader checking §11's claim to exhaustiveness cannot tell "read and discarded" from "not reached".
+- **The idempotency edge case is resolved and has no test.** `## Edge Cases`'s idempotency entry decides that a second `materialize_vault(dest)` against the same `dest` overwrites with identical bytes and does not empty a `dest` holding foreign files. AC-1(b) materializes only into a fresh empty directory, so nothing exercises the second call or the no-clean rule. One extra assertion inside AC-1(b) would close the bar's Check-4 test-coupling clause.
+
+### Carried-forward notes
+
+- **Architect round 10, note 1** (`tests/test_loud_fail_load.py:187-188` stays a hand-typed second home) — CLOSED by Task 11, and re-opened only in the narrower sense of blocking finding 4 above: the copy Task 11 closes is real, the enumeration that scoped it is short by two.
+- **Architect round 10, note 2** (AC-4's "returns BY NAME rather than as re-spelled literals" is prose with no check behind it; the scan's first arm resolves both spellings) — still OPEN, and deliberately: §10 P-2 routes it to the one-time pre-origination edit rather than folding it now. Re-deferred here for that stated reason, not by oversight.
+- **Architect round 10, note 3** (this document should use the project's rounds drawer) — PARTIALLY actioned: `docs/vault-fixtures-rounds.md` now exists and the `### Archived Rounds` pointer is in place, and the drawer is confirmed harmless to AC-3(iv) because that read is fence-scoped. The live document is still ~3,800 lines with ten architect and nine red-team records inline, so the conductor act the note asks for is not finished.
+- **Data audit, 2026-09-07** (P10 reads "38 hits across 8 files — 35 in code" and then enumerates six files summing to 36) — still OPEN. Nothing quantifies over P10 and `## Problem / Motivation`'s own phrasing is correct; one word fixes the summary.
+- **AC red-team round 9** (`## Problem / Motivation` names eight helpers by backtick then says "Nine helpers, thirteen files") — still OPEN, recorded there as immaterial. It feeds no criterion; it is carried here so it is not silently dropped, and it is the same family as blocking finding 4, which is the reason to fix all of them in one pass.
+
+### Bar check
+
+Walked every check of `docs/spec-quality-bar.md`. Satisfied: Check 2 (§10's P-1…P-9 enumerate prerequisites, the trust boundary and the WI-300 ordering, with the census's `grounds:` line naming one premise), Check 4 (all ten categories resolved, `OPEN: None`, one test-coupling gap noted above), Check 5 (twelve canonical `- [ ] **Task N — …**` definitions, ordinals unique, every one carrying a well-formed lowercase `verify:` declaration — nine `test_` arms, one `baseline` and one `hand-run` with reasons, and no verify command that writes), Check 6 (the regression enumeration is derived from the edited surfaces and named; WI-235's shape controls are Task 9 and Task 2's planted batteries, driving the real predicates with near-misses; WI-278's arms are declared per reader; WI-173 correctly does not fire on a greenfield item), Check 7, Check 9 (eight concrete rows), Check 10 (five well-formed fences, all `kind: test`, each `check:` a bare name), Check 11 (D-1…D-7, each artifact read here and each supporting its specific claim). Check 12 does not fire — the ACs are drafts and no `ac-signoff` fence exists. Check 1, Check 3 and Check 8 carry findings 1–4.
+
+There is no `## Threat Model` on this document, so no `kind: required` mitigation is outstanding and the absence of `## Mitigation Folds` is correct; §10 P-9 states this and I confirmed it against the section list.
+
+### Build-runner dry-run
+
+Walked the Implementation Plan top-to-bottom as the builder. The precondition abort gate is the strongest thing in the plan — it names every fence, key and digit whose absence means STOP, and forbids narrowing an assertion to fit the artifact as found. Tasks 1–12 are each one sitting, each names its files and insertion points, and §1.2/§1.3/§3/§5.1/§5.2/§5.4/§6.1 leave the corpus assembly, the digest walk, the ownership table and the extractor with no decision left open. §3's `LOADABLE` arithmetic — `get_all()` and not `load()`, with the three cache-key rules — is exactly the "declared rather than discovered" economy the bar asks for, and I confirmed all three rules in the code (`base.py:309-311`, `meeting.py:56-62`, `book.py:55-57`).
+
+Three questions a cold-start builder would ask that the document does not answer, and they are findings 1, 2 and 3: *"Does this check module need the interpreter bridge the other six check modules open with?"*; *"Leg (a) is red on a nine-digit run inside my own `raw_bytes_hex` literal — is that a corpus defect or a criterion I should exempt?"*; *"Do I key the digest on the repo-relative path AC-1(a) names, or on the file name §5.2 hashes?"* The first two cost a build round each and the second has no in-cage remedy the document authorises.
+
+```verdict
+gate: spec-reviewer
+verdict: REVISE
+date: 2026-09-07
+model: claude-opus-5
+targets: AC-1, AC-4, AC-5, Task 2, Task 11, #design
+prior: none
+basis: original
+findings: 4/7
+note: First spec-review round, and the Design/Plan/Verification sections are material no prior gate has read; every file:line in the document verified exact against this worktree (all of AC-1..AC-5's, all of Design's, the ten branch_ids, the flat-glob ownership rule, the eight-member TYPE_TO_MODEL) with only two navigational nits. Four blocking, two of them build-stoppers in the new material: (1) tests/test_fixture_vault.py hosts five AC checks that execute the library behind pydantic and the spec never gives it ensure_project_interpreter(__file__), which six sibling check modules open with (test_company_name_contract.py:25, test_address_splitter.py:38, test_name_gate_identifiers.py:41, test_name_gate_refusals.py:41, test_name_gate_wall.py:40, test_name_gate_delta_rule.py:37) and which tests/ac_interpreter.py:7-25 exists to record as WI-021's five-of-five-red battery against a green floor — P-4 asserts the opposite premise off a pipeline-runners.yaml comment that module says is only true with --ac-python; (2) AC-5(a)'s phone predicate (a >=9-digit span) runs over tests/fixture_vault.py, which by §3's design carries NoteSpec.raw_bytes_hex, a full note's bytes in hex — printable ASCII hex-encodes to first nibbles 2-7, so `type:` alone yields the nine-digit run 747970653 and the leg is RED by construction, the same collision §6.4 settled for the ISBN and stopped one instance short; (3) AC-1(a) keys the digest on the "repo-relative POSIX path" while AC-1(b) and §5.2's code key it on the file name, so leg (b) is unsatisfiable under the criterion's literal reading; (4) the skip-reason home enumeration behind §4's solve-in-one-place argument and Task 11's scope is short by two — tests/test_loud_fail_load.py:209 and tests/test_name_gate.py:152 both hand-type "unreadable" and neither is named. All four are one-line-to-few-line fixes in draft text and none touches the approach or AC-5's pending sufficiency question.
+```
+
+## Spec Review — 2026-09-07 (round 2)
+
+**Recommendation: REVISE — return to spec writer (gaps to fix)**
+
+Rulings on record: the AC-5 structural-wall-vs-middle-path sufficiency question is Dave's and is recorded above for sign-off; the census's absence from HEAD is SEQUENCING rather than a grounding gap (data audit, 2026-09-07); WI-020's specification-altitude and fold-and-close closures — I route against all three and nothing below re-litigates any of them.
+
+Read from line 1 in full and walked the bar from scratch rather than against round 1's gap list. Round 1's four findings are all closed and I verified each closure against the tree rather than against the fold's prose: §3.1 prescribes `ensure_project_interpreter(__file__)` and the six sibling callers are at exactly the cited lines; §6.4 carries the hex excision; AC-1(a) and §5.2 now both say the key is the filename; §4's disposition table names all eight sites a grep returns and Task 11 closes all three hand-typed test ones. Round 1's three non-blocking notes are closed too (Task 12 derives its check-name list, §11 records the four discarded modules with `test_concurrent_access.py:1077-1089`'s count pins, AC-1(b) exercises the second `materialize_vault` call), as are both navigational nits.
+
+Two of the three blocking findings below land on the text those closures ADDED — the hex excision's own presence assertion, and the W-16 parity wall — which is the fold-breeding-its-own-next-finding shape this document has recorded three times, not a re-opening. The third is a claim about this tree that does not hold.
+
+### Citation verification
+
+Every `file:line` this round's new material leans on was read at its cited lines in this worktree. **All verified ✓.** Specifically re-read and confirmed exact, none inherited from round 1's list: `tests/ac_interpreter.py:7-25` (the mechanism, verbatim), `:14-20` (the `--ac-python` clause), `:30-33`, `:123-130` (`ensure_project_interpreter`'s `find_spec` fast path), `:136-148` and `:142-148` (the two fail-closed raises), `:150-155` (`os.execve`). `tests/test_ac_interpreter.py:23` (CORPUS_COUPLING), `:38` (ROOT from `Path(__file__).resolve().parent.parent`), `:40` (`WORK_ITEM_DOC` = `docs/write-door-bypasses.md`), `:57-73` (`criterion_checks`, fence-scoped, opener matched as exactly the bare fence word), `:76-87` (`check_module`), `:90-95` (`run_foreign` under `sys.executable -S`). The six bridge callers at `test_company_name_contract.py:25`, `test_address_splitter.py:38`, `test_name_gate_identifiers.py:41`, `test_name_gate_refusals.py:41`, `test_name_gate_wall.py:40`, `test_name_gate_delta_rule.py:37`. `tests/support.py:1-19` and `temp_dir` at `:30-37`. `tests/derivations.py:9-12`, `:14-17`, `:24`, `:28`, `:50-53`, `:183-206` (`python_files_under`, recursive `rglob`), `:213`, `:217`, `:243`, `:543`, `:1366`. `tests/test_name_gate_wall.py:_check_the_ast_capability_stays_single_homed:1132` with the live equality at `:1136-1138`; `tests/test_loud_fail_harness.py:18-20` (the required-subset sentence), `:65`, `:79-87`, `:88`, `:93-97`, `:103`. `tests/test_concurrent_access.py:1077`, `:1085`, `:1088`, `:1089` — all four count pins, none moved by this item. `tests/test_vault_path_required.py:382`, `:387`, `:421`, `:436`, `:451` (the `errors="replace"` read that makes the non-UTF-8 corpus member safe under W-8). `tests/test_loud_fail_load.py:167`, `:187-188`, `:209`; `tests/test_name_gate.py:109`, `:152`. `obsidian_schemas/repositories/base.py:37`/`:41-47`/`:189-198`/`:231`/`:258-265`/`:267-275`/`:301-307`/`:309-311`/`:334-342`; `repositories/__init__.py:8-12` imports and `:14-21` `__all__` with `VaultPathNotConfiguredError` at `:16`; `book.py:50-53`/`:55-57`/`:59-87`; `errors.py:65-67`/`:70-72`/`:112`. `name_gate.py:319`/`:329-343`/`:340-341`/`:344`/`:355-358`/`:361-363`. `writer.py:89`/`:134`/`:160-169` — `write_markdown_file` takes BOTH `entity=` and `frontmatter=`, so §5.3's and Task 4's two different call shapes are each legal. `pyproject.toml:38-39`/`:41-43`.
+
+**Two independent structural re-runs, because §4's argument and Task 12's pin are both counts.** A grep for the three reason literals over every `*.py` in this worktree returns exactly the eight sites §4's disposition table names and no ninth — the round-1 correction is complete, and the two non-literal near-misses the wall must not match (`base.py:299`'s prose comment, `test_loud_fail_load.py:210`'s local variable) are both outside it. A grep for `^```criteria` over this document returns exactly five, all inside `## Acceptance Criteria`, so Task 12's "exactly 5" pin is true today.
+
+### Blocking issues
+
+**1. AC-5(a)'s hex-excision presence assertion is applied PER FILE and no corpus note contains any declared hex literal — so the leg round 1 fixed is RED by construction again, on ~50 wholly correct notes.** §6.4 states the implementation as "over `excise(text, DECLARED_HEX_LITERALS)` **for each file in reach**", and AC-5(a) then says each declared literal is "asserted FIRST to be well-formed lowercase hex of even length … **and asserted to OCCUR in the text it is excised from**, so the exemption cannot become a hiding place and an exemption declared for a literal that is not present is RED rather than free." Under the stated per-file excision, "the text it is excised from" is one corpus note's bytes — and `CORPUS_DIGEST` and `NoteSpec.raw_bytes_hex` live in `tests/fixture_vault.py`, never in a corpus note. So the presence assertion holds for exactly one of the ~51 files in reach and fails for every other. The alternative reading — presence over the REACH, i.e. the union — is satisfiable and is plainly what the anti-hiding-place argument wants, but nothing in the document says which, and the harmful reading is the literal one. This is the same shape as round 1's finding 3 (AC-1(a)'s "repo-relative", where the criterion's literal reading made leg (b) unsatisfiable), reproduced by the fold written to close round 1's finding 2, and it has no in-cage remedy once the criterion is signed: the builder facing ~50 REDs on a correct corpus must either narrow a signed criterion or delete the assertion. **Fix:** state the presence assertion's domain — that each declared literal must occur somewhere in the reach, and the excision is applied to every file's text whether or not that file contains it. Say it in AC-5(a), because that is the text that gets signed, and reconcile the three surfaces that repeat the phrase: `## Design` §6.4, Task 8, and `## Edge Cases`'s "A declared hex literal read as a phone" entry.
+
+**2. §11's W-16 row and Task 12 prescribe a parity wall that is green over a run proving nothing — the shipped sibling wall this item copies rejects exactly that, in two clauses the spec drops.** Task 12 says the parity test "for EACH name runs the shipped `run_foreign(check_module(name), name)` (`:90-95`) and asserts exit 0". `tests/test_ac_interpreter.py`'s own use of those predicates asserts two things, not one: exit 0 (`:111-115`) **and** `"[ac_interpreter]" in proc.stderr` (`:116-120`), whose failure message is "exited 0 WITHOUT delegating — the foreign interpreter imported the project's deps, so this run proves nothing about the battery's conditions". It also ships a near-miss control (`test_a_failing_delegated_check_is_red_not_silently_green`, `:126-138`) proving a nonexistent check is RED under the same shape. The spec imports the three predicates and re-implements the test around them with half its oracle. The consequence is concrete rather than theoretical: `-S` strips `site`, so the delegation marker is what proves the child actually LACKED pydantic, and on any interpreter where the runtime deps survive `-S` (an ambient/CI install rather than a venv) every check exits 0 without delegating, `test_this_items_checks_pass_under_the_conveyors_interpreter` is green, and Verification's mutation 9 — "the most important mutation in the list", the one whose green half is the finding — does not fire. That leaves R9 (a burned build attempt, five-of-five `ModuleNotFoundError`) uncovered by the only thing the spec says can cover it: §3.1 is invisible to the floor by design, W-10's population does not reach this item, and §11's sweep predicate structurally cannot see a capability injection. This is also WI-235's rule on the wall's own terms — the check's oracle is a count of exit codes, and the spec names neither a shape the wall must resolve nor a near-miss it must not. **Fix:** in Task 12 and §11 W-16, assert the delegation marker alongside exit 0, and add the near-miss the shipped module carries (one nonexistent check name through the same `run_foreign`, asserted non-zero AND delegated). Both are the shipped module's own assertions, so this adds no re-implementation.
+
+**3. `## Verification`'s regression enumeration is not its own named sweep's output — "the twelve modules that import `tests/derivations.py`" names twelve and ten import it.** The paragraph opens "**Regression — DERIVED from the edited surfaces, not inherited.** Sweeping the resolved test root for modules that name each `## Write Targets` path returns…". Run here: `tests/test_vault_path_required.py` contains **no occurrence of the string `derivations` at all** — it neither imports the module nor names it — and `tests/test_name_gate.py`'s single occurrence is the docstring line at `:15` ("that capability is single-homed in `tests/derivations.py`"), not an import. The real importer set is exactly ten: `test_write_routing`, `test_name_gate_wall`, `test_loud_fail_write`, `test_loud_fail_parse`, `test_loud_fail_load`, `test_loud_fail_harness`, `test_lint_vault_fix_gate`, `test_concurrent_access`, `test_company_name_contract`, `test_address_splitter`. (Four further modules — `test_name_gate`, `test_name_gate_identifiers`, `test_name_gate_refusals`, `test_name_gate_delta_rule` — plus `test_phone_normalization` carry the same one-line docstring mention and import nothing.) **This costs nothing at build and I say so plainly:** the direction of the error is over-listing, and both spurious members are already in the `base.py` row (correctly) and so get run anyway. It is blocking on the accuracy rule rather than on buildability — the paragraph asserts a falsifiable fact about this tree that does not hold, in a section that advertises itself as derived, and it is the fifth instance of this document's own "stated number vs. actual list" family (P16's fifteen-vs-sixteen at round 7, round 8's four-item residue, the data audit's P10 35-vs-36, round 1's skip-reason enumeration short by two). Dave's pending sufficiency ruling reads this document's exhaustion claims as true, which is the reason to fix it rather than note it. **Fix:** replace the count and the list with the sweep's actual output — ten modules — or state the predicate as "modules affected by an edit to this path" and keep the two, which is defensible for the `base.py` row's three members (`test_write_routing`, `test_repositories`, `test_concurrent_access` sweep `python_files_under(PACKAGE_ROOT)` without naming the path) but is not what the sentence says.
+
+### Non-blocking notes
+
+- **Task 6 reads as demanding a `Verdict` for an ABSENT floor class, which AC-3 says obliges none.** Task 6: "For each floor class, assert the manifest's declared `Verdict`." AC-3(iii) carries both "For each class on the floor, the manifest declares the verdict the specimen must produce" and, three sentences later, "a live vault holding no empty-named note gets an ABSENT row … and obliges no specimen". The criterion's own ABSENT sentence resolves it and a builder would almost certainly read it that way, so this is a clause rather than a finding — but §9.4 names `empty` as the likely ABSENT row, so the case will actually arise. One qualifier in Task 6 ("for each MEASURED floor class") closes it.
+- **§3's import list for `tests/fixture_vault.py` includes `unicodedata`, which nothing in that module uses.** The extractor `_runs`/`identity_tokens` is the only consumer and §6.1, Task 8 and the Self-Review Dry Run all place it in `tests/test_fixture_vault.py`. Harmless, but §3's list is the module's prescribed contents and an unused stdlib import there invites a builder to put the extractor in the manifest module, which `## Approach`'s "three things and no test logic" forbids.
+- **Task 9's negative fixtures plant real-looking identifiers into the one new module AC-5's reach deliberately excludes.** The battery prescribes `naomi@speechmatics.com`, `+44 7911 123456`, `https://linkedin.com/in/someone`, `José García`, `Anne-Sophie Legrain`, `Dave -> Thomas Gatten` and `Me to David Field` in `tests/test_fixture_vault.py`, whose reach under AC-5 is the corpus plus `tests/fixture_vault.py` only. Every one of those literals already exists in the tree (`tests/test_name_validation.py:268`, `:274`, `:453` carry the address verbatim), so this adds copies rather than new personal data — but `## Constraints discovered` says in as many words that this item "declines to add more", and a constructed non-reserved domain and a constructed non-drama number prove leg (a)'s refusal arm exactly as well. Worth one sentence either way: change the fixtures, or record that duplicating an existing in-tree literal is the deliberate reading of "declines to add more".
+
+### Carried-forward notes
+
+- **Architect round 10, note 2** (AC-4's "returns BY NAME rather than as re-spelled literals" is prose the scan's first arm cannot discriminate) — still OPEN and re-deferred for the stated reason: §4 now prescribes the by-name form and §10 P-2 routes the one settling clause to the one-time pre-origination edit, where it costs nothing. The safety property is unaffected under either spelling, which is why it stays a note.
+- **Architect round 10, note 3** (this document should use the project's rounds drawer) — still PARTIALLY actioned. `docs/vault-fixtures-rounds.md` exists and the `### Archived Rounds` pointer is in place, and I re-confirmed the drawer is harmless to AC-3(iv) (fence-scoped) and to Task 12's `criterion_checks` pin (which reads this document only). The live doc is now ~4,350 lines carrying architect rounds 6, 8, 9 and 10, red-team round 9, the data audit and two spec reviews inline; the conductor act the note asks for is still unfinished.
+- **Data audit, 2026-09-07** (P10's "35 in code" against a six-file enumeration summing to 36) — CLOSED. P10 now carries the correction in place with the reason, and `## Problem / Motivation`'s own phrasing was already correct.
+- **AC red-team round 9** (`## Problem / Motivation`'s "Nine helpers" against eight backticked names) — CLOSED. The list now names nine (`_write` added, and it exists — `tests/test_loud_fail_load.py:174`) and the sentence declares the number explicitly non-load-bearing.
+- **Round 1's three non-blocking notes** (Task 12's "six" check names; §11's four undeclared discards; the untested idempotency rule) — all CLOSED, and each was verified rather than taken from the fold: Task 12 now derives the uniqueness obligation as a predicate over the modules' own `def test_` sets, §11 names all four discarded modules with `test_concurrent_access.py`'s four count pins read here, and AC-1(b) plus Verification mutation 11 now exercise the second `materialize_vault` call and the no-clean rule.
+
+### Bar check
+
+Walked every check of `docs/spec-quality-bar.md`. Satisfied: Check 2 (§10's P-1…P-9 enumerate the prerequisites, the trust boundary and the WI-300 ordering; P-4's premise is now the bridge rather than the YAML comment, and I confirmed `tests/ac_interpreter.py:14-20` says exactly what P-4 now quotes), Check 4 (all ten categories resolved, `OPEN: None`, and the three previously prose-only resolutions — idempotency/no-clean, the ISBN, the `-Voxleaf` run — now each carry an exercising assertion), Check 5 (twelve canonical `- [ ] **Task N — …**` definitions, ordinals unique and contiguous, every one carrying a well-formed lowercase `verify:` declaration — ten `test_` arms whose names all resolve inside this item's write targets, one `baseline` and one `hand-run`, each with its reason; no `verify:` is a command and none writes), Check 6 (WI-235's shape controls are Task 2's two planted batteries and Task 9's shape + near-miss batteries, all driving the live predicates; WI-278's arm is declared per reader with the `CORPUS_COUPLING:` line; WI-173 correctly does not fire), Check 7, Check 9 (ten concrete rows, R9 and R10 both carrying the round-1 findings), Check 10 (five well-formed fences, all `kind: test`, each `check:` a bare name resolving to `tests/test_fixture_vault.py` alone), Check 11 (D-1…D-9; I re-read D-5, D-6, D-7, D-8 and D-9's artifacts here and each supports its specific claim — D-9's eight-site grep reproduces exactly). Check 12 does not fire: the ACs are drafts and no `ac-signoff` fence exists. Check 1 carries finding 3; Check 3 and Check 8 carry findings 1 and 2.
+
+**Write-Targets coverage (WI-132), run task by task.** Every file a task names is declared: Task 2 → `obsidian_schemas/repositories/base.py`, `tests/derivations.py`, `tests/test_fixture_vault.py`; Task 3 → `tests/fixtures/vault`; Tasks 4–9 → `tests/fixture_vault.py`, `tests/test_fixture_vault.py`; Task 10 → `tests/test_parser.py`, `tests/test_writer.py`, `tests/test_repositories.py`; Task 11 → `tests/test_loud_fail_load.py`, `tests/test_name_gate.py`; Task 12 → `tests/test_fixture_vault.py`. No fence declares a path no task writes, and `tests/ac_interpreter.py` / `tests/test_ac_interpreter.py` are correctly READ-only and named on `## Scope Boundary`'s unchanged list. Every declared path is inside `write_authority` (`pipeline-runners.yaml:34-38`, re-read), so the D7b axis and the WI-290 level selector both read the item's real touch surface. The conscious-pin sweep found no moved pin: `test_concurrent_access.py`'s four, `test_name_gate.py:172`'s `len(TIER1_BRANCHES) == 10`, `test_name_gate.py:124`'s `len(REASONS) == 16`, `test_loud_fail_harness.py:88`'s `len(six) == 6` and `test_name_gate_wall.py:1161`'s `len(sites) == 8` are each unmoved by a frozenset, three string constants and two new scans, and §4's decision not to join the `six` dict is correct against `:18-20`.
+
+There is no `## Threat Model` on this document — I confirmed it against the section list, as §10 P-9 states — so no `kind: required` mitigation is outstanding and the absence of `## Mitigation Folds` is correct.
+
+### Build-runner dry-run
+
+Walked the Implementation Plan top-to-bottom as the builder. The precondition abort gate remains the strongest thing in the plan. Tasks 1–12 each name their files and insertion points; §1.2's grammar, §1.3's six rules, §3's `LOADABLE` arithmetic, §5.1/§5.2's two walks, §5.4's ownership table and §6.1's extractor leave no decision open, and I confirmed the ownership table is the code's actual behaviour including the one arm no criterion states outright — `BookRepository._load_file` (`book.py:59-87`) reads bytes itself at `:71`, so the non-UTF-8 member reaches its own `except` and is declined by `_owns(None)` rather than never being read, which is what makes AC-4(b)'s "book's mapping is EMPTY" true rather than accidental.
+
+Three questions a cold-start builder would ask that the document does not answer, and they are findings 1, 2 and 3: *"`CORPUS_DIGEST` is not in any corpus note — do I assert the excised literal is present in each file, or somewhere in the reach?"*; *"the shipped wall I am importing from fails a check that exits 0 without delegating — do I assert that too, or only exit 0?"*; *"the regression list tells me `test_vault_path_required.py` imports `derivations.py`, and it does not name it at all — which of the two is wrong?"* The first has no in-cage remedy once AC-5 is signed; the second is the difference between a wall and a wall-shaped no-op.
+
+```verdict
+gate: spec-reviewer
+verdict: REVISE
+date: 2026-09-07
+model: claude-opus-5
+targets: AC-5, Task 8, Task 12, #verification, #design
+prior: held
+basis: folded-material
+findings: 3/6
+note: Round 1's four findings all close and I verified each closure against the tree rather than the fold's prose (the six bridge callers at their cited lines, §6.4's excision, AC-1(a)/§5.2 now agreeing on the filename key, and §4's eight-site disposition table reproduced exactly by an independent grep); its three non-blocking notes close too. Three blocking, and TWO of them land on the text those closures added, which is the fold-breeding-its-own-next-finding shape rather than a re-opening: (1) AC-5(a)'s new hex excision asserts each declared literal is "asserted to OCCUR in the text it is excised from" while §6.4 applies the excision "for each file in reach" — CORPUS_DIGEST and raw_bytes_hex live only in tests/fixture_vault.py, so under the literal per-file reading the leg is RED on all ~50 correct corpus notes, which is the same criterion-vs-code fork as round 1's repo-relative finding and has no in-cage remedy after signature; (2) §11 W-16 and Task 12 assert only exit 0 from the shipped run_foreign, dropping the two clauses tests/test_ac_interpreter.py:116-120 and :126-138 carry — the delegation-marker check whose own message is "exited 0 WITHOUT delegating … proves nothing about the battery's conditions", and the nonexistent-check near-miss — so on any interpreter where the deps survive -S the parity wall is green over a run that proves nothing and Verification's mutation 9, the one the spec calls the most important in the list, never fires (WI-235: a count-of-exit-codes oracle with no shape and no near-miss); (3) `## Verification`'s "DERIVED, not inherited" regression enumeration names "the twelve modules that import tests/derivations.py" and ten do — tests/test_vault_path_required.py contains no occurrence of the string at all and tests/test_name_gate.py's only one is the docstring line at :15 — which costs nothing at build (both are already in the base.py row) but is a falsifiable claim about this tree that fails, and is the fifth instance of the stated-number-vs-actual-list family whose exhaustion claims Dave's pending sufficiency ruling reads as true. Nothing here touches the approach, the census sequencing, or AC-5's scope question.
+```
+
+## Spec Review — 2026-09-07 (round 3)
+
+**Recommendation: REVISE — return to spec writer (gaps to fix)**
+
+Rulings on record: the AC-5 structural-wall-vs-middle-path sufficiency question is Dave's and is recorded above for sign-off; the census's absence from HEAD is SEQUENCING rather than a grounding gap (data audit, 2026-09-07); WI-020's specification-altitude and fold-and-close closures — I route against all four and nothing below re-litigates any of them.
+
+Read from line 1 in full and walked the bar from scratch rather than against round 2's gap list. Round 2's three findings are all closed and I verified each closure against the tree rather than against the fold's prose: AC-5(a) now states the presence domain as the REACH with the excision per file, in the same words in `## Design` §6.4, Task 8, `## Edge Cases` and R10; Task 12 and §11 W-16 now assert `proc.returncode == 0` **and** `"[ac_interpreter]" in proc.stderr` and add the nonexistent-check near-miss, both copied from `tests/test_ac_interpreter.py:111-115`, `:116-120` and `:126-138`, which I read; and `## Verification`'s regression paragraph now states its predicate in three arms before its output and gives TEN importers of `tests/derivations.py` — I re-ran that sweep independently and it returns exactly the ten the paragraph names. Round 2's three non-blocking notes are closed too (Task 6's `MEASURED` qualifier, §3's `unicodedata` boundary with P-7's split, Task 9's two real-looking literals replaced with the reading recorded).
+
+The one blocking finding below is not in that folded material. It is in ORIGINAL plan text that has stood since the Design first landed, and it is a name collision with a test this repository already ships — which is exactly the class the spec's own P-6 and §11 W-10 are about.
+
+### Citation verification
+
+Every `file:line` this document leans on was read at its cited lines in this worktree. **All verified ✓** — none inherited from rounds 1 or 2, and the ones this round's fold introduced re-read specifically.
+
+Re-read and confirmed exact: `tests/test_ac_interpreter.py:23`, `:38` (`ROOT` from `Path(__file__).resolve().parent.parent`), `:40` (`WORK_ITEM_DOC` is `docs/write-door-bypasses.md`), `:57-73` (`criterion_checks`, fence-scoped, opener matched as the bare fence word), `:76-87` (`check_module`, a `def <name>(` SUBSTRING scan over `TESTS_ROOT.glob("test_*.py")` raising unless exactly one match), `:90-95` (`run_foreign` under `sys.executable -S`, `timeout=120`), `:98-123` (exit-code failure at `:111-115`, delegation-marker failure at `:116-120` with its "exited 0 WITHOUT delegating" message verbatim), `:126-138` (the shipped near-miss, whose own name is `test_a_failing_delegated_check_is_red_not_silently_green`). `tests/ac_interpreter.py:7-25` verbatim, `:14-20`'s `--ac-python` clause, `:30-33`, `:123-130`, `:136-148`, `:150-155`. `obsidian_schemas/name_validation.py`'s ten `branch_id`s one by one at `:192`, `:203`, `:215`, `:227`, `:239`, `:250`, `:261`, `:272`, `:284`, `:301`, with the specimens Task 9 and AC-5(b) quote — `:217` `Dave -> Thomas Gatten`, `:229` `Dave - Thomas Gatten`, `:241` `Me to David Field`, `:263` `zArchived Dave Smith`, `:274` `Unknown Contact Zeta-9`, `:286` `447700900123` — and the `empty` comment at `:295-299`. `obsidian_schemas/name_gate.py:305`, `:319`, `:329-343`, `:344`, `:355-358`, `:361-363`. `obsidian_schemas/writer.py:160-169` (the signature, which takes `file_path` first and BOTH `entity=` and `frontmatter=`) and `:252-253` (the one `gate_write` call, above the lock). `obsidian_schemas/phone_normalization.py:39-55` (`split("@")[0]` then `re.sub(r"\D", "", …)` — digits only, the `+` gone and a leading `0` kept) and `:58-90` (`phones_match`'s `44`/`0` and `1`/10-digit arms). `obsidian_schemas/repositories/base.py:27-38` (`SkippedNote` and its `#` type comment at `:37`) and `:41-47` (the three bare return literals). `tests/derivations.py:9-12`, `:14-17`, `:24`, `:28`, `:50-53`, `:197`. `tests/test_loud_fail_harness.py:18-20` (the required-subset sentence), `:79-87`, `:88`, `:93-97`, `:103`. `tests/test_name_gate_wall.py:_check_the_ast_capability_stays_single_homed:1132` with the live equality at `:1136-1138` and `:1142-1145`, and `:1161`'s `len(sites) == 8`. `tests/test_vault_path_required.py:382`, `:387`, `:421-433`, `:436-460`, `:451`. `tests/test_loud_fail_load.py:167`, `:174`, `:187-188`, `:209`, `:210`. `tests/test_name_validation.py:229`, `:268`, `:274`, `:363`, `:377`, `:442`, `:444`, `:446`, `:453`; `tests/test_name_cleaning.py:35`.
+
+**Three independent structural re-runs, because three of this document's claims are counts.** (a) A `^def test_\w+\(` sweep over every `tests/test_*.py` returns the tree's complete top-level check set — that run is what produced the blocking finding below. (b) A grep for `from tests.derivations import` returns exactly the ten modules `## Verification` now names, and the six docstring-only mentions plus `tests/support.py:17` and `tests/ac_interpreter.py:23` are exactly the second arm's list. (c) A grep for the criteria-fence opener over this document returns five, all inside `## Acceptance Criteria`, so Task 12's "exactly 5" pin is still true with two spec-review sections now inline.
+
+Also re-derived rather than read: every shape in Task 9's two batteries, driven by hand through §6.1's `_runs`/`identity_tokens` and §6.4's three phone patterns. All fourteen extractor fixtures give the stated answers (`Zeta-9` → `Zeta` because the run is `Zeta-` and the trim follows; `-Voxleaf` yields nothing because the first character is read before the trim; `zArchived - Rosie` → `{Rosie}` because the bare `-` run is not extracted either). All eight phone fixtures score as stated under `^447700900\d{3}$` / `^07700900\d{3}$` / `^1?\d{3}55501\d{2}$`, including the two the fold corrected: `(415) 555-0123` → `4155550123` is ACCEPTED through the no-country-code arm and `+44 7700 901234` → `447700901234` is REFUSED by the tightened `900xxx` tail. The correction the fold recorded is right and the corrected battery is right.
+
+### Blocking issues
+
+**1. Task 12 prescribes `test_wall_membership_is_closed_by_running_each_walls_predicate` in `tests/test_fixture_vault.py`, and this repository already ships a top-level test of exactly that name — so the item's own uniqueness wall is RED by construction, and Task 12's `verify:` declaration does not resolve.** `tests/test_name_gate_wall.py:1057` is `def test_wall_membership_is_closed_by_running_each_walls_predicate():`, WI-022's Task 16 verify (`docs/write-door-bypasses.md:4593` names it as that task's `verify:` line), and its body at `:1066-1074` calls `_check_walls_a_b_and_c`, `_check_wall_d`, `_check_wall_e`, `_check_the_ast_capability_stays_single_homed` and `_check_the_loud_fail_write_universe_in_the_removal_direction`. That is the same module `## Design` §11 W-1 cites by symbol and the same helper W-1 anchors on, one function above the anchor. Three concrete consequences, all inside this item's own machinery rather than hypothetical:
+
+- `check_module` (`tests/test_ac_interpreter.py:76-87`) matches `f"def {check}("` as a substring over every `tests/test_*.py` and RAISES unless exactly one file matches. Task 12's own derived obligation is "for every top-level `def test_` this item's write targets define — read from those modules' own source at test time — `check_module` must resolve it to exactly one `tests/test_*.py`". `tests/test_fixture_vault.py` is a write target and would define this name, so that assertion raises with `resolves to 2 module(s)` — Task 12 fails on its own predicate, over its own file.
+- The conveyor's `specced -> ready` / `building -> done` verify-declaration rule (D10b) resolves a checked task's `verify:` names by the same uniqueness rule. Task 12's declaration leads with this name, so it resolves to two modules rather than one.
+- §10 P-6 states the rule and states it correctly — "each check name resolves to exactly ONE `tests/test_*.py` … the rule binds more than the five … `tests/test_fixture_vault.py` gains the five checks plus Task 2's binding test, Task 9's extractor battery and Task 12's own two tests" — and the plan then breaks it in the only place the tree could collide. P-6's own sentence "appear as a top-level `def` nowhere else" is asserted for the five AC names and never checked for the rest.
+
+**Fix:** rename this item's test to something the tree does not already carry — `test_this_items_wall_membership_is_closed_by_running_each_predicate`, say, or anything naming this item — in Task 12's body and in its `verify:` line, and add one clause to P-6 saying the uniqueness obligation was checked against the tree's EXISTING top-level `def test_` set and not only within this item's own additions, because a name is only unique relative to what is already there. It costs one identifier now; unfixed it is a red on the item's last task with the remedy sitting in another item's module, which `## Scope Boundary` correctly forbids touching. Note also that the collision is not merely lexical: WI-022's function is the same CONCEPT (run every standing wall's predicate over the item's final text), so a reader landing on either one will have to work out which item's walls it grades — the rename should say whose.
+
+### Non-blocking notes
+
+- **Task 4 calls the write door with a directory where the signature wants a file path.** Task 4's leg (c) reads `write_markdown_file(<fresh dir>, frontmatter=<that specimen's declared frontmatter>)`, but `writer.py:160-169` takes `file_path` first and `Path(file_path)` at `:205` is the note's own path — §5.3 gets this right with `write_markdown_file(fresh_dir / filename, entity=doc.entity)`. Both call shapes are legal (the `frontmatter=` arm is `writer.py:234-238`, and I confirmed the name refusal at `:349-365` is reached from it too, so AC-1(c)'s `NameGateRefusal` really does fire on that arm), so this is one word in Task 4 rather than a design question.
+- **Task 12's W-8 and W-14 arms name no callable, unlike its W-1 and W-15 arms.** "The repo-wide markdown scan must return zero offenders over `tests/fixtures/vault/`" has no shipped public predicate — the builder has to import the private `_scanned_markdown_files` (`tests/test_vault_path_required.py:421`) and `NO_ARG_CONSTRUCTION` (`:382`) — and "pytest must collect no corpus file" has no predicate at all, only `pyproject.toml:41-43`'s configuration to reason from. Both are satisfiable and neither is a judgment call, but the task's own rule is "CALL that wall's own shipped predicate rather than reasoning about which shapes match", and two of its six rows cannot be discharged that way as written.
+
+### Carried-forward notes
+
+- **Architect round 10, note 2** (AC-4's "returns BY NAME rather than as re-spelled literals" is prose the syntax scan's first arm cannot discriminate, since it resolves a module-level `str` Name and a bare literal alike) — still OPEN and re-deferred for the same stated reason: §4 prescribes the by-name form and §10 P-2 routes the settling clause to the one-time pre-origination edit, where it costs nothing and where the criteria are still drafts. The safety property is unaffected under either spelling.
+- **Architect round 10, note 3** (this document should use the project's rounds drawer) — still PARTIALLY actioned, and the gap has grown again. `docs/vault-fixtures-rounds.md` exists with the `### Archived Rounds` pointer, and I re-confirmed the drawer is harmless to AC-3(iv) (fence-scoped) and to Task 12's `criterion_checks` pin (which reads this document only, and which I re-ran). The live document is now ~4,600 lines carrying architect rounds 6, 8, 9 and 10, red-team round 9, the data audit and three spec reviews inline; the conductor act the note asks for is still unfinished.
+- **Round 2's three non-blocking notes** (Task 6 reading as demanding a `Verdict` for an ABSENT class; §3's unused `unicodedata`; Task 9's real-looking planted identifiers) — all CLOSED, each verified rather than taken from the fold: Task 6 now carries the `MEASURED` qualifier with §9.4's `empty` case named as why it is exercised rather than decorative; §3 states `unicodedata`'s absence as the manifest module's boundary and P-7 splits the stdlib surface across the two modules; and Task 9 replaced `naomi@speechmatics.com` with `t.kelmarra@voxleaf.co` and `+44 7911 123456` with Ofcom's reserved `+44 20 7946 0958`, keeping the package's own declared name specimens with the reading recorded — which is the right call, since `tests/test_name_validation.py:363`, `:377`, `:442`, `:446` and `tests/test_name_cleaning.py:35` already commit every one of them.
+
+### Bar check
+
+Walked every check of `docs/spec-quality-bar.md`. Satisfied: Check 2 (§10's P-1…P-9 enumerate the prerequisites, the trust boundary, the WI-300 ordering and the atomic-landing question against the PRE-DRIVE floor — P-3's claim that the census participates in no bijection the floor enforces is right, the only repo-wide markdown scan excludes `docs` at `tests/test_vault_path_required.py:387` and the only two doc-naming modules name other files), Check 4 (all ten categories resolved, `OPEN: None`, and every resolved rule now carries an exercising assertion), Check 6 (WI-235's shape controls are Task 2's two planted batteries and Task 9's shape + near-miss batteries, all driving the live predicate OBJECTS; WI-278's arm is declared per reader with the `CORPUS_COUPLING:` line and Task 12's third read takes the same arm through the shipped `criterion_checks`; WI-173 correctly does not fire on an item whose warrant is absence), Check 7, Check 9 (ten rows, R9 and R10 carrying rounds 1 and 2's findings), Check 10 (five well-formed fences, all `kind: test`, no `kind: command` and so no unsandboxed-shell exposure), Check 11 (D-1…D-9; I re-read D-5, D-6, D-8 and D-9's artifacts here and each supports its specific claim — D-9's hex arithmetic is arithmetic and reproduces). Check 12 does not fire: the ACs are drafts and no `ac-signoff` fence exists. Check 5 carries the blocking finding — twelve canonical `- [ ] **Task N — …**` definitions with unique contiguous ordinals and a well-formed lowercase `verify:` declaration each (ten `test_` arms, one `baseline`, one `hand-run`, each exception with its reason, no `verify:` a command and none writing), but Task 12's declaration leads with a name that resolves to two modules.
+
+**Write-Targets coverage (WI-132), run task by task.** Task 2 → `obsidian_schemas/repositories/base.py`, `tests/derivations.py`, `tests/test_fixture_vault.py`; Task 3 → `tests/fixtures/vault`; Tasks 4–9 → `tests/fixture_vault.py`, `tests/test_fixture_vault.py`; Task 10 → `tests/test_parser.py`, `tests/test_writer.py`, `tests/test_repositories.py`; Task 11 → `tests/test_loud_fail_load.py`, `tests/test_name_gate.py`; Task 12 → `tests/test_fixture_vault.py`. Every one is declared, no fence declares a path no task writes, and `tests/ac_interpreter.py` / `tests/test_ac_interpreter.py` are correctly READ-only and on the unchanged list. Every declared path is inside `write_authority` (`pipeline-runners.yaml:34-38`), so D7b holds and the WI-290 selector reads the real touch surface. **And the rename this round asks for adds no write target** — `tests/test_name_gate_wall.py` stays unwritten, which is the arm to take, because repointing the collision from that side would edit another item's shipped wall.
+
+**The conscious-pin sweep found no moved pin**, re-run rather than inherited: `tests/test_concurrent_access.py:1077`/`:1085`/`:1088`/`:1089`, `tests/test_name_gate_wall.py:1161`'s `len(sites) == 8` over `person.py`, and `tests/test_loud_fail_harness.py:88`'s `len(six) == 6` are each unmoved by a frozenset, three string constants, two new scans and three repointed literals — and §4's decision not to join the `six` dict is correct against that module's own required-subset sentence at `:18-20`, which I read.
+
+There is no `## Threat Model` on this document — confirmed against the section list, as §10 P-9 states — so no `kind: required` mitigation is outstanding and the absence of `## Mitigation Folds` is correct.
+
+### Build-runner dry-run
+
+Walked the Implementation Plan top-to-bottom as the builder. The precondition abort gate remains the strongest thing in the plan, and Tasks 1–11 each name their files, their insertion points and a runnable check; §1.2's grammar, §1.3's six rules, §3's `LOADABLE` arithmetic, §5.1/§5.2's two walks, §5.4's ownership table and §6.1's extractor leave no decision open. I traced §5.4's ownership table against `base.py:258-275` once more and it is the code's behaviour; I traced Task 4's `frontmatter=` call through `writer.py:229-253` into `name_gate.py:349-365` and confirmed the refusal does not depend on `whole_record`, so AC-1(c)'s planted discriminator really fires.
+
+Three questions a cold-start builder would ask. The first is the finding: *"Task 12 tells me to add `test_wall_membership_is_closed_by_running_each_walls_predicate`, and `tests/test_name_gate_wall.py:1057` already has one — do I rename mine, rename theirs, or is the plan telling me to extend the existing test?"* The spec answers none of the three, and two of the arms are forbidden by `## Scope Boundary`. The other two the document does answer, and I record them so the next reader can see they were asked: *"Task 12 says call each wall's own shipped predicate — what do I call for W-8 and W-14?"* (the second non-blocking note; the private names are importable and the intent is unambiguous), and *"does `run_foreign`'s child really carry the `[ac_interpreter]` marker when the check name does not exist?"* (yes — the marker is written before the `os.execve` at `tests/ac_interpreter.py:150-155`, so it survives the replacement, which is why the shipped `:126-138` control passes today).
+
+```verdict
+gate: spec-reviewer
+verdict: REVISE
+date: 2026-09-07
+model: claude-opus-5
+targets: Task 12
+prior: held
+basis: original
+findings: 1/3
+note: Round 2's three findings all close and each closure was verified against the tree rather than the fold's prose — AC-5(a)/§6.4/Task 8/Edge Cases/R10 now state the hex-excision presence domain as the REACH in one wording; Task 12 and §11 W-16 now assert the delegation marker beside exit 0 and add the near-miss, both copied from tests/test_ac_interpreter.py:116-120 and :126-138 which I read; and the regression enumeration's ten importers of tests/derivations.py reproduce exactly under an independent grep. Round 2's three non-blocking notes close too. ONE blocking finding, and unlike rounds 1 and 2 it is not in folded material: Task 12 prescribes adding `test_wall_membership_is_closed_by_running_each_walls_predicate` to tests/test_fixture_vault.py, and tests/test_name_gate_wall.py:1057 already defines a top-level test of exactly that name (WI-022's Task 16 verify, named at docs/write-door-bypasses.md:4593) — one function above the very helper §11 W-1 anchors on. check_module (tests/test_ac_interpreter.py:76-87) is a `def <name>(` substring scan over tests/test_*.py that RAISES unless exactly one module matches, so Task 12's own derived uniqueness assertion fails on Task 12's own file, and Task 12's verify: declaration resolves to two modules under the conveyor's D10b rule — while §10 P-6 states the uniqueness rule correctly and checks it only for the five AC names. Fix is a rename inside this item plus one clause in P-6 saying the check was run against the tree's existing top-level def test_ set; repointing from the other side is forbidden by `## Scope Boundary`. Two non-blocking notes (Task 4 hands write_markdown_file a directory where writer.py:160-169 wants a file path, which §5.3 gets right; Task 12's W-8 and W-14 arms name no callable where its own rule says call the shipped predicate). All twelve tasks carry well-formed verify declarations, Write-Targets coverage is exact task by task, no count pin moves, Task 9's corrected phone and extractor batteries were re-derived by hand and are right, and nothing here touches the approach, the census sequencing, or AC-5's pending sufficiency question.
+```
+
+## AC Sign-off
+
+```verdict
+gate: ac-signoff
+verdict: PROMOTE
+date: 2026-09-08
+reviewer: dave
+channel: conversational
+signed_at: 2026-09-08T07:44:54+01:00
+provenance: attested
+ac_hash: 3d15772495dc
+intent_hash: a488ac920361
+ac_hash_AC-1: ec400d9c340f
+ac_hash_AC-2: 1b36bfaf4234
+ac_hash_AC-3: 1ec178617d40
+ac_hash_AC-4: a82228579211
+ac_hash_AC-5: 1a884834e329
+artifact: docs/spec-reviews/WI-016-dave-review-2026-09-08-2.md
+```
+
+## Threat Model — 2026-09-08
+
+**Recommendation: REVISE — return to spec writer**
+
+Cold-start, first threat model on this item — §10 P-9's "no `## Threat Model` section exists" was true
+when written and this section is what ends it. Read from line 1 in full, plus
+`docs/vault-shape-census.md` end to end, plus every code cite below re-read at its line in this
+worktree rather than inherited from any gate's prose. Rulings I route against rather than
+re-litigate: the AC-5 structural-wall-vs-middle-path sufficiency question is Dave's and is recorded
+above for sign-off; the census's sequencing is settled by the data audit; D1's amendment, the
+byte-copy rule and the derived sweeps have drawn no finding in nineteen gate rounds and draw none
+here. **The one blocking finding is not in any of that.** It is in the one place nineteen rounds of
+enumeration review never pointed the wall: the wall's own REACH.
+
+### Trigger check
+
+Four triggers fire. *Persists data* — a ~50-note corpus, a manifest module and a census document, all
+committed. *Filesystem operations on user-owned files* — `materialize_vault(dest)` writes into a
+caller-supplied directory. *Crosses a trust boundary* — §10 P-8 names it exactly: "real personal data
+crossing INTO permanent git history". *Handles input from an external source* — the live Obsidian
+vault, read by the conductor and transcribed into a committed artifact.
+
+Not fired: no secrets, credentials, tokens or OAuth scopes; no MCP scope or tool permission; no
+network and no outbound message; no access-control change. `## Acceptance Criteria` carries five
+fences, every one `kind: test` and none `kind: command`, so the battery opens no unsandboxed shell.
+
+### STRIDE review
+
+**Spoofing.** No authentication boundary anywhere in this item. The nearest identity claim is
+`_owns`/`_note_skip`'s per-repository ownership of a skipped note (`repositories/base.py:258-275`),
+which is a dispatch rule and not an authorisation one. No finding.
+
+**Tampering.** Two artifacts are ground truth for assertions the hermetic suite cannot re-derive, and
+both are now frozen by a mechanism I verified rather than took on trust. The corpus: AC-1(a)'s
+`sha256` over NUL-framed (name, bytes) pairs, recomputed at test time. The census: AC-3(iv) and
+AC-5(c) both assert `sha256` over its bytes against `CENSUS_DIGEST`, and the load-bearing part is the
+digest's HOME — `pipeline-runners.yaml:34-38` grants `docs/**` in full with no carve-out (P7, re-read
+here), so a constant in `tests/fixture_vault.py` would be updated in the same commit that edits the
+file it digests. Putting it in the signed criterion is the right placement and it is now actually
+load-bearing rather than prospective: the `ac-signoff` fence directly above carries
+`ac_hash_AC-3: eab359ff9e39` alongside the whole-section `ac_hash`, so AC-3's text is byte-frozen by
+the same signature. AC-5(c) re-asserting fixity rather than inheriting it from AC-3 is correct — each
+`check:` is its own directly-invoked function (`tests/support.py:1-19`) with no shared setup. No
+finding.
+
+**Repudiation.** Every census row carries the command run and its verbatim stdout under a counting
+constraint, so a later reader re-runs the claim rather than trusting it; Tasks 1 and 12 bracket the
+build with recorded floor runs. Worth recording because it closes a leak channel a reviewer would
+otherwise have to check: `SkippedNote.detail` is `bounded_detail(error)` and explicitly "never the raw
+rendering" (`repositories/base.py:38`), so a malformed specimen's contents do not reach a WARNING line
+when AC-4 loads the corpus through four repositories. No finding.
+
+**Information disclosure.** This is the item's whole subject and it is where the blocking finding is —
+below.
+
+**Denial of service.** Nothing applies. No network, no live-vault read, and no subprocess in any of
+the five `kind: test` checks (§10 P-4, whose `ensure_project_interpreter` is an `os.execve` and not a
+spawn, `tests/ac_interpreter.py:150-155`). Byte copy of ~50 small files is microseconds; R8 already
+names the floor's wall-clock as the instrument and Task 12 records it beside Task 1's baseline. No
+finding.
+
+**Elevation of privilege.** `materialize_vault` (§5.1) is the only thing in this item that writes
+outside the repo, and I walked it as an attacker would. It is `dest.mkdir(parents=True,
+exist_ok=True)` then `(dest / src.name).write_bytes(src.read_bytes())` over
+`sorted(CORPUS_ROOT.iterdir())` filtered to files — `src.name` is a bare filename by construction, so
+no member can traverse out of `dest`, and §1.1's flat-directory rule means there is no recursive walk
+to traverse with. There is no `rmtree`, no `unlink`, no `glob`-and-delete, and AC-1(b) asserts
+positively that a foreign file planted in `dest` SURVIVES a second call — which is the assertion that
+would go RED if someone later added a "clean the destination first" branch, and it is the right shape
+for a helper callers hand a directory to. No new file mode is set (`shutil.copy2` is explicitly
+rejected), and §1.3 rule 4 rules out the `chmod`-based unreadable specimen. No finding.
+
+### Blocking issue
+
+**1. `docs/vault-shape-census.md` carries real live-vault name values in its prose, AC-5's declared
+reach excludes that file by construction, and AC-3(iv)'s digest freezes the leak rather than closing
+it.**
+
+*The measurement, taken here rather than reasoned about.* A grep for the three distinctive live tokens (redacted 2026-09-08 by the conductor; see the round-2 rule) over the entire worktree returns **exactly one file — `docs/vault-shape-census.md`**.
+Three prose bullets beneath the class-table rows carry values read verbatim off live person notes:
+
+- `:250` — "`postal_address_in_name`: MEASURED, one live note — `<the live postal-address value — redacted 2026-09-08 by the conductor at the threat model's round-2 instruction; location: census row postal_address_in_name, character profile: number, street, kind-ordinal floor-suite digit>`".
+  That is the live note's stored `name:` value: a real London street address with floor and suite
+  fused, sitting in a contact's identity field.
+- `:259` — "a run-together stem (`<the live run-together stem — redacted 2026-09-08 by the conductor; location: census row stem_name_divergence>`)". That is a real person's name with the spaces
+  removed, which is a transformation and not an anonymisation.
+
+*What is NOT part of this finding, stated so the fix is scoped and not over-scoped.* The other
+real-looking names in the same bullets — `Rosie Samuels` (`:237`), `Naomi Pavie` and `Lauren King`
+(`:247`), `Owen O'Loan` (`:258`) — are **already committed in this tree** and were before this item
+existed: `obsidian_schemas/name_validation.py:205`, `obsidian_schemas/name_cleaning.py:76-81`,
+`tests/test_name_validation.py:106`, `:229`, `:375`, `docs/filename-name-divergence-repair.md:20-21`.
+Task 9 records the reading that governs them — "re-typing a literal already committed in this tree
+adds no personal data … introducing a new real-looking identifier is what it forbids" — and I route
+against it. The finding is the **two novel values**, which that same sentence forbids.
+
+*Why this is a gap in the SPEC and not merely a slip in the artifact.* AC-5 states its reach in its
+first sentence: "every file under `tests/fixtures/vault/` PLUS `tests/fixture_vault.py`". The census
+is neither. `## Design` §2 then puts the artifact's prose permanently outside any machine check —
+"Everything else in the file … is prose the conductor writes and a human reads. Nothing in the suite
+parses it, and nothing in the suite may start to" — and `## Write Targets`'s charge that "EVERY
+PSEUDONYMOUS SPECIMEN'S IDENTITY-POSITION TOKENS MUST BE CONSTRUCTED STRINGS" is scoped by its own
+words to the class table's `specimen` column and the pool table. So the conductor wrote real names
+into the one part of the artifact the spec left uncharged, exactly as the spec permits. Nothing else
+covers it either: the tree's only repo-wide markdown scan sets
+`DOC_SCAN_EXCLUDED = {".git", ".venv", "docs", "state", "node_modules"}`
+(`tests/test_vault_path_required.py:387`, read here) and is a `\w+Repository\(\s*\)` scan in any case.
+**There is no wall of any kind over `docs/` in this repository.**
+
+*Why it is blocking rather than a note, weighed against the counter-arguments.* `## Intent` promises
+"None of Dave's contacts' real names, emails or numbers go into this repository to get it", and
+`## Scope Boundary` promises this item "declines to add more" real-looking data than P10's existing
+35. The census is this item's own artifact, added one day ago, and it breaks both promises with two
+values a constructed profile would have carried identically — every one of the three prose bullets
+already sits beside a fully constructed specimen in its own fence row (`Dave  Marrowyn Fennwick`,
+`25 Corvallen Ravensby-3rd Pellworth-Wexlund 8`, `stem=@Quillam Ostrivane.md name=Quillam Ostrivane
+Lumbrek`), so the real value adds no evidentiary weight the `count`, `command` and `stdout` do not
+already carry. R1 rates this exact outcome "Low / **irreversible**" and this package installs `-e`
+into three consumer repos with permanent history. And the second half is what makes it structural
+rather than a one-off: AC-3(iv) and AC-5(c) *digest* this file, so once the build lands, the leak is
+not merely permanent — it is **asserted immutable by two signed criteria**, and correcting it later
+reddens both.
+
+*Why it cannot be discharged as a fold.* The mechanical route is unavailable in both directions.
+`## Scope Boundary` puts `docs/vault-shape-census.md` on the unchanged list — "the conductor's
+precondition, which the builder READS and never writes" — and the Implementation Plan's precondition
+gate says "Do NOT author or amend a single byte of the census". So no Implementation-Plan task can
+carry the remediation; a `landed: Task N` naming one would be false. The remediation is a conductor
+act (re-author the three prose bullets against the constructed specimens already beside them), then a
+re-taken digest, then the D4b re-sign `## Write Targets` itself predicts: "any correction AFTER
+signature costs a D4b re-sign". That cost is real and it is the reason to raise this now rather than
+after origination, when the bytes are in history instead of in a draft.
+
+### Suggested adjustments
+
+1. **Conductor act, before origination.** Replace the two novel real values in the census's prose with
+   the constructed specimens already declared in their own rows, and sweep the remaining prose for any
+   other value read off a live note. Then re-take the digest and re-fill AC-3(iv)'s `CENSUS_DIGEST` at
+   the same one-time edit §10 P-2 already describes. If Dave prefers to rule the two values acceptable
+   rather than pay the re-sign, that is his call to make and not a gate's — but it should be a ruling
+   on the record beside the AC-5 sufficiency question, not a default.
+2. **Close the class, not the two instances** — M1 and M2 below. The durable half is that the artifact
+   the privacy wall depends on is itself inside the wall; without it the next census refresh (R7 names
+   one as certain, eventually) reopens this with nothing to notice it.
+3. **One sentence in `## Design` §2** saying the artifact's prose is outside the suite's *parser* but
+   inside the suite's *identity scan*, so the "nothing in the suite may start to" rule is not read as
+   forbidding M1.
+
+### Notes (non-blocking)
+
+- **`tests/test_fixture_vault.py` is outside AC-5's reach and is the module that plants the most string
+  literals.** Task 9 says so in as many words — "the ONE new module AC-5's reach deliberately excludes
+  — so nothing walls what is typed here" — and handles the two known instances by hand with a stated
+  rule. I am **not** asking for a wall there and the reason is this document's own history: leg (a)'s
+  battery deliberately contains non-reserved REFUSED fixtures (`+44 20 7946 0958`,
+  `t.kelmarra@voxleaf.co`, `https://linkedin.com/in/someone`), so extending the scan to that module is
+  RED by construction and closing it would need a fourth declared exemption — round 4's removed
+  generator rebuilt on purpose. The proportionate move is to promote Task 9's rule from two corrected
+  fixtures to a standing authoring constraint on the module, one line in `## Scope Boundary`.
+- **The census's Method section records the live vault's absolute path** (`:17`,
+  `/Users/davewascha/Documents/Obsidian/DaveRemoteVault`). AC-5(e) forbids `/Users/` in the corpus and
+  the manifest and does not reach here. Recording rather than folding: it is a machine-local path
+  already present throughout this repo's docs and `CLAUDE.md`, it names no person, and it is what makes
+  every recorded command re-runnable, which is the artifact's whole evidentiary value.
+
+```verdict
+gate: threat-modeler
+verdict: REVISE
+date: 2026-09-08
+model: claude-opus-5
+targets: AC-5, Task 8, #write-targets
+prior: none
+basis: original
+findings: 1/3
+note: First threat model on this item (§10 P-9 confirmed none existed). Triggers fire on persistence, filesystem writes, external-source input and P-8's own trust boundary; spoofing, repudiation, DoS and EoP each drew no finding, and materialize_vault survives an attacker read (bare src.name into dest, no rmtree, AC-1(b) asserts a foreign file survives). ONE blocking finding, and it is in the wall's REACH rather than in any enumeration: docs/vault-shape-census.md carries real live-vault name values in its prose — `<the live postal-address value — redacted 2026-09-08 by the conductor at the threat model's round-2 instruction; location: census row postal_address_in_name, character profile: number, street, kind-ordinal floor-suite digit>` (:250) and `<the live run-together stem — redacted 2026-09-08 by the conductor; location: census row stem_name_divergence>` (:259), each measured here as occurring in exactly ONE file in the whole worktree, so both are NEW to this repository — while AC-5's declared reach is `tests/fixtures/vault/` plus `tests/fixture_vault.py` and excludes the census by construction, `## Design` §2 puts its prose permanently outside any suite check, `## Write Targets`'s constructed-token charge is scoped to the specimen and pool columns, and the tree's only repo-wide markdown scan excludes docs entirely (tests/test_vault_path_required.py:387). The other real names in the same bullets (Naomi Pavie, Lauren King, Rosie Samuels, Owen O'Loan) are pre-existing tree literals and are NOT part of the finding, per Task 9's recorded reading. It is a gap rather than a fold because no Implementation-Plan task can carry the remediation — `## Scope Boundary` and the precondition gate both forbid the builder touching the census — so it needs a conductor act plus a re-taken digest plus the D4b re-sign `## Write Targets` itself predicts, which is cheap now and permanent after origination: AC-3(iv) and AC-5(c) digest this file, so the build does not merely ship the leak, it asserts it immutable. M1 lands the durable half in Task 8 (the census's own bytes join the identity closure it certifies) and M2 lands the early half in Task 3's abort gate. Two non-blocking notes; the approach, the byte-copy rule, the derived sweeps and AC-5's pending sufficiency question are untouched.
+```
+
+```mitigation
+kind: required
+id: M1
+desc: Every identity-shaped token in docs/vault-shape-census.md's own bytes — its prose as well as its fence rows — is asserted to be in that artifact's certified pool table, CONNECTIVE_SET, or an admitted _GENERIC_ORG_SUFFIXES member, with any residue in a declared allowlist asserted DISJOINT from the pool table, so the artifact the privacy wall depends on is itself inside the wall.
+landed: Task 8
+```
+
+```mitigation
+kind: required
+id: M2
+desc: The Implementation Plan's precondition abort gate additionally REFUSES when docs/vault-shape-census.md carries an identity-position token its own pool table does not certify, so a leaking census stops the build before any corpus byte is authored rather than at the last task.
+landed: Task 3
+```
+
+## Spec Review — 2026-09-08 (round 4)
+
+**Recommendation: REVISE — return to spec writer (gaps to fix)**
+
+Rulings on record: the AC-5 structural-wall-vs-middle-path sufficiency question is Dave's and is recorded above for sign-off; the census's absence from HEAD is SEQUENCING rather than a grounding gap (data audit, 2026-09-07); WI-020's specification-altitude and fold-and-close closures — I route against all four and nothing below re-litigates any of them.
+
+Read from line 1 in full, plus `docs/vault-shape-census.md` end to end, then walked the bar from scratch rather than against round 3's gap list. Round 3's one finding is CLOSED and I verified the closure against the tree rather than against the fold's prose: a `^def <name>(` sweep over every `tests/test_*.py` returns `test_wall_membership_is_closed_by_running_each_walls_predicate` at `tests/test_name_gate_wall.py:1057` and **zero** occurrences of the renamed `test_the_fixture_vault_files_close_their_wall_memberships_by_running_each_predicate`, and zero for all twelve of this item's other new top-level test names. Round 3's two non-blocking notes close too (Task 4 now says the first argument is the note's own FILE path and traces the `frontmatter=` refusal to `name_gate.py:349-365` / `:142`; Task 12's W-8 arm now names `_scanned_markdown_files` and `NO_ARG_CONSTRUCTION` and its W-14 row declares its absence of a callable with the `fnmatch` arm and a positive control). `## Verification`'s ten importers of `tests/derivations.py` reproduce exactly under an independent grep.
+
+**Two things changed under this document since round 3, and all three findings below are about them.** Dave signed (`ac-signoff`, 2026-09-08T01:14:48+01:00, `ac_hash 2696ecd667a7` plus five per-AC hashes), so the criteria are FROZEN and no correction is a word in a draft any more; and the first `## Threat Model` ran and returned REVISE with two `kind: required` mitigations. Findings 2 and 3 are not in folded material and not in the machinery: they are ORIGINAL criterion text — AC-1(c) and AC-5(b), the two clauses this document has been proudest of, AC-1 having drawn no finding in eleven rounds — meeting the census's ACTUAL ROWS for the first time. Eleven gate rounds verified this document against the CODE; none walked a signed criterion against the landed artifact's rulings, and that is the one read that produces both.
+
+### Citation verification
+
+Every `file:line` this round leans on was read at its cited lines in this worktree. **All verified ✓**, none inherited.
+
+Re-read and confirmed exact: `obsidian_schemas/repositories/base.py:27-38` (`SkippedNote`, the `#` type comment at `:37` reading `reason: str      # "malformed-frontmatter" | "schema-drift" | "unreadable"`) and `:41-47` (the three bare return literals at `:44`, `:46`, `:47`). `obsidian_schemas/name_cleaning.py:46` (`^(Dave|Me|My)\s*[-/]\s+`), `:54` (`^(Dave|Me|My)\s*[→⟶⇒➜↦⇨]\s*`), `:55` (`^(Me|My)\s+to\s+`, no `Dave` alternative), `:56` (`^z+Archived\s*-\s*`), `:57` (`\s+unknown\s+contact\b`), `:58` (`_GENERIC_ORG_SUFFIXES`, exactly the eight AC-5(b) names), all five carrying `re.IGNORECASE`. `obsidian_schemas/name_validation.py` — every `branch_id=` one by one: `:192`, `:203`, `:215`, `:227`, `:239`, `:250`, `:261`, `:272`, `:284`, `:301` for `TIER1_BRANCHES` (ten) and `:373`, `:385`, `:398`, `:414`, `:429` for `COMPANY_TIER1_BRANCHES` (five), the five-in-both set being exactly the one AC-3 names. `obsidian_schemas/name_gate.py:319` (the non-person arm's condition), `:329-343` (the company judgement inside it, `validate_strict` against `COMPANY_TIER1_BRANCHES` for its raise behaviour with the repaired string discarded), `:344` (`return dict(introduced)`), `:355-358` (`allow_phone_sentinel` = `bool(introduced.get("phones")) and name_text.strip().lstrip("+").isdigit()`), `:361-365`. `obsidian_schemas/writer.py:160-169` — the signature takes `file_path` first and BOTH `entity=` and `frontmatter=`, so Task 4's corrected call shape and §5.3's are each legal and now agree. `tests/test_vault_path_required.py:382` (`NO_ARG_CONSTRUCTION = re.compile(r"\w+Repository\(\s*\)")`), `:387` (`DOC_SCAN_EXCLUDED = {".git", ".venv", "docs", "state", "node_modules"}`), `:421-433` (`_scanned_markdown_files`, an `rglob("*.md")` from `REPO_ROOT` with the TMPDIR skip derived from `tempfile.gettempdir()` rather than by directory name — so `tests/fixtures/vault/` IS reached and Task 12's non-vacuity clause is satisfiable), `:451` (`errors="replace"`, with the comment naming exactly why the non-UTF-8 member cannot hide an offender). `tests/test_loud_fail_load.py:167` (`def test_skip_surface_detail_is_bounded(tmp_path, caplog)`), `tests/test_name_gate.py:109`.
+
+`docs/vault-shape-census.md` read in full and structurally counted: sixteen ```census-class fences — the ten `branch_id`s in `TIER1_BRANCHES` declaration order plus the six hand-listed ids AC-3(iii) names — so AC-3's class floor is satisfied in both directions; one ```census-meta with `snapshot: 2026-09-07`; forty ```census-pool rows, every one a single word, none of them `Me`/`My`/`Dave`. **Six rows are MEASURED** (`pure_digit` 2, `diacritics` 6, `hyphenated_surname` 29, `whitespace_damage` 7, `stem_name_divergence` 8, `postal_address_in_name` 1) and **ten are ABSENT with count 0**, including `arrow_connective` and `path_hostile`. Every recorded command emits a count, so assertion (ii)'s non-empty-stdout leg is satisfiable at both statuses. The ONE-or-TWO ruling is recorded (TWO classes) and AC-3's reconciled six ids match the artifact's six exactly.
+
+Two navigational nits, not drift and not blocking: §2's illustrative ```census-meta example shows `snapshot: 2026-09-08` and `vault_notes_company: 2159` where the landed header says `2026-09-07` and `659` (2160 being the whole-vault figure in the prose at `:50`); and `## Approach`'s `base.py:196-198` for the inherited `@*.md` default reads `:195-198` in `## Verified Diagnosis` D-7. Both resolve to the right thing.
+
+### Blocking issues
+
+**1. The threat model's two `kind: required` mitigations are unfolded, there is no `## Mitigation Folds` section, and the conveyor's D8c rule refuses `specced -> ready` on exactly that — so this item cannot advance whatever any gate recommends.** `## Threat Model — 2026-09-08` is the latest (and only) speaking round and closes with `M1` (`landed: Task 8`) and `M2` (`landed: Task 3`). A grep for `M1`/`M2` over this document returns them nowhere outside that section: `## Design` §6.2's identity-position sources are still the three of the pre-threat-model draft, AC-5's reach is still "every file under `tests/fixtures/vault/` PLUS `tests/fixture_vault.py`", Task 8's body still scans that reach and no other, Task 3's precondition gate still checks only fence shape and the digest, and `## Write Targets`'s constructed-token charge is still scoped to the specimen and pool columns. The document's own §10 P-9 states the rule and is now the sentence that fails: it reads "**no `## Threat Model` section exists on this document**, so no `kind: required` mitigation is outstanding and this spec authors no `## Mitigation Folds` section … If a threat-modeler runs before `→ ready`, its required mitigations must be folded into `## Design` and the Implementation Plan and recorded there before the transition." That is the correct instruction and it has not been carried out; three prior spec-review rounds each recorded "there is no `## Threat Model` on this document", and the fourth cannot. **Fix:** fold M1 into `## Design` §6.2/§6.4 and Task 8 and M2 into the Implementation Plan's precondition gate and Task 3, sweep every surface that states the two behaviours (AC-5's reach sentence is signed, so the fold must land in Design/Plan rather than in the criterion — see the note below on what that costs), correct P-9 in place, and write the two `fold` fences under a `## Mitigation Folds` heading with the `desc` copied verbatim from the round above, the exact Design sentence that carries each, the `Task N` ordinal and that task's own work + verify text. I make no judgment here on whether the quoted text will satisfy the mitigations — there is nothing yet to judge.
+
+**2. AC-1(c) requires the corpus to carry an arrow-connective specimen and a path-hostile specimen "named in the manifest as such"; the census rules BOTH classes ABSENT; and AC-3(i)'s reverse direction makes naming either one RED. Both criteria are signed, and this is a build-stopper with no in-cage remedy.** Measured here rather than reasoned about: `docs/vault-shape-census.md:80-87` gives `arrow_connective` `count: 0` / `status: ABSENT` and `:113-120` gives `path_hostile` `count: 0` / `status: ABSENT`. AC-1(c) reads "the corpus contains at least one note whose stored `name:` matches a live Tier-1 branch (an arrow-connective descriptor and a path-hostile name are both present, **named in the manifest as such**)", and Task 4's leg (c) repeats it — "the corpus holds at least one arrow-connective and one path-hostile `name:` specimen NAMED as such in the manifest". The only manifest field that names a note's class is §3's `NoteSpec.shape_classes` ("census class ids this note is the specimen for"), so the idiomatic build writes `shape_classes=("arrow_connective",)` and `("path_hostile",)`. AC-3(i) then fails: "`{class id : status == MEASURED}` EQUALS the manifest's covered classes, both directions — … **a specimen belonging to no measured census class is RED**." The covered set becomes the six MEASURED ids plus two ABSENT ones and the equality breaks. The other arm — declaring both notes with `shape_classes=()` — leaves AC-1(c)'s "named as such" unsatisfied by anything the manifest declares, so the item is buildable two ways and one way is RED (the WI-144 shape, and the same criterion-versus-code fork as round 1's "repo-relative" and round 2's per-file presence assertion, one artifact over). Three further surfaces state the same behaviour and would need the same answer: `## Verification` mutation 4 ("`NameGateRefusal` on the arrow-connective and path-hostile members, AC-1(c) RED"), `### Examples of done`'s third paragraph, and `## Design` §5.1's byte-copy argument. **Fix, and it does not need a re-sign:** state in §3 and Task 4 that the two AC-1(c) discriminator members carry `shape_classes = ()` and are named by a DEDICATED manifest field (a `discriminator: str` on `NoteSpec`, or `verdict.kind == "refusal"` with the branch's `pattern`), so "named in the manifest as such" is satisfied without entering AC-3(i)'s covered-class set — and say so in §1.3's composition rules, which today require a specimen only for MEASURED classes and are silent about these two mandatory non-class members. If instead the writer wants the classes named, that is an AC-1 or AC-3 edit and costs a D4b re-sign.
+
+**3. The census's pool table certifies identity tokens at WORD granularity while AC-5(b)'s pinned run rule emits hyphen-joined COMPOUND tokens — so two of the six MEASURED specimens the corpus is obliged to carry cannot satisfy AC-5(b) and AC-5(c) at all.** Derived here by hand through §6.1's own `_runs`/`identity_tokens`, not reasoned about. A run is "a MAXIMAL contiguous span of characters drawn from the class {Unicode letters, combining marks, `'`, `-`} … NEVER restarted at an internal capital", and Task 9's own battery confirms the consequence by asserting `Anne-Sophie Legrain` → `{Anne-Sophie, Legrain}`. Applied to the census's specimens:
+
+- `hyphenated_surname` (`:185`), specimen `Oskaline Brenvik-Tarnquil` → tokens `{Oskaline, Brenvik-Tarnquil}`. The pool table certifies `Oskaline` (`:300`), `Brenvik` (`:293`) and `Tarnquil` (`:286`) — and **not** `Brenvik-Tarnquil`.
+- `postal_address_in_name` (`:229`), specimen `25 Corvallen Ravensby-3rd Pellworth-Wexlund 8` → tokens `{Corvallen, Ravensby, Pellworth-Wexlund}` (the `-` before `3` is trimmed, `rd` begins lowercase and yields nothing). The table certifies `Corvallen` (`:370`), `Ravensby` (`:538`), `Pellworth` (`:552`) and `Wexlund` (`:377`) — and **not** `Pellworth-Wexlund`.
+
+The other four MEASURED specimens are clean under the same walk (`Søréna Kelmarrä`, `Dave  Marrowyn Fennwick` with `Dave` a `CONNECTIVE_SET` member, `Quillam Ostrivane Lumbrek`, `+447700900123` yielding no token). So the collision is exactly the two hyphen-fused profiles — and both classes are MEASURED, so §1.3 rule 2 and AC-3(i) both OBLIGE a specimen carrying that character profile, and dropping the hyphen destroys the profile the specimen exists to carry. AC-5(b) then demands the compound be in `NAME_POOL`, AC-5(c) demands `NAME_POOL ⊆` the pool table, `## Scope Boundary` forbids the builder writing the census, and AC-3(iv)/AC-5(c) digest it — so the build reddens on a wholly correct corpus with every authorised remedy closed, which is R10's shape one artifact out. The generating cause is in the spec rather than in the artifact: `## Write Targets` charges the conductor that "EVERY PSEUDONYMOUS SPECIMEN'S IDENTITY-POSITION TOKENS MUST BE CONSTRUCTED STRINGS" and that each "needs a pool row exactly as a `name:` does", but never says that a TOKEN is whatever AC-5(b)'s run rule extracts rather than whatever a reader would call a word — and the conductor certified per word, which is the only reading that fence supports. **Fix:** one conductor act in the SAME census pass finding 1's M1 remediation already requires — add pool rows for `Brenvik-Tarnquil` and `Pellworth-Wexlund` (or re-author both specimens so every hyphen-joined compound is itself certified) — plus one sentence in `## Write Targets` and in §6.2 defining a pool row's subject as an extracted token under §6.1's rule, with `Anne-Sophie` given as the worked case. **And the abort-gate half is M2's own clause, so fold them together:** M2 asks Task 3 to refuse "when `docs/vault-shape-census.md` carries an identity-position token its own pool table does not certify" — run through `identity_tokens` that is precisely the check that catches this before a corpus byte is authored, and it catches the leak M1 is about at the same time.
+
+**One consequence of findings 1 and 3 that belongs to the conductor rather than to the writer, stated here because the document prices it and the price has changed.** AC-3(iv)'s `CENSUS_DIGEST` is filled (`sha256:625efeee98c22ca77180b3601a8017096af8e0c30ddcc5d7db7470a4fff70bf9`, taken at `585d639`) and is inside the signed AC-3 fence (`ac_hash_AC-3: eab359ff9e39`). Both remaining conductor acts — the threat model's prose remediation and finding 3's pool rows — change the census's bytes, so each invalidates that literal. `## Write Targets` predicted this exactly ("any correction AFTER signature costs a D4b re-sign"). The cheap route is ONE census re-author covering both, ONE re-taken digest, ONE AC-3 edit and ONE re-sign; the expensive route is two of each.
+
+### Non-blocking notes
+
+- **`## Acceptance Criteria`'s preamble still reads "Draft … **Not yet frozen:** the `ac-signoff` fence is written by `bin/review-spec-helper.py` only after Dave's review".** The fence is now in the document and the frozen text is in `docs/spec-reviews/WI-016-dave-review-2026-09-08.md`. Nothing builds off the sentence, but it is what a later gate reads to decide whether the bar's Check 12 fires, and it now says the opposite of the truth.
+- **Several places still price a correction as free because "these criteria are drafts", and none of them is any more.** AC-1(a) ("fixing it while these criteria are drafts costs one word"), AC-2's `why:`, AC-3's floor-reconciliation paragraph, AC-5(b)'s `CONNECTIVE_SET` instruction and §10 P-2 all describe a pre-origination window that closed at 01:14 on 2026-09-08. P-2 in particular reads as an instruction still to be carried out; it should say it was, name the three things it settled, and state that every remaining criterion correction is now a D4b re-sign — which is the fact findings 2 and 3 turn on.
+- **The `pure_digit` specimen's declared `Verdict` depends on a field the spec does not pin.** `name_gate.py:355-358` sets `allow_phone_sentinel` when `phones` is non-empty and the name is all digits, so a `pure_digit` specimen that also declares `phones` is NOT refused. §5.3 states this narrowing but only for AC-2's GATE-CLEAN predicate; AC-3's per-specimen verdict is where it actually bites now that the census rules `pure_digit` MEASURED with the specimen `+447700900123`. One clause in Task 6 or §5.3 ("the `pure_digit` specimen declares no `phones`, or its declared `Verdict` is `loads` rather than `refusal`") closes it.
+- **`## Approach` and AC-5(b)'s `why:` both argue from "a vault of 2,159 company notes"; the landed census measures 659 live and 2160 whole-vault** (`:41`, `:50`). The argument — that `Ltd` cannot honestly carry a zero-hit row — holds at any of the three numbers, so this is the stated-number-versus-actual-list family with nothing resting on it. Worth one word while the census pass is open, since the source it now has is this item's own artifact.
+
+### Carried-forward notes
+
+- **Architect round 10, note 2** (AC-4's "returns BY NAME rather than as re-spelled literals" is prose the syntax scan's first arm cannot discriminate, since `skip_reason_return_values` resolves a module-level `str` Name and a bare literal alike) — still OPEN, and the deferral's stated remedy has now EXPIRED rather than been taken: §10 P-2 routed it to the one-time pre-origination edit, and that edit is past. It stays non-blocking because §4 and Task 2 prescribe the by-name form explicitly and no safety property depends on the spelling — the wall that matters, `skip_reason_literal_sites`, is unaffected either way. Re-deferred with that correction recorded rather than by oversight.
+- **Architect round 10, note 3** (this document should use the project's rounds drawer) — still PARTIALLY actioned and the gap has grown again. `docs/vault-fixtures-rounds.md` exists with the `### Archived Rounds` pointer, and I re-confirmed the drawer is harmless to AC-3(iv) (fence-scoped) and to Task 12's `criterion_checks` pin (which reads this document only — a grep for the criteria-fence opener over this document still returns exactly five, all inside `## Acceptance Criteria`, so the "exactly 5" pin holds with four spec reviews, a sign-off and a threat model now inline). The live document is ~5,100 lines. The conductor act the note asks for is still unfinished.
+- **Round 3's two non-blocking notes** (Task 4 handing `write_markdown_file` a directory; Task 12's W-8 and W-14 arms naming no callable) — both CLOSED, each verified against the tree rather than taken from the fold: `writer.py:160-169` takes `file_path` first and Task 4 now says so with the `:205` reason, and Task 12 now imports `_scanned_markdown_files` (`:421`) and `NO_ARG_CONSTRUCTION` (`:382`) by name with a non-vacuity clause, and declares W-14's absence of a callable with the `_declared_pytest_python_files()` helper that raises rather than defaults plus a positive control.
+- Rounds 1 and 2's non-blocking notes, the data audit's P10 count and AC red-team round 9's "Nine helpers" — all CLOSED at rounds 2 and 3 and re-confirmed here.
+
+### Bar check
+
+Walked every check of `docs/spec-quality-bar.md`. Satisfied: Check 2 (§10's P-1…P-9 enumerate the prerequisites, the trust boundary, the WI-300 ordering and the atomic-landing question against the PRE-DRIVE floor — P-3's claim that the census participates in no bijection the floor enforces is right, the only repo-wide markdown scan excludes `docs` at `tests/test_vault_path_required.py:387`; P-9 itself carries finding 1), Check 4 (all ten categories resolved, `OPEN: None`, and every resolved rule carries an exercising assertion), Check 5 (twelve canonical `- [ ] **Task N — …**` definitions, ordinals unique and contiguous, every one carrying a well-formed lowercase `verify:` declaration — ten `test_` arms, one `baseline` and one `hand-run` each with its reason, no `verify:` a command and none writing; every `verify:` name now resolves to exactly one module or is a name this item creates in a declared write target), Check 6 (WI-235's shape controls are Task 2's two planted batteries and Task 9's shape, phone and near-miss batteries, all driving the live predicate OBJECTS; WI-278's arm is declared per reader with the `CORPUS_COUPLING:` line; WI-173 correctly does not fire on an item whose warrant is absence), Check 7, Check 9 (ten rows, R9 and R10 carrying rounds 1 and 2's findings — R1's cell is now falsified by the threat model's finding and moves with fold M1), Check 10 (five well-formed fences, all `kind: test`, no `kind: command` and so no unsandboxed-shell exposure). Check 11 (D-1…D-9) — I re-read D-5's, D-6's, D-7's and D-9's artifacts here and each supports its specific claim. Check 12 FIRES for the first time: the `ac-signoff` fence is present with `ac_hash 2696ecd667a7` and five per-AC hashes, and comparing the evolved `## Acceptance Criteria` against the frozen text in `docs/spec-reviews/WI-016-dave-review-2026-09-08.md` I find **no diff at all** — no strength-weakening, actor-swap, scope-narrowing, oracle-swap or exception-carving-by-addition, because no AC has been edited since signature. That is also why findings 2 and 3 are expensive: the drift-free state is what makes every remaining correction a re-sign. Check 1 and Check 3 carry findings 2 and 3; Check 8 carries finding 1.
+
+**Write-Targets coverage (WI-132), run task by task.** Task 2 → `obsidian_schemas/repositories/base.py`, `tests/derivations.py`, `tests/test_fixture_vault.py`; Task 3 → `tests/fixtures/vault`; Tasks 4–9 → `tests/fixture_vault.py`, `tests/test_fixture_vault.py`; Task 10 → `tests/test_parser.py`, `tests/test_writer.py`, `tests/test_repositories.py`; Task 11 → `tests/test_loud_fail_load.py`, `tests/test_name_gate.py`; Task 12 → `tests/test_fixture_vault.py`. Every one is declared, no fence declares a path no task writes, and `tests/ac_interpreter.py`, `tests/test_ac_interpreter.py`, `tests/test_vault_path_required.py`, `tests/test_name_gate_wall.py`, `pyproject.toml` and `docs/vault-shape-census.md` are correctly READ-only and on the unchanged list. Every declared path is inside `write_authority` (`pipeline-runners.yaml:34-38`), so D7b holds and the WI-290 selector reads the item's real touch surface. **One thing to watch when M1 and M2 are folded:** M1's fold must not turn `docs/vault-shape-census.md` into a write target — it is read-only for this build by `## Scope Boundary` and by the precondition gate, and M1 as written only asks the suite to SCAN it.
+
+**The conscious-pin sweep found no moved pin**, re-run rather than inherited: `tests/test_concurrent_access.py:1077`/`:1085`/`:1088`/`:1089`, `tests/test_name_gate_wall.py:1161`'s `len(sites) == 8`, `tests/test_name_gate.py:172`'s `len(TIER1_BRANCHES) == 10` and `tests/test_loud_fail_harness.py:88`'s `len(six) == 6` are each unmoved by a frozenset, three string constants, two new scans and three repointed literals.
+
+**Mitigation folds.** There is no `## Mitigation Folds` section and both of the latest speaking threat-model round's mitigations are `kind: required`, so there is nothing for me to read and nothing to judge on satisfaction — that is finding 1, and it is the D8c refusal stated one round early.
+
+### Build-runner dry-run
+
+Walked the Implementation Plan top-to-bottom as the builder. The precondition abort gate remains the strongest thing in the plan and Tasks 1–12 each name their files, insertion points and a runnable check; §1.2's grammar, §1.3's six rules, §3's `LOADABLE` arithmetic, §5.1/§5.2's two walks, §5.4's ownership table and §6.1's extractor leave no decision open, and I re-traced the ownership table against `base.py:258-275` and the `allow_phone_sentinel` narrowing against `name_gate.py:355-358` once more.
+
+Three questions a cold-start builder would ask that the document does not answer, and they are findings 1, 2 and 3: *"Task 8 and Task 3 are named as the landing sites for M1 and M2 and neither task mentions them — do I invent the fold, or is the plan I am reading the pre-threat-model one?"*; *"the census says `arrow_connective` and `path_hostile` are ABSENT, and AC-1(c) tells me to plant both and name them in the manifest — which criterion do I redden?"*; *"`identity_tokens` gives me `Brenvik-Tarnquil` from the hyphenated specimen and the pool table certifies `Brenvik` and `Tarnquil` separately — do I add a pool row to a file I am forbidden to touch, or drop the hyphen the class is named for?"* The second and third have no in-cage remedy at all now that AC-1, AC-3 and AC-5 are signed, which is why all three are blocking rather than notes.
+
+```verdict
+gate: spec-reviewer
+verdict: REVISE
+date: 2026-09-08
+model: claude-opus-5
+targets: AC-1, AC-3, AC-5, M1, M2, Task 3, Task 4, Task 8, #design
+prior: held
+basis: original
+findings: 3/7
+note: Round 3's finding closes (a def-sweep over tests/test_*.py returns the WI-022 name at test_name_gate_wall.py:1057 and ZERO occurrences of the renamed test, and zero for all twelve other new names) and both its non-blocking notes close; every citation re-verified exact, including the ten branch_ids, the five company ones, name_cleaning.py:46-58, name_gate.py:319/:344/:355-358, writer.py:160-169 and test_vault_path_required.py:382/:387/:421-433/:451, plus docs/vault-shape-census.md read end to end (16 class fences, 6 MEASURED / 10 ABSENT, 40 single-word pool rows). THREE blocking, all produced by the one read no prior round did — walking the now-SIGNED criteria against the landed census's actual rows rather than against the code: (1) the 2026-09-08 threat model's M1 and M2 are kind: required and unfolded — a grep returns them nowhere outside that section, Task 8 and Task 3 are unchanged, there is no ## Mitigation Folds section, and §10 P-9 still asserts no threat model exists, so the conveyor's D8c refuses specced -> ready whatever any gate recommends; (2) AC-1(c) obliges the corpus to carry an arrow-connective and a path-hostile specimen "named in the manifest as such" while the census rules BOTH ABSENT (:80-87, :113-120), so shape_classes naming them breaks AC-3(i)'s both-directions equality over MEASURED rows and leaving them empty leaves "named as such" unsatisfied — buildable two ways with one way RED, fixable in §3/Task 4 with a dedicated manifest field and no re-sign; (3) the census pool table certifies at WORD granularity while AC-5(b)'s pinned maximal-run rule emits hyphen-joined COMPOUND tokens (Task 9's own battery asserts Anne-Sophie Legrain -> {Anne-Sophie, Legrain}), so the MEASURED hyphenated_surname specimen yields Brenvik-Tarnquil and postal_address_in_name yields Pellworth-Wexlund, neither certified, and both classes OBLIGE a specimen — the build reddens on a correct corpus with the census unwritable and digested, which is M2's own abort-gate clause and should fold with it. Four non-blocking notes. Check 12 fires for the first time and finds NO AC diff against the frozen text, which is exactly why findings 2 and 3 cost a D4b re-sign — and both remaining conductor acts change the census's bytes, so one re-author, one re-digest and one re-sign covers them. Nothing here touches the approach, the census sequencing, or AC-5's pending sufficiency question.
+```
+
+## Threat Model — 2026-09-08 (round 2)
+
+**Recommendation: REVISE — return to spec writer**
+
+Second round. Re-read cold from line 1, plus `docs/vault-shape-census.md` end to end in its
+re-authored state, plus the four surfaces round 1's mitigations landed in (`## Design` §6.5, Task 3,
+Task 8, `## Mitigation Folds`), plus `## Scope Boundary` and §10 P-2. Rulings I route against rather
+than re-litigate, unchanged from round 1: AC-5's structural-wall-vs-middle-path sufficiency question
+is Dave's and is recorded for sign-off; the census's sequencing is settled by the data audit; D1's
+amendment, the byte-copy rule and the derived sweeps have now drawn no finding in twenty-one gate
+rounds and draw none here. The spec review round 4's findings 2 and 3 are that gate's and I do not
+re-judge them.
+
+### Round 1's findings, re-measured rather than read off the fold
+
+**The blocking finding is CLOSED, and I verified the closure against the tree rather than against the
+fold's prose.** A grep for round 1's three distinctive tokens over the entire worktree now returns
+**zero hits in `docs/vault-shape-census.md`** — the file that was their only home when round 1
+measured it. The artifact carries the remediation in exactly the shape round 1 asked for: the
+`postal_address_in_name` bullet (`:254-259`) now states the character profile as a schema
+(`<number> <street> <kind>-<ordinal> <floor word>-<suite word> <digit>`) with every word constructed,
+and the `stem_name_divergence` bullet (`:262-265`) describes its eight live shapes and closes "None is
+quoted here (M1)" — the artifact adopting the discipline as a standing authoring rule, not just
+correcting two instances. The digest moved with the bytes: AC-3(iv) carries
+`sha256:4cb7945f643415b7fba9347f2f0ecee30a3b054bb9aa1ba875e2551b93b599cb` where spec review round 4
+recorded `sha256:625efee…` at `585d639`, and §10 P-2 names the single owed re-sign in place rather
+than leaving a linter to find it. I cannot recompute that digest — no gate here has a shell — but it
+is the one constant whose wrongness is RED at Task 3 before a corpus byte is authored, so it needs no
+finding.
+
+**Both mitigations are folded, and the folds are load-bearing rather than gestured at.** M1 is at
+§6.5 with six decisions taken at spec rather than build time, and at Task 8 (`:3152-3167`) with the
+scan ordered AFTER the fixity assertion, the pool-row set asserted NON-EMPTY first, and
+`CENSUS_PROSE_ALLOWLIST` placed in `tests/test_fixture_vault.py` rather than the manifest — which is
+right for a reason the fold states: a fourth frozenset in the manifest would falsify AC-5(b)'s signed
+"THREE literal frozensets" sentence. M2 is at §6.5 and Task 3 (`:2998`) as a fail-closed pre-authoring
+refusal under the Abort Protocol. `## Scope Boundary` (`:3570-3576`) answers the spec reviewer's watch
+item explicitly: neither mitigation authorises a builder edit to the census, and the abort path
+forbids adding a pool row, re-wording a bullet or re-taking a digest. The disjointness assertion
+closes the bypass shape that `PROSE_ALLOWLIST` was found to have at round 2, and §6.5 item 4 is honest
+that it does not stop a real name being *deliberately typed* into a reviewed set — the same residual
+AC-5(b) already carries and which Dave's pending sufficiency question governs.
+
+**Round 1's non-blocking note 2 is closed and over-closed.** I recorded the census's absolute vault
+path as not worth folding; the conductor removed it anyway and the Method bullet now says so
+(`:17-19`). **Round 1's non-blocking note 1 is not actioned** — carried forward below, still
+non-blocking.
+
+### STRIDE re-review, scoped to what moved
+
+Nothing this round changes spoofing, repudiation, denial of service or elevation of privilege, and I
+re-walked each against the folded material rather than assuming: M1 and M2 add one read of one
+committed file and one builder inspection — no new writer, no subprocess, no network — and
+`materialize_vault` is untouched since round 1's attacker read. **Tampering** improves: the artifact
+that grounds the privacy wall is now inside it, on every floor run, which is the durable half R7's
+certain-eventual census refresh needed. **Information disclosure** is where the finding is, and it is
+one artifact over from where round 1 pointed.
+
+### Blocking issue
+
+**1. The two novel live-vault values did not leave this repository — they moved into this document,
+where `## Threat Model — 2026-09-08`'s finding prose quotes both verbatim and its verdict `note:`
+restates them, and there is no wall over `docs/` at all.**
+
+*Measured, not reasoned about.* The same grep round 1 ran — the postal-address token, its fused suite
+word, and the run-together stem — over the entire worktree returns **exactly one file:
+`docs/vault-fixtures.md`**, at four prose positions in the round 1 section (`:5497`, `:5498`, `:5501`,
+`:5504`) and once inside that section's verdict `note:` (`:5594`). Round 1's measurement was that these
+values occurred in exactly one file and were therefore NEW to this repository. That is still true.
+Only the file changed.
+
+*Why this is a finding and not pedantry about my own prose.* `## Intent` is frozen text and promises
+"None of Dave's contacts' real names, emails or numbers go into this repository to get it".
+`docs/vault-fixtures.md` is in this repository and is tracked. `## Scope Boundary` promises this item
+"declines to add more" real-looking data than P10's existing 35, and these two are additions this item
+made — one day ago, by its own gate. R1 rates this outcome "Low / **irreversible**". The remediation
+that closed the census was performed on precisely this principle; applying it to the conductor's
+artifact and not to the gate section that ordered it leaves the fix half-done, and leaves it half-done
+in the file that gets copied forward.
+
+*Why the quotation has no remaining value.* It had real value for exactly one round: the conductor
+needed to know which two values to replace, and naming them is what made the finding actionable rather
+than a gesture. That work is done and verified. What is left is residue — and it is residue of the
+same kind round 1 itself refused to accept in the census: "the real value adds no evidentiary weight
+the `count`, `command` and `stdout` do not already carry." Here the line numbers, the class ids and the
+constructed specimens beside them carry the whole finding. The census now demonstrates this is
+practicable in the very bullet the finding was about: it describes eight shapes and quotes none.
+
+*Why now rather than later.* Two forward copies have not yet been made and both are one-way. `###
+Archived Rounds` sends settled gate rounds to `docs/vault-fixtures-rounds.md` "byte-for-byte,
+append-only, **never rewritten**", and architect round 10's note 3 — still open — asks the conductor to
+finish exactly that move for this document. Once round 1 is in the drawer, the drawer's own rule
+forbids the redaction. **One caveat I cannot resolve from inside this cage:** I have no shell, so I
+cannot tell whether the round 1 section is already in a commit. If it is, redaction limits the
+plaintext surface and stops the drawer copy rather than undoing history, and it is still worth taking;
+if it is not, it prevents the leak outright. The conductor can settle that in one command and should,
+because the two cases have different costs and only one of them is recoverable.
+
+*Why it is not a fold, and why it mints no M3.* Same shape as round 1: no Implementation-Plan task can
+carry it, so a `landed: Task N` would be false. The remedy is a conductor act on a settled gate
+section, which is not the spec-writer's authority and not mine to take silently — I have deliberately
+not rewritten round 1's section or its recorded verdict here. **And I am explicitly NOT asking for a
+machine wall over this document**, for the reason round 1 gave about `tests/test_fixture_vault.py`:
+this doc quotes REFUSED fixtures, corruption specimens and four pre-existing tree literals
+(`name_validation.py:205`, `name_cleaning.py:76-81`, `test_name_validation.py:106`) by design, so an
+identity scan here is RED by construction and would need a fourth declared exemption. The durable half
+is a one-line authoring rule, not a frozenset.
+
+### Suggested adjustments
+
+1. **Conductor act, before the drawer copy.** Redact the two values from the four prose positions and
+   the verdict `note:` in `## Threat Model — 2026-09-08`, replacing each with its class id, its line
+   citation and the constructed specimen already declared beside it in the census — the finding stays
+   fully legible and fully re-checkable. Then determine whether the section is already committed, and
+   record the answer, because it decides whether this was prevention or damage limitation.
+2. **The durable half is one sentence, in `## Scope Boundary` beside the constraint round 1's note 1
+   already asks for:** when a gate must report a leaked identifier in this item's documents, it names
+   the value's LOCATION and CHARACTER PROFILE, never the value. The census already follows this rule;
+   writing it down is what stops the next gate re-deriving the same mistake with the same good
+   intentions. It costs no re-sign — `## Scope Boundary` is outside the signed span.
+
+### Notes (non-blocking)
+
+- **The census's Method bullet claims a protection M1 does not provide.** `:19` reads "The absolute
+  path is deliberately not recorded here (AC-5(e)'s no-absolute-path rule, **extended to this artifact
+  by M1**)". It is not: §6.5 item 5 and Task 8 (`:3163-3165`) both say in terms that the scan "does NOT
+  extend leg (e)'s absolute-path rule to the census", routing against round 1's recorded ruling. The
+  path is gone, so nothing leaks today — but the artifact now asserts a wall that does not exist, and a
+  later census refresh that re-adds the path would pass M1 green with its own Method bullet claiming
+  otherwise. Cheapest coherent fix is to make the claim true: leg (e)'s predicate already exists and
+  adding it to M1's scan is one term. Failing that, the bullet should stop citing M1. Non-blocking
+  because the subject names no person and is machine-local, which is the ruling round 1 made and I keep.
+- **Carried forward from round 1, not actioned: the standing authoring constraint on
+  `tests/test_fixture_vault.py`.** Task 9 handles two known instances by hand with a stated rule;
+  `## Scope Boundary` still carries nothing, and that module remains the one AC-5 deliberately excludes
+  while planting the most string literals. Still non-blocking, still the proportionate move, and it now
+  pairs naturally with adjustment 2 above — one bullet can carry both.
+
+```verdict
+gate: threat-modeler
+verdict: REVISE
+date: 2026-09-08
+model: claude-opus-5
+targets: #threat-model, #scope-boundary
+prior: mixed
+basis: machinery
+findings: 1/3
+note: Round 1's blocking finding is CLOSED and I verified it by re-running the measurement rather than reading the fold — the three tokens now return ZERO hits in docs/vault-shape-census.md, whose postal_address_in_name bullet states a constructed schema and whose stem_name_divergence bullet closes "None is quoted here (M1)"; the digest moved with the bytes (AC-3(iv) now sha256:4cb7945f…, was 625efee… at 585d639) and P-2 names the one owed re-sign. M1 and M2 are genuinely folded — §6.5's six decisions, Task 8's scan ordered after the fixity assertion with the pool set asserted non-empty first and CENSUS_PROSE_ALLOWLIST kept out of the manifest so AC-5(b)'s signed "three frozensets" sentence stays true, Task 3's fail-closed abort, and Scope Boundary :3570-3576 answering the spec reviewer's watch item that neither mitigation grants the builder a write. Round 1's note 2 closed and over-closed (the conductor removed the vault path entirely); note 1 is not actioned and is carried forward. ONE blocking finding, and it is the same leak one artifact over - the two novel live-vault values did not leave the repository, they MOVED into this document: the round 1 section quotes both verbatim at :5497/:5498/:5501/:5504 and restates them in its verdict note at :5594, and the same worktree-wide grep now returns exactly ONE file, docs/vault-fixtures.md. Intent (frozen) promises no real contact names enter this repository and Scope Boundary promises this item adds none beyond P10's 35; R1 rates the outcome irreversible; the quotation was load-bearing for exactly one round and is now residue of the kind round 1 itself refused in the census. It is urgent rather than tidy because the Archived Rounds drawer is append-only and never rewritten and architect round 10 note 3 asks the conductor to move settled rounds there — after that copy the redaction is forbidden. I have no shell and so cannot tell whether the round 1 section is already committed; the conductor should settle that, since it decides prevention versus damage limitation. No M3: no Implementation-Plan task can carry a redaction of a settled gate section, and I explicitly do NOT ask for a machine wall over this document — it quotes refused fixtures and four pre-existing tree literals by design, so a scan here is RED by construction, exactly as round 1 argued for tests/test_fixture_vault.py. The durable half is one Scope Boundary sentence (report a leaked identifier by location and character profile, never by value) costing no re-sign. Two non-blocking: the census Method bullet at :19 claims leg (e)'s no-absolute-path rule is "extended to this artifact by M1" when §6.5 item 5 and Task 8 :3163-3165 both say it is not, and round 1's un-actioned note 1. M1 and M2 re-emitted byte-identically; the approach, the byte-copy rule, the derived sweeps and AC-5's pending sufficiency question are untouched.
+```
+
+```mitigation
+kind: required
+id: M1
+desc: Every identity-shaped token in docs/vault-shape-census.md's own bytes — its prose as well as its fence rows — is asserted to be in that artifact's certified pool table, CONNECTIVE_SET, or an admitted _GENERIC_ORG_SUFFIXES member, with any residue in a declared allowlist asserted DISJOINT from the pool table, so the artifact the privacy wall depends on is itself inside the wall.
+landed: Task 8
+```
+
+```mitigation
+kind: required
+id: M2
+desc: The Implementation Plan's precondition abort gate additionally REFUSES when docs/vault-shape-census.md carries an identity-position token its own pool table does not certify, so a leaking census stops the build before any corpus byte is authored rather than at the last task.
+landed: Task 3
+```
+
+## Spec Review — 2026-09-08 (round 5)
+
+**Recommendation: REVISE — return to spec writer (gaps to fix)**
+
+Rulings on record: the AC-5 structural-wall-vs-middle-path sufficiency question is Dave's and is recorded above for sign-off; the census's absence from HEAD is SEQUENCING rather than a grounding gap (data audit, 2026-09-07); WI-020's specification-altitude and fold-and-close closures; and the 2026-09-08 threat model round 1's ruling that leg (e)'s no-absolute-path rule is NOT extended to the census — I route against all five and nothing below re-litigates any of them.
+
+Read from line 1 in full, plus `docs/vault-shape-census.md` end to end in its re-authored state, then walked the bar from scratch rather than against round 4's gap list. **All three of round 4's blocking findings are CLOSED and I verified each against the tree rather than against the fold's prose**:
+
+- *Finding 1 (M1/M2 unfolded).* `## Mitigation Folds` now exists as a `##` sibling with one `fold` fence per id; I compared each `desc` character by character against the LATEST SPEAKING round's own `mitigation` fences (threat model round 2, which re-emitted both byte-identically) and both are verbatim. `landed: Task 8` and `landed: Task 3` each resolve to a canonical plan ordinal. Both `design:` quotes are where they claim to be (§6.5's M1 sentence, its M2 sentence) and both `work:` quotes reproduce their task's own text (Task 8's body, Task 3's opening). §10 P-9 is rewritten in place rather than annotated. **Satisfaction, which is mine and not mechanical:** M1's Task-8 scan runs the SAME `identity_tokens` object leg (b) calls over the whole decoded file, ordered AFTER the fixity assertion, with the pool-row set asserted non-empty first and `CENSUS_PROSE_ALLOWLIST` disjoint from it — that is the mitigation, not a gesture at it. M2's Task-3 arm is the same predicate one phase earlier, fail-closed under the Abort Protocol, with the no-repair rule stated three times (§6.5, Task 3, `## Scope Boundary`). Both satisfied.
+- *Finding 2 (AC-1(c) vs AC-3(i) over two ABSENT classes).* Closed by two manifest fields, not by a criterion edit: §1.3 rule 7, §3's `NoteSpec.discriminator` with its two-questions argument, Task 4 reading `discriminator` and asserting each value is a real `branch_id`, §5.5 stating that AC-3(i)'s manifest side is `shape_classes` and nothing else, and Verification mutation 15 driving both wrong answers. The census still rules both classes ABSENT (`docs/vault-shape-census.md:84-87`, `:117-120`), so the fork is real and the resolution holds.
+- *Finding 3 (pool table certified at word granularity).* Closed at the artifact: the landed pool table now carries `Brenvik-Tarnquil` (`docs/vault-shape-census.md:572`) and `Pellworth-Wexlund` (`:579`) beside their halves, and the Method section states the granularity in as many words (`:34-38`). The spec half is stated twice (`## Write Targets`'s extension, §6.2) and enforced once by M2's gate.
+
+Round 4's four non-blocking notes: the `## Acceptance Criteria` preamble is corrected, §10 P-2 is rewritten in the past tense with the three settled items and the owed re-sign named, §2's illustrative `census-meta` now quotes the landed header (`2026-09-07` / `659`), and `## Approach`'s company figure is corrected. The fourth — the `pure_digit` `Verdict` — was actioned and is the subject of blocking finding 2 below.
+
+**What this round is about.** Round 4 came from the one read no prior round had done: walking the SIGNED criteria against the landed census's actual rows. That read is done and its findings are closed. The three below come from the two reads still outstanding — walking the LATEST threat-model round's disposition, and driving the one literal the spec says the builder is not free to choose through the code that raises it.
+
+### Citation verification
+
+Every `file:line` this round leans on was read at its cited lines in this worktree. **All verified ✓**, none inherited from the drift audit, which proves only that a symbol still exists.
+
+Re-read and confirmed exact: `obsidian_schemas/repositories/base.py:27-38` (`SkippedNote`, the `#` type comment at `:37`), `:41-47` (the three bare return literals at `:44`/`:46`/`:47`), `:189-193` (`type_name`, an abstract `@property`), `:195-198` (the whole `file_pattern` property returning `@*.md`), `:231` (`self.vault_path.glob(self.file_pattern)`, non-recursive), `:258-265` (`_owns`, `Path(self.file_pattern).stem != "*"`), `:267-275` (`_note_skip` on `getattr(error, "declared_type", None)`), `:309-311` (`_get_cache_key` → `name.lower()`), `:334-342` (`get_all` → `list(self._cache.values())`), `:381-383` (`save` → `@{name}.md`). `repositories/__init__.py` — imports end at `:12`, `__all__` is `:14-21` and carries `VaultPathNotConfiguredError` at `:16`, so AC-4's filter clause is needed and correct. `models.py:31-32` (`extra="allow"`), `:39-40`, `:306`, `:309-318` (eight members). `body_sections.py:303-324` (five keys) and `:337-338` (`""` for a missing key). `name_gate.py:319`, `:329-343`, `:344` (`return dict(introduced)`), `:355-358` (`allow_phone_sentinel`), `:361-365`. `writer.py:160-169` (the signature takes `file_path` first and both `entity=` and `frontmatter=`), `:205`, `:234-238`, `:252-253` (the ONE `gate_write` call, `declared_type=fm.get("type")`). `parser.py:238` (`read_text(encoding="utf-8")`, unwrapped). `name_validation.py:148-184` (`Tier1Branch`, its docstring at `:152-154`, `matches` at `:179-184`), every `branch_id=` one by one at `:192`/`:203`/`:215`/`:227`/`:239`/`:250`/`:261`/`:272`/`:284`/`:301` and `:373`/`:385`/`:398`/`:414`/`:429`, `:295-299` (the `empty` comment naming `create_stub`'s guard), `:452-463` (`NameValidationError.pattern`), `:678` (the raise). `name_cleaning.py:58` and `repositories/person.py:1327` (`if name and name.strip():`). `errors.py:106-113` (`NameGateRefusal` a direct `LoudFailError` leaf; the `"unreadable"` mention is running docstring prose, so §4's "no scan matches it" ruling is right). `tests/ac_interpreter.py:7-25`, `:123-130`, `:136-148`, `:150-155`. `tests/test_ac_interpreter.py:40` (`WORK_ITEM_DOC` is `docs/write-door-bypasses.md`), `:57-73`, `:76-87`, `:90-95`, `:111-115`, `:116-120`, `:126-138` — and the shipped near-miss is named `test_a_failing_delegated_check_is_red_not_silently_green`, distinct from the name Task 12 adds. `tests/test_vault_path_required.py:382`, `:387`, `:421-433` (an `rglob` from `REPO_ROOT` with only the five excluded parts, so `tests/fixtures/vault/` IS reached and Task 12's non-vacuity clause is satisfiable), `:436`, `:451`. `tests/derivations.py:9-12`, `:14-17`, `:24`, `:28`, `:50-53`, `:183-201` (`python_files_under(*roots)`), `:213`, `:217`, `:243`, `:630`. `tests/test_name_gate_wall.py:1057`, `:1073`, `:1132`, `:1136-1138`, `:1161`. `tests/support.py:1-19`. `pipeline-runners.yaml:7-8`, `:18-19`, `:34-38`. `pyproject.toml:11`, `:38-39`, `:41-43`.
+
+`docs/vault-shape-census.md` re-read end to end and structurally counted: **sixteen** `census-class` fences (the ten `branch_id`s plus the six hand-listed ids), **six MEASURED** (`pure_digit` 2, `diacritics` 6, `hyphenated_surname` 29, `whitespace_damage` 7, `stem_name_divergence` 8, `postal_address_in_name` 1) and **ten ABSENT** with count 0, one `census-meta` (`snapshot: 2026-09-07`, `vault_notes_person: 1150`, `vault_notes_company: 659`), and **forty-two** `census-pool` rows, none of them `Me`/`My`/`Dave`. Every MEASURED specimen's extracted tokens are certified under §6.1's own run rule, compounds included — I walked all six by hand. The four real-looking names round 4 recorded in the prose are GONE: a grep for them over the artifact returns nothing, so M1's scan and M2's gate are satisfiable against the landed bytes with an allowlist of genuine technical vocabulary.
+
+Two things I could not verify, said rather than implied: I have no shell, so I cannot recompute `sha256` over the census to confirm AC-3(iv)'s `CENSUS_DIGEST` — it is RED at Task 3 before a corpus byte is authored if wrong, which is the right place for it — and I cannot tell whether the sections named in finding 1 are already in a commit.
+
+`^def <name>(` swept over every `tests/test_*.py` for all thirteen top-level test names this item adds: **zero occurrences of twelve of them, and the thirteenth is the renamed one** — `test_wall_membership_is_closed_by_running_each_walls_predicate` is at `tests/test_name_gate_wall.py:1057` and is the caller at `:1073` of `_check_the_ast_capability_stays_single_homed` (`:1132`), exactly as P-6 records, and the renamed `test_the_fixture_vault_files_close_their_wall_memberships_by_running_each_predicate` returns zero. P-6's sweep reproduces.
+
+### Blocking issues
+
+**1. The LATEST SPEAKING threat-model round returned REVISE with a blocking finding whose subject is THIS document, and neither half of it has been actioned — the values are still here and the durable rule is not.** `## Threat Model — 2026-09-08 (round 2)` found that the two novel live-vault values the round-1 remediation removed from `docs/vault-shape-census.md` did not leave the repository; they moved into `docs/vault-fixtures.md`, where round 1's finding prose quotes both and its verdict `note:` restates them. **Re-measured here rather than read off that round's prose, and reported by LOCATION only, per that round's own suggested rule:** the same two distinctive tokens return **exactly five hits in exactly one file** — `docs/vault-fixtures.md:5497`, `:5498`, `:5501`, `:5504` and `:5594` — and zero anywhere else in the worktree, which is byte-for-byte the state round 2 measured. The durable half is not there either: the one-sentence `## Scope Boundary` rule round 2 asked for (a gate reporting a leaked identifier in this item's documents names the value's LOCATION and CHARACTER PROFILE, never the value) occurs in this document exactly once, at `:5805`, inside round 2's own *Suggested adjustments*; `## Scope Boundary` carries no such bullet. Why this blocks rather than being another gate's business: `## Intent` is frozen text promising "None of Dave's contacts' real names, emails or numbers go into this repository to get it", `## Scope Boundary` promises this item "declines to add more" real-looking data than P10's existing 35, and R1 rates the outcome "Low / **irreversible**" — all three are statements this document makes about itself, and all three are false while those five positions stand. The urgency argument is structural rather than rhetorical: `### Archived Rounds` declares the drawer "byte-for-byte, append-only, **never rewritten**", and architect round 10's note 3 — still open, carried below — asks the conductor to move settled rounds into it, after which the redaction is forbidden by the drawer's own rule. **Fix:** two acts, and neither is the spec-writer's alone. (a) A conductor pass replaces each of the five positions with its class id, its census line citation and the constructed specimen already declared beside it in the artifact — the finding stays fully legible and fully re-checkable, which is what round 1 itself demanded of the census and what the census now demonstrates is practicable (its `stem_name_divergence` bullet describes eight shapes and quotes none). Then determine whether that section is already committed and record the answer, because it decides prevention from damage limitation. (b) The spec-writer adds round 2's one sentence to `## Scope Boundary`, which is outside the signed span and costs no re-sign. I have deliberately not edited round 1's section or its verdict myself; a settled gate round is not mine to rewrite.
+
+**2. §5.3 and Task 6 pin the `pure_digit` specimen's declared `Verdict` to `pattern="pure_digit"`, and that is a `branch_id`, not the key the branch RAISES — so the one value this spec says the builder is NOT free to choose is declared wrong, and Task 6 is RED against a wholly correct corpus.** Traced through the code here rather than reasoned about. `name_validation.py:284-285` gives the record `branch_id="pure_digit"` and `pattern="pure_digit_name"`; `:678` raises `NameValidationError(branch.pattern, branch.detail(name))`; `:463` binds `self.pattern = pattern`; `name_gate.py:365` re-raises it as `_refuse(exc.pattern, cause=exc)`, the single construction site at `:142`. So the `NameGateRefusal` a `pure_digit` specimen produces carries `.pattern == "pure_digit_name"`. §3 pins what the manifest field means with no ambiguity — `pattern: str = ""    # kind == "refusal": the NameGateRefusal.pattern expected` — while §5.3 and Task 6 both prescribe `pattern="pure_digit"`. AC-3 itself is innocent: it says only "carrying the named `pattern` on its `.pattern` attribute", so nothing signed moves and no re-sign is owed. **Why this is blocking rather than a nit, and it is the document's own argument turned on itself:** AC-3's `desc` warns in capitals that "THE KEY IS `branch_id` AND NEVER `pattern`" for the class floor, citing the dataclass docstring at `name_validation.py:152-154` — which says in as many words that `branch_id` "is the sweep's unit" while `pattern` "is the stable key the branch RAISES and is deliberately not unique". The Design correctly uses `branch_id` everywhere `branch_id` is meant (AC-3's floor, `NoteSpec.discriminator`, Task 4's membership assertion) and then uses it in the one place the RAISED key is meant. It is a spec-pinned literal never driven through the code that produces it, sitting in the exact paragraph that says "which verdict is correct is a function of a field the corpus author chooses" and then removes the choice — so a builder who trusts the pin has no reason to doubt it and reddens at Task 6 with the spec against them. **Fix:** `pattern="pure_digit_name"` in §5.3 and Task 6. And because the generator is "a `Verdict.pattern` value written from the class id rather than from the record's `pattern` field", the same pass should state the rule once — a declared refusal `Verdict`'s `pattern` is the record's `pattern` field, never its `branch_id` — since three of the ten records raise the shared `calendar_prefix` and the two vocabularies cannot be aliased.
+
+**3. The hash-signed span is dirty, the ONE re-sign the document itself declares has not been taken, and the conveyor refuses `specced → ready` on the `ac_hash` currency check whatever any gate recommends.** Verified against both artifacts. `## AC Sign-off` carries `ac_hash: 2696ecd667a7` and `ac_hash_AC-3: eab359ff9e39`; the frozen text at `docs/spec-reviews/WI-016-dave-review-2026-09-08.md:377` declares `CENSUS_DIGEST = sha256:625efeee98c22ca77180b3601a8017096af8e0c30ddcc5d7db7470a4fff70bf9`, and AC-3(iv) in this document now declares `sha256:4cb7945f643415b7fba9347f2f0ecee30a3b054bb9aa1ba875e2551b93b599cb` — the value re-taken over the M1-remediated census. The `## Acceptance Criteria` preamble is the second edit inside the same section. §10 P-2 names both and prices them correctly at exactly one re-sign; what is missing is the act. **Under Check 12 the classification is clean and I record it so the re-sign is cheap to grant:** comparing the evolved `## Acceptance Criteria` against the frozen text, AC-1, AC-2, AC-4 and AC-5 are unchanged and AC-3's only diff is the digest literal. That is an evidence-pointer update forced by a conductor remediation — not strength-weakening, not actor-swap, not scope-narrowing, not oracle-swap, and not exception-carving-by-addition. No AC's promise, actor, scope, oracle or exception has moved. **Fix:** a D4b re-sign covering AC-3(iv)'s digest and the preamble sentence and nothing else. It is listed as blocking because it stands between this item and `ready` and no other gate is going to raise it; it is not the spec-writer's to discharge.
+
+### Non-blocking notes
+
+- **Task 12's W-1 arm names the predicate but not its projection.** It reads "`modules_using_ast(python_files_under(PACKAGE_ROOT, TESTS_ROOT))` must return `{"tests/derivations.py"}`". That function returns a list of USE records (`tests/derivations.py:630`), and the shipped live assertion is over `{use.module for use in live}` (`tests/test_name_gate_wall.py:1136-1138`). One line, and the wall this task imports from shows the shape — but it is the one row of the six whose call is stated in a form that does not typecheck, in the task whose whole subject is calling predicates rather than reasoning about them.
+- **`CENSUS_PROSE_ALLOWLIST`'s membership should be authored against the LANDED artifact rather than from §6.5's list.** §6.5 item 3 gives its contents illustratively (`MEASURED`, `ABSENT`, `Ofcom`, `Unicode`, `Templates`, `Python`, `LIVE`, the `WI`/`AC` prose, symbol names). The landed census needs at least two more of the same kind that no surface names — `DaveRemoteVault` and `Obsidian`, both at `docs/vault-shape-census.md:17` — so a builder reading the list as a spec rather than as an example hits an uncertified token at Task 8 and wonders whether it is a leak. One clause saying the set is the Task-8 residue of the artifact as it stands closes it; the four admissions and the disjointness assertion are unaffected.
+- **`base.py:196-198` survives at two sites where the rest of the document now says `:195-198`.** `## Exploration Notes`' "Constraints discovered" bullet and AC-4's `desc` both carry the narrower span; `## Approach` and D-7 carry the wider one, which is the whole `file_pattern` property including its `@property` line. AC-4 is signed and should NOT move for this; the Exploration Notes site can be aligned in the same pass. Round 4 recorded this as a navigational nit and it is still one.
+- **AC-5(b)'s `why:` still argues from "a vault of 2,159 company notes" where the landed census measures 659 live and 2,160 whole-vault.** `## Approach` was corrected in the last fold and records that the argument holds identically at any of the three; the AC text is signed, nothing rests on the number, and it should NOT be edited for this — recorded so a later round does not mistake it for drift.
+
+### Carried-forward notes
+
+- **Threat model round 2, note 1 — the census's own Method bullet claims a protection M1 does not provide.** `docs/vault-shape-census.md:19` reads that the absolute path "is deliberately not recorded here (AC-5(e)'s no-absolute-path rule, extended to this artifact by M1)"; §6.5 item 5 and Task 8 both say in terms that the scan does NOT extend leg (e) to the census. Still OPEN and re-verified here at both ends. Nothing leaks today because the path is gone, but the artifact asserts a wall that does not exist and a later refresh re-adding the path would pass M1 green. Re-deferred rather than raised because the subject names no person and is machine-local, which is round 1's recorded ruling and I keep it — but it is now cheap, since finding 1 already opens a conductor pass and the census's bullet is one line.
+- **Threat model round 1, note 1 / round 2, note 2 — the standing authoring constraint on `tests/test_fixture_vault.py`.** Still OPEN and now twice-deferred. That module is the one file AC-5's reach deliberately excludes while planting more string literals than anything else this item ships; Task 9 handles the two known instances by hand with a stated rule and `## Scope Boundary` carries nothing standing. Re-deferred because the proportionate remedy is a one-line authoring rule rather than a wall, and it now pairs exactly with finding 1's durable half — one `## Scope Boundary` bullet can carry both, at no re-sign.
+- **Architect round 10, note 2 — AC-4's "`_skip_reason` returns them BY NAME rather than as re-spelled literals" is prose the syntax scan's first arm cannot discriminate**, since `skip_reason_return_values` resolves a module-level `str` Name and a bare literal to the same value. Still OPEN; §10 P-2 records that its routed remedy (the pre-origination edit) has EXPIRED. Re-deferred for the reason P-2 gives and which I checked rather than accepted: §4 and Task 2 prescribe the by-name form explicitly, no safety property depends on the spelling, and W-15's set equality over the vocabulary's legal homes is unaffected either way because `base.py` is a declared home under both spellings. Closing it now buys a D4b re-sign for a clause with no red behind it.
+- **Architect round 10, note 3 — this document should use the project's rounds drawer.** Still PARTIALLY actioned; `docs/vault-fixtures-rounds.md` exists with the `### Archived Rounds` pointer and the live document is ~5,850 lines. **It has stopped being purely a hygiene note:** the drawer's own append-only, never-rewritten rule is what makes finding 1 urgent, so the ORDER now matters — the redaction must precede the drawer copy. I re-confirmed the drawer is harmless to the two things that read this file: AC-3(iv)'s digest read is fence-scoped, and a grep for the criteria-fence opener over this document still returns exactly five, all inside `## Acceptance Criteria`, so Task 12's "exactly five `check:` names" pin holds with five spec reviews, a sign-off and two threat-model rounds now inline.
+- Rounds 1, 2 and 3's non-blocking notes, the data audit's P10 count, and AC red-team round 9's "Nine helpers" — all CLOSED at rounds 2 and 3 and re-confirmed here. Round 4's four notes are closed or superseded as recorded above.
+
+### Bar check
+
+Walked every check of `docs/spec-quality-bar.md`. Satisfied: **Check 2** (§10's P-1…P-9 enumerate the prerequisites, the trust boundary and the WI-300 ordering; P-3's atomic-landing claim against the PRE-DRIVE floor is right — `tests/test_vault_path_required.py:387` excludes `docs` from the only repo-wide markdown scan, and the only two modules naming a doc name `docs/write-door-bypasses.md` and `docs/company-name-corpus-audit.md`; P-9 now describes the fold instead of denying the round). **Check 4** (all ten categories resolved, `OPEN: None`, and every resolved rule carries an exercising assertion — idempotency and no-clean by AC-1(b)'s second `materialize_vault` call, the ISBN and hex collisions by Task 9's near-miss battery, the two-field split by mutation 15). **Check 5** — twelve canonical `- [ ] **Task N — …**` definitions, ordinals unique and contiguous 1–12, every one carrying a well-formed lowercase `verify:` declaration: ten `test_` arms, one `baseline` and one `hand-run`, each exception kind with its reason; no `verify:` is a command and none writes; every `landed: Task N` resolves to a defined ordinal (D8b clean). **Check 6** — WI-235's shape controls are Task 2's two planted batteries and Task 9's shape, phone, hex-excision and near-miss batteries, all driving the LIVE predicate objects by name; WI-278's arm is declared per reader with the `CORPUS_COUPLING:` line and M1's third property is on the same arm by the same digest; WI-173 correctly does not fire on an item whose warrant is absence. **Check 7**, **Check 9** (ten rows; R1's cell now carries the threat model's finding and moves with fold M1, R10 carries the four members of its class). **Check 10** — five well-formed `criteria` fences, all `kind: test`, no `kind: command` and so no unsandboxed-shell exposure. **Check 11** — D-1…D-9 re-read at their artifacts; each supports its specific claim, and the closing paragraph correctly separates the two kinds. **Check 8 draws no finding this round**: `## Mitigation Folds` is complete and fresh against the latest speaking round and I judge both mitigations satisfied on the quoted text, having read each quote where it claims to be. **Check 12 fires and is clean in substance** — the AC diff is AC-3(iv)'s digest literal alone — but the signed hashes are stale, which is finding 3. **Check 1 and Check 3 carry findings 1 and 2**: Check 3 on §5.3/Task 6's `pure_digit` pattern, a claim about how the package behaves that the package falsifies; Check 1 on `## Intent`'s and `## Scope Boundary`'s self-description.
+
+**Write-Targets coverage (WI-132), run task by task rather than inherited.** Task 1 → none (baseline); Task 2 → `obsidian_schemas/repositories/base.py`, `tests/derivations.py`, `tests/test_fixture_vault.py`; Task 3 → `tests/fixtures/vault`; Tasks 4–9 → `tests/fixture_vault.py`, `tests/test_fixture_vault.py`; Task 10 → `tests/test_parser.py`, `tests/test_writer.py`, `tests/test_repositories.py`; Task 11 → `tests/test_loud_fail_load.py`, `tests/test_name_gate.py`; Task 12 → `tests/test_fixture_vault.py`. Every one is declared by a `writes` fence, and no fence declares a path no task writes. **The two folds added no path and I checked that rather than assuming it:** M1 and M2 both READ `docs/vault-shape-census.md`, which stays the `kind: precondition` fence's subject and stays on `## Scope Boundary`'s unchanged list, with the no-repair rule stated at §6.5, Task 3, `## Scope Boundary` and §10 P-9 — round 4's watch item is answered. `tests/ac_interpreter.py`, `tests/test_ac_interpreter.py`, `tests/test_vault_path_required.py`, `tests/test_name_gate_wall.py` and `pyproject.toml` are correctly READ-only and named on the unchanged list with the reason. Every declared path is inside `write_authority` (`pipeline-runners.yaml:34-38`), so D7b holds and the WI-290 selector reads the item's real touch surface; nothing is over-declared.
+
+**The conscious-pin sweep found no moved pin**, re-run rather than inherited over the corpora this change alters (the `branch_id` union, `TYPE_TO_MODEL`, the exported repository set, the skip-reason vocabulary): `tests/test_concurrent_access.py:1077`/`:1085`/`:1088`/`:1089`, `tests/test_name_gate_wall.py:1161`'s `len(sites) == 8`, `tests/test_name_gate.py:172`'s `len(TIER1_BRANCHES) == 10` and `tests/test_loud_fail_harness.py:88`'s `len(six) == 6` are each unmoved by a frozenset, three string constants, two new scans and three repointed literals — and §11's own cleared paragraph reaches all four sites.
+
+### Build-runner dry-run
+
+Walked the Implementation Plan top-to-bottom as the builder. Tasks 1–12 each name their files, their insertion points and a runnable check; the precondition gate with its M2 arm is still the strongest thing in the plan and now fires one phase before the expensive work; §1.2's grammar, §1.3's seven rules, §3's `LOADABLE` arithmetic, §5.1/§5.2's two walks, §5.4's ownership table (re-traced against `base.py:258-275`) and §6.1's extractor leave no decision open. §1.3 rule 7 and `NoteSpec.discriminator` make the corpus buildable exactly one way where round 4 found it buildable two.
+
+Three questions a cold-start builder would ask that the document does not answer:
+
+1. *"Task 6 tells me the `pure_digit` specimen's declared `Verdict` is `pattern="pure_digit"`, and the refusal I catch carries `pattern="pure_digit_name"` — is my specimen wrong, is the manifest wrong, or is the assertion wrong?"* — finding 2. It fails loud, but the spec is what is wrong, and the spec is the thing the builder was told not to second-guess here.
+2. *"The threat model's latest round says REVISE over a leak in this document and nothing in the spec answers it — am I reading a plan that has been superseded?"* — finding 1. The plan itself is unaffected, but the item cannot advance and a builder armed against it would be building under a live REVISE.
+3. *"Task 12's W-1 row tells me `modules_using_ast(...)` must return a set of module ids and it returns use records — do I project it, or am I calling the wrong predicate?"* — the first non-blocking note.
+
+Nothing this round touches the approach, D1's amendment, the byte-copy rule, the derived sweeps, the census's sequencing, or AC-5's pending sufficiency question.
+
+```verdict
+gate: spec-reviewer
+verdict: REVISE
+date: 2026-09-08
+model: claude-opus-5
+targets: AC-3, Task 6, #design, #acceptance-criteria, #threat-model, #scope-boundary
+prior: held
+basis: folded-material
+findings: 3/7
+note: All three of round 4's blocking findings CLOSE and each was verified against the tree rather than the fold — Mitigation Folds now carries one fold fence per id with desc byte-identical to the latest speaking round's mitigation fences, both design/work quotes are where they claim to be and I judge both mitigations satisfied on my own read; the AC-1(c)/AC-3(i) fork is resolved by two manifest fields with no criterion edit; and the landed census now certifies Brenvik-Tarnquil (:572) and Pellworth-Wexlund (:579) with the granularity rule in its own Method section. Census re-counted end to end: 16 class fences, 6 MEASURED / 10 ABSENT, 42 pool rows, and the four real-looking prose names round 4 recorded are GONE, so M1 and M2 are satisfiable against the landed bytes. Every citation re-verified exact including all fifteen branch_id sites, base.py:189-198/:258-275/:309-311/:334-342, name_gate.py:319/:344/:355-365, writer.py:160-169/:252-253, the ac_interpreter pair and test_vault_path_required.py:382/:387/:421-433/:451. THREE blocking. (1) The LATEST SPEAKING threat-model round returned REVISE over a leak whose subject is this document and NEITHER half is actioned: re-measured here by location only, the two values still return exactly five hits in exactly one file — docs/vault-fixtures.md:5497/:5498/:5501/:5504/:5594 — and the durable Scope Boundary rule that round asked for exists only inside its own suggested-adjustments text at :5805, so frozen Intent, Scope Boundary and R1 are each false about this document; the Archived Rounds drawer is append-only and never rewritten, so the redaction must precede the drawer copy architect round 10 note 3 still asks for. (2) §5.3 and Task 6 pin the pure_digit Verdict to pattern="pure_digit", which is the branch_id — name_validation.py:284-285 gives pattern="pure_digit_name", :678 raises NameValidationError(branch.pattern), :463 binds it and name_gate.py:365 re-raises it, and §3 defines the field as the NameGateRefusal.pattern expected — so the ONE literal the spec says the builder may not choose is wrong and Task 6 reddens on a correct corpus; AC-3 says only "the named pattern", so the fix is two words in Design and Task 6 with no re-sign, and the rule behind it is worth stating once because three records share the calendar_prefix pattern and the two vocabularies cannot be aliased. (3) The signed span is dirty and the one re-sign §10 P-2 declares is untaken: ac_hash 2696ecd667a7 / ac_hash_AC-3 eab359ff9e39 are stale against AC-3(iv)'s re-taken CENSUS_DIGEST (4cb7945f…, was 625efee… in the frozen artifact at :377), so the conveyor refuses specced -> ready whatever I recommend. Check 12 finds the diff is that digest literal alone across all five criteria — no strength-weakening, actor-swap, scope-narrowing, oracle-swap or exception-carving — which is what makes the re-sign cheap to grant. Four non-blocking, four carried forward including both un-actioned threat-model notes. Check 8 draws no finding for the first time. Nothing here touches the approach, the byte-copy rule, the derived sweeps, the census sequencing or AC-5's pending sufficiency question.
+```
+
+## Threat Model — 2026-09-08 (round 3)
+
+**Recommendation: PROMOTE to threat-modeled**
+
+Third round. Re-read cold from line 1, plus `docs/vault-shape-census.md` end to end, plus the four
+surfaces round 2's finding landed in (`## Scope Boundary`'s standing authoring rules, §10 P-9 as
+rewritten, the new §10 P-10, R1's cell), plus `## Mitigation Folds` and §6.5 re-read at their bytes,
+plus — new this round — the two artifact surfaces no threat-model round has swept: the rounds drawer
+and this item's `docs/spec-reviews/` review artifacts. Rulings I route against rather than
+re-litigate, unchanged across all three rounds: AC-5's structural-wall-vs-middle-path sufficiency
+question is Dave's and is recorded for sign-off; the census's sequencing is settled by the data audit;
+D1's amendment, the byte-copy rule and the derived sweeps have now drawn no finding in twenty-three
+gate rounds and draw none here. Spec review round 5's findings 2 and 3 are that gate's and I do not
+re-judge them — I record only that finding 2 has landed, since it moved a literal I would otherwise
+have had to re-derive (§5.3 and Task 6 now read `pattern="pure_digit_name"`, `:2155`, `:2162-2170`,
+`:3258-3264`).
+
+### Round 2's findings, re-measured rather than read off the fold
+
+**The blocking finding is CLOSED, and I verified the closure by re-running the measurement rather
+than reading the remediation's prose.** Round 2 found that round 1's census remediation had moved two
+novel live-vault values into this document — four prose positions in `## Threat Model — 2026-09-08`
+plus one inside that round's verdict `note:`, five in all. A sweep for the redaction marker now
+returns **exactly five positions, in exactly the one file, and nowhere else in the worktree**:
+`docs/vault-fixtures.md:5785`, `:5788`, `:5791` and twice at `:5881` (the verdict `note:`). Each
+carries the value's LOCATION (its census row) and its CHARACTER PROFILE and no value — reported here
+by the same rule, which is now this item's own. The finding's argument survives the redaction intact:
+the class ids, the line citations and the constructed specimens beside them still carry it, which is
+exactly what round 1 demanded of the census and what round 2 argued was practicable here.
+
+**The ordering held, and this is the half that could not have been recovered.** Round 2's urgency
+argument was structural rather than rhetorical: `### Archived Rounds` declares
+`docs/vault-fixtures-rounds.md` byte-for-byte, append-only and **never rewritten**, so a drawer copy
+taken before the redaction would have put both values past the reach of any correction. I checked the
+drawer rather than assuming: it carries AC red-team rounds 1–8 and architect rounds 1–7+ and **no
+`## Threat Model` section at all**. The copy has not been taken. Redact-first-copy-second was
+observed, and §10 P-10(d) now records the ordering as the reason the copy is only now unblocked.
+
+**The durable half landed, and it landed as a CLASS rather than as the two instances.** `##
+Scope Boundary` (`:3729-3763`) now carries three standing authoring rules under a stated generator —
+*an identity-shaped value entering one of this item's artifacts through a surface no wall reaches* —
+with the residue named exactly (`tests/test_vault_path_required.py:387` excludes `docs` from the only
+repo-wide markdown scan, re-read here at `:382-387`; AC-5's reach is the corpus plus the manifest and
+nothing else). The three: a gate reporting a leaked identifier names its location and character
+profile, never the value; the same rule binds `tests/test_fixture_vault.py`, the one module AC-5
+deliberately excludes, with the already-committed-versus-novel test stated as a standing constraint
+rather than as Task 9's two hand-corrected instances; and the rule follows a round into the drawer,
+with the ordering recorded. They bind conductor, gate and builder alike and sit outside the
+hash-signed span. **This is what I asked for and it is stronger than what I asked for** — I asked for
+one sentence and for the `tests/test_fixture_vault.py` note to ride it; the writer stated the
+generator and closed the residue as a set.
+
+**Round 2's non-blocking note 2 (the `tests/test_fixture_vault.py` authoring constraint, twice
+deferred) is CLOSED** by the second of those bullets. **Note 1 is NOT closed** and is carried forward
+below — but it is no longer merely un-actioned: §10 P-10(c) records it as an outstanding CONDUCTOR
+act, with the fix, the reason it must not be closed by widening M1's scan, and the instruction to
+bundle it with the owed re-sign so it costs no second digest. A note routed with its cost is a
+different thing from a note dropped.
+
+### The sweep this round adds — the wall's reach, one step further out
+
+The one thing three rounds of this finding have taught is that the leak travels to whichever of this
+item's artifacts no wall reaches, so I stopped chasing the instance and swept the residue the standing
+rules now name. Two surfaces have never been examined by any threat-model round, and both are about
+to enter permanent history.
+
+**The `docs/spec-reviews/` review artifacts — `WI-016-dave-review-2026-09-08.md` and
+`-2.md`, both currently untracked.** These are written by `bin/review-spec-helper.py`, carry the
+FROZEN `## Acceptance Criteria` text the `ac-signoff` fence hashes, and are named by that fence's
+`artifact:` key, so they are committed evidence rather than scratch. Swept for identity-shaped
+content: they carry class ids, constructed specimens, and one real-looking name — the `rfc2822_leak`
+branch's own specimen at `-2.md:334-335` — which is a verbatim re-typing of
+`obsidian_schemas/name_validation.py:205`. Pre-existing tree literal, permitted by Task 9's recorded
+reading. **Clean.**
+
+**The rounds drawer.** Its identity-shaped hits are the same `rfc2822_leak` specimen (`:1353`) and a
+`name_cleaning.py:76` calendar-prefix literal (`:1753`), both pre-existing. **Clean.**
+
+**And an independent identity sweep over `docs/vault-fixtures.md` itself**, run because the standing
+rules are new and nothing has yet swept the document they govern. Every phone-shaped literal in the
+document is reserved by construction — Ofcom's drama range (`07700 900xxx`, `+44 7700 900123` and the
+`900000-900999` band statement) or NANP 555 — so none can reach a live subscriber. Of the three
+email-shaped literals, one is RFC 2606, one is a constructed pseudonymous domain round 1 already
+identified as a deliberately non-reserved REFUSED fixture in leg (a)'s battery, and the third is a
+real-looking address at a real company (`:3367`, and re-typed by two gate sections). **I measured that
+third one rather than ruling on it by eye, because it is the only member whose character profile would
+make it a finding if it were novel:** it is already committed in this tree at
+`tests/test_name_validation.py:268` and `:274` (both re-read here at their lines), at
+`tests/test_resolve_or_create.py:133` and `:176`, and at `obsidian_schemas/repositories/person.py:730`.
+Pre-existing, so Task 9's reading permits it — and the document already says so in place at `:3367`
+rather than leaving a later gate to re-derive it. I cite it by location rather than re-typing it into
+a new prose position, which is the rule this round is testing. **No third member of the class exists.**
+
+### Trigger check
+
+The same four triggers fire and none has moved: *persists data* (a ~50-note corpus, a manifest module
+and a census document, all committed); *filesystem operations on user-owned files*
+(`materialize_vault(dest)`); *crosses a trust boundary* (§10 P-8 — real personal data crossing INTO
+permanent git history); *handles input from an external source* (the live vault, transcribed by the
+conductor). Still not fired: no secrets, credentials, tokens or OAuth scopes; no MCP scope or tool
+permission; no network and no outbound message; no access-control change. `## Acceptance Criteria`
+still carries five fences, every one `kind: test` and none `kind: command`, so the battery opens no
+unsandboxed shell.
+
+### STRIDE re-review, scoped to what moved
+
+Nothing that moved this round is code. The redaction, the standing authoring rules, P-9's rewrite,
+P-10 and R1's extended cell are all prose in this document; §5.3 and Task 6's corrected literal
+changes an expected `.pattern` value and adds no surface. I re-walked each category against that
+rather than assuming.
+
+**Spoofing.** Unchanged and no finding — no authentication boundary anywhere in this item.
+
+**Tampering.** Improves again, and this is the round it becomes durable rather than promised. The
+artifact that grounds the privacy wall is inside it on every floor run (M1, Task 8, after the fixity
+assertion), the same predicate runs one build phase earlier as a fail-closed refusal (M2, Task 3), and
+the residue those two do not reach — this item's other documents, and the one module AC-5 excludes —
+is now closed by a stated authoring rule instead of by two hand-corrections. The digests still bind:
+AC-3(iv) and AC-5(c) each assert `sha256` over the census independently, and I cannot recompute either
+from inside this cage, which is right — a wrong constant is RED at Task 3 before a corpus byte is
+authored. No finding.
+
+**Repudiation.** Unchanged. Every census row still carries its command and verbatim stdout under a
+counting constraint; Tasks 1 and 12 bracket the build with recorded floor runs; §10 P-10 is new and
+improves the audit trail rather than harming it, by putting the three outstanding conductor acts in
+one place with their costs instead of scattered across gate rounds. `SkippedNote.detail` is still
+`bounded_detail(error)` and "never the raw rendering" (`repositories/base.py:38`, re-read here with
+`:36-38` and `:41-47`), so a malformed specimen's contents do not reach a WARNING line when AC-4 loads
+the corpus through four repositories. No finding.
+
+**Information disclosure.** The subject of all three rounds, and the first round in which it draws no
+finding. The instance is redacted, the ordering held, the class is closed by a rule that binds every
+actor writing here, and my sweep of the two remaining unwalled artifact surfaces plus the document
+itself returns no member. The two declared residuals are unchanged and both are honest rather than
+hidden: a real name can still be *deliberately typed* into `CENSUS_PROSE_ALLOWLIST` or into `NAME_POOL`
+(§6.5 item 4 says so in terms, and the disjointness assertion closes only the quiet-move bypass), and
+the pool table's non-occurrence ground truth is the conductor's recorded scan rather than an in-suite
+assertion, because the suite is hermetic. That is the same bar AC-5(b) sets for the corpus and it is
+the subject of the sufficiency question already on record for Dave. Routing against it, not
+re-opening it. No finding.
+
+**Denial of service.** Unchanged. No network, no live-vault read, no subprocess in any of the five
+`kind: test` checks. M1's scan adds one decode of one committed file to a check that already decodes
+~50; M2's is a builder inspection. No finding.
+
+**Elevation of privilege.** Unchanged, and I re-checked the one thing that could have moved: neither
+fold turns `docs/vault-shape-census.md` into a write target. M1 has the SUITE read it, M2 has the
+BUILDER refuse on what it finds, `## Scope Boundary` keeps it on the unchanged list, and §10 P-9's
+closing paragraph states the wrong reading and rejects it. `materialize_vault` is untouched since
+round 1's attacker read — bare `src.name` into `dest`, no `rmtree`, no `unlink`, no mode change, and
+AC-1(b) still asserts positively that a foreign file planted in `dest` SURVIVES a second call. No
+finding.
+
+### Mitigations verified in place
+
+1. **M1 — the census's own bytes inside the closure they certify.** §6.5 with six decisions taken at
+   spec rather than build time, and Task 8 (`:3306-3320`) with the scan ordered AFTER the fixity
+   assertion, the pool-row set asserted NON-EMPTY first (LESSONS #46), `CENSUS_PROSE_ALLOWLIST` kept
+   out of the manifest so AC-5(b)'s signed "three literal frozensets" sentence stays true, its
+   membership authored against the LANDED artifact rather than §6.5's illustrative list, and the
+   disjointness assertion that closes the quiet-move bypass. Verified in place, re-read at its bytes.
+2. **M2 — the same predicate one build phase earlier, fail-closed.** §6.5 and Task 3 (`:3142`) under
+   the Abort Protocol, with the no-repair rule stated at §6.5, Task 3, `## Scope Boundary` and §10
+   P-9. Verified in place.
+3. **The residue neither mitigation reaches** — this item's other documents and
+   `tests/test_fixture_vault.py` — is closed by `## Scope Boundary`'s standing authoring rules
+   (`:3729-3763`). This is prose rather than a wall on purpose, and the reason is stated rather than
+   assumed: this document quotes REFUSED fixtures, corruption specimens and pre-existing tree literals
+   by design, so an identity scan over it is RED by construction and would need a fourth declared
+   exemption. All three rounds declined to ask for one and I decline again.
+
+`## Mitigation Folds` is fresh against this round: M1 and M2 are re-emitted below BYTE-IDENTICALLY in
+`desc`, same ids, same `landed:` ordinals, so the two fold records stand unchanged and nothing needs
+re-quoting.
+
+### Notes (non-blocking)
+
+- **Carried forward, and the only one still open: the census's Method bullet claims a protection M1
+  does not provide.** `docs/vault-shape-census.md:19` still reads that the absolute vault path "is
+  deliberately not recorded here (AC-5(e)'s no-absolute-path rule, **extended to this artifact by
+  M1**)"; §6.5 item 5 and Task 8 both say in terms that the scan does NOT extend leg (e) to the
+  census. Re-verified at both ends this round. Nothing leaks today — the path is gone — but the
+  artifact asserts a wall that does not exist, and a later refresh re-adding the path would pass M1
+  green with its own Method bullet claiming otherwise. **Re-deferred rather than raised, for the
+  ruling round 1 made and both later rounds kept:** the subject names no person and is machine-local.
+  §10 P-10(c) now records it correctly, including that it must NOT be closed by widening M1's scan
+  and that bundling it with the owed re-sign costs nothing extra. Three rounds is enough deferral for
+  a one-line edit whose window is a conductor pass that is already owed.
+- **The `ac-signoff` re-sign (§10 P-10(b)) is outstanding and is what the conveyor's `ac_hash`
+  currency check refuses on.** Not a security matter and not mine — recorded only because my PROMOTE
+  must not be read as saying the item is clear to advance. It is clear of security gaps; the door has
+  its own lock.
+
+```verdict
+gate: threat-modeler
+verdict: PROMOTE
+date: 2026-09-08
+model: claude-opus-5
+note: Round 2's blocking finding is CLOSED and I verified it by re-running the measurement rather than reading the fold — the redaction marker now returns exactly five positions in exactly one file (docs/vault-fixtures.md:5785/:5788/:5791 and twice at :5881), each carrying the value's location and character profile and no value, and the finding's argument survives intact. The ordering held, which is the half that could not have been recovered: the drawer carries AC red-team and architect rounds and NO Threat Model section at all, so the append-only copy was not taken before the redaction. The durable half landed stronger than asked — Scope Boundary :3729-3763 states the GENERATOR (an identity-shaped value entering one of this item's artifacts through a surface no wall reaches) and closes the residue as a class in three standing rules binding conductor, gate and builder, outside the signed span; round 2's note 2 closes with it, and note 1 is re-deferred but now routed with its cost at §10 P-10(c). I stopped chasing the instance and swept the residue the new rules name, including the two artifact surfaces no threat-model round has examined: the docs/spec-reviews artifacts the ac-signoff fence names and the rounds drawer are both clean (their only real-looking name is the rfc2822_leak specimen, a verbatim re-typing of name_validation.py:205), every phone-shaped literal in this document is Ofcom drama-range or NANP 555, and the one email-shaped literal whose profile would make it a finding if novel is already committed at tests/test_name_validation.py:268/:274, tests/test_resolve_or_create.py:133/:176 and repositories/person.py:730 — measured, not ruled on by eye, and cited by location rather than re-typed. No third member of the class exists. STRIDE re-walked against material that is entirely prose this round: spoofing, repudiation, DoS and EoP unchanged with no finding (materialize_vault untouched since round 1's attacker read; neither fold makes the census a write target, and §10 P-9 states that wrong reading and rejects it); tampering improves durably (M1 standing after the fixity assertion, M2 fail-closed one phase earlier, the unwalled residue closed by authoring rule); information disclosure draws no finding for the first time in three rounds. Both declared residuals are unchanged and honest — a name deliberately typed into a reviewed set, and pool provenance grounded in the conductor's recorded scan because the suite is hermetic — and both belong to AC-5's sufficiency question, which is Dave's and on record. M1 and M2 verified in place at §6.5, Task 8 and Task 3 and re-emitted byte-identically. Two non-blocking notes, one of them the outstanding re-sign, which is the conveyor's lock rather than a security gap: PROMOTE means clear of security gaps, not clear to advance.
+```
+
+```mitigation
+kind: required
+id: M1
+desc: Every identity-shaped token in docs/vault-shape-census.md's own bytes — its prose as well as its fence rows — is asserted to be in that artifact's certified pool table, CONNECTIVE_SET, or an admitted _GENERIC_ORG_SUFFIXES member, with any residue in a declared allowlist asserted DISJOINT from the pool table, so the artifact the privacy wall depends on is itself inside the wall.
+landed: Task 8
+```
+
+```mitigation
+kind: required
+id: M2
+desc: The Implementation Plan's precondition abort gate additionally REFUSES when docs/vault-shape-census.md carries an identity-position token its own pool table does not certify, so a leaking census stops the build before any corpus byte is authored rather than at the last task.
+landed: Task 3
+```
+
+## Spec Review — 2026-09-08 (round 6)
+
+**Recommendation: PROMOTE to ready**
+
+Rulings on record: the AC-5 structural-wall-vs-middle-path sufficiency question is Dave's and is recorded above for sign-off; the census's absence from HEAD is SEQUENCING rather than a grounding gap (data audit, 2026-09-07); WI-020's specification-altitude and fold-and-close closures; and the 2026-09-08 threat model round 1's ruling that leg (e)'s no-absolute-path rule is NOT extended to the census, kept by rounds 2 and 3 — I route against all of them and nothing below re-litigates any.
+
+Read from line 1 in full, plus `docs/vault-shape-census.md` end to end, plus `docs/spec-reviews/WI-016-dave-review-2026-09-08-2.md`, then walked the bar from scratch rather than against round 5's gap list.
+
+### Round 5's three blocking findings, each re-measured rather than read off the fold
+
+- *Finding 1 (the leak in this document's own gate prose, and the missing durable rule).* **CLOSED.** The five positions round 5 measured now carry a bracketed redaction naming each value's census row and character profile and no value; threat model round 3 re-ran that measurement independently and reports the same. The durable half landed as a CLASS rather than as the two instances: `## Scope Boundary` (`:3729-3763`) states the generator and three standing authoring rules binding conductor, gate and builder, outside the signed span. I checked the ordering claim myself rather than trusting it — `docs/vault-fixtures-rounds.md` carries AC red-team and architect rounds and no threat-model section, so the append-only copy was not taken ahead of the redaction and nothing needing correction is frozen there.
+- *Finding 2 (the `pure_digit` `Verdict` literal).* **CLOSED, and I drove the literal through the code rather than reading the fix.** `name_validation.py:283-288` carries `branch_id="pure_digit"` (`:284`) and `pattern="pure_digit_name"` (`:285`); `:678` raises `NameValidationError(branch.pattern, …)`, `:463` binds it, `name_gate.py:365` re-raises through the single `_refuse` site at `:142`. §5.3 (`:2162-2175`) and Task 6 (`:3255-3265`) now pin `pattern="pure_digit_name"`, §3 states the general rule (a declared refusal `Verdict`'s `pattern` is the record's `pattern` field, never its `branch_id`) and carries a seven-item sweep of every pin of that class. AC-3's signed text did not move and did not need to.
+- *Finding 3 (the untaken re-sign).* **CLOSED — and it is the one whose closure inverted a claim this document still makes; see minor note 1.** `## AC Sign-off` now carries `signed_at: 2026-09-08T07:44:54+01:00`, `ac_hash: 3d15772495dc`, `ac_hash_AC-3: 1ec178617d40` and `artifact: docs/spec-reviews/WI-016-dave-review-2026-09-08-2.md`. I verified the signature is over the section AS IT NOW STANDS rather than assuming it: that artifact's `frozen_acceptance_criteria` carries AC-3(iv)'s re-taken digest (`-2.md:396`), the corrected "FROZEN — Dave signed" preamble (`:24-51`), AC-1(a)'s "corpus-relative POSIX path", AC-4's `__all__` / `:14-21` cite, AC-5(b)'s "THREE literal frozensets" and `### Examples of done` (`:1319`) — the whole span, including both edits round 5 priced at one re-sign, and no AC has been edited since. Stated as a limit rather than implied: I have no shell and cannot recompute the hash, so the currency check itself remains the conveyor's to run.
+
+### Citation verification
+
+Every `file:line` this round leans on was read at its cited lines in this worktree. **All verified ✓**, none inherited from the injected drift audit, which proves only that a symbol still exists.
+
+Re-read and confirmed exact: `repositories/base.py:27-38` (`SkippedNote`, the `#` type comment at `:37`, `detail` as `bounded_detail(error)` at `:38`) and `:41-47` (the three bare return literals at `:44`/`:46`/`:47`). `name_validation.py` — every `branch_id=` one by one, ten in `TIER1_BRANCHES` (`:192`, `:203`, `:215`, `:227`, `:239`, `:250`, `:261`, `:272`, `:284`, `:301`) and five in `COMPANY_TIER1_BRANCHES` (`:373`, `:385`, `:398`, `:414`, `:429`) adding no new id, so AC-3(iii)'s derived floor is ten and the census's ten branch rows are exactly it; `:284-285` for finding 2. `writer.py:160-169` (the signature takes `file_path` first, then `entity=`, then `frontmatter=`), `:205`, `:229-247` (the three arms and `gate_whole_record`), `:252-253` (the ONE `gate_write` call, `declared_type=fm.get("type")` read POST-merge) — Task 4's `frontmatter=` arm and §5.3's `entity=` arm are both real signatures and both reach the gate. `tests/ac_interpreter.py:1-40`, `:118-120` (the delegated argv is a one-node `pytest` run under the project venv), `:123-130`, `:136-148`, `:150-155`. `tests/test_ac_interpreter.py:36-40` (`WORK_ITEM_DOC` is `docs/write-door-bypasses.md`), `:57-73` (`criterion_checks`, fence-scoped by an exact `==` on the fence opener), `:76-87` (`check_module`, a `def <name>(` substring scan raising on anything but one match), `:90-95` (`run_foreign`, `sys.executable -S` in the conveyor's argv shape), `:111-115`, `:116-120` (the delegation-marker clause and its message), `:126-138` (the near-miss, named `test_a_failing_delegated_check_is_red_not_silently_green` — distinct from the name Task 12 adds). `tests/test_vault_path_required.py:382` (`NO_ARG_CONSTRUCTION`), `:387` (the five excluded parts), `:390-418` (`_temp_root_inside_repo`, which cannot reach `tests/fixtures/vault/`), `:421-433` (`_scanned_markdown_files`, an `rglob` from `REPO_ROOT` — so the corpus IS reached and Task 12's non-vacuity clause is satisfiable), `:436`, `:451` (`errors="replace"`, which is what makes the non-UTF-8 member safe in that walk). `tests/test_name_gate_wall.py:1057` and `:1073` (WI-022's colliding name and its call site), `:1132` and `:1136-1145` (`_check_the_ast_capability_stays_single_homed`, whose live line IS `{use.module for use in live}` — Task 12's corrected projection is the shipped wall's own), `:1161`. `tests/derivations.py:630` (`modules_using_ast` returns USE records, so the projection is required). `tests/test_loud_fail_harness.py:18-20` (the `six` dict declared a REQUIRED SUBSET rather than a cardinality bound), `:79-88`, `:93-97`, `:103-105`. `tests/test_loud_fail_load.py:167` (`test_skip_surface_detail_is_bounded`, Task 11's `verify:` name), `:187-188`, `:209-210`. `tests/test_name_gate.py:152`. `tests/support.py:1-19` and `:30-37` (`temp_dir` is a context manager). `pipeline-runners.yaml:7-8`, `:18-19`, `:34-38`. `pyproject.toml:38-39`, `:41-43` (`testpaths` and `python_files` are both declared, so Task 12's W-14 arm has the two keys its raising helper requires).
+
+`docs/vault-shape-census.md` re-read and structurally re-counted rather than inherited: **sixteen** `census-class` fences, **six MEASURED** (`pure_digit` 2, `diacritics` 6, `hyphenated_surname` 29, `whitespace_damage` 7, `stem_name_divergence` 8, `postal_address_in_name` 1) and **ten ABSENT** with count 0 and a `ruling`, one `census-meta` (`snapshot: 2026-09-07`, person 1150, company 659), **forty-two** `census-pool` rows. The six MEASURED ids are exactly §1.3 rule 2's and Task 6's list; the ten ABSENT ids are exactly the ten `branch_id`s I enumerated above, so AC-3(iii)'s both-directions branch assertion resolves with no phantom and no gap, and `arrow_connective` / `path_hostile` / `same_name_collision` are ABSENT exactly as §1.3 rules 5 and 7 assume.
+
+**The fence-scoped digest read is load-bearing and is already earning it, which I checked rather than assumed.** The `CENSUS_DIGEST` declaration form occurs TWICE in this document — once inside the AC-3 `criteria` fence (`:1418`) and once in round 5's finding 3, which quotes the superseded value (`:6173`). A file-wide uniqueness read would be RED today; fence-scoped it is unique and well-formed 64-character lowercase hex. Relatedly, `criterion_checks` over this document returns exactly five `check:` keys, all inside `## Acceptance Criteria`: the only other line opening with the fence marker followed by `criteria` is Task 12's own prose at `:3483`, which that reader's exact `==` test correctly declines to open a fence on. Task 12's "exactly five" pin therefore holds with six spec reviews, a sign-off and three threat-model rounds inline.
+
+### Bar check
+
+Walked every check of `docs/spec-quality-bar.md` (the doc's own list is the count). **Check 1** — self-contained against the codebase alone; the one exception is minor note 1, which is narration about the pipeline rather than instruction to the builder. **Check 2** — §10's P-1…P-10 enumerate the prerequisites, the trust boundary, the stdlib surface split across both new modules, the ≥3.10 floor's one load-bearing consequence, and the WI-300 ordering; P-3's atomic-landing claim against the PRE-DRIVE floor is right, re-verified at `tests/test_vault_path_required.py:387` and at the only two modules that name a doc. **Check 3** — every load-bearing claim about package behaviour re-read at its code; the one this round drove end to end is finding 2's, now correct. **Check 4** — all ten categories resolved, `OPEN: None`, and every resolved rule carries an exercising assertion (idempotency and no-clean by AC-1(b)'s second `materialize_vault` call with a foreign file planted between, the ISBN and hex collisions by Task 9's near-miss battery, the two-field split by mutation 15, the `-Voxleaf` run rule by Task 9's shape battery). **Check 5** — twelve canonical `- [ ] **Task N — …**` definitions, ordinals unique and contiguous 1–12, twelve well-formed lowercase `verify:` declarations (ten `test_` arms, one `baseline`, one `hand-run`, each exception carrying its reason); no `verify:` is a command and none writes, so WI-238 draws nothing. Both `landed: Task N` ordinals resolve (D8b clean). **Check 6** — WI-235's shape controls are Task 2's two planted batteries with their near-misses and Task 9's four, all driving the LIVE predicate objects by name; WI-278's arm is declared per reader with the `CORPUS_COUPLING:` line and M1's third property sits on the same arm behind the same digest; WI-173 correctly does not fire on an item whose warrant is absence. **Check 7**. **Check 9** — ten rows; R1 carries the threat model's finding and R10 the four members of its class. **Check 10** — five well-formed `criteria` fences, all `kind: test`, no `kind: command` and so no unsandboxed-shell exposure. **Check 11** — D-1…D-9 re-read at their artifacts, each supporting its own specific claim, with the closing paragraph correctly separating the seven package facts from the two pipeline ones (one count inside D-9 is off by one — minor note 3). **Check 8** — `## Mitigation Folds` holds one `fold` fence per id; I compared each `desc` character by character against the LATEST SPEAKING round's `mitigation` fences, which is now threat model **round 3** rather than round 2, and both are byte-identical, so the records are fresh against the round that actually speaks and D8c is satisfied. Both `design:` quotes are where they claim to be (§6.5's M1 and M2 sentences) and both `work:` quotes reproduce their task's own text (Task 8's body including the `CENSUS_PROSE_ALLOWLIST` authoring clause, Task 3's opening). Satisfaction is mine and not mechanical: M1's Task-8 scan runs the SAME `identity_tokens` object leg (b) calls, over the whole decoded file, ordered after the fixity assertion, with the pool-row set asserted non-empty first and the allowlist asserted disjoint from it; M2 is that predicate one build phase earlier, fail-closed, with the no-repair rule stated at four sites. Both satisfied. **Check 12 fires and is clean**: the evolved `## Acceptance Criteria` and the frozen text at `-2.md` agree across all five criteria — no strength-weakening, actor-swap, scope-narrowing, oracle-swap or exception-carving-by-addition — and unlike round 5 the signed hashes are no longer stale.
+
+**Write-Targets coverage (WI-132), run task by task rather than inherited.** Task 1 → none (baseline); Task 2 → `obsidian_schemas/repositories/base.py`, `tests/derivations.py`, `tests/test_fixture_vault.py`; Task 3 → `tests/fixtures/vault`; Tasks 4–9 → `tests/fixture_vault.py`, `tests/test_fixture_vault.py`; Task 10 → `tests/test_parser.py`, `tests/test_writer.py`, `tests/test_repositories.py`; Task 11 → `tests/test_loud_fail_load.py`, `tests/test_name_gate.py`; Task 12 → `tests/test_fixture_vault.py`. Every one is declared by a `writes` fence and no fence declares a path no task writes. The five READ-but-unwritten modules (`tests/ac_interpreter.py`, `tests/test_ac_interpreter.py`, `tests/test_vault_path_required.py`, `tests/test_name_gate_wall.py`, `pyproject.toml`) plus `docs/vault-shape-census.md` are correctly absent from `## Write Targets` and named on `## Scope Boundary`'s unchanged list with the reason. Every declared path is inside `write_authority` (`pipeline-runners.yaml:34-38`), so D7b holds and the WI-290 selector reads the item's real touch surface with nothing over-declared.
+
+**The conscious-pin sweep found no moved pin**, re-run rather than inherited over the corpora this change alters — the `branch_id` union, `TYPE_TO_MODEL`, the exported repository set, the skip-reason vocabulary, and `tests/derivations.py`'s scan set. `tests/test_concurrent_access.py:1077`/`:1085`/`:1088`/`:1089`, `tests/test_name_gate_wall.py:1161`, `tests/test_name_gate.py:172` and `tests/test_loud_fail_harness.py:88` are each unmoved by a frozenset, three string constants, two new scans and three repointed literals; the last of those I checked at its own docstring (`:18-20`) rather than at the spec's claim about it, and it is a declared REQUIRED SUBSET, so two new derivations genuinely do not move `len(six) == 6`.
+
+### Build-runner dry-run
+
+Walked the Implementation Plan top-to-bottom as the builder. Every task names its files, its insertion points and a runnable check; §1.2's grammar, §1.3's seven rules, §3's `LOADABLE` arithmetic with the collision's contribution worked, §3's two-field split, §4's disposition table, §5.1/§5.2's two identical walks, §5.4's ownership table (re-traced against `base.py:258-275`), §6.1's extractor with its fifth stated consequence, §6.4's three named predicates and the named excision, and §6.5's six decisions leave no judgment call open. The precondition gate with its M2 arm is still the strongest thing in the plan and now fires one phase before the expensive work. Task 3's `hand-run` declaration is the one task whose artifact has no standing check until the next task lands, and it says so with its reason.
+
+Three questions a cold-start builder would plausibly ask, and where each is answered: *"which manifest field names the two AC-1(c) discriminators?"* — `NoteSpec.discriminator`, never `shape_classes`, argued in §3, prescribed in Task 4, restated in §5.5 and driven both wrong ways by mutation 15. *"do I project `modules_using_ast`'s return?"* — yes, and Task 12 now prescribes the projection the shipped wall itself performs. *"what do I call for W-14, which has no importable predicate?"* — nothing; the config's own declared `python_files` globs, read by a helper that raises rather than defaults, driven through `fnmatch`, with `tests/test_fixture_vault.py`'s own name as the positive control. All three are answered in the document, which is the difference between this round and rounds 3 through 5.
+
+### Minor notes (non-blocking)
+
+1. **Every place this document narrates its own GATE STATE is now stale, because the acts round 5 asked for were taken.** `## AC Sign-off` carries the re-sign; §10 P-2 still reads "As of 2026-09-08 that re-sign is still UNTAKEN" and quotes `ac_hash: 2696ecd667a7` / `ac_hash_AC-3: eab359ff9e39`, neither of which is in the document any more; §10 P-10(b) reads "OUTSTANDING"; §10 P-9 names rounds 1 and 2 and calls round 2 the latest speaking round; `## Mitigation Folds`' preamble and `## Self-Review Dry Run`'s bar check say the same. All five are false and all five sit outside the signed span, so the whole correction is free. **It is a note and not a finding, and the reason is the shape rather than the size:** I verified the two things that could have BLOCKED — that the signature is over the current section, and that the fold records are byte-fresh against round 3 rather than round 2 — and both hold, so nothing machine-read acts on the stale prose. **The one place it does cost something is P-10(c)**, which routes the census Method-bullet fix to "ride (b)" and prices it at "nothing extra, bundled": (b) is taken, so that bundling is gone and the edit now costs its own re-sign. Worth one sentence whenever P-2 and P-10 are next touched. **And it is worth naming what GENERATES it, so the factory does not buy a round on the next turn of the crank:** this document records its own pipeline state in prose, and every gate round and conductor act invalidates that prose — round 5's finding 3 was this class, its remediation created this instance, and a seventh round would find whatever this round's remediation creates. That is the WI-020 regress signature, sitting in the narration rather than in the spec. The durable answer is not another correction pass but to let the fences be the record: `## AC Sign-off`'s own keys ARE the sign-off state and `## Threat Model`'s latest round IS the speaking round, both machine-read, so §10's prose should point at them rather than restate them.
+2. **The `## Acceptance Criteria` preamble points at the SUPERSEDED frozen artifact**, naming `signed_at: 2026-09-08T01:14:48+01:00` and `docs/spec-reviews/WI-016-dave-review-2026-09-08.md` where `## AC Sign-off` names 07:44:54 and `-2.md`. It is inside the hash-signed span and was signed as it stands, so **it should NOT be edited** — a third re-sign bought for a pointer is not worth it. Recorded so a later Check-12 gate does not follow the preamble to the older artifact, diff AC-3(iv)'s digest against it and re-raise round 5's finding 3 forever: the authoritative referent is the `artifact:` key of the `## AC Sign-off` fence.
+3. **§4's disposition table and D-9 both claim a complete grep and are short by one site.** Re-run here over every `*.py` in this worktree, the three literals occur at `errors.py:112`, `base.py:37`, `:44`, `:46`, `:47`, **`base.py:299`**, `test_loud_fail_load.py:188`, `:209` and `test_name_gate.py:152` — nine, not the eight D-9 states, with `base.py:299`'s `# unreadable note.` comment absent from the table. **Consequence is nil and that is why it is a note:** it is a `#` comment, invisible to `ast` and therefore to W-15, in a file that is a declared legal home either way, and §4 already rules that exact shape KEPT at `:37`. It is recorded because §4's own heading argues that the enumeration rather than a count is what set Task 11's scope, and because this is the same stated-number-versus-actual-list family the document has corrected five times — the sixth instance is in the paragraph that closed the fifth.
+4. `base.py:196-198` survives at one site (AC-4's `desc`) where the rest of the document now says `:195-198`. AC-4 is signed, both spans resolve to the same `file_pattern` property and support the same claim, and the divergence is already recorded in `### Constraints discovered` as checked rather than missed. No action.
+
+### Carried-forward notes
+
+- **Threat model round 2 note 1 / round 3's only open note — `docs/vault-shape-census.md:19` claims a protection M1 does not provide.** Re-verified at both ends this round: the Method bullet still reads that the absolute vault path "is deliberately not recorded here (AC-5(e)'s no-absolute-path rule, extended to this artifact by M1)", while §6.5 item 5 and Task 8 both say in terms that the scan does NOT extend leg (e) to the census. Nothing leaks today; the artifact asserts a wall that does not exist, and a later refresh re-adding the path would pass M1 green with its own bullet claiming otherwise. **Still OPEN and re-deferred, for the ruling three threat-model rounds have kept** — the subject names no person and is machine-local — and routed correctly at §10 P-10(c) with its fix and its "must not be closed by widening M1's scan" rule. The only thing that has changed is its price, per minor note 1: it no longer rides an owed re-sign.
+- **Architect round 10 note 2 — AC-4's "`_skip_reason` returns them BY NAME" is prose the first arm of `skip_reason_return_values` cannot discriminate**, since that scan resolves a module-level `str` Name and a bare literal to the same value. Still OPEN. Re-deferred, and I checked the argument rather than accepting it: §4 and Task 2 prescribe the by-name form explicitly, no safety property depends on the spelling, and W-15's set equality is unaffected either way because `base.py` is a declared home under both spellings. Closing it buys a re-sign for a clause with no red behind it.
+- **Architect round 10 note 3 — the rounds drawer.** Still PARTIALLY actioned and now UNBLOCKED: the drawer holds no threat-model section, so the redaction preceded any copy and the append-only rule has frozen nothing that needed correcting. §10 P-10(d) records it. I re-confirmed the two reads a copy could have disturbed: AC-3(iv)'s digest read is fence-scoped, and `criterion_checks` still returns exactly five names, all inside `## Acceptance Criteria`.
+- Rounds 1–4's non-blocking notes, the data audit's P10 count, and AC red-team round 9's "Nine helpers" — all closed at earlier rounds and re-confirmed here. Round 5's four notes are closed: the W-1 projection is in Task 12 and §11, the `CENSUS_PROSE_ALLOWLIST` authoring clause is in §6.5 item 3 and Task 8 with the two landed-artifact tokens named, the `:195-198` alignment is taken everywhere it was free, and AC-5(b)'s company figure is correctly left alone as signed text nothing rests on.
+
+Nothing this round touches the approach, D1's amendment, the byte-copy rule, the derived sweeps, the census's sequencing, or AC-5's pending sufficiency question — which remains Dave's and is recorded above for sign-off. Twenty-five gate rounds have now produced no finding against the approach.
+
+```verdict
+gate: spec-reviewer
+verdict: PROMOTE
+date: 2026-09-08
+model: claude-opus-5
+note: All three of round 5's blocking findings CLOSE and each was re-measured rather than read off the fold — the five redacted positions carry location and character profile and no value, with the rounds drawer confirmed to hold no threat-model section so the redact-first ordering held; the pure_digit Verdict now reads pattern="pure_digit_name", which I traced name_validation.py:284-285 -> :678 -> :463 -> name_gate.py:365/:142 rather than reading the fix; and the re-sign is TAKEN (signed_at 07:44:54, ac_hash 3d15772495dc, artifact -2.md) over the section as it now stands, verified by finding AC-3(iv)'s re-taken digest at -2.md:396, the corrected preamble at :24-51 and Examples of done at :1319 inside the frozen text. Check 8 draws no finding: the latest speaking round is now threat model ROUND 3, which re-emitted M1 and M2 byte-identically, so both fold records are fresh against the round that actually speaks, both design/work quotes are where they claim to be, and I judge both mitigations satisfied on my own read of the quoted text. Census re-counted end to end — 16 class fences, 6 MEASURED / 10 ABSENT, 42 pool rows — and the ten ABSENT branch ids are exactly the ten branch_ids I enumerated one by one across both Tier-1 tables, so AC-3(iii) resolves with no phantom and no gap. Twelve canonical tasks with contiguous ordinals and twelve well-formed verify declarations, both landed ordinals resolving, Write-Targets coverage run task by task with nothing over- or under-declared, no moved count pin, and the fence-scoped digest read already earning its scope (the declaration form occurs twice in this document and a file-wide read would be RED today). Four minor notes, none blocking, and the largest is named as a CLASS rather than a fix list: every place this document narrates its own gate state in prose — P-2, P-9, P-10(b), the Mitigation Folds preamble, the Self-Review bar check — is now false precisely because the acts round 5 asked for were taken; its one real cost is that P-10(c)'s census fix no longer rides an owed re-sign; and it is the WI-020 regress signature in the narration rather than in the spec, since round 5's finding created this instance and a seventh round would find whatever fixing it creates. The durable answer is to let the AC Sign-off and Threat Model fences be the record instead of restating them. I verified the two things that could have blocked — signature currency and fold freshness — and both hold. Nothing here touches the approach, the byte-copy rule, the derived sweeps, the census sequencing or AC-5's sufficiency question, which is Dave's and on record.
 ```
