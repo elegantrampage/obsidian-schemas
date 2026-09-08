@@ -14,7 +14,9 @@ the live vault rather than remembered. Machine surface per Design §2: `census-m
 
 ## Method
 
-- **Vault:** `$VAULT` = `/Users/davewascha/Documents/Obsidian/DaveRemoteVault`, read-only.
+- **Vault:** `$VAULT` is the root of Dave's Obsidian vault (the `DaveRemoteVault` folder), exported in the
+  shell before any command below is run; read-only throughout. The absolute path is deliberately not
+  recorded here (AC-5(e)'s no-absolute-path rule, extended to this artifact by M1).
 - **LIVE population:** every `*.md` whose frontmatter carries `type: <t>`, EXCLUDING dot-directories and
   the three non-live directories `_quarantine/`, `_merged_dupes/` and `Templates/`. Excluding them is what
   makes the person count (1150) agree with `PersonRepository`'s own load (1147 on 2026-09-06) to within
@@ -30,7 +32,9 @@ the live vault rather than remembered. Machine surface per Design §2: `census-m
   reconciles against this artifact: `diacritics`, `hyphenated_surname`, `whitespace_damage`,
   `stem_name_divergence`, `same_name_collision`, `postal_address_in_name`.
 - **Specimens** are constructed strings carrying the measured character profile; every identity-position
-  token in them is certified below in the pool table; emails are RFC 2606 (`example.com`); phones are in
+  token in them — AT THE GRANULARITY AC-5(b)'s run rule EXTRACTS, so a hyphen-fused pair such as
+  `Brenvik-Tarnquil` is certified as the compound it extracts as, alongside its halves — is certified
+  below in the pool table; emails are RFC 2606 (`example.com`); phones are in
   Ofcom's reserved drama range (`07700 900xxx`). `Dave` is CONNECTIVE furniture (AC-5(b)), never pooled.
 
 ## Header
@@ -149,7 +153,7 @@ count: 2
 status: MEASURED
 command: grep -rl --null -E --include='*.md' --exclude-dir='.*' --exclude-dir=_quarantine --exclude-dir=_merged_dupes --exclude-dir=Templates '^type: *person *$' "$VAULT" | xargs -0 -I{} grep -m1 -h '^name:' {} | sed -E "s/^name: *[\"']?//; s/[\"']$//" | grep -cE '^\+?[0-9]+$'
 stdout: 2
-specimen: +447700900123
+specimen: 447700900123
 ```
 
 ### `empty`
@@ -234,29 +238,31 @@ specimen: 25 Corvallen Ravensby-3rd Pellworth-Wexlund 8
 
 - **Furniture literals in their measured letter-case (for AC-5(b)'s one-time `CONNECTIVE_SET`
   reconciliation).** In the LIVE population every prefix/suffix branch measures 0. In the WHOLE vault the
-  forms that exist are: `zArchived - Rosie Samuels` (one note, `_quarantine/`) — lowercase `z`, capital
-  `A`, then ` - `; and `<digits> unknown contact` (three notes, `_quarantine/` and `_merged_dupes/`) —
-  the LOWERCASE suffix form. No `Unknown Contact`, no `ME -`, no `DAVE -` form occurs anywhere.
+  forms that exist are: `zArchived - <name>` (one note, `_quarantine/`) — lowercase `z`, capital `A`,
+  then ` - `; and `<digits> unknown contact` (three notes, `_quarantine/` and `_merged_dupes/`) — the
+  LOWERCASE suffix form. No `Unknown Contact`, no `ME -`, no `DAVE -` form occurs anywhere.
   **Reconciliation outcome: `CONNECTIVE_SET` stays exactly `{"Me", "My", "Dave"}`** — `zArchived`
   yields no token under the extractor and the lowercase suffix yields none either.
 - **`diacritics` counts non-ASCII LETTERS** (Unicode category L), so it is 6 and not 7: the seventh
   non-ASCII live name is `✨🌙 ✨`, an emoji-only name with no letter at all. That is a distinct shape
   outside the class floor (nothing in the package refuses it; `clean_person_name` passes it), recorded
   here for WI-026/lint_vault rather than given a class row, so no corpus specimen is owed for it.
-- **`whitespace_damage`: all seven are the same profile** — `Dave` + TWO spaces + a name (e.g.
-  `Dave  Naomi Pavie`, `Dave  Lauren King Speechmatics`): the calendar-prefix leak with its dash
-  already stripped by the deleted mangler, which is why the specimen is `Dave  Marrowyn Fennwick` and
-  not a plain double-spaced surname.
-- **`postal_address_in_name`: MEASURED, one live note** — `25 Kingly Street-3rd Floor-Salmon 8`, a
-  street address with floor and suite fused by hyphens. The specimen keeps that profile (leading number,
-  hyphen-fused words, trailing digit) with every word constructed, because `Street`/`Floor`/a locality
-  are ordinary vocabulary that cannot carry a zero-hit pool row.
+- **`whitespace_damage`: all seven are the same profile** — `Dave` + TWO spaces + a two- or three-token
+  name, in three cases with a company word appended: the calendar-prefix leak with its dash already
+  stripped by the deleted mangler, which is why the specimen is `Dave  Marrowyn Fennwick` and not a
+  plain double-spaced surname.
+- **`postal_address_in_name`: MEASURED, one live note** — a numbered street address with an ordinal
+  floor and a suite word fused by hyphens and a trailing digit (`<number> <street> <kind>-<ordinal>
+  <floor word>-<suite word> <digit>`). The specimen keeps that profile with every word constructed,
+  because the street kind, the floor word and a locality are ordinary vocabulary that cannot carry a
+  zero-hit pool row; the two hyphen-fused pieces extract as the compound tokens `Ravensby` (the `-3rd`
+  is trimmed) and `Pellworth-Wexlund`, and the compound has its own pool row.
 - **`pure_digit`: both live members are `+<11-12 digits>`** (a phone stored as the name); the specimen
   is the reserved `+447700900123`.
 - **`stem_name_divergence`: 8 live** (whole vault 110, of which 94 are in `_merged_dupes/`, the merge
   archive, and 5 in `_quarantine/`). The eight live shapes: a book-titled file holding a person note;
-  an apostrophe dropped from the stem (`@Owen OLoan.md` / `Owen O'Loan`); a first-name-only stem; a
-  suffix or middle name in one side only; token order swapped; a run-together stem (`@Clairejwallis.md`).
+  an apostrophe dropped from the stem; a first-name-only stem; a suffix or middle name on one side
+  only; token order swapped; a run-together stem with no spaces. None is quoted here (M1).
 - **THE ONE-class-or-TWO RULING.** `same_name_collision` (≥3 live notes sharing one stored name) is
   ABSENT (largest live collision: 2) while `stem_name_divergence` is MEASURED (8). They are therefore
   TWO classes in this vault: today AC-3(i) obliges no collision specimen, and the manifest's
@@ -559,5 +565,19 @@ stdout: 0
 token: Ostrakine
 class: company-name
 command: grep -rliw --include='*.md' --exclude-dir='.*' 'Ostrakine' "$VAULT" | wc -l | tr -d ' '
+stdout: 0
+```
+
+```census-pool
+token: Brenvik-Tarnquil
+class: hyphenated-surname-compound
+command: grep -rliw --include='*.md' --exclude-dir='.*' 'Brenvik-Tarnquil' "$VAULT" | wc -l | tr -d ' '
+stdout: 0
+```
+
+```census-pool
+token: Pellworth-Wexlund
+class: address-compound
+command: grep -rliw --include='*.md' --exclude-dir='.*' 'Pellworth-Wexlund' "$VAULT" | wc -l | tr -d ' '
 stdout: 0
 ```
