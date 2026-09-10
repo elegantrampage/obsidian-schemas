@@ -1,5 +1,53 @@
 # Session Log
 
+## 2026-09-10 (and the 09-08/09 tail)
+
+### WI-016 SHIPPED dark on factory-v9; WI-023 parked on a Dave ruling; the porter-stall class named
+
+**WI-016 (fixture vault) shipped idea→done** — the pre-epoch item (created 2026-03-22) whose every
+human door was epoch-skipped by design. The conductor ran the bypassed acts by hand between legs:
+the WI-300 grounding artifact `docs/vault-shape-census.md` (16 class rows over 1,150 live person
+notes — every Tier-1 branch ABSENT except `pure_digit`; six hand-listed shapes; 42 constructed pool
+tokens certified zero-hit; every command one line, count-emitting, verbatim stdout), the P-2
+pre-origination edit (CENSUS_DIGEST + six class ids), a WI-268 present→word→originate D4a ("wi-016
+approved", attested), an M1 prose remediation (the census had quoted live names — re-authored, then
+the same values redacted BY LOCATION from the WI doc's gate prose where the threat modeler had
+copied them), compound-token pool rows, and a hand D4b ("wi-016 confirmed", `3d15772495dc`). Two
+hand-landed merges (WI-316 shape: the driver's own earlier merge moved the live doc under the
+resumed worktree; every conflict side pre-fold text). Then the build on v9 under the davewascha
+token per Dave's account map ("proceed with 1"): builder + code-reviewer PROMOTE + test-observability
+PROMOTE; floor 667→678; consumers green (HAL9000 623 / exocortex 659 / orchestrator 1462+3); 53
+corpus files, no `/Users/`, no live token. Ship commit `b009108`. Nine caps were bought in all —
+each a distinct real hole, most of them the same lesson: a hand enumeration where the package
+exported the surface. Unminted follow-ups for Dave: the leaked-token copies still in
+`state/escalations.jsonl` / `state/eval-events.jsonl` (workshop item 87: in-place marker rewrite at
+quiesce, Dave's word); the emoji-only live name (`✨🌙 ✨`) outside the class floor.
+
+**WI-023 (identity engine endgame) is at `building` on a Dave ruling.** The build's Cut 1 executed
+correctly and surfaced a FOURTH email-divergence class E2 did not enumerate: after the cutover,
+`find_or_create_stub("<Display Name> <addr>", email=None)` against a note carrying `addr` returns
+`created_new=False` where it returns `True` today (the `True` was already false in fact — no note
+minted; door C reused with a warning). Consumer sweep: only HAL9000 `entities.py:252` (→ 409 instead
+of a duplicate) and orchestrator `contact_normalizer.py:435` (a counter) read the flag. Options
+presented: absorb (recommended) / narrow + re-sign / measure-then-absorb (measured). The builder's
+drift report and a green additive tree are persisted at `evidence-jwpy80ya`. Earlier in the same
+arc: the deny-path fork (builder wrote `state/work-items.json` — the WI-041/065 producer-touches-
+derived-state anti-pattern; answered "rethink"), and a resume that landed the drift report and the
+tool's rounds-drawer split in the live doc.
+
+**Factory facts learned, all banked by workshop:** the porter relaunches only from answered
+`awaiting-ac-signoff`/`revise-cap` records — an answered merge-conflict or deny-path record, or a
+hand-landed item at `ready`, is invisible to it (items 90/102; interim: dismiss the consumed record,
+hand-launch via `bin/launch-drive.py` from the blessed tree under the project's token, in a
+subshell); an answered sign-off record stays consumable until dismissed (WI-350; the porter re-signed
+WI-023's D4b at 08:43 on 09-07 from Dave's banked word, referent-checked); the review artifact of a
+`--doc-root` sign lands in `--project` only (WI-354; interim: byte-identical copy into the worktree);
+a mid-drive gate-minted conductor obligation gets no pause (WI-357/358); v8→v9 blessed 2026-09-09
+15:42 with the fold door, the spawn-start guard and WI-327's grammar rule. Bar note endorsed: a gate
+reporting a leaked identifier names LOCATION + CHARACTER PROFILE, never the value.
+
+---
+
 ## 2026-09-06
 
 ### Queue review ruled; the next manifest written (not launched)
