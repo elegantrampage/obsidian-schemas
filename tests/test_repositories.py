@@ -2242,3 +2242,24 @@ class TestFindOrCreateStubWI121Paren:
         assert created is True
         assert person.name == "Foo Bar"
         assert person.company == "Right Co"
+
+
+def test_corpus_vault_loads_through_every_repository():
+    """WI-016 D5's proof set, ADDITIVE: the frozen corpus loads through all four
+    repositories at its declared counts. `temp_vault` (:15-263) is deliberately
+    NOT repointed — the remaining ~1,950 lines of this file assert directly on
+    its exact names, emails, phone and company values, and a mechanical repoint
+    would rewrite them against different data in the same build that introduces
+    the data (Design §9.1)."""
+    from tests import support
+    from tests.fixture_vault import LOADABLE, materialize_vault
+
+    with support.temp_dir() as tmp:
+        dest = materialize_vault(tmp / "vault")
+        for cls in (PersonRepository, CompanyRepository, MeetingRepository,
+                    BookRepository):
+            repo = cls(vault_path=str(dest))
+            repo.load()
+            assert len(repo.get_all()) == LOADABLE[repo.type_name], (
+                f"{repo.type_name} loaded {len(repo.get_all())} entities from "
+                f"the frozen corpus, declared {LOADABLE[repo.type_name]}")

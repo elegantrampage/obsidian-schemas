@@ -17,6 +17,9 @@ from obsidian_schemas.writer import (
 from obsidian_schemas.parser import parse_frontmatter, parse_markdown_file
 from obsidian_schemas.models import Person, Company, Book
 from obsidian_schemas.errors import NoteAlreadyExists
+from obsidian_schemas.models import TYPE_TO_MODEL
+from tests import support
+from tests.fixture_vault import NOTES, materialize_vault
 
 
 class TestModelToFrontmatter:
@@ -293,61 +296,6 @@ title: ""
 class TestRoundtrip:
     """Tests for roundtrip functionality."""
 
-    def test_roundtrip_preserves_data(self):
-        """Test that roundtrip preserves all data."""
-        original_content = """---
-type: person
-name: John Smith
-emails:
-  - john@example.com
-phones: []
-whatsapp: ""
-company: Acme Corp
-title: CTO
-linkedin: ""
-tags:
-  - person
-  - contact
-created: "2025-01-01"
-custom_field: custom value
----
-
-# John Smith
-
-## Timeline
-
-Some notes here.
-"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            file_path = Path(tmpdir) / "test.md"
-            file_path.write_text(original_content)
-
-            # Parse
-            doc = parse_markdown_file(file_path)
-            assert doc.entity is not None
-            assert doc.entity.name == "John Smith"
-
-            # Write back
-            write_markdown_file(
-                file_path,
-                entity=doc.entity,
-                body=doc.body,
-                extra_fields=doc.extra_fields,
-                allow_unverified_overwrite=True,
-                overwrite=True,
-            )
-
-            # Parse again
-            doc2 = parse_markdown_file(file_path)
-
-            # Verify data preserved
-            assert doc2.entity.name == "John Smith"
-            assert doc2.entity.company == "Acme Corp"
-            assert "person" in doc2.entity.tags
-            assert doc2.extra_fields.get("custom_field") == "custom value"
-            assert "## Timeline" in doc2.body
-
-
 class TestBodyShrinkGuard:
     """WI-126 (R1) — write_markdown_file must loud-fail (BodyTruncationError) on
     any overwrite that would silently drop existing body content lines, unless
@@ -451,3 +399,30 @@ class TestBodyShrinkGuard:
         repo.save(Person(name="Rich", tags=["person"]), body="",
                   allow_body_replacement=True)
         assert "Meeting]]" not in (vault / "@Rich.md").read_text()
+
+
+def test_corpus_note_round_trips_through_the_write_door():
+    """WI-016 D5's proof set: parse a frozen corpus note, write it back through
+    the GATED door (`write_markdown_file` calls `gate_write` on the assembled
+    payload, `writer.py:252-253`) and re-parse — asserting the frontmatter
+    MAPPING against the manifest's declared oracle rather than byte-equality
+    against the original, whose fixity is the corpus digest's job."""
+    name = next(n for n, spec in NOTES.items()
+                if spec.roundtrip_representative and spec.declared_type == "person")
+    spec = NOTES[name]
+    model = TYPE_TO_MODEL["person"]
+    with support.temp_dir() as tmp:
+        dest = materialize_vault(tmp / "vault")
+        doc = parse_markdown_file(dest / name, model)
+        assert doc.entity is not None
+
+        out = tmp / "written"
+        out.mkdir()
+        write_markdown_file(out / name, entity=doc.entity, body=doc.body)
+
+        again = parse_markdown_file(out / name, model)
+        for attribute, expected in spec.fields.items():
+            assert again.frontmatter[attribute] == expected, (
+                f"the write door changed {attribute!r}: "
+                f"{again.frontmatter[attribute]!r} != {expected!r}")
+        assert "## Timeline" in again.body

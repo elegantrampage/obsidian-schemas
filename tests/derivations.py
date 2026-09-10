@@ -1508,3 +1508,99 @@ def character_class_strip_sites(files: Iterable[Path]) -> list:
                 found.append(AstUse(module, "<module>", node.lineno))
     found.sort()
     return found
+
+
+# --------------------------------------------------------------------------
+# 17. The skip-reason vocabulary (WI-016, AC-4)
+# --------------------------------------------------------------------------
+#
+# Two scans, and they land HERE for the reason every scan above does: `ast` is
+# single-homed to this module by a standing set-equality wall, so a
+# syntax-reading predicate has exactly one legal home. Reading parsed SYNTAX
+# rather than source text is also what lets `base.py`'s `#` type comment and
+# `errors.py`'s running-prose docstring stay untouched with no exception carved
+# for either — `ast` drops comments entirely, and a docstring is ONE Constant
+# whose value is the whole docstring.
+
+
+def skip_reason_return_values(path: Path, func_name: str = "_skip_reason") -> set:
+    """Every string value `func_name`'s OWN BODY can return, resolved from syntax.
+
+    Two arms, and an unresolvable return is LOUD rather than dropped:
+      (1) `return "<literal>"`            — ast.Return of a str ast.Constant
+      (2) `return NAME`                   — ast.Return of an ast.Name bound at
+                                            MODULE level in this same file to a
+                                            str ast.Constant
+    Anything else raises AssertionError naming module, function and lineno. An
+    under-generating scan that returned silently would be green against the very
+    drift this exists to catch (LESSONS #46).
+
+    The function is matched on the LAST dotted segment of its qualname, and a
+    nested function of the same name contributes nothing: `_iter_functions`
+    spells nesting as `<locals>` in the qualname (the shape `__qualname__`
+    produces), and a qualname carrying it is a DIFFERENT function that happens
+    to share a leaf name — its returns are not this one's codomain.
+    """
+    path = Path(path)
+    tree = _parse(path)
+    module = module_id(path)
+
+    bindings = {}
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant) \
+                and isinstance(node.value.value, str):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    bindings[target.id] = node.value.value
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.value, ast.Constant) \
+                and isinstance(node.value.value, str) and isinstance(node.target, ast.Name):
+            bindings[node.target.id] = node.value.value
+
+    values = set()
+    seen_function = False
+    for fid, func in _iter_functions(path, tree):
+        if fid.name != func_name or "<locals>" in fid.qualname:
+            continue
+        seen_function = True
+        for node in _own_body_nodes(func):
+            if not isinstance(node, ast.Return):
+                continue
+            value = node.value
+            if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                values.add(value.value)
+            elif isinstance(value, ast.Name) and value.id in bindings:
+                values.add(bindings[value.id])
+            else:
+                raise AssertionError(
+                    f"{module}:{fid.qualname}:{node.lineno} returns a value this "
+                    f"scan cannot resolve to a string literal — an under-read here "
+                    f"would be green against the drift this scan exists to catch"
+                )
+    assert seen_function, f"{module} defines no function named {func_name!r}"
+    return values
+
+
+def skip_reason_literal_sites(files: Iterable[Path], reasons: Iterable[str]) -> set:
+    """Every file under `files` containing a `str` Constant EQUAL to a member of
+    `reasons`, as repo-relative module ids.
+
+    Read off parsed syntax, never source text, for the reason the disposition
+    table gives: a text grep cannot tell a declaration from the `#` comment two
+    lines above it or from a docstring sentence that merely mentions the word,
+    and both of those are legitimate and must stay. `ast` drops comments
+    entirely, and a docstring is ONE Constant whose value is the whole docstring
+    — so equality against a member matches neither.
+
+    Equality, never containment: a string that merely CONTAINS a member as a
+    substring is not a transcription of the vocabulary and is not reported.
+    """
+    wanted = frozenset(reasons)
+    found = set()
+    for path in files:
+        tree = _parse(path)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str) \
+                    and node.value in wanted:
+                found.add(module_id(path))
+                break
+    return found

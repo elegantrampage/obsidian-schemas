@@ -1,7 +1,7 @@
 {
   "project": "obsidian-schemas",
   "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
-  "last_scanned": "2026-09-09T13:41:38Z",
+  "last_scanned": "2026-09-10T09:41:58Z",
   "next_id": 31,
   "items": [
     {
@@ -2171,11 +2171,11 @@
     {
       "id": "WI-016",
       "title": "Frozen anonymized real-data fixture vault",
-      "stage": "ready",
+      "stage": "done",
       "file": "docs/vault-fixtures.md",
       "created": "2026-03-22",
-      "last_touched": "2026-09-08",
-      "stage_changed": "2026-09-08",
+      "last_touched": "2026-09-10",
+      "stage_changed": "2026-09-10",
       "tags": [
         "testing",
         "real-data-fixtures"
@@ -2205,6 +2205,20 @@
           "to": "ready",
           "at": "2026-09-08",
           "by": "porter",
+          "forced": false
+        },
+        {
+          "from": "ready",
+          "to": "building",
+          "at": "2026-09-10",
+          "by": "session",
+          "forced": false
+        },
+        {
+          "from": "building",
+          "to": "done",
+          "at": "2026-09-10",
+          "by": "session",
           "forced": false
         }
       ],
@@ -2260,6 +2274,13 @@
           "date": "2026-09-08",
           "model": "claude-opus-5",
           "note": "Round 2's blocking finding is CLOSED and I verified it by re-running the measurement rather than reading the fold \u2014 the redaction marker now returns exactly five positions in exactly one file (docs/vault-fixtures.md:5785/:5788/:5791 and twice at :5881), each carrying the value's location and character profile and no value, and the finding's argument survives intact. The ordering held, which is the half that could not have been recovered: the drawer carries AC red-team and architect rounds and NO Threat Model section at all, so the append-only copy was not taken before the redaction. The durable half landed stronger than asked \u2014 Scope Boundary :3729-3763 states the GENERATOR (an identity-shaped value entering one of this item's artifacts through a surface no wall reaches) and closes the residue as a class in three standing rules binding conductor, gate and builder, outside the signed span; round 2's note 2 closes with it, and note 1 is re-deferred but now routed with its cost at \u00a710 P-10(c). I stopped chasing the instance and swept the residue the new rules name, including the two artifact surfaces no threat-model round has examined: the docs/spec-reviews artifacts the ac-signoff fence names and the rounds drawer are both clean (their only real-looking name is the rfc2822_leak specimen, a verbatim re-typing of name_validation.py:205), every phone-shaped literal in this document is Ofcom drama-range or NANP 555, and the one email-shaped literal whose profile would make it a finding if novel is already committed at tests/test_name_validation.py:268/:274, tests/test_resolve_or_create.py:133/:176 and repositories/person.py:730 \u2014 measured, not ruled on by eye, and cited by location rather than re-typed. No third member of the class exists. STRIDE re-walked against material that is entirely prose this round: spoofing, repudiation, DoS and EoP unchanged with no finding (materialize_vault untouched since round 1's attacker read; neither fold makes the census a write target, and \u00a710 P-9 states that wrong reading and rejects it); tampering improves durably (M1 standing after the fixity assertion, M2 fail-closed one phase earlier, the unwalled residue closed by authoring rule); information disclosure draws no finding for the first time in three rounds. Both declared residuals are unchanged and honest \u2014 a name deliberately typed into a reviewed set, and pool provenance grounded in the conductor's recorded scan because the suite is hermetic \u2014 and both belong to AC-5's sufficiency question, which is Dave's and on record. M1 and M2 verified in place at \u00a76.5, Task 8 and Task 3 and re-emitted byte-identically. Two non-blocking notes, one of them the outstanding re-sign, which is the conveyor's lock rather than a security gap: PROMOTE means clear of security gaps, not clear to advance."
+        },
+        "code-reviewer": {
+          "gate": "code-reviewer",
+          "verdict": "PROMOTE",
+          "date": "2026-09-10",
+          "model": "claude-opus-5",
+          "note": "Every write is a declared target, the census is read and never written, all six AI-maintainability and both Step-2c checks pass on a read of the final bytes, and the five criteria are implemented as signed \u2014 three non-blocking notes, zero Blocking."
         }
       },
       "verdicts": [
@@ -2322,33 +2343,11 @@
           "verdict": "REVISE",
           "date": "2026-09-07",
           "model": "claude-opus-5",
-          "targets": "AC-1, AC-4, AC-5, Task 2, Task 11, #design",
-          "prior": "none",
-          "basis": "original",
-          "findings": "4/7",
-          "note": "First spec-review round, and the Design/Plan/Verification sections are material no prior gate has read; every file:line in the document verified exact against this worktree (all of AC-1..AC-5's, all of Design's, the ten branch_ids, the flat-glob ownership rule, the eight-member TYPE_TO_MODEL) with only two navigational nits. Four blocking, two of them build-stoppers in the new material: (1) tests/test_fixture_vault.py hosts five AC checks that execute the library behind pydantic and the spec never gives it ensure_project_interpreter(__file__), which six sibling check modules open with (test_company_name_contract.py:25, test_address_splitter.py:38, test_name_gate_identifiers.py:41, test_name_gate_refusals.py:41, test_name_gate_wall.py:40, test_name_gate_delta_rule.py:37) and which tests/ac_interpreter.py:7-25 exists to record as WI-021's five-of-five-red battery against a green floor \u2014 P-4 asserts the opposite premise off a pipeline-runners.yaml comment that module says is only true with --ac-python; (2) AC-5(a)'s phone predicate (a >=9-digit span) runs over tests/fixture_vault.py, which by \u00a73's design carries NoteSpec.raw_bytes_hex, a full note's bytes in hex \u2014 printable ASCII hex-encodes to first nibbles 2-7, so `type:` alone yields the nine-digit run 747970653 and the leg is RED by construction, the same collision \u00a76.4 settled for the ISBN and stopped one instance short; (3) AC-1(a) keys the digest on the \"repo-relative POSIX path\" while AC-1(b) and \u00a75.2's code key it on the file name, so leg (b) is unsatisfiable under the criterion's literal reading; (4) the skip-reason home enumeration behind \u00a74's solve-in-one-place argument and Task 11's scope is short by two \u2014 tests/test_loud_fail_load.py:209 and tests/test_name_gate.py:152 both hand-type \"unreadable\" and neither is named. All four are one-line-to-few-line fixes in draft text and none touches the approach or AC-5's pending sufficiency question."
-        },
-        {
-          "gate": "spec-reviewer",
-          "verdict": "REVISE",
-          "date": "2026-09-07",
-          "model": "claude-opus-5",
           "targets": "AC-5, Task 8, Task 12, #verification, #design",
           "prior": "held",
           "basis": "folded-material",
           "findings": "3/6",
           "note": "Round 1's four findings all close and I verified each closure against the tree rather than the fold's prose (the six bridge callers at their cited lines, \u00a76.4's excision, AC-1(a)/\u00a75.2 now agreeing on the filename key, and \u00a74's eight-site disposition table reproduced exactly by an independent grep); its three non-blocking notes close too. Three blocking, and TWO of them land on the text those closures added, which is the fold-breeding-its-own-next-finding shape rather than a re-opening: (1) AC-5(a)'s new hex excision asserts each declared literal is \"asserted to OCCUR in the text it is excised from\" while \u00a76.4 applies the excision \"for each file in reach\" \u2014 CORPUS_DIGEST and raw_bytes_hex live only in tests/fixture_vault.py, so under the literal per-file reading the leg is RED on all ~50 correct corpus notes, which is the same criterion-vs-code fork as round 1's repo-relative finding and has no in-cage remedy after signature; (2) \u00a711 W-16 and Task 12 assert only exit 0 from the shipped run_foreign, dropping the two clauses tests/test_ac_interpreter.py:116-120 and :126-138 carry \u2014 the delegation-marker check whose own message is \"exited 0 WITHOUT delegating \u2026 proves nothing about the battery's conditions\", and the nonexistent-check near-miss \u2014 so on any interpreter where the deps survive -S the parity wall is green over a run that proves nothing and Verification's mutation 9, the one the spec calls the most important in the list, never fires (WI-235: a count-of-exit-codes oracle with no shape and no near-miss); (3) `## Verification`'s \"DERIVED, not inherited\" regression enumeration names \"the twelve modules that import tests/derivations.py\" and ten do \u2014 tests/test_vault_path_required.py contains no occurrence of the string at all and tests/test_name_gate.py's only one is the docstring line at :15 \u2014 which costs nothing at build (both are already in the base.py row) but is a falsifiable claim about this tree that fails, and is the fifth instance of the stated-number-vs-actual-list family whose exhaustion claims Dave's pending sufficiency ruling reads as true. Nothing here touches the approach, the census sequencing, or AC-5's scope question."
-        },
-        {
-          "gate": "spec-reviewer",
-          "verdict": "REVISE",
-          "date": "2026-09-07",
-          "model": "claude-opus-5",
-          "targets": "Task 12",
-          "prior": "held",
-          "basis": "original",
-          "findings": "1/3",
-          "note": "Round 2's three findings all close and each closure was verified against the tree rather than the fold's prose \u2014 AC-5(a)/\u00a76.4/Task 8/Edge Cases/R10 now state the hex-excision presence domain as the REACH in one wording; Task 12 and \u00a711 W-16 now assert the delegation marker beside exit 0 and add the near-miss, both copied from tests/test_ac_interpreter.py:116-120 and :126-138 which I read; and the regression enumeration's ten importers of tests/derivations.py reproduce exactly under an independent grep. Round 2's three non-blocking notes close too. ONE blocking finding, and unlike rounds 1 and 2 it is not in folded material: Task 12 prescribes adding `test_wall_membership_is_closed_by_running_each_walls_predicate` to tests/test_fixture_vault.py, and tests/test_name_gate_wall.py:1057 already defines a top-level test of exactly that name (WI-022's Task 16 verify, named at docs/write-door-bypasses.md:4593) \u2014 one function above the very helper \u00a711 W-1 anchors on. check_module (tests/test_ac_interpreter.py:76-87) is a `def <name>(` substring scan over tests/test_*.py that RAISES unless exactly one module matches, so Task 12's own derived uniqueness assertion fails on Task 12's own file, and Task 12's verify: declaration resolves to two modules under the conveyor's D10b rule \u2014 while \u00a710 P-6 states the uniqueness rule correctly and checks it only for the five AC names. Fix is a rename inside this item plus one clause in P-6 saying the check was run against the tree's existing top-level def test_ set; repointing from the other side is forbidden by `## Scope Boundary`. Two non-blocking notes (Task 4 hands write_markdown_file a directory where writer.py:160-169 wants a file path, which \u00a75.3 gets right; Task 12's W-8 and W-14 arms name no callable where its own rule says call the shipped predicate). All twelve tasks carry well-formed verify declarations, Write-Targets coverage is exact task by task, no count pin moves, Task 9's corrected phone and extractor batteries were re-derived by hand and are right, and nothing here touches the approach, the census sequencing, or AC-5's pending sufficiency question."
         },
         {
           "gate": "ac-signoff",
@@ -2369,50 +2368,6 @@
         },
         {
           "gate": "threat-modeler",
-          "verdict": "REVISE",
-          "date": "2026-09-08",
-          "model": "claude-opus-5",
-          "targets": "AC-5, Task 8, #write-targets",
-          "prior": "none",
-          "basis": "original",
-          "findings": "1/3",
-          "note": "First threat model on this item (\u00a710 P-9 confirmed none existed). Triggers fire on persistence, filesystem writes, external-source input and P-8's own trust boundary; spoofing, repudiation, DoS and EoP each drew no finding, and materialize_vault survives an attacker read (bare src.name into dest, no rmtree, AC-1(b) asserts a foreign file survives). ONE blocking finding, and it is in the wall's REACH rather than in any enumeration: docs/vault-shape-census.md carries real live-vault name values in its prose \u2014 `<the live postal-address value \u2014 redacted 2026-09-08 by the conductor at the threat model's round-2 instruction; location: census row postal_address_in_name, character profile: number, street, kind-ordinal floor-suite digit>` (:250) and `<the live run-together stem \u2014 redacted 2026-09-08 by the conductor; location: census row stem_name_divergence>` (:259), each measured here as occurring in exactly ONE file in the whole worktree, so both are NEW to this repository \u2014 while AC-5's declared reach is `tests/fixtures/vault/` plus `tests/fixture_vault.py` and excludes the census by construction, `## Design` \u00a72 puts its prose permanently outside any suite check, `## Write Targets`'s constructed-token charge is scoped to the specimen and pool columns, and the tree's only repo-wide markdown scan excludes docs entirely (tests/test_vault_path_required.py:387). The other real names in the same bullets (Naomi Pavie, Lauren King, Rosie Samuels, Owen O'Loan) are pre-existing tree literals and are NOT part of the finding, per Task 9's recorded reading. It is a gap rather than a fold because no Implementation-Plan task can carry the remediation \u2014 `## Scope Boundary` and the precondition gate both forbid the builder touching the census \u2014 so it needs a conductor act plus a re-taken digest plus the D4b re-sign `## Write Targets` itself predicts, which is cheap now and permanent after origination: AC-3(iv) and AC-5(c) digest this file, so the build does not merely ship the leak, it asserts it immutable. M1 lands the durable half in Task 8 (the census's own bytes join the identity closure it certifies) and M2 lands the early half in Task 3's abort gate. Two non-blocking notes; the approach, the byte-copy rule, the derived sweeps and AC-5's pending sufficiency question are untouched."
-        },
-        {
-          "gate": "spec-reviewer",
-          "verdict": "REVISE",
-          "date": "2026-09-08",
-          "model": "claude-opus-5",
-          "targets": "AC-1, AC-3, AC-5, M1, M2, Task 3, Task 4, Task 8, #design",
-          "prior": "held",
-          "basis": "original",
-          "findings": "3/7",
-          "note": "Round 3's finding closes (a def-sweep over tests/test_*.py returns the WI-022 name at test_name_gate_wall.py:1057 and ZERO occurrences of the renamed test, and zero for all twelve other new names) and both its non-blocking notes close; every citation re-verified exact, including the ten branch_ids, the five company ones, name_cleaning.py:46-58, name_gate.py:319/:344/:355-358, writer.py:160-169 and test_vault_path_required.py:382/:387/:421-433/:451, plus docs/vault-shape-census.md read end to end (16 class fences, 6 MEASURED / 10 ABSENT, 40 single-word pool rows). THREE blocking, all produced by the one read no prior round did \u2014 walking the now-SIGNED criteria against the landed census's actual rows rather than against the code: (1) the 2026-09-08 threat model's M1 and M2 are kind: required and unfolded \u2014 a grep returns them nowhere outside that section, Task 8 and Task 3 are unchanged, there is no ## Mitigation Folds section, and \u00a710 P-9 still asserts no threat model exists, so the conveyor's D8c refuses specced -> ready whatever any gate recommends; (2) AC-1(c) obliges the corpus to carry an arrow-connective and a path-hostile specimen \"named in the manifest as such\" while the census rules BOTH ABSENT (:80-87, :113-120), so shape_classes naming them breaks AC-3(i)'s both-directions equality over MEASURED rows and leaving them empty leaves \"named as such\" unsatisfied \u2014 buildable two ways with one way RED, fixable in \u00a73/Task 4 with a dedicated manifest field and no re-sign; (3) the census pool table certifies at WORD granularity while AC-5(b)'s pinned maximal-run rule emits hyphen-joined COMPOUND tokens (Task 9's own battery asserts Anne-Sophie Legrain -> {Anne-Sophie, Legrain}), so the MEASURED hyphenated_surname specimen yields Brenvik-Tarnquil and postal_address_in_name yields Pellworth-Wexlund, neither certified, and both classes OBLIGE a specimen \u2014 the build reddens on a correct corpus with the census unwritable and digested, which is M2's own abort-gate clause and should fold with it. Four non-blocking notes. Check 12 fires for the first time and finds NO AC diff against the frozen text, which is exactly why findings 2 and 3 cost a D4b re-sign \u2014 and both remaining conductor acts change the census's bytes, so one re-author, one re-digest and one re-sign covers them. Nothing here touches the approach, the census sequencing, or AC-5's pending sufficiency question."
-        },
-        {
-          "gate": "threat-modeler",
-          "verdict": "REVISE",
-          "date": "2026-09-08",
-          "model": "claude-opus-5",
-          "targets": "#threat-model, #scope-boundary",
-          "prior": "mixed",
-          "basis": "machinery",
-          "findings": "1/3",
-          "note": "Round 1's blocking finding is CLOSED and I verified it by re-running the measurement rather than reading the fold \u2014 the three tokens now return ZERO hits in docs/vault-shape-census.md, whose postal_address_in_name bullet states a constructed schema and whose stem_name_divergence bullet closes \"None is quoted here (M1)\"; the digest moved with the bytes (AC-3(iv) now sha256:4cb7945f\u2026, was 625efee\u2026 at 585d639) and P-2 names the one owed re-sign. M1 and M2 are genuinely folded \u2014 \u00a76.5's six decisions, Task 8's scan ordered after the fixity assertion with the pool set asserted non-empty first and CENSUS_PROSE_ALLOWLIST kept out of the manifest so AC-5(b)'s signed \"three frozensets\" sentence stays true, Task 3's fail-closed abort, and Scope Boundary :3570-3576 answering the spec reviewer's watch item that neither mitigation grants the builder a write. Round 1's note 2 closed and over-closed (the conductor removed the vault path entirely); note 1 is not actioned and is carried forward. ONE blocking finding, and it is the same leak one artifact over - the two novel live-vault values did not leave the repository, they MOVED into this document: the round 1 section quotes both verbatim at :5497/:5498/:5501/:5504 and restates them in its verdict note at :5594, and the same worktree-wide grep now returns exactly ONE file, docs/vault-fixtures.md. Intent (frozen) promises no real contact names enter this repository and Scope Boundary promises this item adds none beyond P10's 35; R1 rates the outcome irreversible; the quotation was load-bearing for exactly one round and is now residue of the kind round 1 itself refused in the census. It is urgent rather than tidy because the Archived Rounds drawer is append-only and never rewritten and architect round 10 note 3 asks the conductor to move settled rounds there \u2014 after that copy the redaction is forbidden. I have no shell and so cannot tell whether the round 1 section is already committed; the conductor should settle that, since it decides prevention versus damage limitation. No M3: no Implementation-Plan task can carry a redaction of a settled gate section, and I explicitly do NOT ask for a machine wall over this document \u2014 it quotes refused fixtures and four pre-existing tree literals by design, so a scan here is RED by construction, exactly as round 1 argued for tests/test_fixture_vault.py. The durable half is one Scope Boundary sentence (report a leaked identifier by location and character profile, never by value) costing no re-sign. Two non-blocking: the census Method bullet at :19 claims leg (e)'s no-absolute-path rule is \"extended to this artifact by M1\" when \u00a76.5 item 5 and Task 8 :3163-3165 both say it is not, and round 1's un-actioned note 1. M1 and M2 re-emitted byte-identically; the approach, the byte-copy rule, the derived sweeps and AC-5's pending sufficiency question are untouched."
-        },
-        {
-          "gate": "spec-reviewer",
-          "verdict": "REVISE",
-          "date": "2026-09-08",
-          "model": "claude-opus-5",
-          "targets": "AC-3, Task 6, #design, #acceptance-criteria, #threat-model, #scope-boundary",
-          "prior": "held",
-          "basis": "folded-material",
-          "findings": "3/7",
-          "note": "All three of round 4's blocking findings CLOSE and each was verified against the tree rather than the fold \u2014 Mitigation Folds now carries one fold fence per id with desc byte-identical to the latest speaking round's mitigation fences, both design/work quotes are where they claim to be and I judge both mitigations satisfied on my own read; the AC-1(c)/AC-3(i) fork is resolved by two manifest fields with no criterion edit; and the landed census now certifies Brenvik-Tarnquil (:572) and Pellworth-Wexlund (:579) with the granularity rule in its own Method section. Census re-counted end to end: 16 class fences, 6 MEASURED / 10 ABSENT, 42 pool rows, and the four real-looking prose names round 4 recorded are GONE, so M1 and M2 are satisfiable against the landed bytes. Every citation re-verified exact including all fifteen branch_id sites, base.py:189-198/:258-275/:309-311/:334-342, name_gate.py:319/:344/:355-365, writer.py:160-169/:252-253, the ac_interpreter pair and test_vault_path_required.py:382/:387/:421-433/:451. THREE blocking. (1) The LATEST SPEAKING threat-model round returned REVISE over a leak whose subject is this document and NEITHER half is actioned: re-measured here by location only, the two values still return exactly five hits in exactly one file \u2014 docs/vault-fixtures.md:5497/:5498/:5501/:5504/:5594 \u2014 and the durable Scope Boundary rule that round asked for exists only inside its own suggested-adjustments text at :5805, so frozen Intent, Scope Boundary and R1 are each false about this document; the Archived Rounds drawer is append-only and never rewritten, so the redaction must precede the drawer copy architect round 10 note 3 still asks for. (2) \u00a75.3 and Task 6 pin the pure_digit Verdict to pattern=\"pure_digit\", which is the branch_id \u2014 name_validation.py:284-285 gives pattern=\"pure_digit_name\", :678 raises NameValidationError(branch.pattern), :463 binds it and name_gate.py:365 re-raises it, and \u00a73 defines the field as the NameGateRefusal.pattern expected \u2014 so the ONE literal the spec says the builder may not choose is wrong and Task 6 reddens on a correct corpus; AC-3 says only \"the named pattern\", so the fix is two words in Design and Task 6 with no re-sign, and the rule behind it is worth stating once because three records share the calendar_prefix pattern and the two vocabularies cannot be aliased. (3) The signed span is dirty and the one re-sign \u00a710 P-2 declares is untaken: ac_hash 2696ecd667a7 / ac_hash_AC-3 eab359ff9e39 are stale against AC-3(iv)'s re-taken CENSUS_DIGEST (4cb7945f\u2026, was 625efee\u2026 in the frozen artifact at :377), so the conveyor refuses specced -> ready whatever I recommend. Check 12 finds the diff is that digest literal alone across all five criteria \u2014 no strength-weakening, actor-swap, scope-narrowing, oracle-swap or exception-carving \u2014 which is what makes the re-sign cheap to grant. Four non-blocking, four carried forward including both un-actioned threat-model notes. Check 8 draws no finding for the first time. Nothing here touches the approach, the byte-copy rule, the derived sweeps, the census sequencing or AC-5's pending sufficiency question."
-        },
-        {
-          "gate": "threat-modeler",
           "verdict": "PROMOTE",
           "date": "2026-09-08",
           "model": "claude-opus-5",
@@ -2424,6 +2379,13 @@
           "date": "2026-09-08",
           "model": "claude-opus-5",
           "note": "All three of round 5's blocking findings CLOSE and each was re-measured rather than read off the fold \u2014 the five redacted positions carry location and character profile and no value, with the rounds drawer confirmed to hold no threat-model section so the redact-first ordering held; the pure_digit Verdict now reads pattern=\"pure_digit_name\", which I traced name_validation.py:284-285 -> :678 -> :463 -> name_gate.py:365/:142 rather than reading the fix; and the re-sign is TAKEN (signed_at 07:44:54, ac_hash 3d15772495dc, artifact -2.md) over the section as it now stands, verified by finding AC-3(iv)'s re-taken digest at -2.md:396, the corrected preamble at :24-51 and Examples of done at :1319 inside the frozen text. Check 8 draws no finding: the latest speaking round is now threat model ROUND 3, which re-emitted M1 and M2 byte-identically, so both fold records are fresh against the round that actually speaks, both design/work quotes are where they claim to be, and I judge both mitigations satisfied on my own read of the quoted text. Census re-counted end to end \u2014 16 class fences, 6 MEASURED / 10 ABSENT, 42 pool rows \u2014 and the ten ABSENT branch ids are exactly the ten branch_ids I enumerated one by one across both Tier-1 tables, so AC-3(iii) resolves with no phantom and no gap. Twelve canonical tasks with contiguous ordinals and twelve well-formed verify declarations, both landed ordinals resolving, Write-Targets coverage run task by task with nothing over- or under-declared, no moved count pin, and the fence-scoped digest read already earning its scope (the declaration form occurs twice in this document and a file-wide read would be RED today). Four minor notes, none blocking, and the largest is named as a CLASS rather than a fix list: every place this document narrates its own gate state in prose \u2014 P-2, P-9, P-10(b), the Mitigation Folds preamble, the Self-Review bar check \u2014 is now false precisely because the acts round 5 asked for were taken; its one real cost is that P-10(c)'s census fix no longer rides an owed re-sign; and it is the WI-020 regress signature in the narration rather than in the spec, since round 5's finding created this instance and a seventh round would find whatever fixing it creates. The durable answer is to let the AC Sign-off and Threat Model fences be the record instead of restating them. I verified the two things that could have blocked \u2014 signature currency and fold freshness \u2014 and both hold. Nothing here touches the approach, the byte-copy rule, the derived sweeps, the census sequencing or AC-5's sufficiency question, which is Dave's and on record."
+        },
+        {
+          "gate": "code-reviewer",
+          "verdict": "PROMOTE",
+          "date": "2026-09-10",
+          "model": "claude-opus-5",
+          "note": "Every write is a declared target, the census is read and never written, all six AI-maintainability and both Step-2c checks pass on a read of the final bytes, and the five criteria are implemented as signed \u2014 three non-blocking notes, zero Blocking."
         }
       ],
       "acceptance_criteria": [

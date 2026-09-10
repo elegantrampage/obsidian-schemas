@@ -18,7 +18,11 @@ from obsidian_schemas import (
     MeetingRepository,
     PersonRepository,
 )
-from obsidian_schemas.repositories.base import VaultPathNotConfiguredError
+from obsidian_schemas.repositories.base import (
+    SKIP_REASONS,
+    UNREADABLE,
+    VaultPathNotConfiguredError,
+)
 
 from tests.derivations import (
     PACKAGE_ROOT,
@@ -184,8 +188,10 @@ def test_skip_surface_detail_is_bounded(tmp_path, caplog):
         repo.load()
 
     assert repo.skipped_count == 3, [n.path.name for n in repo.skipped_notes]
-    assert {n.reason for n in repo.skipped_notes} == {
-        "malformed-frontmatter", "schema-drift", "unreadable"}
+    # WI-016: reads the declared codomain rather than transcribing it, which
+    # is strictly stronger — a fourth reason with no specimen in this matrix
+    # vault goes RED here where the hand-typed set stayed green.
+    assert {n.reason for n in repo.skipped_notes} == set(SKIP_REASONS)
 
     written = {p.name for p in tmp_path.iterdir()}
     for note in repo.skipped_notes:
@@ -206,7 +212,7 @@ def test_skip_surface_detail_is_bounded(tmp_path, caplog):
     # byte and its OFFSET rather than a snippet of the note — still note-derived,
     # and still out of bound, but it means sentinel-absence alone cannot catch a
     # regression here. Hence the log-line oracle below.)
-    unreadable = [n for n in repo.skipped_notes if n.reason == "unreadable"]
+    unreadable = [n for n in repo.skipped_notes if n.reason == UNREADABLE]
     assert unreadable and unreadable[0].detail == "UnicodeDecodeError"
 
     # THE WARNING CARRIES THE BOUNDED PROJECTION, NOT THE RAW ONE. Without this,

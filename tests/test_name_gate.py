@@ -41,7 +41,7 @@ from obsidian_schemas.name_gate import (
     gate_write,
     split_address,
 )
-from obsidian_schemas.repositories.base import _skip_reason
+from obsidian_schemas.repositories.base import UNREADABLE, _skip_reason
 from tests.support import temp_dir
 
 REFUSAL_REASON = "the write introduces a name this package refuses"
@@ -149,7 +149,7 @@ def test_name_gate_refusal_is_a_loud_fail_leaf_carrying_a_pattern():
 
     # `_skip_reason`'s isinstance chain stays TOTAL with the new member, which
     # falls to the default rather than to a parse bucket.
-    assert _skip_reason(exc) == "unreadable"
+    assert _skip_reason(exc) == UNREADABLE
 
     # A consumer's `from obsidian_schemas import ...` keeps working.
     assert obsidian_schemas.NameGateRefusal is NameGateRefusal

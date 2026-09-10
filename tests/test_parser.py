@@ -15,6 +15,8 @@ from obsidian_schemas.parser import (
     ParsedDocument,
 )
 from obsidian_schemas.models import Person, Company, Book
+from tests import support
+from tests.fixture_vault import NOTES, materialize_vault
 
 
 class TestParseFrontmatter:
@@ -210,36 +212,6 @@ Great book!
 class TestParseMarkdownFile:
     """Tests for parse_markdown_file function."""
 
-    def test_parse_file(self):
-        """Test parsing a markdown file."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".md", delete=False
-        ) as f:
-            f.write("""---
-type: person
-name: Test Person
-emails:
-  - test@example.com
-tags: [person]
-created: "2025-01-01"
----
-
-# Test Person
-
-Some notes.
-""")
-            f.flush()
-
-            doc = parse_markdown_file(f.name)
-
-            assert doc.file_path == Path(f.name)
-            assert isinstance(doc.entity, Person)
-            assert doc.entity.name == "Test Person"
-            assert doc.entity.emails == ["test@example.com"]
-
-            # Cleanup
-            Path(f.name).unlink()
-
     def test_parse_file_not_found(self):
         """Test parsing non-existent file raises error."""
         with pytest.raises(FileNotFoundError):
@@ -271,3 +243,24 @@ name: Acme Corp
 """
         person = parse_person(content)
         assert person is None
+
+
+def test_corpus_person_note_parses_to_its_declared_values():
+    """WI-016 D5's proof set: the inline heredoc this replaced typed its own
+    vault and its own expectations in the same breath, so it asserted only that
+    the parser agrees with whoever typed the fixture. This parses the frozen
+    corpus's declared `person` representative against the manifest's
+    HAND-WRITTEN oracle instead."""
+    name = next(n for n, spec in NOTES.items()
+                if spec.roundtrip_representative and spec.declared_type == "person")
+    spec = NOTES[name]
+    with support.temp_dir() as tmp:
+        dest = materialize_vault(tmp / "vault")
+        doc = parse_markdown_file(dest / name)
+
+        assert doc.file_path == dest / name
+        assert isinstance(doc.entity, Person)
+        for attribute, expected in spec.fields.items():
+            assert getattr(doc.entity, attribute) == expected, (
+                f"{name}.{attribute} parsed to "
+                f"{getattr(doc.entity, attribute)!r}, declared {expected!r}")

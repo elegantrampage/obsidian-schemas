@@ -38,13 +38,23 @@ class SkippedNote:
     detail: str      # bounded_detail(error) — never the raw rendering (M2)
 
 
+MALFORMED_FRONTMATTER = "malformed-frontmatter"
+SCHEMA_DRIFT = "schema-drift"
+UNREADABLE = "unreadable"
+
+#: The complete codomain of `_skip_reason` — the classification `SkippedNote.reason`
+#: carries. Declared so a consumer can read it instead of re-spelling it (WI-016);
+#: bound to the function's own returns by tests/derivations.py:skip_reason_return_values.
+SKIP_REASONS = frozenset({MALFORMED_FRONTMATTER, SCHEMA_DRIFT, UNREADABLE})
+
+
 def _skip_reason(error: BaseException) -> str:
     """Derived from the error TYPE, never passed in."""
     if isinstance(error, FrontmatterParseError):
-        return "malformed-frontmatter"
+        return MALFORMED_FRONTMATTER
     if isinstance(error, SchemaDriftError):
-        return "schema-drift"
-    return "unreadable"
+        return SCHEMA_DRIFT
+    return UNREADABLE
 
 
 class VaultPathNotConfiguredError(ValueError):
