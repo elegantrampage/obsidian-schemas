@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "notes": [
+    {"name": "Jane Roe",        "emails": ["Jane Roe <jane.roe@example.com>"], "aliases": [],                  "phones": [],              "company": null},
+    {"name": "Kit Baldwin",     "emails": ["kit@localhost"],                   "aliases": [],                  "phones": [],              "company": null},
+    {"name": "Dana Okafor",     "emails": [" dana@example.com "],              "aliases": [],                  "phones": [],              "company": null},
+    {"name": "John Smith",      "emails": ["john.smith@example.com"],          "aliases": [],                  "phones": [],              "company": null},
+    {"name": "Sandy Forster",   "emails": ["sandy.forster@example.com"],       "aliases": [],                  "phones": [],              "company": null},
+    {"name": "Alex Nkemdirim",  "emails": [],                                  "aliases": ["pat@example.com"], "phones": [],              "company": null},
+    {"name": "Rosa Delgado",    "emails": ["pat@example.com"],                 "aliases": [],                  "phones": [],              "company": null},
+    {"name": "Emily Mendes",    "emails": ["emily.mendes@example.com"],        "aliases": [],                  "phones": [],              "company": null},
+    {"name": "Priya Raman",     "emails": [],                                  "aliases": [],                  "phones": ["44790055852"], "company": null},
+    {"name": "Tomas Villalobos","emails": [],                                  "aliases": [],                  "phones": ["2125550147"],  "company": "Kestrel Analytics"}
+  ]
+}

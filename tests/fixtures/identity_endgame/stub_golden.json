@@ -1,0 +1,207 @@
+{
+  "schema_version": 1,
+  "recorded_at": "cut-0",
+  "roster_digest": "0b8cd47ea654ae047c4803cf4f05820cda80cb1dccd8ca7282b5944a6f509f31",
+  "cases": [
+    {
+      "arm": "per-email",
+      "name": "Jane Roe",
+      "email": "Jane Roe <jane.roe@example.com>",
+      "phone": null,
+      "company": null,
+      "ordinal": 1,
+      "expected_name": "Jane Roe",
+      "expected_created": false
+    },
+    {
+      "arm": "per-email",
+      "name": "Kit Baldwin",
+      "email": "kit@localhost",
+      "phone": null,
+      "company": null,
+      "ordinal": 2,
+      "expected_name": "Kit Baldwin",
+      "expected_created": false
+    },
+    {
+      "arm": "per-email",
+      "name": "Dana Okafor",
+      "email": " dana@example.com ",
+      "phone": null,
+      "company": null,
+      "ordinal": 3,
+      "expected_name": "Dana Okafor",
+      "expected_created": false
+    },
+    {
+      "arm": "per-email",
+      "name": "John Smith",
+      "email": "john.smith@example.com",
+      "phone": null,
+      "company": null,
+      "ordinal": 4,
+      "expected_name": "John Smith",
+      "expected_created": false
+    },
+    {
+      "arm": "per-email",
+      "name": "Sandy Forster",
+      "email": "sandy.forster@example.com",
+      "phone": null,
+      "company": null,
+      "ordinal": 5,
+      "expected_name": "Sandy Forster",
+      "expected_created": false
+    },
+    {
+      "arm": "per-email",
+      "name": "Rosa Delgado",
+      "email": "pat@example.com",
+      "phone": null,
+      "company": null,
+      "ordinal": 6,
+      "expected_name": "Rosa Delgado",
+      "expected_created": false
+    },
+    {
+      "arm": "per-email",
+      "name": "Emily Mendes",
+      "email": "emily.mendes@example.com",
+      "phone": null,
+      "company": null,
+      "ordinal": 7,
+      "expected_name": "Emily Mendes",
+      "expected_created": false
+    },
+    {
+      "arm": "per-phone",
+      "name": "Priya Raman",
+      "email": null,
+      "phone": "44790055852",
+      "company": null,
+      "ordinal": 8,
+      "expected_name": "Priya Raman",
+      "expected_created": false
+    },
+    {
+      "arm": "per-phone",
+      "name": "Tomas Villalobos",
+      "email": null,
+      "phone": "2125550147",
+      "company": null,
+      "ordinal": 9,
+      "expected_name": "Tomas Villalobos",
+      "expected_created": false
+    },
+    {
+      "arm": "per-company",
+      "name": "Tomas",
+      "email": null,
+      "phone": null,
+      "company": "Kestrel Analytics",
+      "ordinal": 10,
+      "expected_name": "Tomas Villalobos",
+      "expected_created": false
+    },
+    {
+      "ordinal": 11,
+      "arm": "not-present",
+      "name": "Wilbur Achebe",
+      "email": "wilbur.achebe@notpresent.example.com",
+      "phone": null,
+      "company": null,
+      "expected_name": "Wilbur Achebe",
+      "expected_created": true
+    },
+    {
+      "ordinal": 12,
+      "arm": "not-present",
+      "name": "Greta Oyelaran",
+      "email": "greta.oyelaran@notpresent.example.com",
+      "phone": null,
+      "company": null,
+      "expected_name": "Greta Oyelaran",
+      "expected_created": true
+    },
+    {
+      "ordinal": 13,
+      "arm": "not-present",
+      "name": "Marcus Thibodeaux",
+      "email": "marcus.thibodeaux@notpresent.example.com",
+      "phone": null,
+      "company": null,
+      "expected_name": "Marcus Thibodeaux",
+      "expected_created": true
+    },
+    {
+      "ordinal": 14,
+      "arm": "not-present",
+      "name": "Ingrid Castellanos",
+      "email": "ingrid.castellanos@notpresent.example.com",
+      "phone": null,
+      "company": null,
+      "expected_name": "Ingrid Castellanos",
+      "expected_created": true
+    },
+    {
+      "ordinal": 15,
+      "arm": "not-present",
+      "name": "Otto Farrimond",
+      "email": "otto.farrimond@notpresent.example.com",
+      "phone": null,
+      "company": null,
+      "expected_name": "Otto Farrimond",
+      "expected_created": true
+    },
+    {
+      "ordinal": 16,
+      "arm": "not-present",
+      "name": "Neve Kowalczyk",
+      "email": "neve.kowalczyk@notpresent.example.com",
+      "phone": null,
+      "company": null,
+      "expected_name": "Neve Kowalczyk",
+      "expected_created": true
+    },
+    {
+      "ordinal": 17,
+      "arm": "not-present",
+      "name": "Rafael Ibarrola",
+      "email": "rafael.ibarrola@notpresent.example.com",
+      "phone": null,
+      "company": null,
+      "expected_name": "Rafael Ibarrola",
+      "expected_created": true
+    },
+    {
+      "ordinal": 18,
+      "arm": "not-present",
+      "name": "Sunniva Blackwood",
+      "email": null,
+      "phone": "33612345678",
+      "company": null,
+      "expected_name": "Sunniva Blackwood",
+      "expected_created": true
+    },
+    {
+      "ordinal": 19,
+      "arm": "not-present",
+      "name": "Hugo Pemberton",
+      "email": null,
+      "phone": "33698765432",
+      "company": null,
+      "expected_name": "Hugo Pemberton",
+      "expected_created": true
+    },
+    {
+      "ordinal": 20,
+      "arm": "not-present",
+      "name": "Delphine Marchetti",
+      "email": null,
+      "phone": null,
+      "company": "Kestrel Analytics",
+      "expected_name": "Delphine Marchetti",
+      "expected_created": true
+    }
+  ]
+}

@@ -1,22 +1,23 @@
 """WI-125 Phase 3 — the identity engine `resolve_or_create`.
 
-The engine reproduces `find_or_create_stub`'s **return-value** behavior
-(`(resolved_name, created_new)` — the Phase-5 parity contract) plus the one
-genuinely-new behavior: **Branch-A conflict detection**. Not yet wired into
-`find_or_create_stub` (that's the Phase-4 adapter swap).
+The engine reproduces the `(resolved_name, created_new)` behavior
+`find_or_create_stub` has always had, plus the one genuinely-new behavior:
+**Branch-A conflict detection**. `find_or_create_stub` runs through it today.
 
 Coverage:
   - Branch A: email hit / phone-only hit / agreeing email+phone (no conflict) /
     disagreeing email→X,phone→Y (conflict recorded, best-hit returned, no raise) /
     a richer identifier (LinkedIn) resolving through the unified index;
   - Branch B: the Naomi Pavie reuse gate (mangled canonical, name+company);
-  - Branch C: WeakIdentityError preserved; clean create;
-  - a mini **parity harness** — `resolve_or_create` vs `find_or_create_stub` on
-    identical twin vaults, asserting identical `(name, created)` per case (the
-    Phase-5 gate in miniature).
-"""
+  - Branch C: WeakIdentityError preserved; clean create.
 
-import shutil
+The twin-vault parity harness that used to sit at the foot of this module is
+gone with the body it compared against (WI-023 Cut 4). It had stopped comparing
+two implementations when the adapter swap landed — both of its legs became the
+same computation — and its successor is committed DATA: the two goldens under
+`tests/fixtures/identity_endgame/`, replayed by
+`tests/test_identity_endgame.py`.
+"""
 
 import pytest
 
@@ -165,60 +166,3 @@ class TestBranchC:
         assert created is True
         assert ref.canonical_key == "brand new person"
         assert repo._hydrate(ref).name == "Brand New Person"
-
-
-# ── Parity harness: resolve_or_create vs find_or_create_stub ─────────────────
-
-# (name, email, phone, company) → exercised against identical twin vaults.
-PARITY_CASES = [
-    ("J. Smith", "john@example.com", None, None),                  # A: email hit
-    ("Jane", None, "+15551234567", None),                         # A: phone hit
-    ("Naomi Pavie", "naomi@speechmatics.com", None, "Speechmatics"),  # B: name reuse
-    ("Brand New Person", "fresh@example.com", None, "Acme"),      # C: create
-    ("Louron Pratt (Pendo)", None, None, None),                  # WI-121: B reuse via paren-strip
-]
-
-
-def _seed(vault):
-    _note(vault, "John Smith", emails=["john@example.com"])
-    _note(vault, "Jane Doe", phones=["+15551234567"])
-    _note(vault, "Naomi Pavie Speechmatics", company="Speechmatics")
-    _note(vault, "Louron Pratt")  # WI-121: paren-strip must reuse this canonical
-
-
-@pytest.mark.parametrize("name,email,phone,company", PARITY_CASES)
-def test_engine_matches_legacy_return_value(tmp_path, name, email, phone, company):
-    """The Phase-5 parity contract in miniature: identical `(name, created)`."""
-    va, vb = tmp_path / "a", tmp_path / "b"
-    va.mkdir()
-    _seed(va)
-    shutil.copytree(va, vb)
-
-    legacy = PersonRepository(va)
-    person, leg_created = legacy.find_or_create_stub(
-        name, email=email, phone=phone, company=company
-    )
-    legacy_result = (person.name, leg_created)
-
-    engine = PersonRepository(vb)
-    ref, eng_created = engine.resolve_or_create(
-        parse_identifiers(email=email, phone=phone, strict=False),
-        display_name=name,
-        company_hint=company,
-    )
-    engine_result = (engine._hydrate(ref).name, eng_created)
-
-    assert engine_result == legacy_result
-
-
-def test_engine_matches_legacy_on_weak_identity(tmp_path):
-    """Both paths raise WeakIdentityError on the same weak input."""
-    va, vb = tmp_path / "a", tmp_path / "b"
-    va.mkdir()
-    _seed(va)
-    shutil.copytree(va, vb)
-
-    with pytest.raises(WeakIdentityError):
-        PersonRepository(va).find_or_create_stub("Cher", auto_created=True)
-    with pytest.raises(WeakIdentityError):
-        PersonRepository(vb).resolve_or_create([], display_name="Cher", auto_created=True)

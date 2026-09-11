@@ -110,7 +110,7 @@ def _split_frontmatter_fence(content: str, file_path: Path) -> Tuple[str, str]:
 # WI-121: a TRAILING parenthetical '(X)' is never part of a legal human name
 # ('Louron Pratt (Pendo)', 'Kate Sellwood (PA)') — it is always an annotation.
 # Trailing-only ($-anchored), single group ([^()]+ forbids nesting), strip-to-
-# empty guarded. See docs/paren-decoration-at-the-door.md.
+# empty guarded.
 _TRAILING_PAREN_RE = re.compile(r"^(?P<head>.*?)\s*\((?P<inner>[^()]+)\)\s*$")
 
 
@@ -137,6 +137,68 @@ def _split_trailing_paren(name: str) -> Tuple[str, Optional[str]]:
     return head, inner
 
 
+# `resolve()`'s own cascade order, which is what breaks a 1.0 tie between two
+# DIFFERENT people. `resolve_all` emits email before alias deliberately (see its
+# step 2); `resolve` has always answered alias first. WI-023 Cut 3 preserves
+# `resolve`'s answer without touching `resolve_all`'s ordering. This is a
+# TIE-BREAK over `matched_via`, never a trial order — nothing is tried in it.
+_RESOLVE_CASCADE_ORDER = ("exact-name", "alias", "email", "phone")
+
+
+def select_resolution(query: Optional[str],
+                      candidates: List[ResolveCandidate]) -> Optional[Person]:
+    """The ONE selection policy resolve() applies to resolve_all()'s ranking.
+
+    Module-level and named so it is one thing rather than a shape re-derived at
+    each call site. Its inputs are the candidate list AND the query, because no
+    pure function of the candidates can separate the two 0.6 `partial-name`
+    sites: `resolve_all` records the SAME confidence under the SAME label for a
+    one-token query that must resolve and for a two-token short-form query that
+    must not. The discriminant is the query's token count.
+
+    - No candidates → None. Checked FIRST, so a None or empty query never
+      reaches the tokenizer and cannot raise.
+    - **Single-token query** → the highest confidence; among candidates tied
+      there, the one whose `matched_via` ranks first in `_RESOLVE_CASCADE_ORDER`
+      (unknown labels last, insertion order breaking any remainder).
+    - **Multi-token query** → a candidate only if its confidence is 1.0, ties
+      broken the same way. A multi-token query is answerable pre-cut ONLY by the
+      four exact arms, every one of which scores 1.0, because the partial-name
+      test requires the whole query to be one token of a name.
+
+    A confidence THRESHOLD is the wrong shape here and gets it backwards in both
+    directions: the policy must ACCEPT 0.6 (a one-token partial name) while
+    REJECTING 0.65 (a multi-token token-subset).
+
+    `matched_via` may carry a `+company-hint` suffix, so the rank is read off
+    the label BEFORE the first `+`. `resolve()` passes no company, so from that
+    caller the suffix never appears; the rule is stated totally anyway, because
+    this is module-level and a future caller may not be `resolve`.
+    """
+    if not candidates:
+        return None
+
+    single_token = len((query or "").strip().split()) <= 1
+    best = max(candidate.confidence for candidate in candidates)
+    if single_token:
+        pool = [c for c in candidates if c.confidence == best]
+    else:
+        if best < 1.0:
+            return None
+        pool = [c for c in candidates if c.confidence == 1.0]
+
+    def rank(entry):
+        position, candidate = entry
+        label = candidate.matched_via.split("+", 1)[0]
+        try:
+            primary = _RESOLVE_CASCADE_ORDER.index(label)
+        except ValueError:
+            primary = len(_RESOLVE_CASCADE_ORDER)
+        return primary, position
+
+    return min(enumerate(pool), key=rank)[1].person
+
+
 class PersonRepository(BaseRepository[Person]):
     """
     Repository for Person entities.
@@ -153,17 +215,20 @@ class PersonRepository(BaseRepository[Person]):
 
     def __init__(self, vault_path: Optional[str | Path] = None, **kwargs):
         super().__init__(vault_path, **kwargs)
-        self._email_index: dict[str, str] = {}  # email -> cache_key
         self._phone_index: dict[str, str] = {}  # normalized phone -> cache_key
         self._alias_index: dict[str, str] = {}  # alias -> cache_key
         self._slack_index: dict[str, str] = {}  # slack ID/handle -> cache_key
-        # WI-125 Phase 2 — the unified resolution contract (model §2:
-        # `Identifier → EntityRef`). Built ALONGSIDE the per-kind dicts above,
-        # not as a rewiring of them: the dicts stay the permissive lookup surface
-        # (zero parity risk) while this typed index becomes the source Phase-3
-        # `resolve_or_create` resolves through. Collapsing the dicts into views
-        # of this map + deleting them is the strangler's later deletion cut.
-        # Keyed on `identifier.key`; only PERSON-resolving identifiers land here.
+        # WI-125 Phase 2 / WI-023 — the unified resolution contract (model §2:
+        # `Identifier → EntityRef`), and since WI-023 the ONE authority for
+        # EMAIL: `get_by_email` is its only reader and every email-resolving
+        # surface goes through that method. The three per-kind dicts above are
+        # PERMANENT rather than pending. There is no `Alias` identifier type at
+        # all (an alias is a name variant, not a hard identifier); `phones_match`
+        # is not transitive, so no key function for it can exist and phones stay
+        # on the fuzzy path by design; and `slack` needs a workspace before a
+        # typed SlackUserId is constructible (see `_project_identifiers`' own
+        # UNBLOCK line). Keyed on `identifier.key`; only PERSON-resolving
+        # identifiers land here.
         self._identifier_index: dict[str, EntityRef] = {}
         # Reconciliation findings: identifier key -> the set of EntityRefs it was
         # seen on. Only populated when a key collides (>1 entity) — a real-data
@@ -190,12 +255,8 @@ class PersonRepository(BaseRepository[Person]):
         return "person"
 
     def _index_entity(self, entity: Person, cache_key: str) -> None:
-        """Build email, phone, and alias indexes."""
-        # Index emails
-        for email in entity.emails:
-            if email:
-                self._email_index[email.lower()] = cache_key
-
+        """Build the phone and alias indexes, and project into the unified
+        identifier index — which is where email now lives."""
         # Index phones
         for phone in entity.phones:
             norm = normalize_phone(phone)
@@ -229,17 +290,28 @@ class PersonRepository(BaseRepository[Person]):
     def _project_identifiers(self, entity: Person) -> List[Identifier]:
         """Project a person note's frontmatter into its PERSON-resolving typed
         identifiers (model §2). Lenient by design: anything that won't parse is
-        skipped, NOT raised — the legacy per-kind dicts remain the permissive
-        lookup surface during transition, so a malformed-but-present field still
-        resolves the old way while this typed index just omits it.
+        skipped, NOT raised. For PHONE and ALIAS the per-kind dicts are still the
+        permissive lookup surface, so a malformed-but-present value there is
+        still reachable. For EMAIL that is no longer true and the leniency has a
+        sharper meaning since WI-023: an entry this skips resolves through NO
+        door at all.
 
-        Audited against the live vault (942 notes, 2026-06-13): email/phone/
-        whatsapp/linkedin parse with ZERO failures, so this loses nothing real.
+        The live-corpus grounding for that leniency — how many entries this
+        actually drops, per class — is `docs/identity-cutover-corpus-audit.md`.
+        A POINTER rather than a figure on purpose: the number it records is a
+        reading of a vault that is written to daily, and a figure copied to here
+        goes stale exactly the way the one this replaced did.
+
         `slack` is deliberately NOT projected: the frontmatter carries a bare
         handle with no workspace, and a typed SlackUserId requires one — only 2
-        notes have slack, and they stay on `_slack_index` until frontmatter
-        carries a workspace (a later cut). EmailDomain (company) is also omitted:
-        this repo indexes persons, and Company isn't activated this cut.
+        notes have slack, and they stay on `_slack_index` for now.
+        UNBLOCK: project `slack` when a person note's frontmatter carries the
+        WORKSPACE alongside the handle (e.g. a `slack_workspace:` field, or a
+        handle qualified as `<workspace>/<handle>`), since `SlackUserId.parse`
+        needs both; until then a bare handle cannot be made into a typed
+        identifier without inventing the half that is missing.
+        EmailDomain (company) is also omitted: this repo indexes persons, and
+        Company isn't activated this cut.
         """
         ids: List[Identifier] = []
 
@@ -249,7 +321,7 @@ class PersonRepository(BaseRepository[Person]):
             try:
                 ids.append(parser(raw))
             except IdentifierError:
-                pass  # lenient — legacy per-kind dict still indexes it
+                pass  # lenient — phone/alias keep a per-kind dict; email does not
 
         for email in (entity.emails or []):
             add(Email.parse, email)
@@ -267,11 +339,9 @@ class PersonRepository(BaseRepository[Person]):
 
         On collision (a key already mapped to a DIFFERENT entity) the key is
         recorded to `_conflict_sets` naming every entity it's been seen on, and
-        a loud WARN fires. The stored value is last-writer-wins — byte-identical
-        to the legacy per-kind dicts' overwrite semantics (both iterate the same
-        glob order in `load`), so Phase-3 resolution through this index returns
-        the same entity legacy lookups do. Never merges, never raises: a conflict
-        is an observability output, not a behavior change.
+        a loud WARN fires. The stored value is last-writer-wins: the last note
+        the load glob reaches owns the key. Never merges, never raises: a
+        conflict is an observability output, not a behavior change.
 
         Note: a person whose `whatsapp` equals one of their `phones` produces the
         same `phone:` key twice — same EntityRef, so NOT a conflict (idempotent).
@@ -325,7 +395,6 @@ class PersonRepository(BaseRepository[Person]):
 
     def _clear_indexes(self) -> None:
         """Clear custom indexes on refresh."""
-        self._email_index.clear()
         self._phone_index.clear()
         self._alias_index.clear()
         self._slack_index.clear()
@@ -334,13 +403,6 @@ class PersonRepository(BaseRepository[Person]):
 
     def _remove_entity_from_indexes(self, entity: Person, cache_key: str) -> None:
         """Remove a person's entries from all indexes."""
-        # Remove emails from index
-        for email in entity.emails:
-            if email:
-                email_lower = email.lower()
-                if self._email_index.get(email_lower) == cache_key:
-                    del self._email_index[email_lower]
-
         # Remove phones from index
         for phone in entity.phones:
             norm = normalize_phone(phone)
@@ -387,9 +449,12 @@ class PersonRepository(BaseRepository[Person]):
             Person if found, None otherwise
         """
         self._ensure_loaded()
-        email_lower = email.lower().strip()
-        cache_key = self._email_index.get(email_lower)
-        return self._cache.get(cache_key) if cache_key else None
+        try:
+            ident = Email.parse(email)
+        except IdentifierError:
+            return None
+        ref = self._identifier_index.get(ident.key)
+        return self._cache.get(ref.canonical_key) if ref else None
 
     def get_by_phone(self, phone: str) -> Optional[Person]:
         """
@@ -413,8 +478,20 @@ class PersonRepository(BaseRepository[Person]):
         if cache_key:
             return self._cache.get(cache_key)
 
-        # Fuzzy match with country code handling
-        for indexed_phone, cache_key in self._phone_index.items():
+        # Fuzzy match with country-code handling. This arm is PERMANENT, and the
+        # reason is arithmetic rather than preference: `phones_match` is not
+        # TRANSITIVE (0790055852 matches both 44790055852 and 10790055852, which
+        # do not match each other), so it is not an equivalence relation, has no
+        # quotient, and therefore admits no key function — phones cannot be keyed
+        # into `_identifier_index` the way email is. The witness is executable and
+        # goes red if anyone "normalizes" the relation:
+        # tests/test_identity_endgame.py::test_phones_stay_on_the_fuzzy_path_and_the_reason_is_executable
+        #
+        # The iterable is a MATERIALIZED snapshot, not the live mapping: a
+        # concurrent refresh clears `_phone_index` in place (`_clear_indexes`),
+        # which is the half WI-004 left explicitly open on the expectation that
+        # phones would leave this path. They do not, so it is closed here.
+        for indexed_phone, cache_key in list(self._phone_index.items()):
             if phones_match(digits, indexed_phone):
                 return self._cache.get(cache_key)
 
@@ -457,14 +534,18 @@ class PersonRepository(BaseRepository[Person]):
 
     def resolve(self, query: str) -> Optional[Person]:
         """
-        Resolve a query to a Person using multiple strategies.
+        Resolve a query to a Person — ONE answer, from ONE cascade.
 
-        Tries in order:
-        1. Exact name match
-        2. Alias match
-        3. Email match (if query contains @)
-        4. Phone match (if query looks like phone number)
-        5. Partial name match
+        Since WI-023 Cut 3 this method keeps no match logic of its own. It ranks
+        the whole cascade through `resolve_all` and applies `select_resolution`
+        to that ranking, so there is one implementation of "what matches" in this
+        class rather than two drifting copies of it.
+
+        Nothing is tried in an order here. `resolve_all` emits email BEFORE alias
+        (its step 2 comment says why), while this method has always answered the
+        alias owner; `_RESOLVE_CASCADE_ORDER` restores that as a TIE-BREAK over
+        `matched_via` among candidates of equal confidence. The other half of the
+        policy is the query's token count — see `select_resolution`.
 
         Args:
             query: Name, email, phone, or alias to search
@@ -477,37 +558,7 @@ class PersonRepository(BaseRepository[Person]):
         if not query:
             return None
 
-        query = query.strip()
-        query_lower = query.lower()
-
-        # 1. Exact name match
-        if query_lower in self._cache:
-            return self._cache[query_lower]
-
-        # 2. Alias match
-        if query_lower in self._alias_index:
-            cache_key = self._alias_index[query_lower]
-            return self._cache.get(cache_key)
-
-        # 3. Email match
-        if "@" in query_lower:
-            cache_key = self._email_index.get(query_lower)
-            if cache_key:
-                return self._cache.get(cache_key)
-
-        # 4. Phone match
-        digits = normalize_phone(query)
-        if len(digits) >= 7:
-            person = self.get_by_phone(query)
-            if person:
-                return person
-
-        # 5. Partial name match (whole words only)
-        for name, person in self._cache.items():
-            if query_lower in name.split():
-                return person
-
-        return None
+        return select_resolution(query, self.resolve_all(query))
 
     def resolve_all(
         self,
@@ -517,10 +568,11 @@ class PersonRepository(BaseRepository[Person]):
         """Multi-candidate ranked resolve with optional company-hint disambiguation.
 
         WI-018 (2026-06-01) — built to fix the active dupe-creation bug surfaced
-        in orchestrator Phase 0 trace. resolve() returns a single Optional[Person]
-        and stops at the first cascade hit; resolve_all returns ALL plausible
-        candidates ranked by confidence, with optional company-hint boost for
-        the partial-name case.
+        in orchestrator Phase 0 trace. resolve() returns a single
+        Optional[Person] by applying `select_resolution` to THIS function's full
+        ranking; resolve_all returns the ranking itself — ALL plausible
+        candidates by confidence, with optional company-hint boost for the
+        partial-name case.
 
         Cascade (each contributes one candidate per match; deduped by person):
           1. Exact name match (case-insensitive)      → 1.0
@@ -532,11 +584,20 @@ class PersonRepository(BaseRepository[Person]):
           6. Partial-name (single-token, whole-word)  → 0.6
 
         Company-hint bump: when `company` is provided AND a candidate's company
-        matches case-insensitively, confidence is bumped by +0.25 (capped at 1.0;
-        see the code at person.py:~476 — this docstring previously said +0.2, a
-        drift fixed in WI-117). This catches "Emily M" + company="Speechmatics" →
-        canonical Emily Mendes bumped 0.65 → 0.90 ≥ 0.85 cutoff for safe reuse,
-        and is the mechanism the WI-103 Naomi Pavie acceptance gate depends on.
+        matches case-insensitively, confidence is bumped by +0.25, capped at 1.0
+        (the code is the "Company-hint bump" block below; this docstring once
+        said +0.2, a drift fixed in WI-117). Two shapes reach it, and they are
+        arithmetically different — conflating them is what this paragraph used to
+        do:
+          - the WI-103 "Naomi Pavie" shape shares TWO tokens with its canonical,
+            so it reaches step 5's token-subset arm at 0.65 and bumps to 0.90,
+            comfortably over the 0.85 reuse cutoff;
+          - the "Emily M" short-form shape shares ONE token, so it CANNOT reach
+            that arm (step 5 requires ≥2 shared) — it reaches step 6 at 0.6 and
+            bumps to EXACTLY 0.85, landing ON the cutoff with no float slack.
+        That second figure is worth stating plainly: any future re-tuning of the
+        partial-name score or of the +0.25 bump flips that case from reuse to
+        create.
 
         Returns:
             List of ResolveCandidate sorted by confidence descending. Empty if
@@ -571,11 +632,9 @@ class PersonRepository(BaseRepository[Person]):
         # 2. Email match — more specific than alias; run first so it wins
         # the label race when an alias also contains the email
         if "@" in query_lower:
-            cache_key = self._email_index.get(query_lower)
-            if cache_key:
-                person = self._cache.get(cache_key)
-                if person:
-                    record(person, 1.0, "email")
+            person = self.get_by_email(query)
+            if person:
+                record(person, 1.0, "email")
 
         # 3. Alias match
         if query_lower in self._alias_index:
@@ -612,9 +671,14 @@ class PersonRepository(BaseRepository[Person]):
                     record(person, 0.6, "partial-name")
 
         # 6. Short-form first-token + last-initial style match
-        # E.g. query = "Emily M" against cache "emily mendes". Requires company
-        # hint to confirm — without it, this match stays low confidence (< 0.5)
-        # and gets filtered out below.
+        # E.g. query = "Emily M" against cache "emily mendes". This branch
+        # records 0.6, which SURVIVES the >= 0.5 floor below — it is NOT filtered
+        # out, and a reader auditing this cascade for inert branches must not
+        # conclude otherwise. A company hint bumps an already-surviving candidate
+        # (0.6 + 0.25 = exactly the 0.85 reuse threshold); without one the
+        # candidate is still offered to a caller that asked for candidates, and
+        # it is `resolve`'s selection policy — not this floor — that declines to
+        # answer a two-token query with it.
         if len(query_tokens) == 2:
             qparts = query_lower.split()
             if len(qparts[1]) <= 2:  # "M", "M.", "Mc"
@@ -671,19 +735,24 @@ class PersonRepository(BaseRepository[Person]):
         (`NameValidationError`, `WeakIdentityError` — no new exception; identifier
         conflicts flag to `repo.conflicts`, never raise) as the original. Parses
         the stringly args into typed `Identifier`s and delegates to the
-        identifier-first engine `resolve_or_create` (model §4). The original body
-        is preserved verbatim as `_find_or_create_stub_legacy` — the Phase-5
-        parity baseline AND the one-commit rollback.
+        identifier-first engine `resolve_or_create` (model §4). WI-023 deleted
+        the pre-WI-125 body: this method IS the door now, and there is one
+        implementation of it.
 
         Callers (contact_normalizer.py:422 direct; HAL9000 entities.py:178 via
         HTTP) are unchanged — they keep their exact call sites and catch blocks.
 
         `strict=False` on the parse: a malformed email/phone is skipped (not
-        raised), so the adapter never fails where the legacy string path would
-        have silently carried the junk to `get_by_email`/`create_stub`. The
-        legacy path indexed malformed values; the engine resolves on the typed
-        ones and the name path. The Phase-5 replay confirms zero return-value
-        divergence over the real vault.
+        raised), so the adapter never fails where a string path would have
+        silently carried the junk to `get_by_email`/`create_stub`. An entry no
+        parser accepts resolves through no door and the engine answers on the
+        typed identifiers and the name path.
+
+        The evidence that this door's answers did not move across WI-023's cuts
+        is COMMITTED DATA rather than a claim: `stub_golden.json` and
+        `resolve_golden.json` under `tests/fixtures/identity_endgame/` record
+        what this method and `resolve` answered before any of those cuts, and
+        the suite replays them on every run.
         """
         ids = parse_identifiers(email=email, phone=phone, strict=False)
         ref, created = self.resolve_or_create(
@@ -695,133 +764,6 @@ class PersonRepository(BaseRepository[Person]):
             threshold=confidence_threshold,
         )
         return self._hydrate(ref), created
-
-    def _find_or_create_stub_legacy(
-        self,
-        name: str,
-        email: Optional[str] = None,
-        phone: Optional[str] = None,
-        company: Optional[str] = None,
-        auto_created: bool = True,
-        confidence_threshold: float = 0.85,
-        created_by: Optional[str] = None,
-    ) -> Tuple[Person, bool]:
-        """The pre-WI-125 `find_or_create_stub` body, preserved verbatim (WI-125
-        Phase 4). Two roles: (1) the Phase-5 offline parity baseline the engine
-        is diffed against; (2) the one-commit rollback — revert the adapter and
-        this is the live method again. NOT called in production; kept callable.
-
-        WI-019 (2026-06-01) — surfaced from orchestrator Phase 0 trace which
-        identified 4 stub-creation paths all using too-narrow lookups (just
-        get_by_email + resolve), creating duplicates when canonicals have
-        empty emails or mangled names. find_or_create_stub uses resolve_all
-        with company-hint disambiguation, then falls through to create_stub
-        only when no high-confidence match exists.
-
-        On reuse, identifier write-back: if the call supplied a new email/phone
-        not on the canonical record, append it. Future lookups have stronger
-        signal.
-
-        Returns:
-            (Person, created_new: bool). created_new is True iff a new stub
-            was written; False if an existing record was reused.
-
-        Acceptance gate from orchestrator/docs/find-or-create-stub.md:
-          Caller passes ('Naomi Pavie', email='naomi@speechmatics.com',
-          company='Speechmatics') with existing mangled canonical
-          'Naomi Pavie Speechmatics'. Must REUSE, not create a duplicate.
-
-        WI-117 (2026-06-07) — two additions, both at this door so every channel
-        gets them:
-          1. Name-cleaning BEFORE lookup. The query is run through
-             clean_person_name (safe recoveries: digits, calendar/archive
-             prefixes, 'unknown contact') and a CORROBORATED company-suffix
-             strip (only when the trailing token is a known company AND it's
-             corroborated by company= or the email domain). 'Darryl Friend Kato'
-             + @kato.app → 'Darryl Friend' → exact-name match (1.0) → reuse.
-             The strip is corroborated-only on purpose: 'Emma Roberts Kato' with
-             no corroboration is NOT stripped, so it can't wrong-merge onto a
-             bare 'Emma Roberts' canonical. resolve_all's tiers/thresholds are
-             untouched (the +0.25 company-hint reuse WI-103 relies on is
-             preserved).
-          2. Weak-identity guard. When auto_created=True and no match was found,
-             a bare single-token-no-id name or a social-handle raises
-             WeakIdentityError (the name is valid, the identity's just too weak
-             to safely mint a new note for someone Dave likely already knows).
-             Gated on auto_created so manual single-name notes are untouched;
-             existing single-name canonicals (@Adam) are still REUSED via
-             exact-match before the guard can fire.
-
-        Raises:
-            NameValidationError: the created name is a Tier-1 non-person string
-              (only on the create path, from create_stub).
-            WeakIdentityError: auto_created and the identity is too weak to
-              create (no match found first).
-        """
-        self._ensure_loaded()
-
-        # WI-117: clean the query before lookup. Non-company recoveries are
-        # always safe; the company-suffix strip is corroborated-only (see
-        # _strip_corroborated_company_suffix). The cleaned name is used for the
-        # name-based lookup AND as the created name (lookup-clean == creation-
-        # name; both safe — the strip is idempotent and conservative-keep on
-        # no-corroboration means worst case is "no worse than today").
-        lookup_name, derived_company = self._clean_query_for_lookup(
-            name, email=email, company=company
-        )
-        # WI-121: caller's explicit company wins; the paren-derived company is the
-        # fallback resolve hint (unfiltered — a non-matching hint causes no bump).
-        # For storage on a NEW note, only a known paren-company is kept; the
-        # caller's own company is stored as-is (pre-WI-121 behaviour preserved).
-        effective_company = company or derived_company
-        create_company = company or self._company_if_known(derived_company)
-
-        # Strategy 1: exact identifier matches (email/phone) — strongest signal.
-        # Name-independent, so a strong identifier reuses even past a weak name.
-        if email:
-            existing = self.get_by_email(email)
-            if existing:
-                self._writeback_identifier(existing, email=email)
-                return existing, False
-
-        if phone:
-            existing = self.get_by_phone(phone)
-            if existing:
-                self._writeback_identifier(existing, phone=phone)
-                return existing, False
-
-        # Strategy 2: resolve_all with company hint, on the CLEANED name.
-        if lookup_name:
-            candidates = self.resolve_all(lookup_name, company=effective_company)
-            if candidates and candidates[0].confidence >= confidence_threshold:
-                existing = candidates[0].person
-                self._writeback_identifier(existing, email=email, phone=phone)
-                return existing, False
-
-        # WI-117 weak-identity guard: only when about to auto-create AND no
-        # match was found above. Manual creates (auto_created=False) skip it.
-        if auto_created:
-            reason = weak_identity_reason(lookup_name, email=email, phone=phone)
-            if reason:
-                logger.info(
-                    "find_or_create_stub: refusing weak-identity auto-create "
-                    "(%s) for name=%r email=%r phone=%r",
-                    reason, name, email, phone,
-                )
-                raise WeakIdentityError(reason)
-
-        # Strategy 3: no high-confidence match → create new stub (cleaned name)
-        # WI-119: created_by passes through to creation only — the reuse
-        # branches above never write it (provenance records creation, not reuse).
-        new_person = self.create_stub(
-            name=lookup_name,
-            email=email,
-            phone=phone,
-            company=create_company,
-            auto_created=auto_created,
-            created_by=created_by,
-        )
-        return new_person, True
 
     # ──────────────────────────────────────────────────────────────────
     # WI-125 Phase 3 — the identity engine: resolve_or_create
@@ -844,39 +786,37 @@ class PersonRepository(BaseRepository[Person]):
         auto_created: bool = True,
         threshold: float = 0.85,
     ) -> Tuple[EntityRef, bool]:
-        """The identity engine (model §4) — the identifier-first core that the
-        Phase-4 adapter will run `find_or_create_stub` through.
+        """The identity engine (model §4) — the identifier-first core that
+        `find_or_create_stub` runs through today (the Phase-4 adapter swap has
+        happened; see that method's body).
 
-        Reproduces `find_or_create_stub`'s **return-value** behavior exactly
-        (the Phase-5 parity contract is `(resolved_name, created_new)` — side
-        effects are explicitly out of the contract), with **one genuinely-new
-        behavior: conflict detection** (Branch A). Operates on a typed
-        `set[Identifier]` + display name + company *hint* (a company NAME is a
-        display hint, not an identifier — `parse_identifiers`' own rule), and
-        returns `(EntityRef, created_new)`.
+        Its **return-value** behavior — `(resolved_name, created_new)`, side
+        effects explicitly outside the contract — is what WI-023's committed
+        goldens pin, and it carries **one behavior the string door never had:
+        conflict detection** (Branch A). Operates on a typed `set[Identifier]` +
+        display name + company *hint* (a company NAME is a display hint, not an
+        identifier — `parse_identifiers`' own rule), and returns
+        `(EntityRef, created_new)`.
 
-        - **Branch A — identifier hit.** Resolve each PERSON-resolving identifier
-          (email/phone via the legacy fuzzy `get_by_email`/`get_by_phone` — their
-          country-code/casing fuzzing has no index equivalent this cut, so
-          delegating is parity-exact; richer kinds via the unified index). The
-          best hit (email before phone) is the resolved entity — **byte-identical
-          to legacy Strategy 1**, which returns on the first (email) hit. If hits
-          disagree (`email→X, phone→Y`) it's a **CONFLICT**: still return the
-          legacy best-hit (no merge, no raise), but record it to `.conflicts`
-          naming both candidates (the new observability). No writeback on a hit:
-          the matched identifier is already on the note by definition, so legacy's
+        - **Branch A — identifier hit.** Resolve each PERSON-resolving identifier:
+          email through `get_by_email`, which reads the unified index;
+          phone through `get_by_phone`, whose UK/US country-code fuzzing stays on
+          its own path permanently because `phones_match` admits no key function;
+          richer kinds through the unified index directly. The best hit (email
+          before phone) is the resolved entity, and it returns on that first hit.
+          If hits disagree (`email→X, phone→Y`) it's a **CONFLICT**: still return
+          the best hit (no merge, no raise), but record it to `.conflicts` naming
+          both candidates (the new observability). No writeback on a hit: the
+          matched identifier is already on the note by definition, so a
           writeback-on-hit is a no-op (or, on a fuzzy phone hit, would append a
           format-variant — exactly the dup-noise the identity model reduces);
           skipping it changes no return value and improves vault hygiene.
-        - **Branch B — name + corroboration** (legacy Strategy 2). Clean the
-          name, `resolve_all(cleaned, company_hint)`; ≥ threshold → reuse +
-          writeback the supplied email/phone (the meaningful attach case).
-        - **Branch C — weak guard then create** (legacy Strategy 3). auto_created
-          + weak identity → raise `WeakIdentityError` (UNCHANGED this cut — the
-          `needs_resolution` flip is a follow-on). Else `create_stub`.
-
-        Not yet wired into `find_or_create_stub` — that's the Phase-4 adapter
-        swap, gated by the Phase-5 offline parity replay.
+        - **Branch B — name + corroboration.** Clean the name,
+          `resolve_all(cleaned, company_hint)`; ≥ threshold → reuse + writeback
+          the supplied email/phone (the meaningful attach case).
+        - **Branch C — weak guard then create.** auto_created + weak identity →
+          raise `WeakIdentityError` (UNCHANGED this cut — the `needs_resolution`
+          flip is a follow-on). Else `create_stub`.
         """
         self._ensure_loaded()
 
@@ -909,7 +849,7 @@ class PersonRepository(BaseRepository[Person]):
             if ref is not None:
                 hits.append((ident, ref))
         if hits:
-            _, best_ref = hits[0]  # highest priority (email before phone) = legacy best-hit
+            _, best_ref = hits[0]  # highest priority wins: email before phone
             if len({r for _, r in hits}) > 1:
                 self._record_resolution_conflict(hits)
             return best_ref, False
@@ -946,9 +886,12 @@ class PersonRepository(BaseRepository[Person]):
     def _resolve_identifier(self, ident: Identifier) -> Optional[EntityRef]:
         """Resolve a single identifier to an EntityRef, or None.
 
-        Email/phone delegate to the legacy fuzzy `get_by_*` (parity-exact —
-        `get_by_phone`'s UK/US country-code fuzzing has no index equivalent this
-        cut); a phone-bearing JID pivots to `get_by_phone` (WI-035); richer kinds
+        Email delegates to `get_by_email`, which since WI-023 IS the unified
+        index's email reader — that delegation is what makes "one authority"
+        structural rather than behavioural. Phone delegates to `get_by_phone`
+        and stays on the fuzzy path PERMANENTLY: `phones_match` is not
+        transitive, so no key function for it exists and none can be written. A
+        phone-bearing JID pivots to `get_by_phone` (WI-035); richer kinds
         resolve through the unified index.
         """
         person = None

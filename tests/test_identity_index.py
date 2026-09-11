@@ -177,28 +177,36 @@ class TestReconciliation:
         assert any("reconciliation conflict" in r.message for r in caplog.records)
 
 
-# ── leniency: malformed fields don't break load; legacy dict still has them ──
+# ── leniency: malformed fields don't break load; after WI-023 they resolve ──
+# ── through NO door for email, and the live corpus says that costs nothing ──
 
 class TestLeniency:
-    def test_malformed_email_skipped_but_legacy_indexes_it(self, vault):
-        # Legacy `_email_index` indexes ANY non-empty string; the typed index
-        # skips what won't parse. The old-path lookup must be unaffected.
+    def test_malformed_email_resolves_nowhere_after_cutover(self, vault):
+        # WI-023 Cut 1: the unified index is the ONE email authority, so an
+        # entry `Email.parse` refuses is skipped at projection and is reachable
+        # through no door at all. That loss is acceptable on a measured number,
+        # not on a judgement: 0 of 1021 live `emails:` entries are refused
+        # (docs/identity-cutover-corpus-audit.md, clause (b)).
         _note(vault, "Junk Holder", emails=["not-an-email"])
         repo = PersonRepository(vault)
-        repo.load()  # must not raise
-        assert "not-an-email" in repo._email_index           # legacy still has it
+        repo.load()  # must not raise — the NOTE parsed; only the entry did not
+        assert repo.skipped_count == 0
         assert not any("not-an-email" in k for k in repo._identifier_index)
+        assert repo.get_by_email("not-an-email") is None
+        assert repo.resolve("not-an-email") is None
 
     def test_clean_and_junk_in_one_list_indexes_only_the_clean(self, vault):
         # A valid note carrying one good + one malformed email: the typed index
-        # gets the good one, skips the junk ("bad email" has whitespace → no
-        # parse); the legacy dict keeps both.
+        # gets the good one and skips the junk ("bad email" has whitespace → no
+        # parse), and after the cutover the junk resolves through no door.
         _note(vault, "Mixed", emails=["good@example.com", "bad email"])
         repo = PersonRepository(vault)
         repo.load()
         assert repo._identifier_index["email:good@example.com"] == EntityRef("person", "mixed")
         assert not any("bad email" in k for k in repo._identifier_index)
-        assert "bad email" in repo._email_index  # legacy keeps the junk
+        assert repo.get_by_email("bad email") is None
+        assert repo.resolve("bad email") is None
+        assert repo.get_by_email("good@example.com").name == "Mixed"
 
 
 # ── lifecycle: clear / refresh reset reconciliation state ────────────────────

@@ -22,6 +22,8 @@ worktree whose path is not knowable in advance.
 """
 
 import ast
+import re
+import tokenize
 from pathlib import Path
 from typing import Iterable, NamedTuple, Optional
 
@@ -1604,3 +1606,233 @@ def skip_reason_literal_sites(files: Iterable[Path], reasons: Iterable[str]) -> 
                 found.add(module_id(path))
                 break
     return found
+
+
+# --------------------------------------------------------------------------
+# WI-023 — the identity endgame's four structural predicates.
+#
+# They land HERE and nowhere else because `ast` is single-homed by two standing
+# set-EQUALITY walls (tests/test_loud_fail_harness.py, tests/test_name_gate_wall
+# .py). A private copy inside the item's own check module is red on both before
+# it asserts anything.
+# --------------------------------------------------------------------------
+
+MATERIALIZING_WRAPPERS = frozenset({"list", "tuple", "sorted", "frozenset", "dict"})
+
+_PHONE_INDEX_ATTRIBUTE = "_phone_index"
+
+
+class PhoneIndexIteration(NamedTuple):
+    module: str
+    lineno: int
+    classification: str       # "materialized" | "live"
+
+
+class AttributeRead(NamedTuple):
+    module: str
+    qualname: str
+    attr: str
+    lineno: int
+
+
+class DocsMarkdownMention(NamedTuple):
+    module: str
+    lineno: int
+    path: str
+
+
+class ProseLine(NamedTuple):
+    module: str
+    lineno: int
+    owner: str                # a definition's qualname, or "<module>"
+    text: str                 # the SOURCE line, stripped
+
+
+def _reaches_attribute(node, attr: str) -> bool:
+    """True when `attr` is loaded anywhere inside this expression subtree."""
+    for child in ast.walk(node):
+        if isinstance(child, ast.Attribute) and child.attr == attr:
+            return True
+    return False
+
+
+def phone_index_iteration_sites(files: Iterable[Path]) -> list:
+    """Every `for` loop whose iterable REACHES `self._phone_index`, classified.
+
+    `materialized` iff the iterable's outermost node is a call to one of
+    `list`/`tuple`/`sorted`/`frozenset`/`dict` wrapping that reach; `live`
+    otherwise. That is deliberately stronger than "the iterable is a call":
+    `self._phone_index.items()` is already a call, so a call/bare-attribute
+    oracle is vacuously green against the code this predicate exists to move.
+    """
+    out = []
+    for path in files:
+        tree = _parse(path)
+        module = module_id(path)
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.For, ast.AsyncFor)):
+                continue
+            iterable = node.iter
+            if not _reaches_attribute(iterable, _PHONE_INDEX_ATTRIBUTE):
+                continue
+            wrapped = (
+                isinstance(iterable, ast.Call)
+                and isinstance(iterable.func, ast.Name)
+                and iterable.func.id in MATERIALIZING_WRAPPERS
+            )
+            out.append(PhoneIndexIteration(
+                module, node.lineno, "materialized" if wrapped else "live"))
+    return out
+
+
+def attribute_reads_in(files: Iterable[Path], qualnames: Iterable[str],
+                       attrs: Iterable[str]) -> list:
+    """Every `<x>.<attr>` LOAD inside the named functions, for `attr` in `attrs`.
+
+    Two clauses, stated because neither is decidable from the signature:
+
+    * **Loads only.** An assignment to a named attribute is a `Store` and is not
+      a read — which is the word the criterion this serves uses ("does not
+      itself READ").
+    * **A read inside a nested `def` is the enclosing NAMED function's**, by the
+      same `.<locals>.`-folding rule `prose_lines` applies to prose, so the two
+      predicates answer the nested-definition question identically. The fold is
+      implemented by skipping `<locals>` qualnames and walking each named
+      function's WHOLE subtree, nested definitions included.
+    """
+    wanted_functions = frozenset(qualnames)
+    wanted_attrs = frozenset(attrs)
+    out = []
+    for path in files:
+        tree = _parse(path)
+        module = module_id(path)
+        for fid, func in _iter_functions(path, tree):
+            if "<locals>" in fid.qualname:
+                continue                      # folded into its outermost ancestor
+            if fid.qualname not in wanted_functions:
+                continue
+            for node in ast.walk(func):
+                if (isinstance(node, ast.Attribute)
+                        and isinstance(node.ctx, ast.Load)
+                        and node.attr in wanted_attrs):
+                    out.append(AttributeRead(module, fid.qualname, node.attr,
+                                             node.lineno))
+    return out
+
+
+_MARKDOWN_MENTION_RE = re.compile(r"[A-Za-z0-9._/-]+\.md")
+
+
+def docs_markdown_mentions(files: Iterable[Path]) -> list:
+    """Every `docs/`-relative `.md` path mentioned in a file's TEXT.
+
+    Run over the whole text, comments and docstrings alike — broader than "named
+    in a comment", and broader in the safe direction: it can only add pointers a
+    resolve clause must satisfy, never drop one.
+
+    IN SCOPE iff the MATCHED TOKEN starts with `docs/`, never the line. The
+    character class carries `/`, so a match is greedy leftwards and swallows any
+    leading segment: `orchestrator/docs/x.md` matches as
+    `orchestrator/docs/…` and is out of scope, which is what keeps a scan off
+    the cross-repository pointers that can never resolve under this tree. The
+    same clause excludes bare vault-note illustrations (`Speechmatics.md`).
+    """
+    out = []
+    for path in files:
+        module = module_id(path)
+        for lineno, line in enumerate(
+                Path(path).read_text(encoding="utf-8").splitlines(), start=1):
+            for match in _MARKDOWN_MENTION_RE.finditer(line):
+                token = match.group()
+                if token.startswith("docs/"):
+                    out.append(DocsMarkdownMention(module, lineno, token))
+    return out
+
+
+def _definition_spans(tree) -> list:
+    """[(start, end, qualname)] for every `def` and `class` in the tree."""
+    spans = []
+
+    def walk(node, prefix):
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                qual = f"{prefix}{child.name}"
+                spans.append((child.lineno, child.end_lineno, qual))
+                walk(child, f"{qual}.<locals>.")
+            elif isinstance(child, ast.ClassDef):
+                qual = f"{prefix}{child.name}"
+                spans.append((child.lineno, child.end_lineno, qual))
+                walk(child, f"{qual}.")
+            else:
+                walk(child, prefix)
+
+    walk(tree, "")
+    return spans
+
+
+def prose_lines(files: Iterable[Path]) -> list:
+    """Every COMMENT line and every docstring line, with its owning definition.
+
+    The FINDING surface for a prose class: a member this cannot see is a member
+    no reading pass can be blamed for missing, so under-reach is the failure
+    mode it is built against.
+
+    * Comments are read off `tokenize`, never off a regex and never off a
+      `startswith("#")` line scan. The two shapes that defeat a line scan defeat
+      it in OPPOSITE directions. A `#` inside a STRING LITERAL is a false
+      POSITIVE: the line owes NO record, and it gets none, because it carries no
+      `COMMENT` token. A triple-quote delimiter inside a COMMENT is a
+      STATE-TRACKING failure: the line IS a comment and owes exactly ONE record,
+      which it gets; what a line
+      scan gets wrong is the ordinary CODE FOLLOWING it, swallowed as a
+      docstring body, and that code owes no record here.
+    * A docstring is any string EXPRESSION STATEMENT (module, class or
+      function), contributing one record per line it spans, so a caller can pin
+      a single sentence of a multi-line docstring.
+    * `owner` is the INNERMOST enclosing definition, except that a nested `def`
+      folds into its outermost non-local ancestor — so a helper closure's prose
+      belongs to the function that holds it rather than dropping out of a
+      qualname-scoped sweep. Prose outside every definition is `<module>`, which
+      is not a residue class: a module-level pointer comment lives there.
+    * `text` is the SOURCE LINE stripped, not the token's own text, so a comment
+      and the code it trails yield ONE record carrying the whole line. Stripping
+      is what lets a verbatim comparison tolerate a neighbour's re-indentation.
+      A line empty after stripping contributes no record.
+    """
+    out = []
+    for path in files:
+        path = Path(path)
+        module = module_id(path)
+        source = path.read_text(encoding="utf-8")
+        lines = source.splitlines()
+        tree = ast.parse(source)
+        spans = _definition_spans(tree)
+
+        def owner_of(lineno: int) -> str:
+            best = None
+            for start, end, qual in spans:
+                if start <= lineno <= end:
+                    if best is None or start > best[0]:
+                        best = (start, qual)
+            if best is None:
+                return "<module>"
+            return best[1].split(".<locals>.")[0]
+
+        prose_linenos = set()
+        readline = iter(source.splitlines(keepends=True)).__next__
+        for token in tokenize.generate_tokens(readline):
+            if token.type == tokenize.COMMENT:
+                prose_linenos.add(token.start[0])
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Expr)
+                    and isinstance(node.value, ast.Constant)
+                    and isinstance(node.value.value, str)):
+                prose_linenos.update(
+                    range(node.value.lineno, node.value.end_lineno + 1))
+
+        for lineno in sorted(prose_linenos):
+            text = lines[lineno - 1].strip()
+            if not text:
+                continue
+            out.append(ProseLine(module, lineno, owner_of(lineno), text))
+    return out

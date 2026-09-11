@@ -1,0 +1,3951 @@
+{
+  "schema_version": 1,
+  "recorded_at": "cut-0",
+  "lines": [
+    {
+      "owner": "<module>",
+      "line": 1,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "<module>",
+      "line": 2,
+      "text": "Person repository for contact management."
+    },
+    {
+      "owner": "<module>",
+      "line": 4,
+      "text": "Provides fast lookup of Person entities by:"
+    },
+    {
+      "owner": "<module>",
+      "line": 5,
+      "text": "- Name (exact and partial)"
+    },
+    {
+      "owner": "<module>",
+      "line": 6,
+      "text": "- Email address"
+    },
+    {
+      "owner": "<module>",
+      "line": 7,
+      "text": "- Phone number (with normalization)"
+    },
+    {
+      "owner": "<module>",
+      "line": 8,
+      "text": "- Aliases"
+    },
+    {
+      "owner": "<module>",
+      "line": 9,
+      "text": "- Slack user ID or handle"
+    },
+    {
+      "owner": "<module>",
+      "line": 11,
+      "text": "Also provides methods for managing To Discuss items."
+    },
+    {
+      "owner": "<module>",
+      "line": 12,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "ResolveCandidate",
+      "line": 43,
+      "text": "\"\"\"One candidate match from PersonRepository.resolve_all()."
+    },
+    {
+      "owner": "ResolveCandidate",
+      "line": 45,
+      "text": "Confidence calibration (0.0-1.0, higher = stronger evidence):"
+    },
+    {
+      "owner": "ResolveCandidate",
+      "line": 46,
+      "text": "1.0   — exact identifier match (exact name, alias, email, phone)"
+    },
+    {
+      "owner": "ResolveCandidate",
+      "line": 47,
+      "text": "0.85+ — partial-name match with company hint corroboration"
+    },
+    {
+      "owner": "ResolveCandidate",
+      "line": 48,
+      "text": "0.65  — token-subset partial-name match (no company corroboration)"
+    },
+    {
+      "owner": "ResolveCandidate",
+      "line": 49,
+      "text": "<0.5  — weak signal; callers should treat as no-match"
+    },
+    {
+      "owner": "ResolveCandidate",
+      "line": 51,
+      "text": "matched_via documents which strategy fired:"
+    },
+    {
+      "owner": "ResolveCandidate",
+      "line": 52,
+      "text": "\"exact-name\" / \"alias\" / \"email\" / \"phone\" / \"token-subset\" / \"partial-name\""
+    },
+    {
+      "owner": "ResolveCandidate",
+      "line": 54,
+      "text": "WI-018 (2026-06-01) — surfaced from orchestrator Phase 0 trace."
+    },
+    {
+      "owner": "ResolveCandidate",
+      "line": 55,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "<module>",
+      "line": 78,
+      "text": "# WI-021: `normalize_phone` / `phones_match` MOVED to the stdlib-only leaf"
+    },
+    {
+      "owner": "<module>",
+      "line": 79,
+      "text": "# `obsidian_schemas/phone_normalization.py` so `name_gate.py` can name the"
+    },
+    {
+      "owner": "<module>",
+      "line": 80,
+      "text": "# authority without closing writer -> gate -> person -> base -> writer. This is"
+    },
+    {
+      "owner": "<module>",
+      "line": 81,
+      "text": "# a COMPAT RE-EXPORT, not a convenience: two live consumers import these names"
+    },
+    {
+      "owner": "<module>",
+      "line": 82,
+      "text": "# from this module by path (HAL9000 `core/contact_resolver.py:13`, exocortex"
+    },
+    {
+      "owner": "<module>",
+      "line": 83,
+      "text": "# `clients/contacts.py:13`), so `obsidian_schemas.repositories.person.normalize_phone`"
+    },
+    {
+      "owner": "<module>",
+      "line": 84,
+      "text": "# must keep resolving to the relocated function object."
+    },
+    {
+      "owner": "<module>",
+      "line": 86,
+      "text": "# WI-021: the gate (for the write-back RIDER on save) and the ONE address"
+    },
+    {
+      "owner": "<module>",
+      "line": 87,
+      "text": "# splitter, which replaces both duplicate parseaddr sites this module carried."
+    },
+    {
+      "owner": "<module>",
+      "line": 90,
+      "text": "# Module attribute call form throughout (WI-004 D7) — see writer.py's note."
+    },
+    {
+      "owner": "_split_frontmatter_fence",
+      "line": 97,
+      "text": "\"\"\"Return (raw_frontmatter, raw_body) for a fenced note, or raise."
+    },
+    {
+      "owner": "_split_frontmatter_fence",
+      "line": 99,
+      "text": "Callers apply their own normalisation to the body — the writers lstrip(\"\\\\n\"),"
+    },
+    {
+      "owner": "_split_frontmatter_fence",
+      "line": 100,
+      "text": "_get_body_content strips — so this returns the raw spans and changes no bytes."
+    },
+    {
+      "owner": "_split_frontmatter_fence",
+      "line": 101,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "<module>",
+      "line": 110,
+      "text": "# WI-121: a TRAILING parenthetical '(X)' is never part of a legal human name"
+    },
+    {
+      "owner": "<module>",
+      "line": 111,
+      "text": "# ('Louron Pratt (Pendo)', 'Kate Sellwood (PA)') — it is always an annotation."
+    },
+    {
+      "owner": "<module>",
+      "line": 112,
+      "text": "# Trailing-only ($-anchored), single group ([^()]+ forbids nesting), strip-to-"
+    },
+    {
+      "owner": "<module>",
+      "line": 113,
+      "text": "# empty guarded. See docs/paren-decoration-at-the-door.md."
+    },
+    {
+      "owner": "_split_trailing_paren",
+      "line": 118,
+      "text": "\"\"\"Split a TRAILING '(X)' off a name. Trailing-only, single group, no nesting."
+    },
+    {
+      "owner": "_split_trailing_paren",
+      "line": 120,
+      "text": "'Louron Pratt (Pendo)'  -> ('Louron Pratt', 'Pendo')"
+    },
+    {
+      "owner": "_split_trailing_paren",
+      "line": 121,
+      "text": "'Kate Sellwood (PA)'     -> ('Kate Sellwood', 'PA')"
+    },
+    {
+      "owner": "_split_trailing_paren",
+      "line": 122,
+      "text": "'Jane (Acme) Smith'      -> ('Jane (Acme) Smith', None)   # paren not trailing"
+    },
+    {
+      "owner": "_split_trailing_paren",
+      "line": 123,
+      "text": "'Foo (A) (B)'            -> ('Foo (A)', 'B')               # strips the LAST only"
+    },
+    {
+      "owner": "_split_trailing_paren",
+      "line": 124,
+      "text": "'Foo (A (B))'            -> ('Foo (A (B))', None)          # nested -> [^()] fails -> no strip"
+    },
+    {
+      "owner": "_split_trailing_paren",
+      "line": 125,
+      "text": "'(Pendo)'                -> ('(Pendo)', None)              # head empty -> keep verbatim"
+    },
+    {
+      "owner": "_split_trailing_paren",
+      "line": 126,
+      "text": "'Plain Name'             -> ('Plain Name', None)"
+    },
+    {
+      "owner": "_split_trailing_paren",
+      "line": 127,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "_split_trailing_paren",
+      "line": 135,
+      "text": "if not head or not inner:        # never strip to empty; never derive an empty hint"
+    },
+    {
+      "owner": "PersonRepository",
+      "line": 141,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository",
+      "line": 142,
+      "text": "Repository for Person entities."
+    },
+    {
+      "owner": "PersonRepository",
+      "line": 144,
+      "text": "Provides fast lookup by name, email, phone, or alias."
+    },
+    {
+      "owner": "PersonRepository",
+      "line": 145,
+      "text": "Indexes are built on first load for O(1) lookups."
+    },
+    {
+      "owner": "PersonRepository",
+      "line": 147,
+      "text": "Usage:"
+    },
+    {
+      "owner": "PersonRepository",
+      "line": 148,
+      "text": "repo = PersonRepository(\"/path/to/vault\")"
+    },
+    {
+      "owner": "PersonRepository",
+      "line": 149,
+      "text": "person = repo.get(\"John Smith\")"
+    },
+    {
+      "owner": "PersonRepository",
+      "line": 150,
+      "text": "person = repo.get_by_email(\"john@example.com\")"
+    },
+    {
+      "owner": "PersonRepository",
+      "line": 151,
+      "text": "person = repo.get_by_phone(\"+447990558521\")"
+    },
+    {
+      "owner": "PersonRepository",
+      "line": 152,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.__init__",
+      "line": 156,
+      "text": "self._email_index: dict[str, str] = {}  # email -> cache_key"
+    },
+    {
+      "owner": "PersonRepository.__init__",
+      "line": 157,
+      "text": "self._phone_index: dict[str, str] = {}  # normalized phone -> cache_key"
+    },
+    {
+      "owner": "PersonRepository.__init__",
+      "line": 158,
+      "text": "self._alias_index: dict[str, str] = {}  # alias -> cache_key"
+    },
+    {
+      "owner": "PersonRepository.__init__",
+      "line": 159,
+      "text": "self._slack_index: dict[str, str] = {}  # slack ID/handle -> cache_key"
+    },
+    {
+      "owner": "PersonRepository.__init__",
+      "line": 160,
+      "text": "# WI-125 Phase 2 — the unified resolution contract (model §2:"
+    },
+    {
+      "owner": "PersonRepository.__init__",
+      "line": 161,
+      "text": "# `Identifier → EntityRef`). Built ALONGSIDE the per-kind dicts above,"
+    },
+    {
+      "owner": "PersonRepository.__init__",
+      "line": 162,
+      "text": "# not as a rewiring of them: the dicts stay the permissive lookup surface"
+    },
+    {
+      "owner": "PersonRepository.__init__",
+      "line": 163,
+      "text": "# (zero parity risk) while this typed index becomes the source Phase-3"
+    },
+    {
+      "owner": "PersonRepository.__init__",
+      "line": 164,
+      "text": "# `resolve_or_create` resolves through. Collapsing the dicts into views"
+    },
+    {
+      "owner": "PersonRepository.__init__",
+      "line": 165,
+      "text": "# of this map + deleting them is the strangler's later deletion cut."
+    },
+    {
+      "owner": "PersonRepository.__init__",
+      "line": 166,
+      "text": "# Keyed on `identifier.key`; only PERSON-resolving identifiers land here."
+    },
+    {
+      "owner": "PersonRepository.__init__",
+      "line": 168,
+      "text": "# Reconciliation findings: identifier key -> the set of EntityRefs it was"
+    },
+    {
+      "owner": "PersonRepository.__init__",
+      "line": 169,
+      "text": "# seen on. Only populated when a key collides (>1 entity) — a real-data"
+    },
+    {
+      "owner": "PersonRepository.__init__",
+      "line": 170,
+      "text": "# duplicate (the WI-119 invariant generalized). Exposed via `.conflicts`."
+    },
+    {
+      "owner": "PersonRepository.__init__",
+      "line": 172,
+      "text": "# WI-125 Phase 3 — resolution-time conflicts: a single resolve_or_create"
+    },
+    {
+      "owner": "PersonRepository.__init__",
+      "line": 173,
+      "text": "# call whose identifiers point at DIFFERENT people (email→X, phone→Y)."
+    },
+    {
+      "owner": "PersonRepository.__init__",
+      "line": 174,
+      "text": "# Distinct from the load-time `_conflict_sets` (vault-internal dups) but"
+    },
+    {
+      "owner": "PersonRepository.__init__",
+      "line": 175,
+      "text": "# surfaced through the same `.conflicts` accessor (spec §3 / Gate 2). A"
+    },
+    {
+      "owner": "PersonRepository.__init__",
+      "line": 176,
+      "text": "# call-event log — NOT cleared by refresh (it records calls, not state)."
+    },
+    {
+      "owner": "PersonRepository.__init__",
+      "line": 178,
+      "text": "# WI-117: lazily-held CompanyRepository for corroborated name-cleaning."
+    },
+    {
+      "owner": "PersonRepository.__init__",
+      "line": 179,
+      "text": "# Loaded at most once per process (same lifetime as this repo's own"
+    },
+    {
+      "owner": "PersonRepository.__init__",
+      "line": 180,
+      "text": "# cache); the known-companies SET is still rebuilt per-call. None until"
+    },
+    {
+      "owner": "PersonRepository.__init__",
+      "line": 181,
+      "text": "# first 3+-token find_or_create_stub call that needs corroboration."
+    },
+    {
+      "owner": "PersonRepository._index_entity",
+      "line": 193,
+      "text": "\"\"\"Build email, phone, and alias indexes.\"\"\""
+    },
+    {
+      "owner": "PersonRepository._index_entity",
+      "line": 194,
+      "text": "# Index emails"
+    },
+    {
+      "owner": "PersonRepository._index_entity",
+      "line": 199,
+      "text": "# Index phones"
+    },
+    {
+      "owner": "PersonRepository._index_entity",
+      "line": 205,
+      "text": "# Index WhatsApp number"
+    },
+    {
+      "owner": "PersonRepository._index_entity",
+      "line": 211,
+      "text": "# Index aliases"
+    },
+    {
+      "owner": "PersonRepository._index_entity",
+      "line": 216,
+      "text": "# Index Slack"
+    },
+    {
+      "owner": "PersonRepository._index_entity",
+      "line": 218,
+      "text": "# Store both with and without @ prefix for flexible lookup"
+    },
+    {
+      "owner": "PersonRepository._index_entity",
+      "line": 222,
+      "text": "# WI-125 Phase 2 — also project into the unified identifier index."
+    },
+    {
+      "owner": "PersonRepository",
+      "line": 225,
+      "text": "# ──────────────────────────────────────────────────────────────────"
+    },
+    {
+      "owner": "PersonRepository",
+      "line": 226,
+      "text": "# WI-125 Phase 2 — unified identifier index + reconciliation"
+    },
+    {
+      "owner": "PersonRepository",
+      "line": 227,
+      "text": "# ──────────────────────────────────────────────────────────────────"
+    },
+    {
+      "owner": "PersonRepository._project_identifiers",
+      "line": 230,
+      "text": "\"\"\"Project a person note's frontmatter into its PERSON-resolving typed"
+    },
+    {
+      "owner": "PersonRepository._project_identifiers",
+      "line": 231,
+      "text": "identifiers (model §2). Lenient by design: anything that won't parse is"
+    },
+    {
+      "owner": "PersonRepository._project_identifiers",
+      "line": 232,
+      "text": "skipped, NOT raised — the legacy per-kind dicts remain the permissive"
+    },
+    {
+      "owner": "PersonRepository._project_identifiers",
+      "line": 233,
+      "text": "lookup surface during transition, so a malformed-but-present field still"
+    },
+    {
+      "owner": "PersonRepository._project_identifiers",
+      "line": 234,
+      "text": "resolves the old way while this typed index just omits it."
+    },
+    {
+      "owner": "PersonRepository._project_identifiers",
+      "line": 236,
+      "text": "Audited against the live vault (942 notes, 2026-06-13): email/phone/"
+    },
+    {
+      "owner": "PersonRepository._project_identifiers",
+      "line": 237,
+      "text": "whatsapp/linkedin parse with ZERO failures, so this loses nothing real."
+    },
+    {
+      "owner": "PersonRepository._project_identifiers",
+      "line": 238,
+      "text": "`slack` is deliberately NOT projected: the frontmatter carries a bare"
+    },
+    {
+      "owner": "PersonRepository._project_identifiers",
+      "line": 239,
+      "text": "handle with no workspace, and a typed SlackUserId requires one — only 2"
+    },
+    {
+      "owner": "PersonRepository._project_identifiers",
+      "line": 240,
+      "text": "notes have slack, and they stay on `_slack_index` until frontmatter"
+    },
+    {
+      "owner": "PersonRepository._project_identifiers",
+      "line": 241,
+      "text": "carries a workspace (a later cut). EmailDomain (company) is also omitted:"
+    },
+    {
+      "owner": "PersonRepository._project_identifiers",
+      "line": 242,
+      "text": "this repo indexes persons, and Company isn't activated this cut."
+    },
+    {
+      "owner": "PersonRepository._project_identifiers",
+      "line": 243,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository._project_identifiers",
+      "line": 252,
+      "text": "pass  # lenient — legacy per-kind dict still indexes it"
+    },
+    {
+      "owner": "PersonRepository._index_identifiers",
+      "line": 265,
+      "text": "\"\"\"Insert a person's identifiers into the unified index, detecting"
+    },
+    {
+      "owner": "PersonRepository._index_identifiers",
+      "line": 266,
+      "text": "cross-entity collisions (the reconciliation check, model §2)."
+    },
+    {
+      "owner": "PersonRepository._index_identifiers",
+      "line": 268,
+      "text": "On collision (a key already mapped to a DIFFERENT entity) the key is"
+    },
+    {
+      "owner": "PersonRepository._index_identifiers",
+      "line": 269,
+      "text": "recorded to `_conflict_sets` naming every entity it's been seen on, and"
+    },
+    {
+      "owner": "PersonRepository._index_identifiers",
+      "line": 270,
+      "text": "a loud WARN fires. The stored value is last-writer-wins — byte-identical"
+    },
+    {
+      "owner": "PersonRepository._index_identifiers",
+      "line": 271,
+      "text": "to the legacy per-kind dicts' overwrite semantics (both iterate the same"
+    },
+    {
+      "owner": "PersonRepository._index_identifiers",
+      "line": 272,
+      "text": "glob order in `load`), so Phase-3 resolution through this index returns"
+    },
+    {
+      "owner": "PersonRepository._index_identifiers",
+      "line": 273,
+      "text": "the same entity legacy lookups do. Never merges, never raises: a conflict"
+    },
+    {
+      "owner": "PersonRepository._index_identifiers",
+      "line": 274,
+      "text": "is an observability output, not a behavior change."
+    },
+    {
+      "owner": "PersonRepository._index_identifiers",
+      "line": 276,
+      "text": "Note: a person whose `whatsapp` equals one of their `phones` produces the"
+    },
+    {
+      "owner": "PersonRepository._index_identifiers",
+      "line": 277,
+      "text": "same `phone:` key twice — same EntityRef, so NOT a conflict (idempotent)."
+    },
+    {
+      "owner": "PersonRepository._index_identifiers",
+      "line": 278,
+      "text": "Requirement (b) of the model's check (\"no entity with an identifier is"
+    },
+    {
+      "owner": "PersonRepository._index_identifiers",
+      "line": 279,
+      "text": "unreachable\") is subsumed here: an entity shadowed out of the index by a"
+    },
+    {
+      "owner": "PersonRepository._index_identifiers",
+      "line": 280,
+      "text": "later collision is, by construction, a participant in that collision's"
+    },
+    {
+      "owner": "PersonRepository._index_identifiers",
+      "line": 281,
+      "text": "`_conflict_sets` record — so naming all participants surfaces it."
+    },
+    {
+      "owner": "PersonRepository._index_identifiers",
+      "line": 282,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.conflicts",
+      "line": 300,
+      "text": "\"\"\"All ambiguous-identifier findings, of two kinds (spec §3 / Gate 2):"
+    },
+    {
+      "owner": "PersonRepository.conflicts",
+      "line": 302,
+      "text": "1. **Load-time** (model §2): an identifier key on >1 note — a vault dup"
+    },
+    {
+      "owner": "PersonRepository.conflicts",
+      "line": 303,
+      "text": "(the WI-119 invariant generalized). Keyed on the identifier (`email:…`,"
+    },
+    {
+      "owner": "PersonRepository.conflicts",
+      "line": 304,
+      "text": "`linkedin:…`)."
+    },
+    {
+      "owner": "PersonRepository.conflicts",
+      "line": 305,
+      "text": "2. **Resolution-time** (Phase 3, Branch A): a single `resolve_or_create`"
+    },
+    {
+      "owner": "PersonRepository.conflicts",
+      "line": 306,
+      "text": "call whose identifiers point at different people (`email→X, phone→Y`)."
+    },
+    {
+      "owner": "PersonRepository.conflicts",
+      "line": 307,
+      "text": "Keyed `resolve:<k1>|<k2>`."
+    },
+    {
+      "owner": "PersonRepository.conflicts",
+      "line": 309,
+      "text": "The library exposes; the orchestrator persists to"
+    },
+    {
+      "owner": "PersonRepository.conflicts",
+      "line": 310,
+      "text": "`state/identity-conflicts.json` and alarms (the WI-095 state-file split)."
+    },
+    {
+      "owner": "PersonRepository.conflicts",
+      "line": 311,
+      "text": "Empty when the vault has no ambiguous identifiers and no conflicting"
+    },
+    {
+      "owner": "PersonRepository.conflicts",
+      "line": 312,
+      "text": "resolve has been made."
+    },
+    {
+      "owner": "PersonRepository.conflicts",
+      "line": 313,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository._clear_indexes",
+      "line": 327,
+      "text": "\"\"\"Clear custom indexes on refresh.\"\"\""
+    },
+    {
+      "owner": "PersonRepository._remove_entity_from_indexes",
+      "line": 336,
+      "text": "\"\"\"Remove a person's entries from all indexes.\"\"\""
+    },
+    {
+      "owner": "PersonRepository._remove_entity_from_indexes",
+      "line": 337,
+      "text": "# Remove emails from index"
+    },
+    {
+      "owner": "PersonRepository._remove_entity_from_indexes",
+      "line": 344,
+      "text": "# Remove phones from index"
+    },
+    {
+      "owner": "PersonRepository._remove_entity_from_indexes",
+      "line": 350,
+      "text": "# Remove WhatsApp from index"
+    },
+    {
+      "owner": "PersonRepository._remove_entity_from_indexes",
+      "line": 356,
+      "text": "# Remove aliases from index"
+    },
+    {
+      "owner": "PersonRepository._remove_entity_from_indexes",
+      "line": 363,
+      "text": "# Remove Slack from index"
+    },
+    {
+      "owner": "PersonRepository._remove_entity_from_indexes",
+      "line": 369,
+      "text": "# WI-125 Phase 2 — remove from the unified identifier index. Mirrors the"
+    },
+    {
+      "owner": "PersonRepository._remove_entity_from_indexes",
+      "line": 370,
+      "text": "# per-kind pattern (delete only the keys still pointing at this entity)."
+    },
+    {
+      "owner": "PersonRepository._remove_entity_from_indexes",
+      "line": 371,
+      "text": "# `_conflict_sets` is left intact: it's load-time reconciliation forensics"
+    },
+    {
+      "owner": "PersonRepository._remove_entity_from_indexes",
+      "line": 372,
+      "text": "# that's rebuilt wholesale on the next load()/refresh(); a mid-session"
+    },
+    {
+      "owner": "PersonRepository._remove_entity_from_indexes",
+      "line": 373,
+      "text": "# update_fields is an edge case not worth partial-conflict bookkeeping."
+    },
+    {
+      "owner": "PersonRepository.get_by_email",
+      "line": 380,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.get_by_email",
+      "line": 381,
+      "text": "Get a person by email address."
+    },
+    {
+      "owner": "PersonRepository.get_by_email",
+      "line": 383,
+      "text": "Args:"
+    },
+    {
+      "owner": "PersonRepository.get_by_email",
+      "line": 384,
+      "text": "email: Email address to look up"
+    },
+    {
+      "owner": "PersonRepository.get_by_email",
+      "line": 386,
+      "text": "Returns:"
+    },
+    {
+      "owner": "PersonRepository.get_by_email",
+      "line": 387,
+      "text": "Person if found, None otherwise"
+    },
+    {
+      "owner": "PersonRepository.get_by_email",
+      "line": 388,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.get_by_phone",
+      "line": 395,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.get_by_phone",
+      "line": 396,
+      "text": "Get a person by phone number."
+    },
+    {
+      "owner": "PersonRepository.get_by_phone",
+      "line": 398,
+      "text": "Handles various formats and country code variations."
+    },
+    {
+      "owner": "PersonRepository.get_by_phone",
+      "line": 400,
+      "text": "Args:"
+    },
+    {
+      "owner": "PersonRepository.get_by_phone",
+      "line": 401,
+      "text": "phone: Phone number in any format"
+    },
+    {
+      "owner": "PersonRepository.get_by_phone",
+      "line": 403,
+      "text": "Returns:"
+    },
+    {
+      "owner": "PersonRepository.get_by_phone",
+      "line": 404,
+      "text": "Person if found, None otherwise"
+    },
+    {
+      "owner": "PersonRepository.get_by_phone",
+      "line": 405,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.get_by_phone",
+      "line": 411,
+      "text": "# Direct lookup"
+    },
+    {
+      "owner": "PersonRepository.get_by_phone",
+      "line": 416,
+      "text": "# Fuzzy match with country code handling"
+    },
+    {
+      "owner": "PersonRepository.get_by_alias",
+      "line": 424,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.get_by_alias",
+      "line": 425,
+      "text": "Get a person by alias/nickname."
+    },
+    {
+      "owner": "PersonRepository.get_by_alias",
+      "line": 427,
+      "text": "Args:"
+    },
+    {
+      "owner": "PersonRepository.get_by_alias",
+      "line": 428,
+      "text": "alias: Alias to look up"
+    },
+    {
+      "owner": "PersonRepository.get_by_alias",
+      "line": 430,
+      "text": "Returns:"
+    },
+    {
+      "owner": "PersonRepository.get_by_alias",
+      "line": 431,
+      "text": "Person if found, None otherwise"
+    },
+    {
+      "owner": "PersonRepository.get_by_alias",
+      "line": 432,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.get_by_slack",
+      "line": 439,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.get_by_slack",
+      "line": 440,
+      "text": "Get a person by Slack user ID or handle."
+    },
+    {
+      "owner": "PersonRepository.get_by_slack",
+      "line": 442,
+      "text": "Handles both formats:"
+    },
+    {
+      "owner": "PersonRepository.get_by_slack",
+      "line": 443,
+      "text": "- User ID: \"U052R9S0RB6\""
+    },
+    {
+      "owner": "PersonRepository.get_by_slack",
+      "line": 444,
+      "text": "- Handle: \"@jsmith\" or \"jsmith\""
+    },
+    {
+      "owner": "PersonRepository.get_by_slack",
+      "line": 446,
+      "text": "Args:"
+    },
+    {
+      "owner": "PersonRepository.get_by_slack",
+      "line": 447,
+      "text": "slack_id: Slack user ID or handle"
+    },
+    {
+      "owner": "PersonRepository.get_by_slack",
+      "line": 449,
+      "text": "Returns:"
+    },
+    {
+      "owner": "PersonRepository.get_by_slack",
+      "line": 450,
+      "text": "Person if found, None otherwise"
+    },
+    {
+      "owner": "PersonRepository.get_by_slack",
+      "line": 451,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.get_by_slack",
+      "line": 453,
+      "text": "# Normalize: strip @ and lowercase"
+    },
+    {
+      "owner": "PersonRepository.resolve",
+      "line": 459,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.resolve",
+      "line": 460,
+      "text": "Resolve a query to a Person using multiple strategies."
+    },
+    {
+      "owner": "PersonRepository.resolve",
+      "line": 462,
+      "text": "Tries in order:"
+    },
+    {
+      "owner": "PersonRepository.resolve",
+      "line": 463,
+      "text": "1. Exact name match"
+    },
+    {
+      "owner": "PersonRepository.resolve",
+      "line": 464,
+      "text": "2. Alias match"
+    },
+    {
+      "owner": "PersonRepository.resolve",
+      "line": 465,
+      "text": "3. Email match (if query contains @)"
+    },
+    {
+      "owner": "PersonRepository.resolve",
+      "line": 466,
+      "text": "4. Phone match (if query looks like phone number)"
+    },
+    {
+      "owner": "PersonRepository.resolve",
+      "line": 467,
+      "text": "5. Partial name match"
+    },
+    {
+      "owner": "PersonRepository.resolve",
+      "line": 469,
+      "text": "Args:"
+    },
+    {
+      "owner": "PersonRepository.resolve",
+      "line": 470,
+      "text": "query: Name, email, phone, or alias to search"
+    },
+    {
+      "owner": "PersonRepository.resolve",
+      "line": 472,
+      "text": "Returns:"
+    },
+    {
+      "owner": "PersonRepository.resolve",
+      "line": 473,
+      "text": "Person if found, None otherwise"
+    },
+    {
+      "owner": "PersonRepository.resolve",
+      "line": 474,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.resolve",
+      "line": 483,
+      "text": "# 1. Exact name match"
+    },
+    {
+      "owner": "PersonRepository.resolve",
+      "line": 487,
+      "text": "# 2. Alias match"
+    },
+    {
+      "owner": "PersonRepository.resolve",
+      "line": 492,
+      "text": "# 3. Email match"
+    },
+    {
+      "owner": "PersonRepository.resolve",
+      "line": 498,
+      "text": "# 4. Phone match"
+    },
+    {
+      "owner": "PersonRepository.resolve",
+      "line": 505,
+      "text": "# 5. Partial name match (whole words only)"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 517,
+      "text": "\"\"\"Multi-candidate ranked resolve with optional company-hint disambiguation."
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 519,
+      "text": "WI-018 (2026-06-01) — built to fix the active dupe-creation bug surfaced"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 520,
+      "text": "in orchestrator Phase 0 trace. resolve() returns a single Optional[Person]"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 521,
+      "text": "and stops at the first cascade hit; resolve_all returns ALL plausible"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 522,
+      "text": "candidates ranked by confidence, with optional company-hint boost for"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 523,
+      "text": "the partial-name case."
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 525,
+      "text": "Cascade (each contributes one candidate per match; deduped by person):"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 526,
+      "text": "1. Exact name match (case-insensitive)      → 1.0"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 527,
+      "text": "2. Alias match                              → 1.0"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 528,
+      "text": "3. Email match (if query has '@')           → 1.0"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 529,
+      "text": "4. Phone match (if query is phone-shaped)   → 1.0"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 530,
+      "text": "5. Token-subset match: query's tokens ⊆ candidate's tokens, or"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 531,
+      "text": "vice versa, with ≥2 tokens shared       → 0.65"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 532,
+      "text": "6. Partial-name (single-token, whole-word)  → 0.6"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 534,
+      "text": "Company-hint bump: when `company` is provided AND a candidate's company"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 535,
+      "text": "matches case-insensitively, confidence is bumped by +0.25 (capped at 1.0;"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 536,
+      "text": "see the code at person.py:~476 — this docstring previously said +0.2, a"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 537,
+      "text": "drift fixed in WI-117). This catches \"Emily M\" + company=\"Speechmatics\" →"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 538,
+      "text": "canonical Emily Mendes bumped 0.65 → 0.90 ≥ 0.85 cutoff for safe reuse,"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 539,
+      "text": "and is the mechanism the WI-103 Naomi Pavie acceptance gate depends on."
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 541,
+      "text": "Returns:"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 542,
+      "text": "List of ResolveCandidate sorted by confidence descending. Empty if"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 543,
+      "text": "no candidate scored above the noise floor (0.5)."
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 544,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 554,
+      "text": "# Collect candidates by (person_name, best_signal) — dedupe per-person"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 555,
+      "text": "# but track best signal across multiple matches."
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 567,
+      "text": "# 1. Exact name match"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 571,
+      "text": "# 2. Email match — more specific than alias; run first so it wins"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 572,
+      "text": "# the label race when an alias also contains the email"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 580,
+      "text": "# 3. Alias match"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 587,
+      "text": "# 4. Phone match"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 594,
+      "text": "# 5. Token-subset / token-overlap matching"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 595,
+      "text": "# For each cached name, compute token overlap with the query."
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 601,
+      "text": "continue  # already caught by exact-name"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 603,
+      "text": "# Skip if shared is just trivial first-name match with no other tokens"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 606,
+      "text": "# Token-subset (one side fully contained in the other) requires ≥2 shared"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 611,
+      "text": "# 1-token query that's a whole word in the cache key — partial name"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 614,
+      "text": "# 6. Short-form first-token + last-initial style match"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 615,
+      "text": "# E.g. query = \"Emily M\" against cache \"emily mendes\". Requires company"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 616,
+      "text": "# hint to confirm — without it, this match stays low confidence (< 0.5)"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 617,
+      "text": "# and gets filtered out below."
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 620,
+      "text": "if len(qparts[1]) <= 2:  # \"M\", \"M.\", \"Mc\""
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 628,
+      "text": "# Company-hint bump"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 629,
+      "text": "# Matches when:"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 630,
+      "text": "#   (a) canonical's company field matches case-insensitively, OR"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 631,
+      "text": "#   (b) canonical's name contains the company as a whole-word token"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 632,
+      "text": "#       (catches the mangled-stub case where company got concatenated"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 633,
+      "text": "#       into the name, e.g. @Naomi Pavie Speechmatics.md with"
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 634,
+      "text": "#       company='' but \"speechmatics\" in the name)."
+    },
+    {
+      "owner": "PersonRepository.resolve_all",
+      "line": 653,
+      "text": "# Filter noise floor + sort"
+    },
+    {
+      "owner": "PersonRepository.find_or_create_stub",
+      "line": 668,
+      "text": "\"\"\"Lookup-before-create entry point (WI-125 Phase 4 — the engine adapter)."
+    },
+    {
+      "owner": "PersonRepository.find_or_create_stub",
+      "line": 670,
+      "text": "Same signature, same `(Person, created_new)` return, same exception set"
+    },
+    {
+      "owner": "PersonRepository.find_or_create_stub",
+      "line": 671,
+      "text": "(`NameValidationError`, `WeakIdentityError` — no new exception; identifier"
+    },
+    {
+      "owner": "PersonRepository.find_or_create_stub",
+      "line": 672,
+      "text": "conflicts flag to `repo.conflicts`, never raise) as the original. Parses"
+    },
+    {
+      "owner": "PersonRepository.find_or_create_stub",
+      "line": 673,
+      "text": "the stringly args into typed `Identifier`s and delegates to the"
+    },
+    {
+      "owner": "PersonRepository.find_or_create_stub",
+      "line": 674,
+      "text": "identifier-first engine `resolve_or_create` (model §4). The original body"
+    },
+    {
+      "owner": "PersonRepository.find_or_create_stub",
+      "line": 675,
+      "text": "is preserved verbatim as `_find_or_create_stub_legacy` — the Phase-5"
+    },
+    {
+      "owner": "PersonRepository.find_or_create_stub",
+      "line": 676,
+      "text": "parity baseline AND the one-commit rollback."
+    },
+    {
+      "owner": "PersonRepository.find_or_create_stub",
+      "line": 678,
+      "text": "Callers (contact_normalizer.py:422 direct; HAL9000 entities.py:178 via"
+    },
+    {
+      "owner": "PersonRepository.find_or_create_stub",
+      "line": 679,
+      "text": "HTTP) are unchanged — they keep their exact call sites and catch blocks."
+    },
+    {
+      "owner": "PersonRepository.find_or_create_stub",
+      "line": 681,
+      "text": "`strict=False` on the parse: a malformed email/phone is skipped (not"
+    },
+    {
+      "owner": "PersonRepository.find_or_create_stub",
+      "line": 682,
+      "text": "raised), so the adapter never fails where the legacy string path would"
+    },
+    {
+      "owner": "PersonRepository.find_or_create_stub",
+      "line": 683,
+      "text": "have silently carried the junk to `get_by_email`/`create_stub`. The"
+    },
+    {
+      "owner": "PersonRepository.find_or_create_stub",
+      "line": 684,
+      "text": "legacy path indexed malformed values; the engine resolves on the typed"
+    },
+    {
+      "owner": "PersonRepository.find_or_create_stub",
+      "line": 685,
+      "text": "ones and the name path. The Phase-5 replay confirms zero return-value"
+    },
+    {
+      "owner": "PersonRepository.find_or_create_stub",
+      "line": 686,
+      "text": "divergence over the real vault."
+    },
+    {
+      "owner": "PersonRepository.find_or_create_stub",
+      "line": 687,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 709,
+      "text": "\"\"\"The pre-WI-125 `find_or_create_stub` body, preserved verbatim (WI-125"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 710,
+      "text": "Phase 4). Two roles: (1) the Phase-5 offline parity baseline the engine"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 711,
+      "text": "is diffed against; (2) the one-commit rollback — revert the adapter and"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 712,
+      "text": "this is the live method again. NOT called in production; kept callable."
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 714,
+      "text": "WI-019 (2026-06-01) — surfaced from orchestrator Phase 0 trace which"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 715,
+      "text": "identified 4 stub-creation paths all using too-narrow lookups (just"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 716,
+      "text": "get_by_email + resolve), creating duplicates when canonicals have"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 717,
+      "text": "empty emails or mangled names. find_or_create_stub uses resolve_all"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 718,
+      "text": "with company-hint disambiguation, then falls through to create_stub"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 719,
+      "text": "only when no high-confidence match exists."
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 721,
+      "text": "On reuse, identifier write-back: if the call supplied a new email/phone"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 722,
+      "text": "not on the canonical record, append it. Future lookups have stronger"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 723,
+      "text": "signal."
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 725,
+      "text": "Returns:"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 726,
+      "text": "(Person, created_new: bool). created_new is True iff a new stub"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 727,
+      "text": "was written; False if an existing record was reused."
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 729,
+      "text": "Acceptance gate from orchestrator/docs/find-or-create-stub.md:"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 730,
+      "text": "Caller passes ('Naomi Pavie', email='naomi@speechmatics.com',"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 731,
+      "text": "company='Speechmatics') with existing mangled canonical"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 732,
+      "text": "'Naomi Pavie Speechmatics'. Must REUSE, not create a duplicate."
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 734,
+      "text": "WI-117 (2026-06-07) — two additions, both at this door so every channel"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 735,
+      "text": "gets them:"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 736,
+      "text": "1. Name-cleaning BEFORE lookup. The query is run through"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 737,
+      "text": "clean_person_name (safe recoveries: digits, calendar/archive"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 738,
+      "text": "prefixes, 'unknown contact') and a CORROBORATED company-suffix"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 739,
+      "text": "strip (only when the trailing token is a known company AND it's"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 740,
+      "text": "corroborated by company= or the email domain). 'Darryl Friend Kato'"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 741,
+      "text": "+ @kato.app → 'Darryl Friend' → exact-name match (1.0) → reuse."
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 742,
+      "text": "The strip is corroborated-only on purpose: 'Emma Roberts Kato' with"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 743,
+      "text": "no corroboration is NOT stripped, so it can't wrong-merge onto a"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 744,
+      "text": "bare 'Emma Roberts' canonical. resolve_all's tiers/thresholds are"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 745,
+      "text": "untouched (the +0.25 company-hint reuse WI-103 relies on is"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 746,
+      "text": "preserved)."
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 747,
+      "text": "2. Weak-identity guard. When auto_created=True and no match was found,"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 748,
+      "text": "a bare single-token-no-id name or a social-handle raises"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 749,
+      "text": "WeakIdentityError (the name is valid, the identity's just too weak"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 750,
+      "text": "to safely mint a new note for someone Dave likely already knows)."
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 751,
+      "text": "Gated on auto_created so manual single-name notes are untouched;"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 752,
+      "text": "existing single-name canonicals (@Adam) are still REUSED via"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 753,
+      "text": "exact-match before the guard can fire."
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 755,
+      "text": "Raises:"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 756,
+      "text": "NameValidationError: the created name is a Tier-1 non-person string"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 757,
+      "text": "(only on the create path, from create_stub)."
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 758,
+      "text": "WeakIdentityError: auto_created and the identity is too weak to"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 759,
+      "text": "create (no match found first)."
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 760,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 763,
+      "text": "# WI-117: clean the query before lookup. Non-company recoveries are"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 764,
+      "text": "# always safe; the company-suffix strip is corroborated-only (see"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 765,
+      "text": "# _strip_corroborated_company_suffix). The cleaned name is used for the"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 766,
+      "text": "# name-based lookup AND as the created name (lookup-clean == creation-"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 767,
+      "text": "# name; both safe — the strip is idempotent and conservative-keep on"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 768,
+      "text": "# no-corroboration means worst case is \"no worse than today\")."
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 772,
+      "text": "# WI-121: caller's explicit company wins; the paren-derived company is the"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 773,
+      "text": "# fallback resolve hint (unfiltered — a non-matching hint causes no bump)."
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 774,
+      "text": "# For storage on a NEW note, only a known paren-company is kept; the"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 775,
+      "text": "# caller's own company is stored as-is (pre-WI-121 behaviour preserved)."
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 779,
+      "text": "# Strategy 1: exact identifier matches (email/phone) — strongest signal."
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 780,
+      "text": "# Name-independent, so a strong identifier reuses even past a weak name."
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 793,
+      "text": "# Strategy 2: resolve_all with company hint, on the CLEANED name."
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 801,
+      "text": "# WI-117 weak-identity guard: only when about to auto-create AND no"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 802,
+      "text": "# match was found above. Manual creates (auto_created=False) skip it."
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 813,
+      "text": "# Strategy 3: no high-confidence match → create new stub (cleaned name)"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 814,
+      "text": "# WI-119: created_by passes through to creation only — the reuse"
+    },
+    {
+      "owner": "PersonRepository._find_or_create_stub_legacy",
+      "line": 815,
+      "text": "# branches above never write it (provenance records creation, not reuse)."
+    },
+    {
+      "owner": "PersonRepository",
+      "line": 826,
+      "text": "# ──────────────────────────────────────────────────────────────────"
+    },
+    {
+      "owner": "PersonRepository",
+      "line": 827,
+      "text": "# WI-125 Phase 3 — the identity engine: resolve_or_create"
+    },
+    {
+      "owner": "PersonRepository",
+      "line": 828,
+      "text": "# ──────────────────────────────────────────────────────────────────"
+    },
+    {
+      "owner": "PersonRepository",
+      "line": 830,
+      "text": "# Resolution priority for the Branch-A best-hit (parity: email before phone,"
+    },
+    {
+      "owner": "PersonRepository",
+      "line": 831,
+      "text": "# per find_or_create_stub Strategy 1 at person.py Strategy-1). Lower wins."
+    },
+    {
+      "owner": "PersonRepository",
+      "line": 832,
+      "text": "# A phone-bearing WhatsAppJID resolves like a Phone (same number → same"
+    },
+    {
+      "owner": "PersonRepository",
+      "line": 833,
+      "text": "# person), so it shares phone's priority. Richer kinds (linkedin/slack) rank"
+    },
+    {
+      "owner": "PersonRepository",
+      "line": 834,
+      "text": "# below — no current caller passes them, so they never affect parity; they're"
+    },
+    {
+      "owner": "PersonRepository",
+      "line": 835,
+      "text": "# there so a future WI-115 producer's richer identifiers resolve generically."
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 847,
+      "text": "\"\"\"The identity engine (model §4) — the identifier-first core that the"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 848,
+      "text": "Phase-4 adapter will run `find_or_create_stub` through."
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 850,
+      "text": "Reproduces `find_or_create_stub`'s **return-value** behavior exactly"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 851,
+      "text": "(the Phase-5 parity contract is `(resolved_name, created_new)` — side"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 852,
+      "text": "effects are explicitly out of the contract), with **one genuinely-new"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 853,
+      "text": "behavior: conflict detection** (Branch A). Operates on a typed"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 854,
+      "text": "`set[Identifier]` + display name + company *hint* (a company NAME is a"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 855,
+      "text": "display hint, not an identifier — `parse_identifiers`' own rule), and"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 856,
+      "text": "returns `(EntityRef, created_new)`."
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 858,
+      "text": "- **Branch A — identifier hit.** Resolve each PERSON-resolving identifier"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 859,
+      "text": "(email/phone via the legacy fuzzy `get_by_email`/`get_by_phone` — their"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 860,
+      "text": "country-code/casing fuzzing has no index equivalent this cut, so"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 861,
+      "text": "delegating is parity-exact; richer kinds via the unified index). The"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 862,
+      "text": "best hit (email before phone) is the resolved entity — **byte-identical"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 863,
+      "text": "to legacy Strategy 1**, which returns on the first (email) hit. If hits"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 864,
+      "text": "disagree (`email→X, phone→Y`) it's a **CONFLICT**: still return the"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 865,
+      "text": "legacy best-hit (no merge, no raise), but record it to `.conflicts`"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 866,
+      "text": "naming both candidates (the new observability). No writeback on a hit:"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 867,
+      "text": "the matched identifier is already on the note by definition, so legacy's"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 868,
+      "text": "writeback-on-hit is a no-op (or, on a fuzzy phone hit, would append a"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 869,
+      "text": "format-variant — exactly the dup-noise the identity model reduces);"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 870,
+      "text": "skipping it changes no return value and improves vault hygiene."
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 871,
+      "text": "- **Branch B — name + corroboration** (legacy Strategy 2). Clean the"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 872,
+      "text": "name, `resolve_all(cleaned, company_hint)`; ≥ threshold → reuse +"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 873,
+      "text": "writeback the supplied email/phone (the meaningful attach case)."
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 874,
+      "text": "- **Branch C — weak guard then create** (legacy Strategy 3). auto_created"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 875,
+      "text": "+ weak identity → raise `WeakIdentityError` (UNCHANGED this cut — the"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 876,
+      "text": "`needs_resolution` flip is a follow-on). Else `create_stub`."
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 878,
+      "text": "Not yet wired into `find_or_create_stub` — that's the Phase-4 adapter"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 879,
+      "text": "swap, gated by the Phase-5 offline parity replay."
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 880,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 884,
+      "text": "# Extract the leaf strings the existing string-typed methods take — the"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 885,
+      "text": "# parity bridge (the leaves stay stable; the typed identifiers are the"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 886,
+      "text": "# new interface producers will emit)."
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 899,
+      "text": "# WI-121: caller's company_hint wins; the paren-derived company is the"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 900,
+      "text": "# fallback resolve hint (unfiltered). On a NEW note, only a known paren-"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 901,
+      "text": "# company is stored; the caller's company_hint is stored as-is."
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 905,
+      "text": "# ── Branch A — identifier hits ──────────────────────────────────────"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 912,
+      "text": "_, best_ref = hits[0]  # highest priority (email before phone) = legacy best-hit"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 917,
+      "text": "# ── Branch B — name + corroboration ─────────────────────────────────"
+    },
+    {
+      "owner": "PersonRepository.resolve_or_create",
+      "line": 925,
+      "text": "# ── Branch C — weak guard, then create ──────────────────────────────"
+    },
+    {
+      "owner": "PersonRepository._resolve_identifier",
+      "line": 947,
+      "text": "\"\"\"Resolve a single identifier to an EntityRef, or None."
+    },
+    {
+      "owner": "PersonRepository._resolve_identifier",
+      "line": 949,
+      "text": "Email/phone delegate to the legacy fuzzy `get_by_*` (parity-exact —"
+    },
+    {
+      "owner": "PersonRepository._resolve_identifier",
+      "line": 950,
+      "text": "`get_by_phone`'s UK/US country-code fuzzing has no index equivalent this"
+    },
+    {
+      "owner": "PersonRepository._resolve_identifier",
+      "line": 951,
+      "text": "cut); a phone-bearing JID pivots to `get_by_phone` (WI-035); richer kinds"
+    },
+    {
+      "owner": "PersonRepository._resolve_identifier",
+      "line": 952,
+      "text": "resolve through the unified index."
+    },
+    {
+      "owner": "PersonRepository._resolve_identifier",
+      "line": 953,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository._record_resolution_conflict",
+      "line": 971,
+      "text": "\"\"\"Record a Branch-A conflict (identifiers in one call pointing at"
+    },
+    {
+      "owner": "PersonRepository._record_resolution_conflict",
+      "line": 972,
+      "text": "different people). Never raises, never merges — observability only.\"\"\""
+    },
+    {
+      "owner": "PersonRepository._hydrate",
+      "line": 989,
+      "text": "\"\"\"Turn an EntityRef back into the live Person (the Phase-4 adapter's"
+    },
+    {
+      "owner": "PersonRepository._hydrate",
+      "line": 990,
+      "text": "last step). None-safe.\"\"\""
+    },
+    {
+      "owner": "PersonRepository",
+      "line": 995,
+      "text": "# ──────────────────────────────────────────────────────────────────"
+    },
+    {
+      "owner": "PersonRepository",
+      "line": 996,
+      "text": "# WI-117 name-cleaning helpers (corroborated company-suffix strip)"
+    },
+    {
+      "owner": "PersonRepository",
+      "line": 997,
+      "text": "# ──────────────────────────────────────────────────────────────────"
+    },
+    {
+      "owner": "PersonRepository._clean_query_for_lookup",
+      "line": 1005,
+      "text": "\"\"\"Clean a query name for find_or_create_stub (WI-117 + WI-121)."
+    },
+    {
+      "owner": "PersonRepository._clean_query_for_lookup",
+      "line": 1007,
+      "text": "Returns (cleaned_name, derived_company). `derived_company` is the inner"
+    },
+    {
+      "owner": "PersonRepository._clean_query_for_lookup",
+      "line": 1008,
+      "text": "text of a TRAILING parenthetical (e.g. 'Pendo' from 'Louron Pratt"
+    },
+    {
+      "owner": "PersonRepository._clean_query_for_lookup",
+      "line": 1009,
+      "text": "(Pendo)'), or None. It is a RAW hint — NOT filtered against known-"
+    },
+    {
+      "owner": "PersonRepository._clean_query_for_lookup",
+      "line": 1010,
+      "text": "companies; the caller merges it (caller-wins) for the resolve hint and"
+    },
+    {
+      "owner": "PersonRepository._clean_query_for_lookup",
+      "line": 1011,
+      "text": "the creation site filters it via _company_if_known."
+    },
+    {
+      "owner": "PersonRepository._clean_query_for_lookup",
+      "line": 1013,
+      "text": "Stages:"
+    },
+    {
+      "owner": "PersonRepository._clean_query_for_lookup",
+      "line": 1014,
+      "text": "0. WI-121 — strip a trailing '(X)' FIRST (so the token-based rules"
+    },
+    {
+      "owner": "PersonRepository._clean_query_for_lookup",
+      "line": 1015,
+      "text": "below see paren-free ground), surfacing X as derived_company. A"
+    },
+    {
+      "owner": "PersonRepository._clean_query_for_lookup",
+      "line": 1016,
+      "text": "trailing parenthetical is never part of a legal name → safe to"
+    },
+    {
+      "owner": "PersonRepository._clean_query_for_lookup",
+      "line": 1017,
+      "text": "strip for lookup AND as the created name."
+    },
+    {
+      "owner": "PersonRepository._clean_query_for_lookup",
+      "line": 1018,
+      "text": "1. clean_person_name WITHOUT known_companies — the unconditionally-safe"
+    },
+    {
+      "owner": "PersonRepository._clean_query_for_lookup",
+      "line": 1019,
+      "text": "recoveries (trailing/embedded digits, calendar/archive prefixes,"
+    },
+    {
+      "owner": "PersonRepository._clean_query_for_lookup",
+      "line": 1020,
+      "text": "'unknown contact' suffix). known_companies is deliberately NOT"
+    },
+    {
+      "owner": "PersonRepository._clean_query_for_lookup",
+      "line": 1021,
+      "text": "passed: its unconditional company strip would collapse"
+    },
+    {
+      "owner": "PersonRepository._clean_query_for_lookup",
+      "line": 1022,
+      "text": "'Emma Roberts Kato' onto a bare 'Emma Roberts' with no corroboration"
+    },
+    {
+      "owner": "PersonRepository._clean_query_for_lookup",
+      "line": 1023,
+      "text": "(a wrong merge). email is NOT passed either — clean_person_name's"
+    },
+    {
+      "owner": "PersonRepository._clean_query_for_lookup",
+      "line": 1024,
+      "text": "email-domain strip skips the known-company sanity check; we do the"
+    },
+    {
+      "owner": "PersonRepository._clean_query_for_lookup",
+      "line": 1025,
+      "text": "corroborated strip ourselves in stage 2."
+    },
+    {
+      "owner": "PersonRepository._clean_query_for_lookup",
+      "line": 1026,
+      "text": "2. _strip_corroborated_company_suffix — the conservative strip"
+    },
+    {
+      "owner": "PersonRepository._clean_query_for_lookup",
+      "line": 1027,
+      "text": "(token ∈ known-companies AND (company== OR email-domain match))."
+    },
+    {
+      "owner": "PersonRepository._clean_query_for_lookup",
+      "line": 1028,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository._company_if_known",
+      "line": 1039,
+      "text": "\"\"\"WI-121: return `company` iff it's a known company (case-insensitive),"
+    },
+    {
+      "owner": "PersonRepository._company_if_known",
+      "line": 1040,
+      "text": "else None. Used at the CREATE site for the PAREN-DERIVED company only, so"
+    },
+    {
+      "owner": "PersonRepository._company_if_known",
+      "line": 1041,
+      "text": "a role-annotation ('PA', \"Dave's EA\") is never persisted as a company."
+    },
+    {
+      "owner": "PersonRepository._company_if_known",
+      "line": 1042,
+      "text": "A caller-supplied company is NOT routed through this (it is the stronger"
+    },
+    {
+      "owner": "PersonRepository._company_if_known",
+      "line": 1043,
+      "text": "signal and is stored as-is, preserving pre-WI-121 behaviour). Empty → None.\"\"\""
+    },
+    {
+      "owner": "PersonRepository._strip_corroborated_company_suffix",
+      "line": 1055,
+      "text": "\"\"\"Strip a trailing company token from `name` ONLY when corroborated"
+    },
+    {
+      "owner": "PersonRepository._strip_corroborated_company_suffix",
+      "line": 1056,
+      "text": "(WI-117 Decision 2 — the wrong-merge safety belt)."
+    },
+    {
+      "owner": "PersonRepository._strip_corroborated_company_suffix",
+      "line": 1058,
+      "text": "Strips trailing token(s) T (1–3-word windows, longest first) iff:"
+    },
+    {
+      "owner": "PersonRepository._strip_corroborated_company_suffix",
+      "line": 1059,
+      "text": "- T is in the vault's known-companies set, AND"
+    },
+    {
+      "owner": "PersonRepository._strip_corroborated_company_suffix",
+      "line": 1060,
+      "text": "- (company == T case-insensitively) OR"
+    },
+    {
+      "owner": "PersonRepository._strip_corroborated_company_suffix",
+      "line": 1061,
+      "text": "(the email domain's primary label == T, lowercased/spaces-removed),"
+    },
+    {
+      "owner": "PersonRepository._strip_corroborated_company_suffix",
+      "line": 1062,
+      "text": "where primary label = domain.split('.')[0] (matching"
+    },
+    {
+      "owner": "PersonRepository._strip_corroborated_company_suffix",
+      "line": 1063,
+      "text": "clean_person_name's existing convention)."
+    },
+    {
+      "owner": "PersonRepository._strip_corroborated_company_suffix",
+      "line": 1064,
+      "text": "Never strips below 2 remaining tokens. If nothing is corroborated, the"
+    },
+    {
+      "owner": "PersonRepository._strip_corroborated_company_suffix",
+      "line": 1065,
+      "text": "name is returned VERBATIM (no worse than today)."
+    },
+    {
+      "owner": "PersonRepository._strip_corroborated_company_suffix",
+      "line": 1067,
+      "text": "Examples (T='Kato'/'Speechmatics' assumed in known-companies):"
+    },
+    {
+      "owner": "PersonRepository._strip_corroborated_company_suffix",
+      "line": 1068,
+      "text": "'Darryl Friend Kato',  company='Kato'                 → 'Darryl Friend'"
+    },
+    {
+      "owner": "PersonRepository._strip_corroborated_company_suffix",
+      "line": 1069,
+      "text": "'Darryl Friend Kato',  email='d@kato.app'             → 'Darryl Friend'"
+    },
+    {
+      "owner": "PersonRepository._strip_corroborated_company_suffix",
+      "line": 1070,
+      "text": "'Naomi Pavie Speechmatics', email='n@speechmatics.com'→ 'Naomi Pavie'"
+    },
+    {
+      "owner": "PersonRepository._strip_corroborated_company_suffix",
+      "line": 1071,
+      "text": "'Emma Roberts Kato',   (no company, no email)         → 'Emma Roberts Kato'  (no strip)"
+    },
+    {
+      "owner": "PersonRepository._strip_corroborated_company_suffix",
+      "line": 1072,
+      "text": "'Emma Kato',           anything                        → 'Emma Kato'          (2 tokens, guard)"
+    },
+    {
+      "owner": "PersonRepository._strip_corroborated_company_suffix",
+      "line": 1073,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository._strip_corroborated_company_suffix",
+      "line": 1078,
+      "text": "# Need ≥3 tokens to strip ≥1 and keep ≥2. (Also avoids building the"
+    },
+    {
+      "owner": "PersonRepository._strip_corroborated_company_suffix",
+      "line": 1079,
+      "text": "# company set for the common 2-token case.)"
+    },
+    {
+      "owner": "PersonRepository._strip_corroborated_company_suffix",
+      "line": 1087,
+      "text": "# Nothing can corroborate → keep verbatim (and skip the company scan)."
+    },
+    {
+      "owner": "PersonRepository._known_companies",
+      "line": 1112,
+      "text": "\"\"\"Build the known-companies set for corroborated name-cleaning (WI-117)."
+    },
+    {
+      "owner": "PersonRepository._known_companies",
+      "line": 1114,
+      "text": "Built PER-CALL (no derived-set cache, no cross-repo invalidation —"
+    },
+    {
+      "owner": "PersonRepository._known_companies",
+      "line": 1115,
+      "text": "that machinery was cut as over-engineering; exocortex builds the same"
+    },
+    {
+      "owner": "PersonRepository._known_companies",
+      "line": 1116,
+      "text": "set per-meeting and perf is fine). Union of Person.company values (free"
+    },
+    {
+      "owner": "PersonRepository._known_companies",
+      "line": 1117,
+      "text": "— this repo is already loaded) and CompanyRepository names (a lazily-held"
+    },
+    {
+      "owner": "PersonRepository._known_companies",
+      "line": 1118,
+      "text": "instance so company files are scanned at most once per process, same"
+    },
+    {
+      "owner": "PersonRepository._known_companies",
+      "line": 1119,
+      "text": "lifetime as this repo's own cache). Degrades to the person-company set"
+    },
+    {
+      "owner": "PersonRepository._known_companies",
+      "line": 1120,
+      "text": "if CompanyRepository is unavailable."
+    },
+    {
+      "owner": "PersonRepository._known_companies",
+      "line": 1121,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository._known_companies",
+      "line": 1137,
+      "text": "# AC-6 (WI-020, rerouted from WI-024): narrowed AT THE CLAUSE, not"
+    },
+    {
+      "owner": "PersonRepository._known_companies",
+      "line": 1138,
+      "text": "# merely logged louder. The clause exists for ONE expected-unavailable"
+    },
+    {
+      "owner": "PersonRepository._known_companies",
+      "line": 1139,
+      "text": "# case — the `from .company import CompanyRepository` above. A bare"
+    },
+    {
+      "owner": "PersonRepository._known_companies",
+      "line": 1140,
+      "text": "# `except Exception` also buried a VaultPathNotConfiguredError raised"
+    },
+    {
+      "owner": "PersonRepository._known_companies",
+      "line": 1141,
+      "text": "# by CompanyRepository's own construction, which is a misconfiguration"
+    },
+    {
+      "owner": "PersonRepository._known_companies",
+      "line": 1142,
+      "text": "# the caller must be told about, not a degradable optional feature."
+    },
+    {
+      "owner": "PersonRepository._writeback_identifier",
+      "line": 1155,
+      "text": "\"\"\"Append newly-observed identifier to a canonical record (WI-019)."
+    },
+    {
+      "owner": "PersonRepository._writeback_identifier",
+      "line": 1157,
+      "text": "Called from find_or_create_stub on the reuse branch. If the supplied"
+    },
+    {
+      "owner": "PersonRepository._writeback_identifier",
+      "line": 1158,
+      "text": "email/phone is not already present on the canonical, append it and"
+    },
+    {
+      "owner": "PersonRepository._writeback_identifier",
+      "line": 1159,
+      "text": "save. No-op if the canonical already has the identifier."
+    },
+    {
+      "owner": "PersonRepository._writeback_identifier",
+      "line": 1160,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository._writeback_identifier",
+      "line": 1169,
+      "text": "# WI-126: route through update_fields (body-preserving), NOT save()."
+    },
+    {
+      "owner": "PersonRepository._writeback_identifier",
+      "line": 1170,
+      "text": "# save() rebuilds the file with the default empty body and so silently"
+    },
+    {
+      "owner": "PersonRepository._writeback_identifier",
+      "line": 1171,
+      "text": "# TRUNCATED the note body (the meeting Timeline) on every reuse — a"
+    },
+    {
+      "owner": "PersonRepository._writeback_identifier",
+      "line": 1172,
+      "text": "# signature-less data-loss door (door A). update_fields reads the file,"
+    },
+    {
+      "owner": "PersonRepository._writeback_identifier",
+      "line": 1173,
+      "text": "# rewrites only the named frontmatter fields, and preserves the body."
+    },
+    {
+      "owner": "PersonRepository.get_by_role",
+      "line": 1183,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.get_by_role",
+      "line": 1184,
+      "text": "Get all people with a specific role."
+    },
+    {
+      "owner": "PersonRepository.get_by_role",
+      "line": 1186,
+      "text": "Args:"
+    },
+    {
+      "owner": "PersonRepository.get_by_role",
+      "line": 1187,
+      "text": "role: Role to filter by (e.g., \"vip\", \"coaching-client\")"
+    },
+    {
+      "owner": "PersonRepository.get_by_role",
+      "line": 1189,
+      "text": "Returns:"
+    },
+    {
+      "owner": "PersonRepository.get_by_role",
+      "line": 1190,
+      "text": "List of people with that role"
+    },
+    {
+      "owner": "PersonRepository.get_by_role",
+      "line": 1191,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.get_by_company",
+      "line": 1196,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.get_by_company",
+      "line": 1197,
+      "text": "Get all people at a company."
+    },
+    {
+      "owner": "PersonRepository.get_by_company",
+      "line": 1199,
+      "text": "Args:"
+    },
+    {
+      "owner": "PersonRepository.get_by_company",
+      "line": 1200,
+      "text": "company: Company name (case-insensitive)"
+    },
+    {
+      "owner": "PersonRepository.get_by_company",
+      "line": 1202,
+      "text": "Returns:"
+    },
+    {
+      "owner": "PersonRepository.get_by_company",
+      "line": 1203,
+      "text": "List of people at that company"
+    },
+    {
+      "owner": "PersonRepository.get_by_company",
+      "line": 1204,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1215,
+      "text": "\"\"\"Override BaseRepository.save() to write the gate's normalized"
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1216,
+      "text": "identifier fields back onto the ENTITY (WI-021's rider; WI-109's"
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1217,
+      "text": "`_normalize_address_fields` is SUBSUMED here and deleted)."
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1219,
+      "text": "This is not an eighth arm and the wall does not sweep it — `save` binds"
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1220,
+      "text": "no frontmatter dict and serializes nothing. It is a RIDER, and it is the"
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1221,
+      "text": "reason this method carries a gate call at all: the gate returns a dict"
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1222,
+      "text": "and never touches the model, so no other frame can preserve the IN-PLACE"
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1223,
+      "text": "model mutation callers observe today (`person.emails` and"
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1224,
+      "text": "`person.aliases` were rewritten by `_normalize_address_fields`)."
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1226,
+      "text": "`whole_record=True`, because `model_to_frontmatter` projects every"
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1227,
+      "text": "declared field: both cross-field migrations run here exactly as they ran"
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1228,
+      "text": "before — an address found in an `aliases[]` entry moves to `emails[]`,"
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1229,
+      "text": "and a display half found in an `emails[]` entry moves to `aliases[]`."
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1231,
+      "text": "The write-back is the IDENTIFIER fields ONLY and never `name`: under the"
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1232,
+      "text": "name-identity rule the gate returns the name it was handed byte-for-byte,"
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1233,
+      "text": "so there is nothing on that field to write back — and the filename is"
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1234,
+      "text": "derived from the raw name one frame below, so writing a repaired name"
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1235,
+      "text": "here is exactly the path/field divergence this item exists to prevent."
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1237,
+      "text": "`phones[]` is a NEW in-place mutation a caller holding a `Person` will"
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1238,
+      "text": "observe where it does not today: nothing in this package deduped"
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1239,
+      "text": "`phones[]` before, and that is the behaviour the identifier criterion"
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1240,
+      "text": "wants. Stated because it is one field wider than the consumer audit's"
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1241,
+      "text": "grep list was written against."
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1243,
+      "text": "The gate runs TWICE on one save — here, then at the entity arm on the"
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1244,
+      "text": "projection of the entity this rider just normalized — which is why"
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1245,
+      "text": "idempotence is required of it rather than incidental."
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1246,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1252,
+      "text": "# Delegates and adopts nothing of its own, so it calls _adopt nowhere —"
+    },
+    {
+      "owner": "PersonRepository.save",
+      "line": 1253,
+      "text": "# a consequence of the door rather than a per-file exemption."
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1268,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1269,
+      "text": "Create a minimal stub Person and save to vault."
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1271,
+      "text": "Useful for creating placeholder contacts from meeting attendees, or"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1272,
+      "text": "from phone-only channels (iMessage, WhatsApp) where no name signal is"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1273,
+      "text": "available — in which case the caller passes `name` set to the phone"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1274,
+      "text": "string so the stub is identifiable by phone until enrichment confirms"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1275,
+      "text": "a real name."
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1277,
+      "text": "Args:"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1278,
+      "text": "name: Person's name (or phone string if no name is known)"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1279,
+      "text": "email: Optional email address"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1280,
+      "text": "phone: Optional phone number (E.164 preferred, e.g. \"+447739341679\")"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1281,
+      "text": "company: Optional company name"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1282,
+      "text": "auto_created: Mark as auto-created for later review"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1283,
+      "text": "created_by: WI-119 provenance — the writer's self-label (e.g."
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1284,
+      "text": "\"contact_normalizer\", \"exocortex-meetings\"). Written once at"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1285,
+      "text": "creation, never mutated afterward (unlike auto_created, which"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1286,
+      "text": "the enricher flips — a workflow flag, not provenance). Falsy /"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1287,
+      "text": "non-string → recorded as \"unknown\" + WARN, the loud-fail"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1288,
+      "text": "sentinel for unlabeled code writers."
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1290,
+      "text": "Returns:"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1291,
+      "text": "The created Person entity"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1292,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1295,
+      "text": "# WI-017: defensive RFC 2822 parse. If `name` looks like"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1296,
+      "text": "# \"Display Name <email@domain>\" form, separate it cleanly so the"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1297,
+      "text": "# regex sanitizer below doesn't mangle it into something like"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1298,
+      "text": "# \"Display Name emailatdomaincom\". This protects against any caller"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1299,
+      "text": "# passing the raw sender field from a scanner."
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1300,
+      "text": "#"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1301,
+      "text": "# WI-021: the JOB survives verbatim; only the parser moves. This was a"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1302,
+      "text": "# second, laxer copy of the address split — it trusted parseaddr on a"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1303,
+      "text": "# BARE input, which silently repairs `a@b c.com` into `a@bc.com` and"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1304,
+      "text": "# mints a wrong identity key. `split_address` is the one implementation"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1305,
+      "text": "# and it delegates to `Email.parse`, so this site inherits that"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1306,
+      "text": "# deliberate refusal: an unparseable blob is no longer adopted as an"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1307,
+      "text": "# address, and falls through to the NameValidator boundary below."
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1310,
+      "text": "# An email was extracted from the input. The caller's explicit"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1311,
+      "text": "# `email` arg wins if present; otherwise we adopt the parsed one."
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1314,
+      "text": "# Display-name part if present, else fall back to email local-part."
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1317,
+      "text": "# WI-105: boundary validation. Tier 1 patterns (calendar prefix,"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1318,
+      "text": "# archive prefix, 'unknown contact', RFC 2822 leak, etc.) raise"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1319,
+      "text": "# NameValidationError — producers must fix. Tier 2 patterns"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1320,
+      "text": "# (whitespace) get cleaned transparently and logged at INFO so"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1321,
+      "text": "# the WI-105 invariant can detect drift."
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1322,
+      "text": "# Phone-sentinel allowance: WI-083 path passes name=\"+447...\" with"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1323,
+      "text": "# phone=\"+447...\"; recognize that pattern and bypass digit-rejection."
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1324,
+      "text": "# Empty-name allowance: legacy fallback uses email local-part as the"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1325,
+      "text": "# name. Skip the validator in that case and let the existing"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1326,
+      "text": "# `if not clean_name` branch below pick up the fallback."
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1337,
+      "text": "# WI-111 (Decision 6): NameValidator.clean() above is the SOLE name"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1338,
+      "text": "# authority and is closed under validate_strict — store its output"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1339,
+      "text": "# verbatim. The legacy `clean_name = re.sub(r'[^\\w\\s-]', '', name)`"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1340,
+      "text": "# mangler that used to run here is DELETED: it manufactured tier1"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1341,
+      "text": "# failures from validator-passing inputs ('Dave -> X (Co)' became"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1342,
+      "text": "# 'Dave - X Co', a calendar_prefix) and corrupted valid names"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1343,
+      "text": "# (O'Brien -> OBrien, Dr. Smith -> Dr Smith). Path-hostile chars are"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1344,
+      "text": "# now rejected at the validator boundary, not stripped here."
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1349,
+      "text": "# WI-126 door C: reuse-on-collision. If a note already exists for this"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1350,
+      "text": "# exact (case-insensitive) name, REUSE it — never overwrite a rich note"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1351,
+      "text": "# with the empty template, which resets `created`/`created_by` and wipes"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1352,
+      "text": "# the Timeline (the loud door WI-119 caught on 06-14). Existence-only, no"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1353,
+      "text": "# content predicate: any collision is an upstream resolution miss worth"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1354,
+      "text": "# surfacing, and reuse is strictly safer than overwrite (the vault keys"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1355,
+      "text": "# on @{name}.md, so a create would clobber the same file regardless). The"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1356,
+      "text": "# supplied email/phone merge non-destructively via the now body-preserving"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1357,
+      "text": "# _writeback_identifier (door A fix). A genuinely new name → get() is None"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1358,
+      "text": "# → normal create below (no existing body, so R1 is a no-op)."
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1369,
+      "text": "# Build aliases from email"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1384,
+      "text": "# WI-119: provenance. Always written; \"unknown\" + WARN surfaces"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1385,
+      "text": "# unlabeled writers. Falsy ('' / None) and non-string values are"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1386,
+      "text": "# treated as unlabeled (an empty label is an unlabeled writer)."
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1400,
+      "text": "# WI-004 door 2c: we LOST a cross-process create race. The winner's"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1401,
+      "text": "# note is on disk; re-read that ONE path (never refresh(), whose"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1402,
+      "text": "# whole-vault zero-entity restore guard is the wrong instrument for"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1403,
+      "text": "# a single note), adopt it, and take the reuse branch above — so the"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1404,
+      "text": "# cross-process race produces the same outcome the in-process"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1405,
+      "text": "# collision already produces."
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1413,
+      "text": "# A note that exists and does not load is not a reuse"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1414,
+      "text": "# candidate; WI-020's skip surface is where it belongs."
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1416,
+      "text": "# Through the ADOPTION DOOR, not a bare `self._cache[key] = winner`:"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1417,
+      "text": "# the reuse branch's _writeback_identifier routes through"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1418,
+      "text": "# update_fields, which resolves the path via get_file_path ->"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1419,
+      "text": "# self._file_map. A recovery populating _cache alone leaves"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1420,
+      "text": "# _file_map empty for that key, and update_fields raises ValueError"
+    },
+    {
+      "owner": "PersonRepository.create_stub",
+      "line": 1421,
+      "text": "# before the phone is ever written back."
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1434,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1435,
+      "text": "Append an entry to a person's Timeline section."
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1437,
+      "text": "Inserts the entry at the start of the ## Timeline section,"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1438,
+      "text": "preserving existing content. If the note has no ## Timeline section at"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1439,
+      "text": "all, one is CREATED at end of file and the entry inserted (WI-020 AC-5"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1440,
+      "text": "Predicate 3) — a raw-content check cannot tell \"corrupted since"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1441,
+      "text": "creation\" from \"hand-created in Obsidian and never had one\", so the"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1442,
+      "text": "entry lands rather than being dropped. Every pre-existing byte is"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1443,
+      "text": "preserved and the frontmatter stays byte-identical."
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1445,
+      "text": "Args:"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1446,
+      "text": "person: The person whose timeline to update"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1447,
+      "text": "entry: The full entry to append (e.g., \"### Dec 3, 2025\\\\n[[Meeting]]...\")"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1448,
+      "text": "deduplicate_key: Optional string to check for duplicates."
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1449,
+      "text": "If provided and found in existing content, skip the update."
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1451,
+      "text": "Returns:"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1452,
+      "text": "True if the entry was added (including when the section was"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1453,
+      "text": "created). False ONLY for the deliberate whole-file dedup no-op —"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1454,
+      "text": "a failure no longer reports itself as this same False (WI-020 N4)."
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1456,
+      "text": "Raises:"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1457,
+      "text": "ValueError: If person not found in repository"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1458,
+      "text": "WriteFailedError: If the write did not complete"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1459,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1465,
+      "text": "# Door 1 (WI-004): one lock spans the read, the transform and"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1466,
+      "text": "# every write below; each write carries the stamp of that read."
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1470,
+      "text": "# Check for duplicate if key provided"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1475,
+      "text": "# Find the Timeline section"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1478,
+      "text": "# Ensure entry starts with newline for clean formatting"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1481,
+      "text": "# WI-020 AC-5 Predicate 3 — ACCOMMODATE, with PRESERVATION."
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1482,
+      "text": "#"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1483,
+      "text": "# A missing \"## Timeline\" used to drop the caller's entry into the"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1484,
+      "text": "# same silent False the dedup no-op returns. A raw-content check"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1485,
+      "text": "# cannot tell \"corrupted since creation by this package\" from"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1486,
+      "text": "# \"legitimately never had one\" (hand-created in Obsidian, or"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1487,
+      "text": "# predating the template), so refusing would manufacture a failure"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1488,
+      "text": "# out of a structural variant. The section is created instead,"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1489,
+      "text": "# mirroring append_to_body_section's create_if_missing default."
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1490,
+      "text": "#"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1491,
+      "text": "# The mechanism is STRING INSERTION at end of file, NOT the"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1492,
+      "text": "# sibling's parse_body_sections/write_body_sections round-trip:"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1493,
+      "text": "# that round-trip keeps only `^## `-delimited spans, so it deletes"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1494,
+      "text": "# any preamble above the first heading and destroys a heading-less"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1495,
+      "text": "# body outright — on a raw write_text that writer.py deliberately"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1496,
+      "text": "# exempts from the WI-126 shrink guard. The note least likely to"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1497,
+      "text": "# have `##` headings is exactly the hand-created note this"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1498,
+      "text": "# accommodation exists for. End-of-file placement is the only"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1499,
+      "text": "# placement that preserves content without parsing structure, and"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1500,
+      "text": "# it makes the oracle fall out: new_content.startswith(content)."
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1508,
+      "text": "# Insert after \"## Timeline\" marker. No split guard: str.split(sep, 1)"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1509,
+      "text": "# on a string containing sep returns exactly two parts, and the marker"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1510,
+      "text": "# was confirmed present above — the old `len(parts) != 2` branch was"
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1511,
+      "text": "# structurally unreachable."
+    },
+    {
+      "owner": "PersonRepository.append_to_timeline",
+      "line": 1521,
+      "text": "raise                   # our own signal — never re-wrapped, never swallowed"
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1537,
+      "text": "\"\"\"Add ``content`` to a person's ``## {section}`` body section (WI-111)."
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1539,
+      "text": "The generic body-section writer the migrated writers (enricher, intro-"
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1540,
+      "text": "ducer, scheduler) route through instead of MCP ``patch_vault_file``."
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1541,
+      "text": "Wraps the ``body_sections`` module helpers around a body-safe read/write"
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1542,
+      "text": "that carries the frontmatter through VERBATIM (it is never re-serialized"
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1543,
+      "text": "or re-normalized — body writes must not touch frontmatter)."
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1545,
+      "text": "Deliberately distinct from ``append_to_timeline`` (which prepends and"
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1546,
+      "text": "dedups whole-file): this method supports both operations and dedups"
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1547,
+      "text": "SECTION-SCOPED, so e.g. \"Introduced by [[X]]\" may legitimately appear in"
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1548,
+      "text": "both Timeline and Notes."
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1550,
+      "text": "Args:"
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1551,
+      "text": "person: whose note to write (looked up by ``person.name``)."
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1552,
+      "text": "section: section name without the leading ``## `` (e.g. \"Notes\")."
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1553,
+      "text": "content: text to add (no leading ``## ``)."
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1554,
+      "text": "operation: \"append\" (end of section, default) or \"prepend\" (start)."
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1555,
+      "text": "deduplicate_key: if set AND already present in the TARGET section,"
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1556,
+      "text": "skip the write and return False."
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1557,
+      "text": "create_if_missing: create the ``## {section}`` if absent (default"
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1558,
+      "text": "True); when False and the section is absent, no-op returns False."
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1560,
+      "text": "Returns:"
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1561,
+      "text": "True if written; False if deduped or skipped (missing section with"
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1562,
+      "text": "``create_if_missing=False``). A malformed or absent frontmatter"
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1563,
+      "text": "fence no longer lands here — it RAISES (WI-020 AC-5 Predicate 2),"
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1564,
+      "text": "so a False now means only \"nothing to do\"."
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1566,
+      "text": "Raises:"
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1567,
+      "text": "ValueError: if the person file does not exist, or ``operation`` is"
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1568,
+      "text": "not \"append\"/\"prepend\" (loud-fail — never silently mis-write)."
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1569,
+      "text": "FrontmatterParseError: if the note has no frontmatter fence, or an"
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1570,
+      "text": "unclosed one — the caller's content is never silently dropped."
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1571,
+      "text": "WriteFailedError: if the write did not complete."
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1572,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1584,
+      "text": "# Door 1 (WI-004): one lock spans the read, the transform and"
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1585,
+      "text": "# every write below; each write carries the stamp of that read."
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1589,
+      "text": "# Split frontmatter and body (body-safe pattern, mirrors To-Discuss)."
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1593,
+      "text": "# None ⇒ section absent; \"\" / text ⇒ present (possibly empty)."
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1596,
+      "text": "# create_if_missing=False + absent section → genuine no-op."
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1600,
+      "text": "# Section-scoped dedup (NOT whole-file — same key may live in"
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1601,
+      "text": "# Timeline AND Notes)."
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1614,
+      "text": "# Re-assemble carrying frontmatter through verbatim."
+    },
+    {
+      "owner": "PersonRepository.append_to_body_section",
+      "line": 1623,
+      "text": "raise                   # our own signal — never re-wrapped, never swallowed"
+    },
+    {
+      "owner": "PersonRepository",
+      "line": 1630,
+      "text": "# ========================================================================="
+    },
+    {
+      "owner": "PersonRepository",
+      "line": 1631,
+      "text": "# To Discuss Methods"
+    },
+    {
+      "owner": "PersonRepository",
+      "line": 1632,
+      "text": "# ========================================================================="
+    },
+    {
+      "owner": "PersonRepository._get_body_content",
+      "line": 1635,
+      "text": "\"\"\"Get the body content of a person's markdown file."
+    },
+    {
+      "owner": "PersonRepository._get_body_content",
+      "line": 1637,
+      "text": "Returns None when the note does not exist — its only caller converts"
+    },
+    {
+      "owner": "PersonRepository._get_body_content",
+      "line": 1638,
+      "text": "that to a ValueError (no-op class (d))."
+    },
+    {
+      "owner": "PersonRepository._get_body_content",
+      "line": 1640,
+      "text": "Raises:"
+    },
+    {
+      "owner": "PersonRepository._get_body_content",
+      "line": 1641,
+      "text": "FrontmatterParseError: If the note OPENED a frontmatter fence and"
+    },
+    {
+      "owner": "PersonRepository._get_body_content",
+      "line": 1642,
+      "text": "never closed it. Before WI-020 this returned the whole file,"
+    },
+    {
+      "owner": "PersonRepository._get_body_content",
+      "line": 1643,
+      "text": "frontmatter included, AS the body — which is how"
+    },
+    {
+      "owner": "PersonRepository._get_body_content",
+      "line": 1644,
+      "text": "get_to_discuss_items reported a corrupted note as \"no items\"."
+    },
+    {
+      "owner": "PersonRepository._get_body_content",
+      "line": 1645,
+      "text": "A legitimately fence-less note still returns its whole content."
+    },
+    {
+      "owner": "PersonRepository._get_body_content",
+      "line": 1646,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository._get_body_content",
+      "line": 1653,
+      "text": "# Split frontmatter and body."
+    },
+    {
+      "owner": "PersonRepository._get_body_content",
+      "line": 1654,
+      "text": "#"
+    },
+    {
+      "owner": "PersonRepository._get_body_content",
+      "line": 1655,
+      "text": "# The outer guard is deliberately redundant with the helper's first"
+    },
+    {
+      "owner": "PersonRepository._get_body_content",
+      "line": 1656,
+      "text": "# branch and must NOT be \"simplified\" away: it is what routes the"
+    },
+    {
+      "owner": "PersonRepository._get_body_content",
+      "line": 1657,
+      "text": "# legitimately fence-less note to `return content` instead of to the"
+    },
+    {
+      "owner": "PersonRepository._get_body_content",
+      "line": 1658,
+      "text": "# helper's `FrontmatterParseError`. Dropping it turns a no-op into a"
+    },
+    {
+      "owner": "PersonRepository._get_body_content",
+      "line": 1659,
+      "text": "# raise and breaks AC-5's no-op half."
+    },
+    {
+      "owner": "PersonRepository._get_body_content",
+      "line": 1663,
+      "text": "return content          # legitimately fence-less: the whole file IS the body"
+    },
+    {
+      "owner": "PersonRepository.get_to_discuss_items",
+      "line": 1666,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.get_to_discuss_items",
+      "line": 1667,
+      "text": "Get all To Discuss items for a person."
+    },
+    {
+      "owner": "PersonRepository.get_to_discuss_items",
+      "line": 1669,
+      "text": "Args:"
+    },
+    {
+      "owner": "PersonRepository.get_to_discuss_items",
+      "line": 1670,
+      "text": "person: The person to get items for"
+    },
+    {
+      "owner": "PersonRepository.get_to_discuss_items",
+      "line": 1672,
+      "text": "Returns:"
+    },
+    {
+      "owner": "PersonRepository.get_to_discuss_items",
+      "line": 1673,
+      "text": "List of ToDiscussItem objects, or empty list if none"
+    },
+    {
+      "owner": "PersonRepository.get_to_discuss_items",
+      "line": 1675,
+      "text": "Raises:"
+    },
+    {
+      "owner": "PersonRepository.get_to_discuss_items",
+      "line": 1676,
+      "text": "ValueError: If person not found in repository"
+    },
+    {
+      "owner": "PersonRepository.get_to_discuss_items",
+      "line": 1677,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.add_to_discuss_item",
+      "line": 1689,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.add_to_discuss_item",
+      "line": 1690,
+      "text": "Add a new To Discuss item for a person."
+    },
+    {
+      "owner": "PersonRepository.add_to_discuss_item",
+      "line": 1692,
+      "text": "Creates an unchecked item with today's date."
+    },
+    {
+      "owner": "PersonRepository.add_to_discuss_item",
+      "line": 1694,
+      "text": "Args:"
+    },
+    {
+      "owner": "PersonRepository.add_to_discuss_item",
+      "line": 1695,
+      "text": "person: The person to add item for"
+    },
+    {
+      "owner": "PersonRepository.add_to_discuss_item",
+      "line": 1696,
+      "text": "text: The item text"
+    },
+    {
+      "owner": "PersonRepository.add_to_discuss_item",
+      "line": 1698,
+      "text": "Returns:"
+    },
+    {
+      "owner": "PersonRepository.add_to_discuss_item",
+      "line": 1699,
+      "text": "True if the item was added. A malformed or absent frontmatter"
+    },
+    {
+      "owner": "PersonRepository.add_to_discuss_item",
+      "line": 1700,
+      "text": "fence now RAISES rather than returning False (WI-020)."
+    },
+    {
+      "owner": "PersonRepository.add_to_discuss_item",
+      "line": 1702,
+      "text": "Raises:"
+    },
+    {
+      "owner": "PersonRepository.add_to_discuss_item",
+      "line": 1703,
+      "text": "ValueError: If person not found in repository"
+    },
+    {
+      "owner": "PersonRepository.add_to_discuss_item",
+      "line": 1704,
+      "text": "FrontmatterParseError: If the note has no frontmatter fence, or an"
+    },
+    {
+      "owner": "PersonRepository.add_to_discuss_item",
+      "line": 1705,
+      "text": "unclosed one (WI-020 AC-5 Predicate 2) — the caller's item is"
+    },
+    {
+      "owner": "PersonRepository.add_to_discuss_item",
+      "line": 1706,
+      "text": "never silently dropped into the same False a legitimate"
+    },
+    {
+      "owner": "PersonRepository.add_to_discuss_item",
+      "line": 1707,
+      "text": "\"not found\" returns."
+    },
+    {
+      "owner": "PersonRepository.add_to_discuss_item",
+      "line": 1708,
+      "text": "WriteFailedError: If the write did not complete."
+    },
+    {
+      "owner": "PersonRepository.add_to_discuss_item",
+      "line": 1709,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.add_to_discuss_item",
+      "line": 1715,
+      "text": "# Door 1 (WI-004): one lock spans the read, the transform and"
+    },
+    {
+      "owner": "PersonRepository.add_to_discuss_item",
+      "line": 1716,
+      "text": "# every write below; each write carries the stamp of that read."
+    },
+    {
+      "owner": "PersonRepository.add_to_discuss_item",
+      "line": 1720,
+      "text": "# Split frontmatter and body"
+    },
+    {
+      "owner": "PersonRepository.add_to_discuss_item",
+      "line": 1724,
+      "text": "# Get existing items and add new one"
+    },
+    {
+      "owner": "PersonRepository.add_to_discuss_item",
+      "line": 1730,
+      "text": "# Update section"
+    },
+    {
+      "owner": "PersonRepository.add_to_discuss_item",
+      "line": 1734,
+      "text": "# Write back"
+    },
+    {
+      "owner": "PersonRepository.add_to_discuss_item",
+      "line": 1742,
+      "text": "raise                   # our own signal — never re-wrapped, never swallowed"
+    },
+    {
+      "owner": "PersonRepository.update_to_discuss_item",
+      "line": 1755,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.update_to_discuss_item",
+      "line": 1756,
+      "text": "Update a To Discuss item's completion status."
+    },
+    {
+      "owner": "PersonRepository.update_to_discuss_item",
+      "line": 1758,
+      "text": "Args:"
+    },
+    {
+      "owner": "PersonRepository.update_to_discuss_item",
+      "line": 1759,
+      "text": "person: The person to update item for"
+    },
+    {
+      "owner": "PersonRepository.update_to_discuss_item",
+      "line": 1760,
+      "text": "text: The item text to match (exact match)"
+    },
+    {
+      "owner": "PersonRepository.update_to_discuss_item",
+      "line": 1761,
+      "text": "completed: New completion status"
+    },
+    {
+      "owner": "PersonRepository.update_to_discuss_item",
+      "line": 1763,
+      "text": "Returns:"
+    },
+    {
+      "owner": "PersonRepository.update_to_discuss_item",
+      "line": 1764,
+      "text": "True if the item was updated; False if the section or the item"
+    },
+    {
+      "owner": "PersonRepository.update_to_discuss_item",
+      "line": 1765,
+      "text": "text was not found. \"Not found\" is the ONLY remaining False —"
+    },
+    {
+      "owner": "PersonRepository.update_to_discuss_item",
+      "line": 1766,
+      "text": "a malformed fence now RAISES (WI-020)."
+    },
+    {
+      "owner": "PersonRepository.update_to_discuss_item",
+      "line": 1768,
+      "text": "Raises:"
+    },
+    {
+      "owner": "PersonRepository.update_to_discuss_item",
+      "line": 1769,
+      "text": "ValueError: If person not found in repository"
+    },
+    {
+      "owner": "PersonRepository.update_to_discuss_item",
+      "line": 1770,
+      "text": "FrontmatterParseError: If the note has no frontmatter fence, or an"
+    },
+    {
+      "owner": "PersonRepository.update_to_discuss_item",
+      "line": 1771,
+      "text": "unclosed one (WI-020 AC-5 Predicate 2) — the caller's item is"
+    },
+    {
+      "owner": "PersonRepository.update_to_discuss_item",
+      "line": 1772,
+      "text": "never silently dropped into the same False a legitimate"
+    },
+    {
+      "owner": "PersonRepository.update_to_discuss_item",
+      "line": 1773,
+      "text": "\"not found\" returns."
+    },
+    {
+      "owner": "PersonRepository.update_to_discuss_item",
+      "line": 1774,
+      "text": "WriteFailedError: If the write did not complete."
+    },
+    {
+      "owner": "PersonRepository.update_to_discuss_item",
+      "line": 1775,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.update_to_discuss_item",
+      "line": 1781,
+      "text": "# Door 1 (WI-004): one lock spans the read, the transform and"
+    },
+    {
+      "owner": "PersonRepository.update_to_discuss_item",
+      "line": 1782,
+      "text": "# every write below; each write carries the stamp of that read."
+    },
+    {
+      "owner": "PersonRepository.update_to_discuss_item",
+      "line": 1786,
+      "text": "# Split frontmatter and body"
+    },
+    {
+      "owner": "PersonRepository.update_to_discuss_item",
+      "line": 1790,
+      "text": "# Get existing items"
+    },
+    {
+      "owner": "PersonRepository.update_to_discuss_item",
+      "line": 1797,
+      "text": "# Find and update the item"
+    },
+    {
+      "owner": "PersonRepository.update_to_discuss_item",
+      "line": 1809,
+      "text": "# Update section"
+    },
+    {
+      "owner": "PersonRepository.update_to_discuss_item",
+      "line": 1813,
+      "text": "# Write back"
+    },
+    {
+      "owner": "PersonRepository.update_to_discuss_item",
+      "line": 1822,
+      "text": "raise                   # our own signal — never re-wrapped, never swallowed"
+    },
+    {
+      "owner": "PersonRepository.remove_to_discuss_item",
+      "line": 1830,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.remove_to_discuss_item",
+      "line": 1831,
+      "text": "Remove a To Discuss item."
+    },
+    {
+      "owner": "PersonRepository.remove_to_discuss_item",
+      "line": 1833,
+      "text": "Args:"
+    },
+    {
+      "owner": "PersonRepository.remove_to_discuss_item",
+      "line": 1834,
+      "text": "person: The person to remove item from"
+    },
+    {
+      "owner": "PersonRepository.remove_to_discuss_item",
+      "line": 1835,
+      "text": "text: The item text to match (exact match)"
+    },
+    {
+      "owner": "PersonRepository.remove_to_discuss_item",
+      "line": 1837,
+      "text": "Returns:"
+    },
+    {
+      "owner": "PersonRepository.remove_to_discuss_item",
+      "line": 1838,
+      "text": "True if the item was removed; False if the section or the item"
+    },
+    {
+      "owner": "PersonRepository.remove_to_discuss_item",
+      "line": 1839,
+      "text": "text was not found. \"Not found\" is the ONLY remaining False —"
+    },
+    {
+      "owner": "PersonRepository.remove_to_discuss_item",
+      "line": 1840,
+      "text": "a malformed fence now RAISES (WI-020)."
+    },
+    {
+      "owner": "PersonRepository.remove_to_discuss_item",
+      "line": 1842,
+      "text": "Raises:"
+    },
+    {
+      "owner": "PersonRepository.remove_to_discuss_item",
+      "line": 1843,
+      "text": "ValueError: If person not found in repository"
+    },
+    {
+      "owner": "PersonRepository.remove_to_discuss_item",
+      "line": 1844,
+      "text": "FrontmatterParseError: If the note has no frontmatter fence, or an"
+    },
+    {
+      "owner": "PersonRepository.remove_to_discuss_item",
+      "line": 1845,
+      "text": "unclosed one (WI-020 AC-5 Predicate 2) — the caller's item is"
+    },
+    {
+      "owner": "PersonRepository.remove_to_discuss_item",
+      "line": 1846,
+      "text": "never silently dropped into the same False a legitimate"
+    },
+    {
+      "owner": "PersonRepository.remove_to_discuss_item",
+      "line": 1847,
+      "text": "\"not found\" returns."
+    },
+    {
+      "owner": "PersonRepository.remove_to_discuss_item",
+      "line": 1848,
+      "text": "WriteFailedError: If the write did not complete."
+    },
+    {
+      "owner": "PersonRepository.remove_to_discuss_item",
+      "line": 1849,
+      "text": "\"\"\""
+    },
+    {
+      "owner": "PersonRepository.remove_to_discuss_item",
+      "line": 1855,
+      "text": "# Door 1 (WI-004): one lock spans the read, the transform and"
+    },
+    {
+      "owner": "PersonRepository.remove_to_discuss_item",
+      "line": 1856,
+      "text": "# every write below; each write carries the stamp of that read."
+    },
+    {
+      "owner": "PersonRepository.remove_to_discuss_item",
+      "line": 1860,
+      "text": "# Split frontmatter and body"
+    },
+    {
+      "owner": "PersonRepository.remove_to_discuss_item",
+      "line": 1864,
+      "text": "# Get existing items"
+    },
+    {
+      "owner": "PersonRepository.remove_to_discuss_item",
+      "line": 1872,
+      "text": "# Filter out the item to remove"
+    },
+    {
+      "owner": "PersonRepository.remove_to_discuss_item",
+      "line": 1879,
+      "text": "# Update section"
+    },
+    {
+      "owner": "PersonRepository.remove_to_discuss_item",
+      "line": 1883,
+      "text": "# Write back"
+    },
+    {
+      "owner": "PersonRepository.remove_to_discuss_item",
+      "line": 1891,
+      "text": "raise                   # our own signal — never re-wrapped, never swallowed"
+    }
+  ]
+}

@@ -20,10 +20,17 @@ so an AC added later joins this wall on the day it is written, and each name is
 resolved to its module by the conveyor's own discovery rule (the unique top-level
 `def <check>(` across `tests/*.py`) rather than by a table kept in step by hand.
 
-CORPUS_COUPLING: pins `docs/write-door-bypasses.md`'s `criteria` fences (the
-`check:` key inside them) to consume the set of check names the conveyor's battery
-will run for WI-021. A rename of that doc, or a fence with no `check:`, is a loud
+CORPUS_COUPLING: pins `docs/write-door-bypasses.md`'s and
+`docs/identity-engine-endgame.md`'s `criteria` fences (the `check:` key inside
+them) to consume the set of check names the conveyor's battery will run for
+WI-021 and WI-023. A rename of either doc, or a fence with no `check:`, is a loud
 failure here, never a silent empty sweep.
+
+The document list is a TUPLE rather than a second copy of this module: an item
+whose criteria must EXECUTE the library inherits the same bridge and the same
+proof-by-execution, so it joins the wall that already exists. The disclosed cost
+is real — each added criterion is another `-S` subprocess re-execing into a
+one-node pytest on every floor run.
 
 Nothing here reads syntax (no `ast`): that capability is single-homed in
 `tests/derivations.py`.
@@ -37,7 +44,10 @@ from tests.ac_interpreter import DELEGATION_SENTINEL
 
 ROOT = Path(__file__).resolve().parent.parent
 TESTS_ROOT = ROOT / "tests"
-WORK_ITEM_DOC = ROOT / "docs" / "write-door-bypasses.md"
+WORK_ITEM_DOCS = (
+    ROOT / "docs" / "write-door-bypasses.md",
+    ROOT / "docs" / "identity-engine-endgame.md",
+)
 
 # The conveyor's child program, byte-for-byte in SHAPE: module path and check name
 # arrive as argv, never interpolated into the source (src/stage_advancer.py,
@@ -99,10 +109,13 @@ def test_every_acceptance_criterion_passes_under_the_conveyors_interpreter():
     """AC battery parity: each criterion's check, run in the conveyor's shape under
     an interpreter missing the project's deps, exits 0 — and got there by
     delegating, not by some accident of the environment."""
-    checks = criterion_checks(WORK_ITEM_DOC)
-    assert checks, (
-        f"no `check:` key found inside any ```criteria fence of {WORK_ITEM_DOC} — "
-        f"the sweep would be vacuous")
+    checks = []
+    for doc in WORK_ITEM_DOCS:
+        doc_checks = criterion_checks(doc)
+        assert doc_checks, (
+            f"no `check:` key found inside any ```criteria fence of {doc} — "
+            f"the sweep would be vacuous")
+        checks.extend(doc_checks)
 
     failures = []
     for check in checks:
@@ -127,7 +140,7 @@ def test_a_failing_delegated_check_is_red_not_silently_green():
     """The near-miss control: the bridge must not pass by exiting 0 whatever the
     child did. A name the module does not define is a check the battery must call
     RED — under the same delegation, through the same argv shape."""
-    checks = criterion_checks(WORK_ITEM_DOC)
+    checks = criterion_checks(WORK_ITEM_DOCS[0])
     module = check_module(checks[0])
     proc = run_foreign(module, "test_this_check_does_not_exist_anywhere")
     assert proc.returncode != 0, (

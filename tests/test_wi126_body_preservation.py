@@ -201,15 +201,18 @@ class TestReproductionGate_Moises:
         v = self._moises_vault(tmp_path, "engine")
         repo = PersonRepository(v)
         person, created_new = repo.find_or_create_stub(self.WITNESS, email=None)
-        # Data intact (the contract); the flag is True (Branch C create-then-reuse).
+        # Data intact (the contract). The flag is False since WI-023 Cut 1: a
+        # display-name-plus-address QUERY now parses to its bare address and
+        # resolves, so the door REUSES where it used to report a creation. The
+        # True was already false in fact — no note was minted; door C collided
+        # and reused with a warning — and Dave absorbed the report moving to
+        # match (2026-09-11). This is the one KEPT case whose pinned answer
+        # moves.
         assert _meeting_link_count((v / "@Moises Garcia Hernandez.md").read_text()) == 2
-        assert created_new is True
+        assert created_new is False
         assert person.name == "Moises Garcia Hernandez"
 
-    def test_legacy_preserves_rich_note(self, tmp_path):
-        v = self._moises_vault(tmp_path, "legacy")
-        repo = PersonRepository(v)
-        person, created_new = repo._find_or_create_stub_legacy(self.WITNESS, email=None)
-        assert _meeting_link_count((v / "@Moises Garcia Hernandez.md").read_text()) == 2
-        assert created_new is True
-        assert person.name == "Moises Garcia Hernandez"
+    # WI-023 Cut 4 deleted this class's legacy twin along with the body it
+    # exercised. `test_engine_preserves_rich_note` above is left standing and
+    # carries the WI-126 body-preservation property alone, on the engine path,
+    # which is the only path that ships.

@@ -1,0 +1,241 @@
+{
+  "schema_version": 1,
+  "recorded_at": "cut-0",
+  "roster_digest": "0b8cd47ea654ae047c4803cf4f05820cda80cb1dccd8ca7282b5944a6f509f31",
+  "queries": [
+    {
+      "ordinal": 1,
+      "arm": "name",
+      "query": "Jane Roe",
+      "expected": "Jane Roe"
+    },
+    {
+      "ordinal": 2,
+      "arm": "name-token",
+      "query": "Jane",
+      "expected": "Jane Roe"
+    },
+    {
+      "ordinal": 3,
+      "arm": "name-token",
+      "query": "Roe",
+      "expected": "Jane Roe"
+    },
+    {
+      "ordinal": 4,
+      "arm": "email",
+      "query": "Jane Roe <jane.roe@example.com>",
+      "expected": "Jane Roe"
+    },
+    {
+      "ordinal": 5,
+      "arm": "name",
+      "query": "Kit Baldwin",
+      "expected": "Kit Baldwin"
+    },
+    {
+      "ordinal": 6,
+      "arm": "name-token",
+      "query": "Kit",
+      "expected": "Kit Baldwin"
+    },
+    {
+      "ordinal": 7,
+      "arm": "name-token",
+      "query": "Baldwin",
+      "expected": "Kit Baldwin"
+    },
+    {
+      "ordinal": 8,
+      "arm": "email",
+      "query": "kit@localhost",
+      "expected": "Kit Baldwin"
+    },
+    {
+      "ordinal": 9,
+      "arm": "name",
+      "query": "Dana Okafor",
+      "expected": "Dana Okafor"
+    },
+    {
+      "ordinal": 10,
+      "arm": "name-token",
+      "query": "Dana",
+      "expected": "Dana Okafor"
+    },
+    {
+      "ordinal": 11,
+      "arm": "name-token",
+      "query": "Okafor",
+      "expected": "Dana Okafor"
+    },
+    {
+      "ordinal": 12,
+      "arm": "email",
+      "query": " dana@example.com ",
+      "expected": null
+    },
+    {
+      "ordinal": 13,
+      "arm": "name",
+      "query": "John Smith",
+      "expected": "John Smith"
+    },
+    {
+      "ordinal": 14,
+      "arm": "name-token",
+      "query": "John",
+      "expected": "John Smith"
+    },
+    {
+      "ordinal": 15,
+      "arm": "name-token",
+      "query": "Smith",
+      "expected": "John Smith"
+    },
+    {
+      "ordinal": 16,
+      "arm": "email",
+      "query": "john.smith@example.com",
+      "expected": "John Smith"
+    },
+    {
+      "ordinal": 17,
+      "arm": "name",
+      "query": "Sandy Forster",
+      "expected": "Sandy Forster"
+    },
+    {
+      "ordinal": 18,
+      "arm": "name-token",
+      "query": "Sandy",
+      "expected": "Sandy Forster"
+    },
+    {
+      "ordinal": 19,
+      "arm": "name-token",
+      "query": "Forster",
+      "expected": "Sandy Forster"
+    },
+    {
+      "ordinal": 20,
+      "arm": "email",
+      "query": "sandy.forster@example.com",
+      "expected": "Sandy Forster"
+    },
+    {
+      "ordinal": 21,
+      "arm": "name",
+      "query": "Alex Nkemdirim",
+      "expected": "Alex Nkemdirim"
+    },
+    {
+      "ordinal": 22,
+      "arm": "name-token",
+      "query": "Alex",
+      "expected": "Alex Nkemdirim"
+    },
+    {
+      "ordinal": 23,
+      "arm": "name-token",
+      "query": "Nkemdirim",
+      "expected": "Alex Nkemdirim"
+    },
+    {
+      "ordinal": 24,
+      "arm": "alias",
+      "query": "pat@example.com",
+      "expected": "Alex Nkemdirim"
+    },
+    {
+      "ordinal": 25,
+      "arm": "name",
+      "query": "Rosa Delgado",
+      "expected": "Rosa Delgado"
+    },
+    {
+      "ordinal": 26,
+      "arm": "name-token",
+      "query": "Rosa",
+      "expected": "Rosa Delgado"
+    },
+    {
+      "ordinal": 27,
+      "arm": "name-token",
+      "query": "Delgado",
+      "expected": "Rosa Delgado"
+    },
+    {
+      "ordinal": 28,
+      "arm": "name",
+      "query": "Emily Mendes",
+      "expected": "Emily Mendes"
+    },
+    {
+      "ordinal": 29,
+      "arm": "name-token",
+      "query": "Emily",
+      "expected": "Emily Mendes"
+    },
+    {
+      "ordinal": 30,
+      "arm": "name-token",
+      "query": "Mendes",
+      "expected": "Emily Mendes"
+    },
+    {
+      "ordinal": 31,
+      "arm": "email",
+      "query": "emily.mendes@example.com",
+      "expected": "Emily Mendes"
+    },
+    {
+      "ordinal": 32,
+      "arm": "name",
+      "query": "Priya Raman",
+      "expected": "Priya Raman"
+    },
+    {
+      "ordinal": 33,
+      "arm": "name-token",
+      "query": "Priya",
+      "expected": "Priya Raman"
+    },
+    {
+      "ordinal": 34,
+      "arm": "name-token",
+      "query": "Raman",
+      "expected": "Priya Raman"
+    },
+    {
+      "ordinal": 35,
+      "arm": "phone",
+      "query": "44790055852",
+      "expected": "Priya Raman"
+    },
+    {
+      "ordinal": 36,
+      "arm": "name",
+      "query": "Tomas Villalobos",
+      "expected": "Tomas Villalobos"
+    },
+    {
+      "ordinal": 37,
+      "arm": "name-token",
+      "query": "Tomas",
+      "expected": "Tomas Villalobos"
+    },
+    {
+      "ordinal": 38,
+      "arm": "name-token",
+      "query": "Villalobos",
+      "expected": "Tomas Villalobos"
+    },
+    {
+      "ordinal": 39,
+      "arm": "phone",
+      "query": "2125550147",
+      "expected": "Tomas Villalobos"
+    }
+  ]
+}

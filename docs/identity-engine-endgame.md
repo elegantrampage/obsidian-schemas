@@ -2,14 +2,14 @@
 id: WI-023
 title: "Identity engine endgame: delete the legacy cascade, cut over the unified index"
 project: obsidian-schemas
-stage: building
+stage: done
 created: 2026-07-05
-last_touched: 2026-09-09
-stage_changed: 2026-09-09
+last_touched: 2026-09-11
+stage_changed: 2026-09-11
 touched_by: spec-writer
 tags: [identity, wi-125-followup, strangler-completion]
 depends_on: []
-transitions: ["idea>exploring@2026-09-06@session", "exploring>specced@2026-09-06@session", "specced>ready@2026-09-07@porter", "ready>building@2026-09-09@session"]
+transitions: ["idea>exploring@2026-09-06@session", "exploring>specced@2026-09-06@session", "specced>ready@2026-09-07@porter", "ready>building@2026-09-09@session", "building>done@2026-09-11@session"]
 review_level: L3
 review_level_provenance: selector
 ---
@@ -1769,14 +1769,14 @@ Tasks are ordered by dependency and each is independently verifiable. Tasks 2 an
 independent of each other and may be done in either order; everything from Task 4 on is
 strictly sequential, because the cut order IS the oracle's availability.
 
-- [ ] **Task 1 — Capture the pre-build baseline.** Before the first edit, run the floor command
+- [x] **Task 1 — Capture the pre-build baseline.** Before the first edit, run the floor command
       and record in the Build Log: the pass/fail counts, and the value of
       `len(non_completed_write_sites(python_files_under(PACKAGE_ROOT)))` (expected 8, the number
       two standing walls pin). Both are informational anchors for the directional invariant; no
       later check asserts either number.
       verify: baseline — the numbers are recorded in the Build Log before any edit that could move them, and nothing asserts them afterwards
 
-- [ ] **Task 2 — Add the four structural derivations to `tests/derivations.py`, each with its
+- [x] **Task 2 — Add the four structural derivations to `tests/derivations.py`, each with its
       claimed match-shapes as planted fixtures.** Add `phone_index_iteration_sites`,
       `attribute_reads_in`, `docs_markdown_mentions` and `prose_lines` per D8. Write
       `tests/test_identity_endgame.py` (with `ensure_project_interpreter(__file__)` as its FIRST
@@ -1872,7 +1872,7 @@ strictly sequential, because the cut order IS the oracle's availability.
       `attribute_reads_in` clauses D8 now states.
       verify: test_identity_endgame_derivations_match_their_claimed_shapes
 
-- [ ] **Task 3 — Author the frozen roster and the seeder.** Write
+- [x] **Task 3 — Author the frozen roster and the seeder.** Write
       `tests/fixtures/identity_endgame/roster.json` from D1's ten-row table verbatim, and
       `tests/identity_fixture.py` exposing `load_roster()`, `seed_vault(roster, dest)` (emitting
       every list element double-quoted so `" dana@example.com "` survives load) and
@@ -1894,7 +1894,7 @@ strictly sequential, because the cut order IS the oracle's availability.
       seeded vault loads with `PersonRepository(vault).load() == 10` and a skip surface of 0.
       verify: test_identity_fixture_roster_is_complete_and_invariant_holding
 
-- [ ] **Task 4 — Cut 0a: repair the parity legs so they compare two implementations again.**
+- [x] **Task 4 — Cut 0a: repair the parity legs so they compare two implementations again.**
       In `tests/test_resolve_or_create.py`, point the "legacy" leg of
       `test_engine_matches_legacy_return_value` and of `test_engine_matches_legacy_on_weak_identity`
       at `_find_or_create_stub_legacy` instead of `find_or_create_stub`. The EXPECTED outcome is
@@ -1923,7 +1923,7 @@ strictly sequential, because the cut order IS the oracle's availability.
       would hide the differential leg this task exists to restore.
       verify: hand-run — the two repaired legs are run once here and are green; AC-1 deletes them at Task 11, so no standing artifact can carry this ordinal to the end of the build
 
-- [ ] **Task 5 — Cut 0b: record both goldens against unchanged code, one temp vault PER SWEEP.**
+- [x] **Task 5 — Cut 0b: record both goldens against unchanged code, one temp vault PER SWEEP.**
       Write `tests/record_identity_golden.py` (under `tests/`, never `scripts/` — see D3), which
       derives AC-1's twenty ordered cases and AC-4's thirty-nine deduplicated queries by D3's
       rules, then seeds **two independent temp vaults** from the one `roster.json` and runs
@@ -1985,7 +1985,7 @@ strictly sequential, because the cut order IS the oracle's availability.
       than over the two clauses round 6 named.
       verify: test_identity_goldens_are_frozen_pre_cut_data
 
-- [ ] **Task 6 — Cut 1: give email resolution exactly one authority.** Apply D4 items 1–6 to
+- [x] **Task 6 — Cut 1: give email resolution exactly one authority.** Apply D4 items 1–6 to
       `obsidian_schemas/repositories/person.py` — item 6 being **D11's six Cut-1 prose repairs,
       landed in this same commit**: `__init__:160-167` (the dicts are no longer the permissive
       email surface and the collapse is not a later cut), `_index_entity:193` (no email index to
@@ -2030,7 +2030,7 @@ strictly sequential, because the cut order IS the oracle's availability.
       across both roots. A build that lands one without the other should go red twice.)
       verify: test_email_has_exactly_one_resolution_authority
 
-- [ ] **Task 7 — Cut 1b: re-home the two leniency tests the cutover falsifies.** **This task and
+- [x] **Task 7 — Cut 1b: re-home the two leniency tests the cutover falsifies.** **This task and
       Task 6 are ONE commit** — Task 6 deletes `_email_index` while
       `test_malformed_email_skipped_but_legacy_indexes_it` and
       `test_clean_and_junk_in_one_list_indexes_only_the_clean` still assert its contents, so those
@@ -2056,7 +2056,7 @@ strictly sequential, because the cut order IS the oracle's availability.
       reused with a warning) and Cut 1 makes the report match; this is the only kept case whose pinned
       answer moves, and it is authorized here rather than left to a build-time judgement.
 
-- [ ] **Task 8 — Cut 2: the phone carve-out, made executable and concurrency-safe.** Materialize
+- [x] **Task 8 — Cut 2: the phone carve-out, made executable and concurrency-safe.** Materialize
       `get_by_phone`'s fuzzy scan (`list(self._phone_index.items())`) and add the comment naming
       the non-transitivity and citing the witness by name. Write AC-3's check: the three
       `phones_match` results against the shipped function; `Phone.parse` accepting all three
@@ -2067,7 +2067,7 @@ strictly sequential, because the cut order IS the oracle's availability.
       `materialized` (with the non-vacuity assertion that at least one site exists).
       verify: test_phones_stay_on_the_fuzzy_path_and_the_reason_is_executable
 
-- [ ] **Task 9 — Cut 3: one cascade behind one named selection policy.** Add
+- [x] **Task 9 — Cut 3: one cascade behind one named selection policy.** Add
       `_RESOLVE_CASCADE_ORDER` and the module-level `select_resolution(query, candidates)` per
       D6, and rewrite `resolve()` as the empty guard plus `resolve_all` plus the policy. **Repair
       `resolve`'s own docstring at `:462-467` in this same commit (D11, the P4 member):** after
@@ -2111,7 +2111,7 @@ strictly sequential, because the cut order IS the oracle's availability.
       single seeded vault.
       verify: test_resolve_is_one_cascade_and_matches_the_pre_cut_golden
 
-- [ ] **Task 10 — Riders and the documentation-truth repairs.** Apply D7's four rider edits to
+- [x] **Task 10 — Riders and the documentation-truth repairs.** Apply D7's four rider edits to
       `obsidian_schemas/repositories/person.py`: delete the dangling
       `docs/paren-decoration-at-the-door.md` reference at `:113`; give the slack carve-out its
       `UNBLOCK:` line; repair the false step-6 comment at `:615-617`; and replace the
@@ -2137,7 +2137,7 @@ strictly sequential, because the cut order IS the oracle's availability.
       deleted outright.
       verify: test_identity_cutover_docs_are_complete_and_truthful
 
-- [ ] **Task 11 — Cut 4: delete the duplicate and both of its consumers.** Delete
+- [x] **Task 11 — Cut 4: delete the duplicate and both of its consumers.** Delete
       `_find_or_create_stub_legacy` and the prose mention at `:675`; repair the stale Phase-5
       replay claim at `:685` to point at the committed goldens **by literal name**
       (`stub_golden.json` and `resolve_golden.json`, which is what Task 12 checks for);
@@ -2181,7 +2181,7 @@ strictly sequential, because the cut order IS the oracle's availability.
       unchanged by the run.
       verify: test_legacy_stub_is_gone_and_the_golden_is_the_oracle
 
-- [ ] **Task 12 — Close the strangler-prose class over an ENUMERATED SURFACE, with the needles
+- [x] **Task 12 — Close the strangler-prose class over an ENUMERATED SURFACE, with the needles
       demoted to a regression pin.** AC-5's check owns three documentation-truth repairs; D11
       shows they are three members of a class whose other members were surfaced after the criteria
       were frozen. This task asserts the class **without reopening AC-5** — Task 10 remains the
@@ -2276,7 +2276,7 @@ strictly sequential, because the cut order IS the oracle's availability.
       once.
       verify: test_strangler_prose_class_is_closed_in_the_package
 
-- [ ] **Task 13 — Close wall membership by RUNNING each wall's own predicate.** Enumerate the
+- [x] **Task 13 — Close wall membership by RUNNING each wall's own predicate.** Enumerate the
       files this item created or edited, assert each exists, and run every predicate in D10's
       table on their final text, asserting each wall's own requirement — **including D10's last
       row, which is the wall-shaped hole rather than a wall: scan every `tests/`-root `.py` file
@@ -2324,7 +2324,7 @@ strictly sequential, because the cut order IS the oracle's availability.
       around, and never satisfied by narrowing a wall.
       verify: test_identity_endgame_wall_membership_is_closed
 
-- [ ] **Task 14 — Prove this item's checks survive the conveyor's interpreter.** Generalize
+- [x] **Task 14 — Prove this item's checks survive the conveyor's interpreter.** Generalize
       `tests/test_ac_interpreter.py` from a single `WORK_ITEM_DOC` to a tuple of documents,
       iterated, adding `docs/identity-engine-endgame.md`; update its `CORPUS_COUPLING`
       declaration to name both. The wall then discovers this item's five `check:` names from its
@@ -2333,7 +2333,7 @@ strictly sequential, because the cut order IS the oracle's availability.
       resulting floor wall-clock in the Build Log.
       verify: test_every_acceptance_criterion_passes_under_the_conveyors_interpreter
 
-- [ ] **Task 15 — Full floor, green, with the directional invariant satisfied.** Run the floor
+- [x] **Task 15 — Full floor, green, with the directional invariant satisfied.** Run the floor
       command against the worktree. Case count must be no lower than Task 1's baseline except by
       the seven cases this item deliberately removes (six parity cases plus the WI-126 legacy
       twin), which the Build Log names explicitly against the baseline.
@@ -2844,6 +2844,153 @@ kind: test
 **Given** an orchestrator session calls `repo.resolve("john smith kato")` against a vault holding one `John Smith` — **when** the consolidated cascade runs — **then** it returns **None**, exactly as it does today, and a duplicate is not created against a person we merely share two name tokens with. The two cascades became one, and not one of the answers moved.
 
 **Given** the same session calls `repo.resolve("emily m")` with no company hint, against a vault holding one `Emily Mendes` — **when** the consolidated cascade runs — **then** it returns **None**, exactly as it does today, even though the ranked cascade underneath it scores Emily Mendes at 0.6 and the code comment sitting on that branch says it gets filtered out. `resolve_all` is still free to offer the candidate to a caller that asked for candidates and passed a company hint; `resolve`, which callers treat as an answer, still declines to guess from a first name and an initial.
+
+## Build Log — 2026-09-11
+
+Built cold-start on the re-drive, against HEAD `10141c1` (the absorb ruling and the spec
+amendments already landed). Every task ran in plan order; the floor was run at every task
+boundary and is green at each. Nothing in the spec drifted: every line number, span and citation
+D0–D12 names resolved to exactly the text it claimed, and the one artifact premise the cage
+cannot re-run (the corpus audit) was read as bytes only.
+
+**Baselines (Task 1, informational anchors — no later check asserts either).** Floor before the
+first edit: **678 passed in 10.84s**. `len(non_completed_write_sites(python_files_under(
+PACKAGE_ROOT)))` = **8**, the number two standing walls pin.
+
+**Final floor: 681 passed in 11.78s.** The directional invariant holds and the arithmetic is
+exact: 678 − 7 + 10. The seven removed are the item's declared deletions — the five parametrized
+`PARITY_CASES`, `test_engine_matches_legacy_on_weak_identity`, and `test_legacy_preserves_rich_note`.
+The ten added are `tests/test_identity_endgame.py`'s five acceptance checks plus its five
+supports (derivation shapes, roster invariants, golden tripwire, prose-surface closure, wall
+membership).
+
+### The one genuinely differential signal, and it came back clean
+
+Task 4 is the only place in this item where a red would have been a FINDING rather than a build
+error: nobody had executed those six parity cases against `_find_or_create_stub_legacy` since
+WI-020 and WI-021 landed on `create_stub`/`save`. Re-pointed, **both tests stayed green** — the
+engine and the pre-WI-125 body agree on all six cases. That is the first real evidence this item
+has ever had that the two paths matched, and it was purchased for two one-line edits. The door D0
+and Task 4 set for a divergence was not needed.
+
+### Cut 0's record, hand-checked against the spec's own hand-executions
+
+The recorder ran once, by hand, from the tree root with Dave's ambient `OBSIDIAN_VAULT_PATH` set
+(`/Users/davewascha/Documents/Obsidian/DaveRemoteVault`) — so M1's binding guard was live, not
+theoretical. It produced 20 stub cases, 39 resolve queries, 789 prose lines. Every value E7, E8
+and D2 hand-executed in advance came back as written: ordinal 8 is `kit@localhost` → `Kit
+Baldwin`; `" dana@example.com "` → `None`; `Jane Roe <jane.roe@example.com>` → `Jane Roe` (D2's
+shared-vault tripwire, which is `None` in a shared-vault recorder); `pat@example.com` → `Alex
+Nkemdirim`; all four branch witnesses present (`Rosa Delgado` email, two phones, `Tomas` at
+exactly 0.85, ten Branch-C creates). The live vault was not written to.
+
+**Cut 1 moved exactly the two queries E7 enumerated, each to its declared answer** — verified
+against the golden immediately after the cut, before AC-4's check existed:
+`kit@localhost` Kit Baldwin → None, `" dana@example.com "` None → Dana Okafor. No third mover.
+Cut 3 then reproduced every remaining pre-cut answer with zero exceptions of its own, and all four
+hand-stated discriminants plus `resolve("sandy")` hold.
+
+### Deviations, surprises and findings
+
+1. **No commits.** `git` refuses every write from this worktree — the index lives under the live
+   main repo's `.git/worktrees/`, which the factory write-guard blocks for the duration of a live
+   drive (`fatal: Unable to create '.../index.lock': Operation not permitted`). So the plan's
+   "each cut is a commit" discipline was executed as "each task is a boundary, floor-verified",
+   and D12's CO-LANDING arm was satisfied in the only form available to it: the spelling and the
+   assertion never coexist in the FINAL tree. Tasks 4 and 11 land together by construction here.
+
+2. **A FOURTH red case at the Cut-1 boundary, and it is the absorbed class reaching a case the
+   plan accounted for differently.** `test_legacy_preserves_rich_note` moves `created_new`
+   True → False for the identical reason its engine twin does: the legacy body's Strategy 2 calls
+   the same `resolve_all`, whose email step now parses `Moises Garcia Hernandez <moises@9fin.com>`
+   to its bare address and hits. E2 (d) describes the class through the engine door; the legacy
+   door reaches it too. Task 7 authorizes the re-pin of the ONE **kept** case, and this one is not
+   kept — Task 11 deletes it. Repair taken: re-pin it at Task 7 so the tree is green at that
+   boundary, delete it at Task 11 as ordered. Nothing shipped changes; the end state is the one
+   AC-1 requires. Recorded here rather than absorbed silently because the Verification section
+   calls a fourth red at that boundary a defect, and the defect is in the accounting, not the
+   build.
+
+3. **Three self-collision sites the D12 table did not name, all repaired in its stated direction
+   (edit the module, never narrow the scan).** D12 binds three LITERALS and names two non-literal
+   members (a PATTERN and a DELIMITER). A third non-literal shape turned up:
+   - **A SHAPE.** AC-1's both-legs predicate looks for a `def test_` whose body reaches the engine
+     door twice. Spelled plainly, its own non-vacuity plant IS that shape in
+     `tests/test_identity_endgame.py`'s source, and the live sweep over `TESTS_ROOT` collected it
+     — a correct check red against a correct build, exactly the round-6 signature. Repaired by
+     assembling the plant from parts.
+   - **The M3 plant** had to be a triple-quoted PLANT CONSTANT rather than an inline string, which
+     is precisely the mechanism D12's sub-clause (i) relies on: the borrowed `_code_lines` enters
+     and leaves such a constant by its own delimiter tracking, so the construction inside it is
+     correctly not counted as this module's. Spelled inline it is a code line and the module is
+     its own offender.
+   - No fourth site: the delimiter control (Task 13's third) is green, and the three bound
+     literals are at zero across both roots with their planted positives found.
+
+4. **D10 row 10's blanket form is falsified by the tree; its requirement is not.** The cell reads
+   "this item adds no `.md` under `tests/`", and the 2026-09-06 census behind it predates WI-016,
+   which committed a 53-note `.md` corpus under `tests/fixtures/vault/`. So "nothing under
+   `tests/` joins `_scanned_markdown_files`" is now false of the tree while the cell's own
+   obligation is untouched. Task 13 asserts the obligation: no file THIS item creates or edits is
+   in that walk's population (its fixture is JSON; its vault is seeded into a temp directory).
+
+5. **D10 row 8 needed its own universe, not a wider one.** My first spelling compared
+   `address_splitting_implementations` over both tracked roots against the wall's own
+   `PACKAGE_ROOT + SCRIPTS_ROOT` universe and went red on
+   `tests/test_name_gate_refusals.py:_d8_constructible` — a pre-existing tests-root helper outside
+   the wall's declared scope. Corrected to the cell's actual requirement: one home in the wall's
+   own universe (`name_gate.split_address`), and nothing this item writes implements the job.
+
+6. **A pre-existing floor fragility, found by running the floor command's absolute-path form, and
+   NOT repaired here.** `pytest <abs>/tests` where the path is the `/var/...` alias of the
+   worktree turns `tests/test_fixture_vault.py::test_the_fixture_vault_files_close_their_wall_
+   memberships_by_running_each_predicate` RED. Cause:
+   `tests/test_vault_path_required.py:45` defines `REPO_ROOT = Path(__file__).parent.parent`
+   (UNRESOLVED) while `tests/test_fixture_vault.py:69` resolves its own, so on macOS the
+   cross-module `p.parent == CORPUS_ROOT` comparison compares `/var/...` against
+   `/private/var/...`, finds nothing, and WI-016's non-vacuity clause fires. Reproduced with and
+   without this item's changes; both modules are outside `## Write Targets` and `## Scope
+   Boundary` explicitly keeps `test_vault_path_required.py` unchanged, so it is routed rather
+   than fixed. The repair is one `.resolve()`. This item's own Task-13 clause is immune — it
+   resolves both sides. The cwd-relative floor (`pytest tests`) is green.
+
+7. **`tests/test_resolve_or_create.py`'s module docstring was a member of the strangler-prose
+   class and is repaired.** Deleting the parity harness left a header describing a harness that
+   no longer exists and a Phase-4 swap that "has not happened". D11's `tests/` rung already owns
+   this module; the repair rides with the deletion, and the now-unused `shutil` import goes with
+   it.
+
+### Notes for the reader
+
+- **`get_by_email(None)` is a widening, as D4 item 2 states.** It raised `AttributeError` at the
+  old `email.lower()`; it now returns `None`, because `Email.parse(None)` raises
+  `IdentifierError` into the arm that catches it. Nothing new is raised and no consumer catches
+  on the shape that stopped being raised.
+- **R6's cost, measured.** Task 14's generalization adds this item's five criteria to the
+  foreign-interpreter wall: that module now runs 8 criteria in **3.73s**, and the whole floor went
+  **10.84s → 11.78s**. All five of this item's checks pass under `-S`, which is what proves
+  `ensure_project_interpreter` is wired rather than merely present — R4 closed by execution.
+- **The follow-on E3 mints** (E.164 canonicalization at the write door) is unchanged and
+  unstarted; the `UNBLOCK:` line on the slack carve-out names the frontmatter condition.
+- **One verification is OWED and is not mine.** `## Verification`'s close-out — re-running the
+  literal command in `docs/identity-cutover-corpus-audit.md` against the live vault and
+  confirming clause (b) is still 0 — is the conductor's, outside the cage, before the ship. The
+  arm was NOT re-decided in this build (D0): the audit's 0-of-1021 selected CUTOVER at spec time,
+  this build implemented that arm only, and a nonzero re-run is a STOP and a spec revision, not a
+  mid-build switch. The whole happy path and failure-mode list of `## Verification` was executed
+  by hand against a seeded fixture and every line holds, including the `get_by_email(None)`
+  widening.
+- **Consumer integration was not re-run from the cage and did not need to be.** The three
+  consumer repos are outside this worktree. `find_or_create_stub`'s signature, return shape and
+  exception set are untouched, the `normalize_phone`/`phones_match` compat re-export is byte-for
+  -byte unchanged, and the audit's clause (e) records zero live consumer code reading the deleted
+  attribute (HAL9000's two hits are a test wall naming the reaches as forbidden and a docstring;
+  exocortex and orchestrator have none). The one consumer-VISIBLE change is the absorbed E2 (d)
+  flag move already named in `## Scope Boundary`.
+- **CLAUDE.md needs no doc-sync edit**, as D11's ladder sweep predicted and I re-checked:
+  `CLAUDE.md:37`'s "resolve cascade" is singular and true after Cut 3, and `README.md:234`'s
+  `get_by_email` example is still true because D4 item 2 leaves the signature, return type and
+  exception set unchanged. Both are outside this drive's write authority in any case.
 
 ## Architectural Review — 2026-09-06
 
@@ -4160,3 +4307,302 @@ date: 2026-09-07
 model: claude-sonnet-5
 note: Re-hunted cold-start after Spec Review round 7 (PROMOTE to ready) landed; independently re-ran the injection-phrasing and hidden-Unicode-control-character sweeps over the whole document rather than trusting the prior six rounds' reports, and got the same zero hits outside those rounds' own method paragraphs (which only name their search terms); byte-verified round 7's heaviest citation (identifier.py:Email.parse:144-169, the parseaddr/strip/refusal logic every round quotes) directly against source rather than the quote — accurate. The new section is a reviewer's own re-derived conclusion (a full 39-query replay, three hand-executed stub cases, a re-run of D12's sweep) that explicitly tests and discharges round 6's own escalation trigger in the open rather than letting it lapse — the opposite of what a planted steer toward PROMOTE would do.
 ```
+
+## Code Review — 2026-09-11
+
+Round 1 of the build-exit gate, cold-start. No prior round of this gate exists in the document or
+in `docs/identity-engine-endgame-rounds.md`, so there is no carry-forward to close.
+
+**Trigger check: FIRES.** The post-build diff is not doc-only — one package module edited
+(`obsidian_schemas/repositories/person.py`), five test modules edited, three new `tests/`-root
+modules and four JSON fixtures added. No dependency or CI change.
+
+**Dead-shell check (the WI-202 class) — PASSES, and this is checked first.** The Build Log is not a
+build declared from source-reads: it carries two floor runs with distinct wall-clocks and counts
+(678 in 10.84s, 681 in 11.78s), a hand-run recorder invocation whose output (20 stub cases, 39
+resolve queries, 789 prose lines) matches the artifacts on disk exactly, a measured `-S` battery
+time (3.73s over 8 criteria), and a real executed-command FAILURE reported verbatim
+(`fatal: Unable to create '.../index.lock': Operation not permitted`). A blacked-out shell does not
+produce a specific errno from a write it never attempted, and it does not produce a golden whose 39
+recorded rows I can re-derive by hand from `roster.json`. The commit-per-cut discipline was
+genuinely unavailable and the substitution (task boundaries, floor-verified) is disclosed rather
+than glossed.
+
+**Cage-reverted writes: no block supplied**, so nothing to check here. No finding manufactured.
+
+**What I verified by hand rather than by reading the Build Log.** The cage gives me no shell, so
+this is a source-level review; every claim below is a re-execution on paper against the tree.
+
+- **`select_resolution` (person.py:148-199) against all five of AC-4's hand-stated
+  discriminants and against the full 39-row golden.** (i) `"john smith kato"` → 3 tokens →
+  multi-token arm → best 0.65 < 1.0 → `None`. (iii) `"andy"` → step 5 computes `shared == set()`
+  against `{"sandy","forster"}` and `continue`s → no candidate → `None`. (iv) `"emily m"` → step 6
+  records 0.6, multi-token arm rejects anything under 1.0 → `None`. `"sandy"` → single-token arm
+  accepts 0.6 → `Sandy Forster`. (ii) `"pat@example.com"` → step 2 records `email`/1.0 (Rosa) and
+  step 3 records `alias`/1.0 (Alex); single-token pool holds both; `_RESOLVE_CASCADE_ORDER` ranks
+  `alias`(1) before `email`(2) → Alex. All five land as declared, and the 0.6-accept/0.65-reject
+  pair that AC-4 says a threshold cannot express is in fact expressed by the token-count split, not
+  by a tuned constant.
+- **Tie-determinism, which is where a "thin head" silently regresses.** `by_person` preserves
+  first-record order, `candidates.sort` is stable on confidence alone, and `min(enumerate(pool),
+  key=rank)` breaks a remaining tie on position — so a partial-name tie across two people returns
+  the same first-in-cache-walk person the pre-cut step-5 loop returned. The consolidation does not
+  widen and does not re-order.
+- **Cut 1's two declared movers, from the parser rather than from the claim.**
+  `identifier.py:Email.parse:144-169` routes `<…>` through `parseaddr` only when both brackets are
+  present, strips and lowers otherwise, and refuses `kit@localhost` at `:167-168`. So
+  `" dana@example.com "` keys to `email:dana@example.com` and resolves post-cut (it did not pre-cut,
+  because `_email_index` keyed the padded literal while the query stripped), and `kit@localhost` is
+  absent from the index on both sides of the door. Exactly the two rows `POST_CUT_EXCEPTIONS` holds,
+  and no third mover is reachable: the remaining seven fixture addresses are well-formed and key
+  identically under both authorities.
+- **One authority, structurally.** `_email_index` is gone from `__init__`, `_index_entity`,
+  `_clear_indexes` and `_remove_entity_from_indexes`; `get_by_email:441-457` is the single reader of
+  `_identifier_index` for email and `_resolve_identifier:898-899` and `resolve_all` step 2 both
+  delegate to it. I grepped both tracked roots for the three bound literals
+  (the deleted dict, the deleted legacy stub, the dangling docs slug) and found zero contiguous
+  occurrences — the assembled-from-parts constants in `tests/test_identity_endgame.py:76-79` do not
+  spell them, so the self-collision repair holds against the scan it has to survive.
+- **`_two_leg_tests` against the real population, not just the plant.** The literal
+  `resolve_or_create(` occurs 12 times across three files: 9 in `tests/test_resolve_or_create.py`
+  (one per test — I checked each `def test_` boundary), 1 in
+  `tests/test_wi126_body_preservation.py`, 2 in `person.py` where the scanner's `current` is `None`
+  throughout the class because no method line starts at column 0. The predicate returns `[]` for a
+  real reason, and its scratch plant does reach `count >= 2`. The tautology AC-1 forbids is gone and
+  the check that forbids it can see the shape.
+- **The M3 zero is not an under-reach.** `NO_ARG_PLANT` at `:1088-1090` is `'''`-delimited, and
+  `tests/test_vault_path_required.py:_code_lines:298` iterates BOTH `"""` and `'''` — so the
+  planted `PersonRepository()` is correctly skipped as this module's own, which is what the
+  Build Log's deviation 3 asserts and what I confirmed against the borrowed helper's source rather
+  than against the claim.
+- **AC-5's artifact actually has the shape the check demands.** `docs/identity-cutover-corpus-audit.md`
+  carries all three asserted section headings, all five `**(x)` clause markers, four 40-hex SHAs, all
+  four repo names, and more than three explicit `no matches` markers. The three in-scope
+  `docs/`-relative pointers surviving in the package
+  (`name_validation.py:40`, `:347`, `person.py:300`) all resolve to files that exist; the
+  `orchestrator/docs/…` mention at `name_validation.py:29` is correctly out of scope because the
+  greedy character class swallows its leading segment.
+
+**AI-maintainability checks (1-5): all clear.** No new cross-project reach (the audit's cross-repo
+work is a committed conductor artifact, not code). No new silent swallow in library code —
+`get_by_email`'s `except IdentifierError: return None` is a lookup-miss contract matching
+`get_by_alias`/`get_by_phone`, is pinned by two tests, and is named in `## Verification`'s
+graceful-failure list. No doc made false: `CLAUDE.md:37`'s "resolve cascade" is singular and is now
+true; `README.md:234`'s `get_by_email` example still holds because signature, return type and
+exception set are unchanged. No new dependence on deprecated code. No idiom regression — the new
+predicates are single-homed in `tests/derivations.py` as both `ast` walls require, and the three
+writing modules sit under `tests/` precisely to stay outside the write-routing universe, asserted
+rather than assumed at `:1146-1152`.
+
+**Step 2c — readback: N/A, honestly.** There is no outbound write to an external service anywhere in
+this diff. The one real write risk in the item is the opposite shape — a seeder or recorder falling
+through to the LIVE vault — and it is closed at both doors with the fall-through made live in the
+test environment (`identity_fixture.py:97-100`, `record_identity_golden.py:86-96`, exercised at
+`:331-341` and `:463-470` with `OBSIDIAN_VAULT_PATH` pointed at a real scratch directory and the
+post-condition that the directory is still empty). That is a readback in the only place one is owed.
+
+**Step 2c — no-silent-PASS-on-empty: clear, and unusually so.** Every zero-count oracle in this item
+carries a planted positive driven through the same function the live sweep calls, and the file-list
+non-emptiness is asserted before each zero. The one place silence remains the default is
+`_project_identifiers`' `except IdentifierError: pass` — see the Recommended note below — and that is
+an intentional, commented case with a measured live population of zero, which is the carve-out this
+check states.
+
+**Recommended (non-blocking).**
+
+1. `person.py:318-324` — an `emails:` entry the parser refuses is now reachable through no door at
+   all, and nothing logs at projection time. The class is measured at 0 of 1021 today and the repair
+   rule is explicitly routed to WI-026 by `## Scope Boundary`, so this is correctly out of scope —
+   but the detection is currently a point-in-time audit plus a conductor close-out, not a standing
+   signal. A one-line `logger.debug`/`warning` naming the note and the refusal reason would make the
+   class self-reporting the day it becomes non-empty.
+2. Build Log deviation 6 names a real pre-existing fragility
+   (`tests/test_vault_path_required.py:45`'s unresolved `REPO_ROOT` against
+   `tests/test_fixture_vault.py:69`'s resolved one) and its one-line repair, and correctly declines
+   to fix it inside a `## Scope Boundary` that keeps that module unchanged — but no work item is
+   named as its owner. Mint one, or the routing is a note in a Build Log nobody re-reads.
+
+**Notes.** (a) `resolve()` now always runs `resolve_all`'s two full cache scans where it previously
+short-circuited an exact-name hit on a dict lookup; the answers are identical and this is inherent
+to the signed AC-4, but it is a real O(n) cost for consumers resolving in a loop over a 1147-note
+vault, and it is not in `## Risk Analysis`. (b) `CLAUDE.md`'s "Hermetic, ~1s" floor description is
+now ~12s — it was already ~11s at this build's own baseline, so this change did not falsify it, but
+the line is stale and R6's disclosed increment is the moment someone should fix it.
+
+Blocking: none.
+
+```verdict
+gate: code-reviewer
+verdict: PROMOTE
+date: 2026-09-11
+model: claude-opus-5
+note: Re-executed the substance rather than reading the Build Log — all five AC-4 discriminants and the tie-break path hand-run against `select_resolution`, Cut 1's two declared movers re-derived from `Email.parse` itself, the three bound literals grepped to zero across both tracked roots with the assembled constants confirmed not to spell them, `_two_leg_tests` traced over all 12 real `resolve_or_create(` sites, and the M3 plant's `'''` delimiter checked against the borrowed `_code_lines` that must skip it; the dead-shell rule passes on specific executed evidence (two distinct floor wall-clocks, a recorder output matching the committed artifacts row-for-row, a verbatim index.lock errno), and the only silent-default path left is the commented, measured-zero, scope-routed email leniency — two Recommended items and two Notes, none blocking.
+```
+
+## Test & Observability Review — 2026-09-11
+
+**Trigger check: APPLIES.** This is a new production path, not a refactor — the email resolution
+authority moved, `resolve()` was rewritten behind a new module-level policy, and `get_by_phone`'s
+scan was re-shaped. Not self-declared N/A.
+
+**Check 1 — tests exist for the new code paths: PASS, and the oracle is stronger than the check
+usually asks for.** Every new or changed path has both a happy path and at least one failure mode:
+`select_resolution` is covered by a 39-row golden replay plus five hand-stated discriminants that
+the derived space provably cannot reach (`test_identity_endgame.py:672-729`); the re-homed
+`get_by_email` by a four-surface sweep over every fixture address and three variants each, with the
+refused plant asserted to resolve to nobody through all three string doors and to refuse at the
+typed door (`:508-594`); `get_by_phone` by the executed non-transitivity witness plus a positive,
+a fuzzy positive and a negative against a seeded vault (`:608-644`); and the deletion by a
+literal-text scan that can see a `def`, which is the specific defect the criterion's own `why`
+explains a caller-scan would have missed.
+
+The part that matters more than coverage: **the oracle is committed DATA, and it is defended against
+the one repair that would void it.** `stub_golden.json` and `resolve_golden.json` hold pre-cut
+answers; `test_identity_goldens_are_frozen_pre_cut_data` re-asserts the two exception rows' PRE-CUT
+values as literals in the check's own source (`:383-386`), so a golden regenerated after Cut 1 goes
+red rather than silently ratifying the cut. I re-derived both derivations from `roster.json` by
+hand — 7 email entries + 2 phones + 1 company = 10 base cases against 10 pinned not-present
+variants, and 10 names + 20 tokens + 1 alias + 7 emails + 2 phones deduplicated to 39 queries — and
+both match the committed artifacts exactly. E8's two order-independence invariants are re-derived
+from the roster at test time rather than restated (`:297-321`), with the phone half driven through
+the shipped `phones_match`, so a roster edit that breaks either is red.
+
+**Check 2 — logging at WARN/ERROR for each failure mode: PASS with one Recommended.** The genuinely
+new observable behaviour in this area — Branch-A resolution conflict — already logs WARN with both
+candidates and the returned best-hit (`person.py:923-929`), and load-time identifier collisions log
+WARN naming every participant (`:360-365`). `resolve` returning `None` is a normal outcome, not a
+failure. The one place a failure mode is silent is the lenient projection skip at `:318-324`, which
+I raise as Recommended in the Code Review section rather than here as Blocking, because it is
+explicitly commented, measured at zero on the live corpus, and routed to WI-026 by
+`## Scope Boundary` — the "intentional, commented case" this check carves out. It is not a new
+silence introduced by this build; what the build changed is its consequence, and it disclosed that
+in the projection docstring itself rather than leaving it to be discovered.
+
+**Check 3 — alerts wired: N/A, correctly.** No new automated system, routine, daemon or scheduled
+job ships here. This is a library whose consumers own their own alerting; the three consumer repos
+are untouched, `find_or_create_stub`'s signature, return shape and exception set are unchanged, and
+the `normalize_phone`/`phones_match` compat re-export at `person.py:78-85` is byte-for-byte intact.
+The one consumer-visible change (E2 (d): `created_new` True→False for a display-name-plus-address
+query) is a signed absorb ruling on record in `## Scope Boundary` with both readers named, not a
+side effect.
+
+**Check 4 — invariant registration: SKIPPED, not failed.** This project ships no invariant registry
+(`invariants.py` does not exist anywhere under the tree); v1 registry scope is orchestrator-only, so
+by this role's own rule the dimension is N/A and no `## Observability Waiver` is owed. Recording it
+explicitly so the absence is auditable rather than inferred.
+
+**The floor, and the one thing I could not run.** I have no shell in this cage, so I did not execute
+the suite; the Build Log's arithmetic is however internally checkable and checks out — 678 − 7 + 10 =
+681, where the seven are the five parametrized parity cases, the weak-identity twin and the WI-126
+legacy twin (all three deletions confirmed present in the tree: the parity harness is gone from
+`tests/test_resolve_or_create.py` and `test_legacy_preserves_rich_note` is gone from
+`tests/test_wi126_body_preservation.py`, with a comment standing where it was), and the ten are the
+five acceptance checks plus five supports I can count in `tests/test_identity_endgame.py`. The
+directional invariant holds. R4's mitigation is proved by execution rather than construction: the
+five checks are now discovered from this document's own `criteria` fences by the generalized
+`tests/test_ac_interpreter.py` wall and run under `-S`, at a disclosed cost.
+
+**One verification remains OWED and is correctly not the build's.** `## Verification`'s close-out —
+re-running the audit's literal command against the live vault and confirming clause (b) is still 0
+— is the conductor's, outside the cage, before the ship. The build did not re-decide the arm, which
+is the right call: a nonzero re-run is a STOP and a spec revision, not a mid-build switch. This gate
+does not discharge it and it should not be read as discharged.
+
+Blocking: none.
+
+```verdict
+gate: test-observability-checker
+verdict: PROMOTE
+date: 2026-09-11
+model: claude-opus-5
+note: The pass substantively applies (new prod path, not a refactor) and all three checks clear: every changed path has a happy path and a failure mode, the oracle is committed pre-cut DATA whose two exception rows are literals in the check's own source so regeneration goes red rather than ratifying the cut, and I re-derived both goldens' 20 cases and 39 queries from `roster.json` by hand and they match the artifacts exactly; conflict detection already logs WARN with both candidates, the only silent path is the commented measured-zero email leniency routed to WI-026, no new automated system ships so alerting is N/A, and this project has no invariant registry so Check 4 is skipped rather than failed — with the live-vault close-out audit explicitly still OWED to the conductor and not discharged here.
+```
+
+## Retrospective — 2026-09-11
+
+### Was the spec accurate?
+
+Mostly yes, but it got there the hard way. Spec Review bounced REVISE twice (round 5: a
+self-contradicting fixture case in D8's own near-miss rule; round 6: two of the item's own
+checks spelling literals that other tasks assert at zero, a self-collision D12 didn't cover)
+before landing PROMOTE in round 7. Once specced, the Build Log reports zero drift against the
+spec text itself — "every line number, span and citation D0–D12 names resolved to exactly the
+text it claimed" — but the item was re-driven mid-lifecycle: a 2026-09-09 build attempt
+surfaced the E2(d) display-name-plus-address query behavior change, which required Dave's
+ruling ("absorb") before the spec could be amended and the final build re-run cold-start against
+the amended HEAD. So: the spec-as-signed was accurate to the build, but only after an
+unplanned pause-ruling-amend cycle that the spec-review rounds didn't (and structurally
+couldn't) catch, because the drift was in Cut 1's real-world consequence, not in the spec's
+internal consistency.
+
+### Edge cases that surprised us
+
+- **E2 class (d)** — the display-name-plus-address QUERY divergence (`created_new` flipping
+  True→False when a decorated query address matches a note's plain email) — wasn't in the
+  original Edge Cases enumeration at all. It was found via a 2026-09-09 drift-report build
+  attempt, required a standing Dave ruling to absorb, and then still surfaced a **fourth red
+  case at the Cut-1 boundary** during the final build (the legacy-path twin
+  `test_legacy_preserves_rich_note` hitting the same class through a different door than the
+  plan anticipated).
+- Three self-collision sites the D12 anti-self-reference table didn't name (a SHAPE-based
+  match, a triple-quoted plant constant, module-wide scope gap) — caught during build, not
+  spec review, and repaired in the module rather than by narrowing the scan.
+- Two fixture-universe mismatches (D10 rows 8 and 10) caused by a concurrent, unrelated item
+  (WI-016) landing a 53-note fixture corpus after the spec's census was taken.
+- A pre-existing floor fragility (`REPO_ROOT` path mismatch in `test_vault_path_required.py`,
+  `/var/...` vs `/private/var/...`) found but correctly left unrepaired as out of scope — Code
+  Review flagged that no work item currently owns the fix.
+
+### What would have shortened the build?
+
+1. **The E2(d) class should have been findable at spec time, not discovered mid-build.** It's
+   a real consumer-visible behavior change (HAL9000's 409-vs-duplicate response, orchestrator's
+   `stubs_created` counter) that cost a full re-drive cycle. A spec-writer/exploration-stage
+   check that traces "what does the post-cut cascade do to a decorated-query shape that wasn't
+   in the pre-cut oracle's explicit case list" might have surfaced it before the first build
+   attempt rather than after.
+2. **The D12 self-collision rule was scoped too narrowly** (only "plants") and had to be
+   promoted to module-wide mid-spec-review (round 6) and then still missed three sites during
+   build. A bar-level heuristic — "any literal a task's own check spells must be swept for
+   self-collision against every other task's zero-count assertion over the same scanned roots"
+   — would generalize past this one item.
+3. **No demo/acceptance-walkthrough stage exists in this pipeline instance for a library-only
+   item** — the document goes straight from Test & Observability PROMOTE to `done`. That's
+   plausibly correct for an L3 library cutover with no UI, but it means the "was the build
+   accepted on first look" sampling this retro normally leans on doesn't exist here; worth
+   confirming this is an intentional stage skip for library items rather than a gap.
+
+### Did the build serve the original intent, or the spec's drift of it?
+
+Yes. The Intent — "one find-or-create implementation, one resolution cascade, an identifier
+index that is actually the resolution authority (or documentedly not, per kind), no import
+cycle" — explicitly licensed the per-kind carve-out that AC-3 (phones) and the AC-2 alias/email
+asymmetry both exercise. The E2(d) absorb decision was made by Dave directly against the
+Intent's spirit (a genuine behavior change, named and recorded in `## Scope Boundary` rather
+than absorbed silently), not by the spec quietly drifting away from it. Nothing here looks like
+the build satisfying a spec that had drifted from what Dave actually wanted — the ruling *was*
+the intent-check, applied mid-lifecycle instead of at a single `done`-time gate.
+
+### Recommended follow-ups
+
+- Consider a spec-writer/exploration instruction update: when a cascade or resolution-authority
+  cutover touches a case class through decorated/compound input shapes (mixed identifiers in
+  one string), explicitly enumerate the compound-shape space rather than only atomic-identifier
+  cases — this is the generalizable version of the E2(d) miss.
+- Consider generalizing the D12-style "self-collision" rule to a standing bar check: any literal
+  a task's check spells for a positive assertion should be automatically checked against every
+  other task's zero-count/absence assertion over the same scanned roots, at spec-review time
+  rather than discovered per-item at round 6 or later during build.
+- Two items already surfaced without an owner and should get one: (a) the `REPO_ROOT`
+  path-mismatch floor fragility in `test_vault_path_required.py`; (b) `CLAUDE.md`'s "Hermetic,
+  ~1s" floor claim, now stale at ~12s. Both were flagged by Code Review with no follow-up work
+  item minted yet.
+- The live-vault corpus-audit close-out remains explicitly OWED to the conductor (not the
+  build, not either review gate) — flagging here so it isn't lost between `done` and ship.
+
+No post-`done` defect to record in the eval ledger — the item's rough edges (spec-review
+bounces, the E2(d) re-drive) all surfaced and were resolved before `done`, not after.
+
+No build-earned lesson meets the `LESSONS.html` bar here — the re-drive cost real time but was
+governed correctly (paused, escalated to Dave, absorbed as a signed ruling, re-driven clean) rather
+than shipping a wrong or corrupted result. That is the pipeline working as designed, not a scar.

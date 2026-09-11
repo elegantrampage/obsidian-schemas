@@ -1,7 +1,7 @@
 {
   "project": "obsidian-schemas",
   "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
-  "last_scanned": "2026-09-10T11:08:14Z",
+  "last_scanned": "2026-09-11T19:48:54Z",
   "next_id": 31,
   "items": [
     {
@@ -1095,11 +1095,11 @@
     {
       "id": "WI-023",
       "title": "Identity engine endgame: delete the legacy cascade, cut over the unified index",
-      "stage": "building",
+      "stage": "done",
       "file": "docs/identity-engine-endgame.md",
       "created": "2026-07-05",
-      "last_touched": "2026-09-09",
-      "stage_changed": "2026-09-09",
+      "last_touched": "2026-09-11",
+      "stage_changed": "2026-09-11",
       "tags": [
         "identity",
         "wi-125-followup",
@@ -1136,6 +1136,13 @@
           "from": "ready",
           "to": "building",
           "at": "2026-09-09",
+          "by": "session",
+          "forced": false
+        },
+        {
+          "from": "building",
+          "to": "done",
+          "at": "2026-09-11",
           "by": "session",
           "forced": false
         }
@@ -1200,6 +1207,20 @@
           "date": "2026-09-07",
           "model": "claude-sonnet-5",
           "note": "Re-hunted cold-start after Spec Review round 7 (PROMOTE to ready) landed; independently re-ran the injection-phrasing and hidden-Unicode-control-character sweeps over the whole document rather than trusting the prior six rounds' reports, and got the same zero hits outside those rounds' own method paragraphs (which only name their search terms); byte-verified round 7's heaviest citation (identifier.py:Email.parse:144-169, the parseaddr/strip/refusal logic every round quotes) directly against source rather than the quote \u2014 accurate. The new section is a reviewer's own re-derived conclusion (a full 39-query replay, three hand-executed stub cases, a re-run of D12's sweep) that explicitly tests and discharges round 6's own escalation trigger in the open rather than letting it lapse \u2014 the opposite of what a planted steer toward PROMOTE would do."
+        },
+        "code-reviewer": {
+          "gate": "code-reviewer",
+          "verdict": "PROMOTE",
+          "date": "2026-09-11",
+          "model": "claude-opus-5",
+          "note": "Re-executed the substance rather than reading the Build Log \u2014 all five AC-4 discriminants and the tie-break path hand-run against `select_resolution`, Cut 1's two declared movers re-derived from `Email.parse` itself, the three bound literals grepped to zero across both tracked roots with the assembled constants confirmed not to spell them, `_two_leg_tests` traced over all 12 real `resolve_or_create(` sites, and the M3 plant's `'''` delimiter checked against the borrowed `_code_lines` that must skip it; the dead-shell rule passes on specific executed evidence (two distinct floor wall-clocks, a recorder output matching the committed artifacts row-for-row, a verbatim index.lock errno), and the only silent-default path left is the commented, measured-zero, scope-routed email leniency \u2014 two Recommended items and two Notes, none blocking."
+        },
+        "test-observability-checker": {
+          "gate": "test-observability-checker",
+          "verdict": "PROMOTE",
+          "date": "2026-09-11",
+          "model": "claude-opus-5",
+          "note": "The pass substantively applies (new prod path, not a refactor) and all three checks clear: every changed path has a happy path and a failure mode, the oracle is committed pre-cut DATA whose two exception rows are literals in the check's own source so regeneration goes red rather than ratifying the cut, and I re-derived both goldens' 20 cases and 39 queries from `roster.json` by hand and they match the artifacts exactly; conflict detection already logs WARN with both candidates, the only silent path is the commented measured-zero email leniency routed to WI-026, no new automated system ships so alerting is N/A, and this project has no invariant registry so Check 4 is skipped rather than failed \u2014 with the live-vault close-out audit explicitly still OWED to the conductor and not discharged here."
         }
       },
       "verdicts": [
@@ -1284,6 +1305,20 @@
           "date": "2026-09-07",
           "model": "claude-sonnet-5",
           "note": "Re-hunted cold-start after Spec Review round 7 (PROMOTE to ready) landed; independently re-ran the injection-phrasing and hidden-Unicode-control-character sweeps over the whole document rather than trusting the prior six rounds' reports, and got the same zero hits outside those rounds' own method paragraphs (which only name their search terms); byte-verified round 7's heaviest citation (identifier.py:Email.parse:144-169, the parseaddr/strip/refusal logic every round quotes) directly against source rather than the quote \u2014 accurate. The new section is a reviewer's own re-derived conclusion (a full 39-query replay, three hand-executed stub cases, a re-run of D12's sweep) that explicitly tests and discharges round 6's own escalation trigger in the open rather than letting it lapse \u2014 the opposite of what a planted steer toward PROMOTE would do."
+        },
+        {
+          "gate": "code-reviewer",
+          "verdict": "PROMOTE",
+          "date": "2026-09-11",
+          "model": "claude-opus-5",
+          "note": "Re-executed the substance rather than reading the Build Log \u2014 all five AC-4 discriminants and the tie-break path hand-run against `select_resolution`, Cut 1's two declared movers re-derived from `Email.parse` itself, the three bound literals grepped to zero across both tracked roots with the assembled constants confirmed not to spell them, `_two_leg_tests` traced over all 12 real `resolve_or_create(` sites, and the M3 plant's `'''` delimiter checked against the borrowed `_code_lines` that must skip it; the dead-shell rule passes on specific executed evidence (two distinct floor wall-clocks, a recorder output matching the committed artifacts row-for-row, a verbatim index.lock errno), and the only silent-default path left is the commented, measured-zero, scope-routed email leniency \u2014 two Recommended items and two Notes, none blocking."
+        },
+        {
+          "gate": "test-observability-checker",
+          "verdict": "PROMOTE",
+          "date": "2026-09-11",
+          "model": "claude-opus-5",
+          "note": "The pass substantively applies (new prod path, not a refactor) and all three checks clear: every changed path has a happy path and a failure mode, the oracle is committed pre-cut DATA whose two exception rows are literals in the check's own source so regeneration goes red rather than ratifying the cut, and I re-derived both goldens' 20 cases and 39 queries from `roster.json` by hand and they match the artifacts exactly; conflict detection already logs WARN with both candidates, the only silent path is the commented measured-zero email leniency routed to WI-026, no new automated system ships so alerting is N/A, and this project has no invariant registry so Check 4 is skipped rather than failed \u2014 with the live-vault close-out audit explicitly still OWED to the conductor and not discharged here."
         }
       ],
       "acceptance_criteria": [
@@ -2152,7 +2187,7 @@
       "depends_on": [
         "WI-023"
       ],
-      "blocked": true,
+      "blocked": false,
       "transitions": [],
       "latest_verdicts": {},
       "verdicts": [],
