@@ -1,5 +1,31 @@
 # Session Log
 
+## 2026-09-11
+
+### WI-023 SHIPPED on Dave's absorb ruling; WI-026 at its D4a
+
+Dave ruled the WI-023 build-cap fork "Proceed with their recommendation" (via workshop HQ) and
+"proceed" in session → ABSORB. Conductor landed the spec amendments in HEAD, all outside the signed
+ACs (no re-sign): E2 class (d) — the query-side display-name-plus-address divergence; D4 item 3's
+"changes no answer" corrected; Task 7 + Verification authorize the one kept-case re-pin
+(`test_engine_preserves_rich_note`: `created_new` → False); Scope Boundary names the consumer-visible
+change (HAL9000 `entities.py:252` → 409 instead of a duplicate; orchestrator `contact_normalizer.py:435`
+counter) and rejects option B. Cap answered "resolve by hand", re-driven from `building` on v9 under the
+davewascha token → **done in one leg**: builder, injection-hunter, code-reviewer, test-observability all
+PROMOTE. `_find_or_create_stub_legacy` + `_email_index` gone; one email authority; the phone carve-out
+proven; `resolve` one cascade over `resolve_all` with goldens recorded at Cut 0. Floor 678→681;
+HAL9000 623 / orchestrator 1467+1 green; exocortex 657 green + 2 red in `tests/test_wi054_key_table.py`
+that fail identically against the PRE-ship package (its own WI-054 fixture) — reported to workshop,
+not this item's.
+
+**WI-026 (lint_vault --fix safety)** is at `exploring`, parked at D4a
+(`ESC-WI-026-exploring-awaiting-ac-signoff-b7c2f389`) after its conductor-measured live baseline
+(`docs/lint-vault-live-baseline.md`, the ENTRY half of the bracket; its §4 exit attestation is a ship
+condition). Five ACs presented; Dave's word owed. The manifest queue-2026-09-06 is now fully consumed:
+WI-022, WI-016, WI-023 shipped; WI-026 in the pipeline.
+
+---
+
 ## 2026-09-10 (and the 09-08/09 tail)
 
 ### WI-016 SHIPPED dark on factory-v9; WI-023 parked on a Dave ruling; the porter-stall class named
