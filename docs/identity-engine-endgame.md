@@ -81,8 +81,9 @@ Cold-start, approval-only. Re-derived from the frozen `## Intent` rather than fr
 - **(a) Junk-keyed entries stop resolving.** `_email_index` indexes *any* non-empty string; `_project_identifiers` skips whatever `Email.parse` refuses (person.py:246-252). `tests/test_identity_index.py:184-201` already pins this divergence deliberately (`"not-an-email"` and `"bad email"` are in the legacy dict and absent from the typed index). Cutting over **loses** these lookups. Size on the live vault: unknown → `## Write Targets`.
 - **(b) Angle-bracket forms start resolving, by their address.** A note whose `emails:` carries `Jane <jane@x.com>` (the WI-017 leak shape) is in `_email_index` under the whole string and in `_identifier_index` under `email:jane@x.com`. Cutover **gains** the sane lookup and loses the literal one. An improvement, but it is a behaviour change and belongs in the record.
 - **(c) Whitespace-bearing entries start resolving trimmed.** Indexed un-stripped today (`:197`), stripped by `Email.parse`. Also an improvement.
+- **(d) Display-name-plus-address QUERIES start resolving, by their address — the QUERY-side class, added 2026-09-11 on Dave's absorb ruling.** Classes (a)–(c) are about how an `emails:` ENTRY is indexed; this one is about how a QUERY is parsed. `find_or_create_stub("Moises-shaped <Display Name> <addr>", email=None)` against a note carrying the plain `addr`: pre-cut, `resolve_all` step 2 looked the WHOLE lowered string up in `_email_index` and missed; post-cut, `get_by_email` runs `Email.parse`, which routes any string carrying both `<` and `>` through `parseaddr` (`identifier.py:154-156`) and yields the bare address — a 1.0 `email` hit that clears Branch B's threshold, so `find_or_create_stub` REUSES where it used to REPORT a creation: `created_new` moves `True → False`. The `True` was already false in fact (no note was minted; door C collided and reused, logging `upstream resolution miss`). Entailed by AC-2 (surface 1's decorated query) and AC-4's post-cut table, so it cannot be narrowed away without spending a signed criterion; measured, both columns, by the 2026-09-09 build (`### Re-run 3` of its drift report, persisted at `evidence-jwpy80ya`). Readers of the flag, swept across HAL9000/exocortex/orchestrator on 2026-09-09: HAL9000 `backend_fastapi/routers/entities.py:252` (answers 409 instead of minting a duplicate) and orchestrator `src/contact_normalizer.py:435` (a `stubs_created` counter). ABSORBED — the named change is in `## Scope Boundary`; the one kept test it moves is re-pinned at Task 7.
 
-Class (a) is the only one that can lose something real, and it is the decision. **Decision rule, stated in advance so the audit is decision-forcing rather than decorative:** if the audit finds **zero** live person-note email entries that `Email.parse` refuses, email cuts over to the index and `_email_index` is deleted. If it finds **any**, the email cutover is **blocked** on repairing those notes (a `lint_vault` rule — WI-026's territory, solve-in-one-place) and this item takes the documented-carve-out arm for email too, exactly as it does for phone. Either way the shipped property is the same one (E5, AC-2): *one* authority, not two.
+Class (a) is the only one that can lose something real on the ENTRY side, and it is the decision; class (d) moves a reported flag, never data. **Decision rule, stated in advance so the audit is decision-forcing rather than decorative:** if the audit finds **zero** live person-note email entries that `Email.parse` refuses, email cuts over to the index and `_email_index` is deleted. If it finds **any**, the email cutover is **blocked** on repairing those notes (a `lint_vault` rule — WI-026's territory, solve-in-one-place) and this item takes the documented-carve-out arm for email too, exactly as it does for phone. Either way the shipped property is the same one (E5, AC-2): *one* authority, not two.
 
 **These three classes are exactly the classes that move `resolve()`'s answers at Cut 1** — `resolve` step 3 reads `_email_index` directly (person.py:492-496), so it is one of the four surfaces AC-2 re-homes. That collides with AC-4's golden unless the collision is enumerated rather than left to the fixture author. **E7 does the enumeration**: it fixes the fixture's three decorated/refused plants as literals, hand-executes each one's pre-cut and post-cut answer under both arms, and closes the resulting exception list. Read E7 before reading AC-2 or AC-4 — neither is decidable without it.
 
@@ -801,8 +802,10 @@ changes are in `obsidian_schemas/repositories/person.py`:
    a read), and the build log records the shift.
 3. `resolve` step 3 (`resolve:492-496`) and `resolve_all` step 2 (`resolve_all:571-578`) both
    stop reading a mapping and call `self.get_by_email(query)` instead. The `"@" in query_lower`
-   gate stays on both: it changes no answer (a non-address query is refused by `Email.parse`
-   anyway) and it keeps the pre-cut cascade shape legible.
+   gate stays on both: it changes exactly ONE class of answer — E2 (d): a display-name-plus-address
+   query is NOT refused by `Email.parse` (the `parseaddr` arm, `identifier.py:154-156`) and now resolves
+   by its address, absorbed on Dave's 2026-09-11 ruling; every other non-address query is refused as
+   before — and it keeps the pre-cut cascade shape legible.
 4. `_resolve_identifier` (`:955-956`) is unchanged — it already delegates `Email` to
    `get_by_email`, which is now the index reader. That is what makes "one authority" structural
    rather than behavioural: after this cut the string `_identifier_index` is read for an
@@ -2047,6 +2050,11 @@ strictly sequential, because the cut order IS the oracle's availability.
       6's structural clause ASSERTS that zero across both tracked roots rather than leaving it to
       the `AttributeError` a survivor would raise at run time.
       verify: test_malformed_email_resolves_nowhere_after_cutover
+      **E2 (d), absorbed (Dave 2026-09-11):** in the same commit, re-pin
+      `test_wi126_body_preservation.py::TestReproductionGate_Moises::test_engine_preserves_rich_note`'s
+      `created_new is True` to `is False` — the flag was false in fact pre-cut (no note minted; door C
+      reused with a warning) and Cut 1 makes the report match; this is the only kept case whose pinned
+      answer moves, and it is authorized here rather than left to a build-time judgement.
 
 - [ ] **Task 8 — Cut 2: the phone carve-out, made executable and concurrency-safe.** Materialize
       `get_by_phone`'s fuzzy scan (`list(self._phone_index.items())`) and add the comment naming
@@ -2150,7 +2158,9 @@ strictly sequential, because the cut order IS the oracle's availability.
       Delete the six parity cases in
       `tests/test_resolve_or_create.py` repaired at Task 4 and `test_legacy_preserves_rich_note`
       in `tests/test_wi126_body_preservation.py`, leaving `test_engine_preserves_rich_note`
-      standing. **Those two deletions and this task's own AC-1 check land in ONE commit, which is
+      standing — with its `created_new is True` assertion RE-PINNED to `False`, the ONE authorized
+      change to a kept case in that module (E2 (d), Dave's absorb ruling 2026-09-11; the re-pin lands
+      at Task 7 with Cut 1, since that is the commit that moves the flag). **Those two deletions and this task's own AC-1 check land in ONE commit, which is
       what makes Task 4's and `test_wi126_body_preservation.py:212`'s spellings of the needle
       legal under D12's CO-LANDING arm** — the literal leaves `tests/` in the same commit the
       assertion enters it, so no boundary sees both. Write AC-1's check: a literal-text scan over every file
@@ -2682,6 +2692,8 @@ It does, but the item's justification rests on the five claims above, not on tha
 ## Scope Boundary
 
 **What we are NOT doing.**
+
+- **NOT narrowing Cut 1 to avoid the E2 (d) flag move — ABSORBED, by name, on Dave's ruling (2026-09-11, "Proceed with their recommendation" = absorb).** After Cut 1, `find_or_create_stub("<Display Name> <addr>", email=None)` against a note carrying `addr` returns `created_new=False` where it returned `True`; the person returned is the same, the body is intact, no note is minted, and nothing else moves. Consumer-visible: HAL9000 `POST /api/entities/person` answers 409 for that shape instead of minting a duplicate (`entities.py:252`); orchestrator's `stubs_created` counter stops counting it (`contact_normalizer.py:435`). Named here so the change is a decision on record rather than a build's side effect. Option B (refuse decorated queries in the cascade's email step) was rejected because it would spend AC-2's signed decorated-query surface — E2 class (b), one of the three classes the corpus audit was commissioned to size — to preserve a flag value this tree demonstrates is false. The live size of the class (what consumers actually pass as `name=`) is deliberately unmeasured: the cage cannot, and the two readers above do not branch on it beyond what is stated.
 
 - **Write-boundary phone canonicalization (E.164 at the `name_gate`).** E3 shows the fuzzy arm
   is a read-time reconstruction of information `normalize_phone` destroys at the write door
