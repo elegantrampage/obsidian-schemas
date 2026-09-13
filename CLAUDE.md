@@ -34,7 +34,8 @@ vips = repo.get_by_role("vip")
 | `obsidian_schemas/parser.py` | Markdown → typed models |
 | `obsidian_schemas/writer.py` | Models → markdown files |
 | `obsidian_schemas/vault_io.py` | THE write door (WI-004): atomic commit, per-file locking, stamp preconditions — every vault write routes here |
-| `obsidian_schemas/repositories/person.py` | PersonRepository (incl. resolve cascade + WI-125 identity engine) |
+| `obsidian_schemas/repositories/person.py` | PersonRepository — `resolve` is one cascade over `resolve_all` + a named selection policy; email resolution has ONE authority, the WI-125 identifier index (WI-023, 2026-09-11: the legacy per-kind email dict and `_find_or_create_stub_legacy` are gone) |
+| `tests/fixture_vault.py` + `tests/fixtures/vault/` | The frozen anonymized real-data fixture vault (WI-016): ~50 notes byte-copied behind a digest; every entity type, every measured corruption shape; no live identifier by structural assertion. Reach for it before writing an inline note in a test. Its ground truth is `docs/vault-shape-census.md` (digest-frozen) |
 | `obsidian_schemas/repositories/company.py` | CompanyRepository |
 | `obsidian_schemas/identifier.py` | Typed Identifier union + EntityRef (identity core, WI-125) |
 | `obsidian_schemas/name_validation.py` | NameValidator boundary contract (WI-105) |
@@ -59,7 +60,7 @@ pip install -e /Users/davewascha/Workspaces/obsidian-schemas
     /Users/davewascha/Workspaces/obsidian-schemas/tests -q
 ```
 
-Hermetic, ~1s. Baseline: run the floor command to check the current count — never trust a number
+Hermetic, ~10s (WI-016's fixture-vault battery makes six foreign-interpreter subprocess runs per floor). Baseline: run the floor command to check the current count — never trust a number
 written here (2026-07-24 conductor note: the hardcoded "607 passed" baseline was drift-prone; WI-020's
 build raises the count substantially). The invariant is DIRECTIONAL: a drive that lands fewer cases
 than the previous run without explanation has silently lost a test file. Last verified-by-hand
