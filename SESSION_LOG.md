@@ -1,5 +1,15 @@
 # Session Log
 
+## 2026-09-13 / 09-15 — wrap-up and handoff for a context clear
+
+Wrap-up 2026-09-13: CLAUDE.md synced to the week's ships (floor ~10s since WI-016, one email authority
+since WI-023, the fixture vault as a Key File), commit `4de6ae2`. 2026-09-15: HANDOFF.md regenerated for
+a context clear — verified floor 681 / linter 0 errors / tree clean / one pending record (WI-026's D4a) /
+no live drive; workshop-stable now at factory-v11 and the release pointer file has moved (verify via
+`release-log.jsonl` before launching). Nothing else changed in this repo.
+
+---
+
 ## 2026-09-11
 
 ### WI-023 SHIPPED on Dave's absorb ruling; WI-026 at its D4a
