@@ -1731,4 +1731,23 @@ model: claude-opus-5
 note: My round-3 blocker closes on the mechanism rather than the paraphrase — `skip_reason_literal_sites` reports a file only on a string-literal Constant, so AC-3(a)'s rewritten universe-widens/expected-sets-hold shape is the one edit true of it, and naming the wrong edit as itself RED converts the leg from not-instructing the drift to catching it; the field-name ruling, the nine-site inventory and the census mis-join all re-derive correctly off this tree, the seam and accounting frames re-verify at the byte level, and the three residual findings are an under-specified parse, an unreachable exemplar and a label — none false of its own mechanism, so a fifth round buys nothing the spec-writer cannot.
 ```
 
+## AC Sign-off
 
+```verdict
+gate: ac-signoff
+verdict: PROMOTE
+date: 2026-09-15
+reviewer: dave
+channel: cli
+signed_at: 2026-09-15T10:59:30+01:00
+provenance: verified
+signoff_escalation: ESC-WI-026-exploring-awaiting-ac-signoff-b7c2f389
+ac_hash: 03777fa0e132
+intent_hash: 6a7cccabd378
+ac_hash_AC-1: 23030080e7eb
+ac_hash_AC-2: 1e40f7ae8765
+ac_hash_AC-3: 9bd601c3a0d4
+ac_hash_AC-4: 5cc1a0cc3737
+ac_hash_AC-5: 7036c93e9f21
+artifact: docs/spec-reviews/WI-026-dave-review-2026-09-15.md
+```
