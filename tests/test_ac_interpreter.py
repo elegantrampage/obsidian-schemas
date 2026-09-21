@@ -53,6 +53,9 @@ WORK_ITEM_DOCS = (
     # cost, stated because the wall itself discloses it: five more `-S`
     # subprocess re-execs on every floor run.
     ROOT / "docs" / "lint-vault-fix-safety.md",
+    # WI-031. Its one criterion's check is the WI-026 wall check, which already
+    # executes the library; one more `-S` re-exec per floor run.
+    ROOT / "docs" / "lint-vault-wall-third-source.md",
 )
 
 # The conveyor's child program, byte-for-byte in SHAPE: module path and check name

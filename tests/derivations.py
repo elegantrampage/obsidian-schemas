@@ -2037,9 +2037,19 @@ LIVE_PATH_TOKENS = frozenset({
 
 _LIVE_PATH_ENV_READERS = frozenset({"environ", "getenv"})
 
+#: WI-031 (Dave's ruling, 2026-09-16). The library's own
+#: `repositories/base.py:_resolve_vault_path` falls back to the environment
+#: INSIDE every repository constructor, so `PersonRepository()` reaches the live
+#: vault without spelling any of the three tokens above. The census below is over
+#: CALLEE NAMES ending in this suffix — never an import allowlist, because
+#: `module_import_uses` reports the ROOT module and cannot tell
+#: `from obsidian_schemas.repositories.base import SKIP_REASONS` (which the check
+#: module needs) from `from obsidian_schemas import PersonRepository`.
+REPOSITORY_CALLEE_SUFFIX = "Repository"
+
 
 class VaultArgScan(NamedTuple):
-    """The THREE censuses the containment wall runs, and no one of them is a
+    """The FOUR censuses the containment wall runs, and no one of them is a
     claim on its own.
 
     `drives` grades a mutating call's vault ARGUMENT — its spelling.
@@ -2050,11 +2060,17 @@ class VaultArgScan(NamedTuple):
     `apply_fixes` never reads its `vault_path` (its write targets come from the
     issues), so a correctly-contained argument constrains nothing about the
     bytes written.
+    `repository_constructions` grades what the module can OBTAIN without naming
+    it: a repository constructed with no path resolves the live vault from the
+    environment inside the library, so the wall's rule is ZERO constructions —
+    not "no no-arg construction", because `_is_unconfigured` swallows blank,
+    whitespace and `"."` as well (WI-031).
     """
 
     drives: frozenset        # (module_id, lineno, identifier)
     bindings: frozenset      # (module_id, lineno, identifier, provenance)
     live_path_names: frozenset   # (module_id, lineno, token, enclosing)
+    repository_constructions: frozenset   # (module_id, lineno, callee, enclosing)
 
 
 def _enclosing_function_names(tree) -> dict:
@@ -2157,7 +2173,8 @@ def _raise_if_other_binding(module: str, tree, ident: str) -> None:
 
 
 def mutating_drive_vault_args(files: Iterable[Path]) -> VaultArgScan:
-    """The containment wall's three censuses over `files` (WI-026, M3/M5/M7/M8).
+    """The containment wall's four censuses over `files` (WI-026, M3/M5/M7/M8;
+    WI-031 adds the fourth).
 
     `drives` — every call whose callee resolves to a member of
     `MUTATING_DRIVE_VAULT_POSITIONS`, recorded as
@@ -2184,10 +2201,18 @@ def mutating_drive_vault_args(files: Iterable[Path]) -> VaultArgScan:
     fixture string carrying the token are both invisible); and an `environ` /
     `getenv` attribute or bare name. `enclosing` is the INNERMOST enclosing
     function name or `MODULE_LEVEL`.
+
+    `repository_constructions` — every call whose callee resolves (by the same
+    `_call_callee_name` rule as `drives`) to a name ending
+    `REPOSITORY_CALLEE_SUFFIX`, as `(module, lineno, callee, enclosing)`. Both
+    spellings, any arguments: the wall's rule over it is ZERO, with no
+    exemption for `_temp_vault`'s body, because a construction anywhere hands
+    the module a path its text never spells.
     """
     drives = set()
     bindings = set()
     live_path_names = set()
+    repository_constructions = set()
 
     for path in files:
         tree = _parse(path)
@@ -2198,6 +2223,10 @@ def mutating_drive_vault_args(files: Iterable[Path]) -> VaultArgScan:
             if not isinstance(node, ast.Call):
                 continue
             callee = _call_callee_name(node)
+            if callee and callee.endswith(REPOSITORY_CALLEE_SUFFIX):
+                repository_constructions.add(
+                    (module, node.lineno, callee,
+                     enclosing.get(id(node), MODULE_LEVEL)))
             if callee not in MUTATING_DRIVE_VAULT_POSITIONS:
                 continue
             position = MUTATING_DRIVE_VAULT_POSITIONS[callee]
@@ -2261,4 +2290,5 @@ def mutating_drive_vault_args(files: Iterable[Path]) -> VaultArgScan:
                                  enclosing.get(id(node), MODULE_LEVEL)))
 
     return VaultArgScan(frozenset(drives), frozenset(bindings),
-                        frozenset(live_path_names))
+                        frozenset(live_path_names),
+                        frozenset(repository_constructions))

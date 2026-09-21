@@ -1,7 +1,7 @@
 {
   "project": "obsidian-schemas",
   "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
-  "last_scanned": "2026-09-21T07:05:19Z",
+  "last_scanned": "2026-09-21T08:04:07Z",
   "next_id": 32,
   "items": [
     {
@@ -1770,23 +1770,101 @@
     {
       "id": "WI-031",
       "title": "Close the third live-vault source in the WI-026 containment wall",
-      "stage": "idea",
+      "stage": "done",
       "file": "docs/lint-vault-wall-third-source.md",
       "created": "2026-09-21",
       "last_touched": "2026-09-21",
       "stage_changed": "2026-09-21",
-      "tags": [],
+      "tags": [
+        "scripts",
+        "write-safety",
+        "testing"
+      ],
       "involvement": null,
       "round_budget": null,
       "spawn_budget": null,
       "parent": null,
       "children": [],
-      "depends_on": [],
+      "depends_on": [
+        "WI-026"
+      ],
       "blocked": false,
-      "transitions": [],
-      "latest_verdicts": {},
-      "verdicts": [],
-      "acceptance_criteria": [],
+      "transitions": [
+        {
+          "from": "idea",
+          "to": "exploring",
+          "at": "2026-09-21",
+          "by": "session",
+          "forced": false
+        },
+        {
+          "from": "exploring",
+          "to": "specced",
+          "at": "2026-09-21",
+          "by": "session",
+          "forced": false
+        },
+        {
+          "from": "specced",
+          "to": "ready",
+          "at": "2026-09-21",
+          "by": "session",
+          "forced": false
+        },
+        {
+          "from": "ready",
+          "to": "building",
+          "at": "2026-09-21",
+          "by": "session",
+          "forced": false
+        },
+        {
+          "from": "building",
+          "to": "done",
+          "at": "2026-09-21",
+          "by": "session",
+          "forced": false
+        }
+      ],
+      "latest_verdicts": {
+        "ac-signoff": {
+          "gate": "ac-signoff",
+          "verdict": "PROMOTE",
+          "date": "2026-09-21",
+          "reviewer": "dave",
+          "channel": "conversational",
+          "signed_at": "2026-09-21T08:03:38+01:00",
+          "provenance": "attested",
+          "ac_hash": "490edae35c1a",
+          "intent_hash": "ab39c2f99e93",
+          "ac_hash_AC-1": "7bbd9b8c2006",
+          "artifact": "docs/spec-reviews/WI-031-dave-review-2026-09-21.md"
+        }
+      },
+      "verdicts": [
+        {
+          "gate": "ac-signoff",
+          "verdict": "PROMOTE",
+          "date": "2026-09-21",
+          "reviewer": "dave",
+          "channel": "conversational",
+          "signed_at": "2026-09-21T08:03:38+01:00",
+          "provenance": "attested",
+          "ac_hash": "490edae35c1a",
+          "intent_hash": "ab39c2f99e93",
+          "ac_hash_AC-1": "7bbd9b8c2006",
+          "artifact": "docs/spec-reviews/WI-031-dave-review-2026-09-21.md"
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "AC-1",
+          "desc": "The containment wall over tests/test_lint_vault_fix_rules.py has a FIFTH clause and it is total over the library route. (a) ZERO \u2014 `mutating_drive_vault_args([that module]).repository_constructions` is empty, where the census collects every call whose callee resolves by the wall's ONE callee-name rule (bare or attribute spelling) to a name ending `Repository`, with any arguments, in any scope including `_temp_vault`'s own body. (b) REACH (WI-235) \u2014 over planted text the census records the escape (`vault = _temp_vault(tmp)` / `repo = PersonRepository()` / `read_vault(repo.vault_path)` / `apply_fixes(issues, vault)`) at its construction line with clauses (i)\u2013(iv) GREEN and `live_path_names` EMPTY, records both spellings with positional and keyword arguments and a construction inside a planted `_temp_vault` (enclosing recorded as that name), and records NONE of: a bare name `repository`, a string Constant, a lower-case `get_repository(...)`, `RepositoryError(...)`, `PersonRepositoryFactory()`, a method call on a repository-shaped object, a docstring mention. (c) ONE CHECK \u2014 clauses (i)\u2013(v) and every battery run inside `test_every_mutating_drive_in_this_module_is_confined_to_a_temp_vault`; no new `def test_`, no new derivation, and the `ast` single-home equality still returns `{\"tests/derivations.py\"}`.",
+          "why": "Dave ruled this closed on 2026-09-16 and the ruling shipped unapplied. The library's environment fallback is the one omission route WI-026's four clauses cannot see, because it obtains the live path without spelling it; on the machine where the floor is hand-run that variable is exported, so the failure mode is green-in-the-cage, live-vault-write-on-the-laptop. A zero over a matcher nobody proved reaches anything is the WI-235 shape, hence (b); and (c) is what keeps WI-026's re-synced counts true.",
+          "check": "test_every_mutating_drive_in_this_module_is_confined_to_a_temp_vault",
+          "kind": "test"
+        }
+      ],
       "summary": "WI-026 (shipped 2026-09-16) built a containment wall around `tests/test_lint_vault_fix_rules.py` so"
     },
     {

@@ -43,7 +43,7 @@ vips = repo.get_by_role("vip")
 | `obsidian_schemas/phone_normalization.py` | `normalize_phone`/`phones_match` leaf (WI-021 relocation; `repositories/person.py` re-exports both for consumers) |
 | `obsidian_schemas/name_cleaning.py` | clean_person_name (WI-117) |
 | `obsidian_schemas/body_sections.py` | Markdown body section parse/write, To-Discuss items |
-| `scripts/lint_vault.py` + `tests/test_lint_vault_fix_rules.py` | The vault linter and its WI-026 floor (shipped 2026-09-16): every auto-fixable rule repairs to a declared oracle against the fixture corpus, the seven write-causing detectors are pinned both ways, an undecodable note is reported/indexed/never written, `--fix` prints a four-bucket per-issue accounting, and a containment wall (`tests/derivations.py:mutating_drive_vault_args`) proves the module drives only a temp vault. Live bracket: `docs/lint-vault-live-baseline.md` (entry 2026-09-10, exit 2026-09-21). Known open residue: WI-031 |
+| `scripts/lint_vault.py` + `tests/test_lint_vault_fix_rules.py` | The vault linter and its WI-026 floor (shipped 2026-09-16): every auto-fixable rule repairs to a declared oracle against the fixture corpus, the seven write-causing detectors are pinned both ways, an undecodable note is reported/indexed/never written, `--fix` prints a four-bucket per-issue accounting, and a containment wall (`tests/derivations.py:mutating_drive_vault_args`) proves the module drives only a temp vault. Live bracket: `docs/lint-vault-live-baseline.md` (entry 2026-09-10, exit 2026-09-21). The library's own env-fallback route was closed by WI-031 (clause (v), 2026-09-21) |
 
 ## Installation
 

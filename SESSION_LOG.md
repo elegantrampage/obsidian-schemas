@@ -49,6 +49,21 @@ Retrospective flags carried forward (not ours to fix here): no demo section exis
 round-2 gates and `done`; the M5–M8 arc is a candidate threat-model-role checklist ("enumerate every
 route a live-path string can reach a write before declaring containment total").
 
+### WI-031 SHIPPED by hand the same morning (Dave: "let's build wi-031 please" → "proceed" ×2)
+
+A recorded hand build — the fast lane is not shipped (WI-290 descoped L0/L1 to WI-317; workshop
+WI-349's `hand-build.py` is at `specced` with its module absent) and a full L3 drive for a
+one-census change Dave had already ruled on is the overkill WI-290 names. Landed:
+`tests/derivations.py` (`VaultArgScan.repository_constructions`, `REPOSITORY_CALLEE_SUFFIX`, the walk
+arm), `tests/test_lint_vault_fix_rules.py` (clause (v) inside the ONE wall check + a WI-235 battery:
+the escape, both spellings incl. inside a planted door, seven near-misses; docstring parts 4/5),
+`tests/test_ac_interpreter.py` (WI-031's doc joins `WORK_ITEM_DOCS`), a dated CLOSED paragraph under
+WI-026's `## Scope Boundary` OPEN one. Verified: check module 8, floor 689 (unchanged by design),
+lint 0 errors, mutate-and-observe RED→GREEN. AC-1 signed via `present` → Dave's "proceed" →
+`originate --channel conversational` (ac_hash `490edae35c1a`, provenance attested). Doc advanced
+idea→done by hand with `@session` transitions; `--enforce` records the one standing D6 violation
+(no intent-check gate ran) — recorded in the Build Log with the conductor's own answer, not faked.
+
 ---
 
 ## 2026-09-13 / 09-15 — wrap-up and handoff for a context clear

@@ -22,7 +22,7 @@ that must never reach this module is one attribute access away:
 own machine that variable is populated. No standing wall reaches this —
 `tests/test_vault_path_required.py:FORBIDDEN_DEFAULT_PATTERNS` is three literal
 PATH shapes, none of which can see an environment read, and its sweep stops at
-`("obsidian_schemas", "scripts")`. So this module ships its own, in four parts,
+`("obsidian_schemas", "scripts")`. So this module ships its own, in five parts,
 and no proper subset of them is sufficient:
 
 1. RUNTIME — `_temp_vault` is the module's ONLY constructor of a vault path and
@@ -42,11 +42,19 @@ and no proper subset of them is sufficient:
    correctly-contained drive handed an issue list scanned from the live vault
    passes every one of them and rewrites Dave's notes.
 
-Part 4 is total over the omission shapes that SPELL the path, and NOT over one
-that obtains it without spelling it — the library's own `OBSIDIAN_VAULT_PATH`
-fallback in `repositories/base.py:_resolve_vault_path` is such a shape, it is
-DECLARED in the work item's `## Scope Boundary` and routed to Dave or the
-conductor, and it is why parts 1-3 stay load-bearing rather than belt-and-braces.
+5. LIBRARY (WI-031) — this module constructs NO `obsidian_schemas` repository,
+   with any arguments, anywhere. Part 4 is total over the omission shapes that
+   SPELL the path and not over one that OBTAINS it unspelled: the library's own
+   `OBSIDIAN_VAULT_PATH` fallback in `repositories/base.py:_resolve_vault_path`
+   runs inside every repository constructor, so `repo = PersonRepository()`
+   beside `read_vault(repo.vault_path)` passes parts 1-4 with the door executed
+   and rewrites the live vault wherever that variable is exported. Ruled
+   closed by Dave on 2026-09-16; this module needs no repository.
+
+No part is total over the whole, which is why all five stay load-bearing and
+none is belt-and-braces; the residue is deliberate acts (a decoy spelled with
+the door's own name), recorded as the wall's bound in WI-026's `## Scope
+Boundary`.
 
 Nothing here reads syntax directly: that capability is single-homed in
 `tests/derivations.py`, and every scan below is imported from it.
@@ -234,7 +242,7 @@ def _person(stem, extra="", body=None):
 
 
 # ==========================================================================
-# M3 / M5 / M6 / M7 / M8 — the containment wall, DEFINED FIRST so an ordinary
+# M3 / M5 / M6 / M7 / M8 + WI-031 — the containment wall, DEFINED FIRST so an ordinary
 # floor run fires the detector ahead of every driving check in this module.
 # It is an ordering COURTESY and not a guarantee (`-k` selection and direct
 # invocation bypass it); the guarantee is the runtime door plus the clauses
@@ -242,15 +250,16 @@ def _person(stem, extra="", body=None):
 # ==========================================================================
 
 def test_every_mutating_drive_in_this_module_is_confined_to_a_temp_vault():
-    """The FOUR clauses of the containment wall over this module's own source,
+    """The FIVE clauses of the containment wall over this module's own source,
     inside ONE check, plus the WI-235 fixture battery that proves the predicate
     they run actually resolves the shapes it claims."""
-    _check_the_four_containment_clauses()
+    _check_the_five_containment_clauses()
     with _temp_root() as root:
         _check_the_runtime_door_contains_what_it_builds(root)
         _check_the_drives_census_reaches_its_claimed_shapes(root)
         _check_the_bindings_census_reaches_its_claimed_shapes(root)
         _check_the_source_census_reaches_its_claimed_shapes(root)
+        _check_the_repository_census_reaches_its_claimed_shapes(root)
 
 
 def _check_the_runtime_door_contains_what_it_builds(root):
@@ -275,7 +284,7 @@ def _check_the_runtime_door_contains_what_it_builds(root):
         "the door must return a materialized corpus, not merely a contained path")
 
 
-def _check_the_four_containment_clauses():
+def _check_the_five_containment_clauses():
     scan = mutating_drive_vault_args([Path(__file__)])
 
     # (i) SPELLING. A drive passing `lint_vault.DEFAULT_VAULT`, a literal or an
@@ -313,6 +322,17 @@ def _check_the_four_containment_clauses():
     assert {n[2] for n in scan.live_path_names} == LIVE_PATH_TOKENS, (
         "the door must exercise all three token shapes, so the clause's green "
         "is a statement about a matcher that reaches every one of them")
+
+    # (v) LIBRARY (WI-031). Clause (iv) grades what this module SPELLS, and the
+    # library's own environment fallback lets a repository obtain the live path
+    # unspelled — `repo = PersonRepository()` names no token at all. ZERO
+    # constructions, with any arguments, in any scope INCLUDING the door's own
+    # body: this module needs no repository. Non-vacuity of the matcher is
+    # proved by the fixture battery below, never by this module's own zero.
+    constructed = sorted(scan.repository_constructions)
+    assert not constructed, (
+        f"this module constructs an obsidian_schemas repository, which resolves "
+        f"the live vault from the environment inside the library: {constructed}")
 
 
 def _raises(fn, *args):
@@ -500,6 +520,67 @@ def _check_the_source_census_reaches_its_claimed_shapes(root):
     # NON-VACUITY: a module naming none of the three tokens must make the wall
     # RED for emptiness rather than green.
     assert not scan("source_empty", "x = 1\n").live_path_names
+
+
+def _check_the_repository_census_reaches_its_claimed_shapes(root):
+    """WI-031. Every fixture is planted TEXT handed to the predicate, which is
+    why it may legally construct what clause (v) forbids this module."""
+    def scan(name, source):
+        return mutating_drive_vault_args([_plant_source(root, name, source)])
+
+    # THE ESCAPE ITSELF: clauses (i)-(iv) all GREEN — the door is called, the
+    # drive is spelled `vault`, and no live-path token appears anywhere — while
+    # the library hands `read_vault` the live vault. Only clause (v) is RED.
+    escape = scan("repo_escape", (
+        "vault = _temp_vault(tmp)\n"
+        "repo = PersonRepository()\n"
+        "issues = lint_vault.check_noise("
+        "lint_vault.read_vault(repo.vault_path), idx)\n"
+        "lint_vault.apply_fixes(issues, vault)\n"
+    ))
+    assert {b[3] for b in escape.bindings} == {"_temp_vault"}
+    assert {t[2] for t in escape.drives} == {"vault"}
+    assert not escape.live_path_names, (
+        "the escape must spell NO live-path token — that is what makes clause "
+        "(v) load-bearing rather than a restatement of clause (iv)")
+    assert [(n[1], n[2], n[3]) for n in sorted(escape.repository_constructions)] == [
+        (2, "PersonRepository", MODULE_LEVEL)]
+
+    # Both spellings, ANY arguments, and NO exemption for the door's own body —
+    # an explicit-path construction is graded the same, because the rule is
+    # zero rather than "no no-arg form" (`_is_unconfigured` swallows blank,
+    # whitespace and "." too).
+    claimed = scan("repo_claimed", (
+        "a = PersonRepository()\n"
+        "b = obsidian_schemas.CompanyRepository('/x')\n"
+        "c = MeetingRepository(vault_path=tmp)\n"
+        "def _temp_vault(tmp):\n"
+        "    return BookRepository(tmp)\n"
+    ))
+    assert {(n[1], n[2], n[3]) for n in claimed.repository_constructions} == {
+        (1, "PersonRepository", MODULE_LEVEL),
+        (2, "CompanyRepository", MODULE_LEVEL),
+        (3, "MeetingRepository", MODULE_LEVEL),
+        (5, "BookRepository", "_temp_vault"),
+    }
+
+    # The NEAR-MISSES, which stop clause (v) being satisfiable by matching every
+    # name with "repository" in it: the suffix is matched on the CALLEE, in
+    # case, and a Constant, a bare name, a lower-case helper, a class whose name
+    # merely contains the word and a method call on a repository-shaped object
+    # are all invisible.
+    quiet = scan("repo_nearmiss", (
+        "repository = 1\n"
+        'x = "PersonRepository()"\n'
+        "y = get_repository(tmp)\n"
+        "z = RepositoryError('x')\n"
+        "w = PersonRepositoryFactory()\n"
+        "v = repo.get_by_email(x)\n"
+        '"""A docstring mentioning PersonRepository() in running prose."""\n'
+    ))
+    assert not quiet.repository_constructions, (
+        f"the repository census matched a near-miss: "
+        f"{sorted(quiet.repository_constructions)}")
 
 
 def _plant_source(root, name, source):

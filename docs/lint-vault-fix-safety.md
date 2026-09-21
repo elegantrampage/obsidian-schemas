@@ -3618,6 +3618,17 @@ is recorded, exactly as the entry run was — no filenames, no note bytes, no ab
   same variable. Until the ruling lands, this residue is DECLARED and not closed, and no gate should
   read it as covered by the deliberate-act bound above.
 
+  **CLOSED — 2026-09-21, by WI-031 (`docs/lint-vault-wall-third-source.md`), on Dave's ruling of
+  2026-09-16.** The ruling ("ZERO repository constructions anywhere in the module") was given in the
+  revise-cap round-5 answer note and did not reach the seventh spec-writer pass as an instruction, so
+  this item shipped with the residue declared; WI-031 lands it by hand at the cost this paragraph
+  stated: a fourth census in `tests/derivations.py:mutating_drive_vault_args`
+  (`VaultArgScan.repository_constructions`, callee names ending `Repository`, both spellings, any
+  arguments, no exemption for `_temp_vault`'s body) graded as clause (v) inside the ONE wall check,
+  with its own WI-235 fixture battery. No new check, no fifth derivation, no count moved. Every
+  surface above that reads the residue as OPEN is dated and superseded by this paragraph; the
+  deliberate-act bound is unchanged.
+
 **Unchanged files — the builder should not touch these.** Everything under `obsidian_schemas/**`
 (the package gains nothing and loses nothing; `SKIP_REASONS` is IMPORTED, never extended);
 `tests/fixtures/vault/**` and `tests/fixture_vault.py` (the corpus is byte-frozen behind
