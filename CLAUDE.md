@@ -43,6 +43,7 @@ vips = repo.get_by_role("vip")
 | `obsidian_schemas/phone_normalization.py` | `normalize_phone`/`phones_match` leaf (WI-021 relocation; `repositories/person.py` re-exports both for consumers) |
 | `obsidian_schemas/name_cleaning.py` | clean_person_name (WI-117) |
 | `obsidian_schemas/body_sections.py` | Markdown body section parse/write, To-Discuss items |
+| `scripts/lint_vault.py` + `tests/test_lint_vault_fix_rules.py` | The vault linter and its WI-026 floor (shipped 2026-09-16): every auto-fixable rule repairs to a declared oracle against the fixture corpus, the seven write-causing detectors are pinned both ways, an undecodable note is reported/indexed/never written, `--fix` prints a four-bucket per-issue accounting, and a containment wall (`tests/derivations.py:mutating_drive_vault_args`) proves the module drives only a temp vault. Live bracket: `docs/lint-vault-live-baseline.md` (entry 2026-09-10, exit 2026-09-21). Known open residue: WI-031 |
 
 ## Installation
 
@@ -60,11 +61,11 @@ pip install -e /Users/davewascha/Workspaces/obsidian-schemas
     /Users/davewascha/Workspaces/obsidian-schemas/tests -q
 ```
 
-Hermetic, ~10s (WI-016's fixture-vault battery makes six foreign-interpreter subprocess runs per floor). Baseline: run the floor command to check the current count — never trust a number
+Hermetic, ~15s (WI-016's fixture-vault battery makes six foreign-interpreter subprocess runs per floor; WI-026 added a seventh check module with its own re-exec). Baseline: run the floor command to check the current count — never trust a number
 written here (2026-07-24 conductor note: the hardcoded "607 passed" baseline was drift-prone; WI-020's
 build raises the count substantially). The invariant is DIRECTIONAL: a drive that lands fewer cases
 than the previous run without explanation has silently lost a test file. Last verified-by-hand
-anchors, for archaeology only: 563 (pre-WI-024), 607 (2026-07-19 post-WI-024).
+anchors, for archaeology only: 563 (pre-WI-024), 607 (2026-07-19 post-WI-024), 689 (2026-09-16 post-WI-026).
 
 **Loud-fail API (WI-020; WI-021 adds `NameGateRefusal`):** `obsidian_schemas/errors.py` is one
 hierarchy rooted at `LoudFailError` (a `ValueError`). Never trust a member COUNT written here — it

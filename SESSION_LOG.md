@@ -1,5 +1,56 @@
 # Session Log
 
+## 2026-09-15 → 09-21 — WI-026 SHIPPED idea→done on the porter; the exit bracket filled; WI-031 minted
+
+### WI-026 (lint_vault --fix safety) — five Dave rulings, six spec-review rounds, one dark build
+
+All five human doors were Dave's own in-session word, each answered + signed + committed + pushed and
+then left to the launchd porter (never hand-launched):
+- **D4a** `wi-026 acs approved` → `originate --from-escalation` (ac_hash `03777fa0e132`), commit `09ebc1c`.
+- **D4b** `confirmed` after the spec-writer's data-premise pass corrected AC-2(a) (set → per-pair COUNT;
+  the corpus fires `meeting_missing_from_timeline` 8 times over 5 notes) and AC-5(a)/(b)/(c)/(d)
+  (measured vs derived sections, sign-pinned census tolerance + delta equality, stdout-fence privacy
+  scope, presence-never-emptiness for §4) → `confirm --sign` (ac_hash `973d7a08f068`; AC-1/3/4 hashes
+  unchanged), commit `db6ec23`. That signature held to `done`.
+- **Revise-cap ×3** (spec-reviewer REVISE rounds 3, 4, 5 — the containment-wall ladder M3 → bindings →
+  M5/M6 (entry point `main`, subprocess re-entry) → M7/M8 (`quarantine_garbage` is the fourth mutating
+  entry point; `apply_fixes` ignores its vault argument, writes go to `issue.file_path`) → the library's
+  own `OBSIDIAN_VAULT_PATH` fallback as a THIRD source). Each answered "one more round" on Dave's
+  "proceed" (`eba1aeb`, `31fd3c0`, `d27f36d`), the notes carrying his rulings: close the family at the
+  omission level (round 3); M8 the terminal instrument (round 4); CLOSE the third source + retire
+  totality language document-wide (round 5). Threat-model rounds honoured the escalate-not-fold clause
+  (eight fences, never nine).
+- **Round 6** (2026-09-16): spec-reviewer PROMOTE + injection-hunter PROMOTE → `ready` → build →
+  code-reviewer PROMOTE (round 2, after a D5 module-placement REVISE) + test-observability PROMOTE →
+  **`done` 2026-09-16 20:08**, retrospective written. Floor **681 → 689**. Shipped: `scripts/lint_vault.py`
+  (+296: `read_error` path with `SKIP_REASONS.UNREADABLE`, unreadable notes kept in the index,
+  four-bucket per-issue accounting, unconditional summary line), `tests/test_lint_vault_fix_rules.py`
+  (new; the eight checks incl. the containment wall), `tests/derivations.py` (+426: emitter/branch
+  scans, `mutating_drive_vault_args`), small edits to five test modules. The porter drove the ship DARK
+  and left it uncommitted on the live tree for five days — committed at this wrap-up.
+
+**The ruling that did not land.** Dave's round-5 ruling "CLOSE the third source" went into the
+revise-cap answer note; the round-6 spec-writer pass recorded the question as OPEN with its owner
+("sufficiency is not the spec-writer's to call in either direction"), spec-review round 6 PROMOTEd on
+that basis, and the item shipped with the residue declared, not closed. The shipped module constructs
+no repository, so HEAD carries no live hazard; the wall just does not forbid it. Minted **WI-031**
+(`docs/lint-vault-wall-third-source.md`) carrying the ruling and the spec's own costing (one more
+CLOSED census shape, existing clause (iv), zero constructions). Factory gap to report to workshop: an
+answer note's ruling is not an instruction the resumed spec-writer acts on — rulings that must land
+in the doc need a hand edit to the worktree (or a `set-involvement`-style door), not a note.
+
+**Exit bracket filled** (`docs/lint-vault-live-baseline.md` §4, 2026-09-21 07:03 BST, `--report`/`-q`
+only): 3,952 → 3,987 files, 4,764 → 4,826 issues, auto-fixable 1,169 → 1,193, undecodable 0 → 0 —
+no stem-keyed delta attributable to the build; all movement is eleven days of drift. AC-5(b)'s sign
+rule holds on the exit side. Ships in the same commit as the build (the handoff's "before the ship
+commit" condition met, since the porter never committed).
+
+Retrospective flags carried forward (not ours to fix here): no demo section exists between the
+round-2 gates and `done`; the M5–M8 arc is a candidate threat-model-role checklist ("enumerate every
+route a live-path string can reach a write before declaring containment total").
+
+---
+
 ## 2026-09-13 / 09-15 — wrap-up and handoff for a context clear
 
 Wrap-up 2026-09-13: CLAUDE.md synced to the week's ships (floor ~10s since WI-016, one email authority
