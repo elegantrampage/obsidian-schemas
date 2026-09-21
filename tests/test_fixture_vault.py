@@ -45,6 +45,7 @@ from tests import fixture_vault
 from tests import support
 from tests.derivations import (
     PACKAGE_ROOT,
+    SCRIPTS_ROOT,
     TESTS_ROOT,
     python_files_under,
     skip_reason_literal_sites,
@@ -160,6 +161,57 @@ def census_meta(text=None):
     if missing:
         raise AssertionError(f"census-meta is missing {sorted(missing)}")
     return row
+
+
+def census_auto_fixable_rows(text=None, *, categories):
+    """The census's plain markdown auto-fixable table as `{message_shape: count}`
+    — the FIFTH reader, beside the four `census-*` fence parsers above and
+    riding the same whole-file `CENSUS_DIGEST` fixity (WI-026 Design §9).
+
+    The four readers above are all FENCE parsers and none of them reaches the
+    five-row table at `docs/vault-shape-census.md:275-281`. The KEY is the
+    message shape with a TRAILING parenthetical STRIPPED IFF its content is a
+    member of `categories` — so `(structural)`, `(timeline)` and `(links)` come
+    off while the two shape-internal parentheses (`(suggest: '…')`,
+    `(fixable → [[…]])`) stay part of the key. The stripped category is
+    DISCARDED and never joined on: the census annotates the `Empty name` row
+    `(structural)` while that emitter's own category is `"completeness"`, so a
+    mapping keyed on the parenthetical mis-joins one row in five.
+
+    `categories` is a REQUIRED KEYWORD and has no default on purpose. The
+    vocabulary is `scripts/lint_vault.py:CATEGORY_ORDER`, which must be read off
+    the LOADED script module rather than re-spelled — and this module has no
+    `lint_vault` loader, nor may it mint one. So the caller that already holds
+    the loaded module passes it in; a default here would be exactly the
+    re-spelling AC-5(b) forbids. See the work item's Build Log D5.
+
+    Raises on a non-integer count or a duplicate shape, exactly as
+    `census_class_rows` does.
+    """
+    text = CENSUS.read_text(encoding="utf-8") if text is None else text
+    rows = {}
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("|"):
+            continue
+        cells = [c.strip() for c in stripped.strip("|").split("|")]
+        if len(cells) != 2 or set(cells[1]) <= set("-: "):
+            continue
+        match = re.match(r"^`(.+?)`(?:\s*\(([^()]*)\))?$", cells[0])
+        if match is None:
+            continue
+        shape, category = match.group(1), match.group(2)
+        if category is not None and category not in categories:
+            shape = f"{shape} ({category})"
+        try:
+            count = int(cells[1].replace(",", "").strip())
+        except ValueError:
+            raise AssertionError(
+                f"non-integer census count for {shape!r}: {cells[1]!r}")
+        if shape in rows:
+            raise AssertionError(f"duplicate census shape: {shape!r}")
+        rows[shape] = count
+    return rows
 
 
 def declared_census_digest(doc=None):
@@ -505,8 +557,22 @@ def test_skip_reason_declaration_binds_to_its_functions_returns():
     # The LIVE set equality (Task 11): the vocabulary has exactly two legal
     # homes, and a fifth hand-typed site anywhere under the package or the suite
     # is RED with the file named. Its remedy is one import.
-    homes = skip_reason_literal_sites(
-        python_files_under(PACKAGE_ROOT, TESTS_ROOT), SKIP_REASONS)
+    #
+    # WI-026 widens the UNIVERSE to reach `scripts/` and holds the expected set
+    # at exactly TWO. The direction is the whole point: the derivation reports a
+    # file IFF one of its parsed Constants EQUALS a member, so an `import` and a
+    # `SKIP_REASONS.UNREADABLE` access contribute nothing — a CORRECTLY-written
+    # `scripts/lint_vault.py` is ABSENT from the reported set, and adding its
+    # path to this expected set would be greenable only by hand-typing
+    # `"unreadable"` in the script, which is the exact drift this wall exists to
+    # forbid.
+    universe = python_files_under(PACKAGE_ROOT, TESTS_ROOT, SCRIPTS_ROOT)
+    # NON-VACUITY first: a universe widened to a mistyped root is green for the
+    # wrong reason.
+    assert "scripts/lint_vault.py" in {
+        p.relative_to(PACKAGE_ROOT.parent).as_posix() for p in universe
+    }, "the widened universe does not actually reach scripts/lint_vault.py"
+    homes = skip_reason_literal_sites(universe, SKIP_REASONS)
     assert homes == {
         "obsidian_schemas/repositories/base.py",
         "tests/test_fixture_vault.py",
@@ -1299,7 +1365,15 @@ def test_the_fixture_vault_files_close_their_wall_memberships_by_running_each_pr
         _scanned_markdown_files,
     )
 
-    universe = python_files_under(PACKAGE_ROOT, TESTS_ROOT)
+    # WI-026 widens this local at BOTH of its call sites — editing one and not
+    # the other leaves a half-extended wall that reads green. The two walls
+    # below SHARE it, and the widening STRENGTHENS both: `scripts/` uses `ast`
+    # nowhere and hand-types no `SKIP_REASONS` member, so each answer is
+    # unchanged with two more files in scope.
+    universe = python_files_under(PACKAGE_ROOT, TESTS_ROOT, SCRIPTS_ROOT)
+    assert "scripts/lint_vault.py" in {
+        p.relative_to(PACKAGE_ROOT.parent).as_posix() for p in universe
+    }, "the widened universe does not actually reach scripts/lint_vault.py"
 
     # W-1 AND W-2 in ONE call: W-2's row is the IDENTICAL live assertion re-run
     # from a second module, and re-typing it here would be the
@@ -1312,6 +1386,9 @@ def test_the_fixture_vault_files_close_their_wall_memberships_by_running_each_pr
         f"module; found {sorted(homes)}")
 
     # W-15, minted by this item: set EQUALITY over the vocabulary's legal homes.
+    # The expected set stays at TWO with `scripts/` inside the universe — which
+    # is the statement that actually proves the script IMPORTS the reason rather
+    # than transcribing it (WI-026 AC-3(a)).
     assert skip_reason_literal_sites(universe, SKIP_REASONS) == {
         "obsidian_schemas/repositories/base.py",
         "tests/test_fixture_vault.py",

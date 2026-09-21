@@ -272,7 +272,7 @@ def _check_the_d8_sweep_is_derived():
             # RECORDED, not raised — and the run continues.
             assert len(outcome.refused) == 1, record.branch_id
             assert outcome.refused[0].pattern == record.pattern, record.branch_id
-            assert outcome.fixed == 0, record.branch_id
+            assert outcome.repaired == 0, record.branch_id
             # Conjunct 2: the target is byte-identical afterwards.
             assert note.read_bytes() == before, record.branch_id
             assert "Name gate refused" in captured.getvalue()

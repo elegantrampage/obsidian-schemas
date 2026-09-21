@@ -46,6 +46,12 @@ from obsidian_schemas.parser import parse_frontmatter
 from obsidian_schemas.writer import update_frontmatter_fields
 from obsidian_schemas.errors import NameGateRefusal, NoteAlreadyExists
 from obsidian_schemas.name_gate import gate_write
+# WI-026 (M1): the skip vocabulary is WI-020's and is IMPORTED, never spelled.
+# `tests/derivations.py:skip_reason_literal_sites` reports a file iff one of its
+# parsed `ast.Constant` nodes equals a vocabulary member, and WI-026 widens that
+# wall's universe to reach `scripts/` — so a hand-typed reason here is the one
+# edit that reddens it.
+from obsidian_schemas.repositories.base import UNREADABLE
 # Module attribute call form throughout (WI-004 D7).
 from obsidian_schemas import vault_io
 
@@ -95,6 +101,11 @@ class VaultFile:
     is_at_prefixed: bool
     raw_content: str
     parse_error: Optional[str] = None
+    # WI-026: a note whose BYTES would not decode. Sibling to `parse_error` and
+    # never both — the decode and the parse are two different failures with two
+    # different `SKIP_REASONS` members. LAST, so every positional construction
+    # in this file keeps working.
+    read_error: Optional[str] = None    # a SKIP_REASONS member, or None
 
 
 # ---------------------------------------------------------------------------
@@ -115,6 +126,30 @@ def read_vault(vault_path: Path) -> list[VaultFile]:
         try:
             raw = md.read_text(encoding="utf-8")
         except Exception:
+            # WI-026 (VD-1, M1): the BYTES are unrecoverable; the FILENAME is
+            # not, and discarding it here is what made five stem-keyed checks
+            # report phantom breakage about healthy notes. So the failure is
+            # RECORDED on a VaultFile that carries the stem and nothing else,
+            # and `build_indexes` needs no change at all.
+            #
+            # The recorded value is the IMPORTED vocabulary member and never
+            # `str(exc)` — an undecodable note's bytes are never decoded, never
+            # rendered into an issue message and never stored in any record
+            # (`obsidian_schemas/errors.py:chainable_cause` suppresses
+            # `UnicodeDecodeError`'s rendering one frame further in, for this
+            # same reason).
+            files.append(
+                VaultFile(
+                    path=md,
+                    stem=md.stem,
+                    frontmatter={},
+                    body="",
+                    entity_type="",
+                    is_at_prefixed=md.stem.startswith("@"),
+                    raw_content="",
+                    read_error=UNREADABLE,
+                )
+            )
             continue
 
         stem = md.stem
@@ -293,6 +328,25 @@ def classify_person_tier(vf: VaultFile) -> str:
 def check_structural(files: list[VaultFile], idx: dict) -> list[LintIssue]:
     issues: list[LintIssue] = []
     for vf in files:
+        # read_error (WI-026) — FIRST in the loop body, above the parse_error
+        # arm, because a `read_error` file carries `{}` frontmatter and its own
+        # `@`-prefixed stem and would otherwise land on `no_frontmatter` below.
+        # Structural triage owns that decision; falsifying `is_at_prefixed`
+        # would be a lie about the filename to make one branch quiet.
+        #
+        # `auto_fixable` stays at its False default, so the note never enters
+        # `apply_fixes` and sits OUTSIDE the four-bucket partition by
+        # construction — it is counted by the summary line's FIFTH figure.
+        if vf.read_error:
+            issues.append(
+                LintIssue(
+                    vf.path, "unreadable_note", Severity.ERROR,
+                    f"Could not read note bytes: {vf.read_error}",
+                    "structural",
+                )
+            )
+            continue
+
         # parse_error
         if vf.parse_error:
             issues.append(
@@ -369,7 +423,7 @@ def check_completeness(files: list[VaultFile], idx: dict) -> list[LintIssue]:
     issues: list[LintIssue] = []
 
     for vf in files:
-        if vf.parse_error:
+        if vf.parse_error or vf.read_error:
             continue
 
         if vf.entity_type == "person":
@@ -452,7 +506,7 @@ def check_links(files: list[VaultFile], idx: dict) -> list[LintIssue]:
     companies = idx["companies"]
 
     for vf in files:
-        if vf.parse_error:
+        if vf.parse_error or vf.read_error:
             continue
 
         # person_company_not_found
@@ -568,6 +622,12 @@ def check_links(files: list[VaultFile], idx: dict) -> list[LintIssue]:
 
 
 def check_timeline(files: list[VaultFile], idx: dict) -> list[LintIssue]:
+    # NO `or vf.read_error` GUARD HERE, unlike its three sibling walks
+    # (`check_completeness`, `check_links`, `check_noise`): this check never
+    # iterates `files` at all — it walks `idx["meetings"]` and `idx["persons"]`,
+    # and a `read_error` VaultFile keeps `entity_type == ""` so `build_indexes`
+    # admits it to neither index. The declines belong where a file-walk could
+    # reach an undecoded note; this one cannot.
     issues: list[LintIssue] = []
     meetings = idx["meetings"]
     persons = idx["persons"]
@@ -667,7 +727,7 @@ def check_noise(files: list[VaultFile], idx: dict) -> list[LintIssue]:
     companies = idx["companies"]
 
     for vf in files:
-        if vf.parse_error:
+        if vf.parse_error or vf.read_error:
             continue
 
         # garbage_candidate_person — stub person
@@ -817,17 +877,87 @@ class NameGateRefusalRecord(NamedTuple):
     pattern: Optional[str]
 
 
-class FixOutcome(NamedTuple):
-    """What a `--fix` pass did: what it repaired, and what it declined."""
+class FixErrorRecord(NamedTuple):
+    """One ISSUE an IO/parse failure prevented `--fix` from deciding (WI-026).
 
-    fixed: int
-    refused: tuple
+    `reason` is the exception's CLASS NAME and never `str(exc)` — the same
+    bounded-message contract `NameGateRefusalRecord` states above, for the same
+    reason: this walks the whole vault and its counts land in an operator-facing
+    summary that gets pasted into chat.
+    """
+
+    path: Path
+    reason: str      # `type(exc).__name__` — NEVER `str(exc)`, never note bytes
+
+
+class FixDeclineRecord(NamedTuple):
+    """One ISSUE whose repair branch was reached and whose own guard declined.
+
+    The state `FixOutcome` could not represent before WI-026: no raise, no
+    record, no count, and indistinguishable in every channel the tool has from a
+    clean repair. `guard` is a `DECLINE_GUARDS` member, so "declined 315"
+    resolves to a guard an operator can act on.
+    """
+
+    path: Path
+    check: str       # the issue's own `LintIssue.check` id
+    guard: str       # a member of DECLINE_GUARDS
+
+
+# The five decline sites inside `apply_fixes`, one id each. A CLOSED vocabulary
+# so the check module reads it instead of re-spelling it — and disjoint from
+# `SKIP_REASONS` by assertion, so a future guard id cannot silently join the
+# vocabulary the skip-reason wall polices.
+GUARD_AUTO_CREATED_NOT_A_STRING = "auto-created-not-a-string"
+GUARD_NO_EXPECTED_SECTIONS = "no-expected-sections"
+GUARD_NO_MEETING_INDEX = "no-meeting-index"
+GUARD_UNPARSABLE_SUGGESTED_FIX = "unparsable-suggested-fix"
+GUARD_LINK_TEXT_ABSENT = "link-text-absent"
+
+DECLINE_GUARDS = frozenset({
+    GUARD_AUTO_CREATED_NOT_A_STRING,
+    GUARD_NO_EXPECTED_SECTIONS,
+    GUARD_NO_MEETING_INDEX,
+    GUARD_UNPARSABLE_SUGGESTED_FIX,
+    GUARD_LINK_TEXT_ABSENT,
+})
+
+
+class FixOutcome(NamedTuple):
+    """What a `--fix` pass did to every auto-fixable ISSUE it was handed.
+
+    A PARTITION over four buckets, per ISSUE and never per file: the counts sum
+    to the number of auto-fixable issues handed in, and the four sets are
+    pairwise disjoint by issue identity. Three buckets over a four-state space
+    is not a partition, and the state left out (`declined`) is the only one that
+    produces no output at all.
+    """
+
+    repaired: int
+    refused: tuple      # tuple[NameGateRefusalRecord, ...], ONE PER ISSUE
+    errored: tuple      # tuple[FixErrorRecord, ...],        ONE PER ISSUE
+    declined: tuple     # tuple[FixDeclineRecord, ...],      ONE PER ISSUE
+
+
+def _release(undecided: list, done: list) -> list:
+    """`undecided` minus `done`, BY IDENTITY rather than by equality.
+
+    `LintIssue` is a plain dataclass, so two issues carrying the same fields
+    compare equal — and a file can legitimately hold two of them (two
+    `broken_wikilink` issues naming the same target, the Edge Cases' own case).
+    An equality-based removal would drop the wrong one and quietly unbalance
+    the partition.
+    """
+    marked = {id(issue) for issue in done}
+    return [issue for issue in undecided if id(issue) not in marked]
 
 
 def apply_fixes(issues: list[LintIssue], vault_path: Path,
                 idx: Optional[dict] = None) -> FixOutcome:
-    fixed = 0
+    repaired = 0
     refused: list[NameGateRefusalRecord] = []
+    errored: list[FixErrorRecord] = []
+    declined: list[FixDeclineRecord] = []
     # Group by file to batch fixes
     by_file: dict[Path, list[LintIssue]] = defaultdict(list)
     for issue in issues:
@@ -837,6 +967,14 @@ def apply_fixes(issues: list[LintIssue], vault_path: Path,
     meetings = idx.get("meetings", {}) if idx else {}
 
     for fpath, file_issues in by_file.items():
+        # WI-026 §4 — the disposition rule, total over the input. Every issue on
+        # this file starts UNDECIDED and leaves exactly once: at its own branch
+        # guard (`declined`), at the commit point of the write carrying it
+        # (`repaired`), or in one of the two handlers below while still
+        # undecided (`refused` / `errored`).
+        undecided: list[LintIssue] = list(file_issues)
+        staged_first: list[LintIssue] = []      # repairs riding the FIRST write
+        staged_wikilink: list[LintIssue] = []   # repairs riding the SECOND write
         try:
             # WI-021: the existence guard its three siblings already carry,
             # statement for statement. A read-only `Path.exists` probe and
@@ -875,14 +1013,15 @@ def apply_fixes(issues: list[LintIssue], vault_path: Path,
                 # path-derived name is Tier-1 dirty is REFUSED, recorded, and
                 # the run continues.
                 delta: dict[str, Any] = {}
-                # Tallied LOCALLY and folded into the run's total only
-                # AFTER the gate has spoken. Incrementing the running
-                # counter inside the branches reported a repair that the
-                # refusal then prevented from ever being committed.
-                file_fixed = 0
+                # WI-026: the per-file `file_fixed` counter is GONE, and
+                # `staged_first` replaces it. The list IS the counter, and a
+                # repair is credited by the issues riding a write rather than by
+                # a number incremented before that write exists.
 
-                # Collect wikilink replacements (applied on raw content)
-                wikilink_replacements: list[tuple[str, str]] = []
+                # Collect wikilink replacements (applied on raw content). The
+                # ISSUE is the tuple's first element so the second stage can
+                # name the issue it decides.
+                wikilink_replacements: list[tuple[LintIssue, str, str]] = []
 
                 for issue in file_issues:
                     if issue.check == "field_type_mismatch":
@@ -891,14 +1030,21 @@ def apply_fixes(issues: list[LintIssue], vault_path: Path,
                             fm["auto_created"] = raw.lower() in ("true", "yes", "1")
                             delta["auto_created"] = fm["auto_created"]
                             changed = True
-                            file_fixed += 1
+                            staged_first.append(issue)
+                        else:
+                            declined.append(FixDeclineRecord(
+                                fpath, issue.check,
+                                GUARD_AUTO_CREATED_NOT_A_STRING))
+                            undecided = _release(undecided, [issue])
 
                     elif issue.check == "person_missing_name":
+                        # NO guard: this branch always acts, which is why it has
+                        # no DECLINE_GUARDS member and why §4's rule is total.
                         name = fpath.stem.lstrip("@")
                         fm["name"] = name
                         delta["name"] = name
                         changed = True
-                        file_fixed += 1
+                        staged_first.append(issue)
 
                     elif issue.check == "missing_body_sections":
                         etype = fm.get("type", "")
@@ -906,7 +1052,11 @@ def apply_fixes(issues: list[LintIssue], vault_path: Path,
                         if expected:
                             body = ensure_sections_exist(body, expected)
                             changed = True
-                            file_fixed += 1
+                            staged_first.append(issue)
+                        else:
+                            declined.append(FixDeclineRecord(
+                                fpath, issue.check, GUARD_NO_EXPECTED_SECTIONS))
+                            undecided = _release(undecided, [issue])
 
                     elif issue.check == "meeting_missing_from_timeline":
                         mstem = issue.suggested_fix  # meeting stem
@@ -924,16 +1074,26 @@ def apply_fixes(issues: list[LintIssue], vault_path: Path,
 
                             body = write_body_sections(sections)
                             changed = True
-                            file_fixed += 1
+                            staged_first.append(issue)
+                        else:
+                            # EVERY such issue, whenever the caller takes
+                            # `idx`'s own signature default.
+                            declined.append(FixDeclineRecord(
+                                fpath, issue.check, GUARD_NO_MEETING_INDEX))
+                            undecided = _release(undecided, [issue])
 
                     elif issue.check == "broken_wikilink":
                         try:
                             fix_data = json.loads(issue.suggested_fix)
                             old_link = fix_data["old"]
                             new_link = fix_data["new"]
-                            wikilink_replacements.append((old_link, new_link))
+                            wikilink_replacements.append(
+                                (issue, old_link, new_link))
                         except (json.JSONDecodeError, KeyError):
-                            pass
+                            declined.append(FixDeclineRecord(
+                                fpath, issue.check,
+                                GUARD_UNPARSABLE_SUGGESTED_FIX))
+                            undecided = _release(undecided, [issue])
 
                 # WI-021 (D8) — the gate, UNCONDITIONAL within this frame so it
                 # is reached on every path that reaches the serialization, and
@@ -946,7 +1106,14 @@ def apply_fixes(issues: list[LintIssue], vault_path: Path,
                 # wall's derived set.
                 fm.update(gate_write(delta, declared_type=fm.get("type"),
                                      whole_record=False))
-                fixed += file_fixed
+                # WI-026 (M4): the `fixed += file_fixed` fold that stood here is
+                # DELETED OUTRIGHT and is NOT moved to the end of the lock
+                # block. Both ends are wrong and each is wrong in a different
+                # direction: crediting HERE reports a repair the write at the
+                # next statement may never commit, and folding ONCE at the end
+                # of the block reports a COMMITTED repair as `errored` when the
+                # SECOND write raises past it. An issue is credited at the point
+                # ITS OWN write commits — the two statements below.
 
                 if changed:
                     # Write the full file with updated frontmatter + body
@@ -955,13 +1122,17 @@ def apply_fixes(issues: list[LintIssue], vault_path: Path,
                     yaml_str = _wfm(fm)
                     content = f"---\n{yaml_str}---\n{body}"
                     vault_io.write_note(fpath, content, precondition=_stamp)
+                    # CREDIT POINT 1 — reached only once `write_note` RETURNED.
+                    repaired += len(staged_first)
+                    undecided = _release(undecided, staged_first)
 
                 # Apply wikilink replacements on the current file content
                 if wikilink_replacements:
                     content, _stamp = vault_io.read_note(fpath)
                     wl_changed = False
-                    for old_link, new_link in wikilink_replacements:
+                    for issue, old_link, new_link in wikilink_replacements:
                         # Replace both [[old]] and [[old|alias]] forms
+                        replaced = False
                         for old_pat, new_pat in [
                             (f"[[{old_link}]]", f"[[{new_link}]]"),
                             (f"[[{old_link}|", f"[[{new_link}|"),
@@ -969,10 +1140,23 @@ def apply_fixes(issues: list[LintIssue], vault_path: Path,
                             if old_pat in content:
                                 content = content.replace(old_pat, new_pat)
                                 wl_changed = True
-                                fixed += 1
-                                break  # only count once per replacement pair
+                                replaced = True
+                                break  # only stage once per replacement pair
+                        if replaced:
+                            staged_wikilink.append(issue)
+                        else:
+                            # Neither `[[old]]` nor `[[old|` is in this file —
+                            # the repair was computed and then quietly not
+                            # applied. It is a DECLINE with a guard id, never a
+                            # silent nothing.
+                            declined.append(FixDeclineRecord(
+                                fpath, issue.check, GUARD_LINK_TEXT_ABSENT))
+                            undecided = _release(undecided, [issue])
                     if wl_changed:
                         vault_io.write_note(fpath, content, precondition=_stamp)
+                        # CREDIT POINT 2 — same rule, second write.
+                        repaired += len(staged_wikilink)
+                        undecided = _release(undecided, staged_wikilink)
 
         except NameGateRefusal as exc:
             # WI-021. ABOVE the broad handler below, and filtering on the EXACT
@@ -988,12 +1172,31 @@ def apply_fixes(issues: list[LintIssue], vault_path: Path,
             # per-file loop, so `except LoudFailError: raise` — one word shorter
             # and matching the sibling doors literally — would turn one refused
             # note into a vault-wide repair outage.
-            refused.append(NameGateRefusalRecord(path=fpath, pattern=exc.pattern))
+            #
+            # WI-026: ONE record PER still-undecided ISSUE — the gate raises
+            # above both credit points, so nothing on this file has been
+            # credited and every non-declined issue on it is still undecided. A
+            # decline that already happened inside the per-issue loop STAYS
+            # `declined`: it contributed nothing to `delta`, so it was not in
+            # the write the gate refused. The PRINT stays exactly one line per
+            # file.
+            for _issue in undecided:
+                refused.append(
+                    NameGateRefusalRecord(path=fpath, pattern=exc.pattern))
             print(f"  Name gate refused {fpath}: {exc.pattern}", file=sys.stderr)
         except Exception as exc:
+            # Same rule, and `undecided` here also covers issues on a file that
+            # raised BEFORE the per-issue loop ran at all (a corrupt fence, the
+            # `FileNotFoundError` guard) — which is what keeps the partition
+            # total. `reason` is the class NAME; the printed line's rendering of
+            # the exception's message is unchanged and pinned elsewhere.
+            for _issue in undecided:
+                errored.append(
+                    FixErrorRecord(path=fpath, reason=type(exc).__name__))
             print(f"  Fix error on {fpath.name}: {exc}", file=sys.stderr)
 
-    return FixOutcome(fixed=fixed, refused=tuple(refused))
+    return FixOutcome(repaired=repaired, refused=tuple(refused),
+                      errored=tuple(errored), declined=tuple(declined))
 
 
 # ---------------------------------------------------------------------------
@@ -1144,6 +1347,26 @@ def quarantine_garbage(
     return moved
 
 
+# WI-026 §5 — the operator's only channel. The record existing is the
+# COMPUTATION; this line is the DELIVERY, and AC-4(d) reads its printed bytes,
+# so the format is a contract rather than a message.
+#
+# The FIFTH label is the IMPORTED vocabulary member and not a hand-typed copy of
+# it, and that is the same rule as `read_vault`'s recorded reason rather than a
+# separate courtesy: the printed word and the recorded reason are the same word,
+# so spelling it here would be the fourth transcription the skip-reason wall
+# exists to refuse — and, with §8's universe widened to reach `scripts/`, it is
+# the one edit that reddens that wall. The printed bytes are unchanged.
+FIX_SUMMARY_LABELS = ("repaired", "refused", "errored", "declined", UNREADABLE)
+
+
+def _format_fix_summary(outcome: FixOutcome, unreadable: int) -> str:
+    figures = (outcome.repaired, len(outcome.refused), len(outcome.errored),
+               len(outcome.declined), unreadable)
+    return "Fix summary: " + ", ".join(
+        f"{label} {value}" for label, value in zip(FIX_SUMMARY_LABELS, figures))
+
+
 def run_lint(
     vault_path: Path,
     categories: Optional[list[str]] = None,
@@ -1158,6 +1381,10 @@ def run_lint(
 
     # Pass 1: read vault
     all_files = read_vault(vault_path)
+    # WI-026 §5 ruling 2: the PRE-fix figure, bound here and BEFORE the post-fix
+    # re-scan below rebinds `all_files`. The line reports the pass whose fixes
+    # it is announcing.
+    unreadable_count = sum(1 for vf in all_files if vf.read_error)
 
     # Build indexes from ALL files (needed for link resolution)
     idx = build_indexes(all_files)
@@ -1190,13 +1417,16 @@ def run_lint(
     # Fix, then re-scan to show post-fix state
     if do_fix:
         fixable = [i for i in all_issues if i.auto_fixable]
+        outcome = (apply_fixes(fixable, vault_path, idx) if fixable
+                   else FixOutcome(0, (), (), ()))
+        # WI-026 §5 ruling 1: UNCONDITIONAL under `--fix`. The old else-arm said
+        # "No auto-fixable issues found." — so the figure an operator most needs
+        # on a bad run (`unreadable`) was absent exactly when nothing was
+        # fixable. ONE parseable line; "Re-scanning..." is its own print
+        # (ruling 3).
+        print(_format_fix_summary(outcome, unreadable_count))
         if fixable:
-            outcome = apply_fixes(fixable, vault_path, idx)
-            # WI-021: the refusal count sits beside the fixed count, so a note
-            # the semantic gate declined is visible to the operator rather than
-            # silently absent from the repaired set.
-            print(f"Fixed {outcome.fixed} issues, "
-                  f"refused {len(outcome.refused)}. Re-scanning...\n")
+            print("Re-scanning...\n")
             # Re-scan to report post-fix state
             all_files = read_vault(vault_path)
             idx = build_indexes(all_files)
@@ -1210,8 +1440,6 @@ def run_lint(
                 all_issues.extend(fn(files, idx))
             if min_severity:
                 all_issues = [i for i in all_issues if i.severity.rank <= min_severity.rank]
-        else:
-            print("No auto-fixable issues found.")
 
     # Quarantine garbage candidates
     if do_quarantine:

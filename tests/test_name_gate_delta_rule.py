@@ -200,7 +200,7 @@ def _check_lint_vault_can_still_repair_a_dirty_note(vault: Path):
         outcome = lint_vault.apply_fixes([issue], vault)
 
     assert outcome.refused == (), captured.getvalue()
-    assert outcome.fixed == 1
+    assert outcome.repaired == 1
     frontmatter, _body = parse_frontmatter(note.read_text(encoding="utf-8"))
     assert frontmatter["auto_created"] is True, "the repair committed"
     assert frontmatter["name"] == STORED_DIRTY, "the dirty name is untouched"

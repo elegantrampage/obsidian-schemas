@@ -140,23 +140,36 @@ Figures to fill, each as `entry → exit`:
 
 | figure | entry (this file) | exit |
 |---|---|---|
-| files scanned | 3,952 | |
-| issues total | 4,764 | |
-| auto-fixable total | 1,169 | |
-| `missing_body_sections` | 835 | |
-| `meeting_missing_from_timeline` | 315 | |
-| `field_type_mismatch` | 19 | |
-| `person_missing_name` | 0 | |
-| `broken_wikilink` fixable sub-case | 0 | |
-| `person_company_not_found` | 106 | |
-| `meeting_attendee_not_found` | 151 | |
-| `company_people_link_broken` | 42 | |
-| `broken_wikilink` | 68 | |
-| `orphaned_note` | 1,253 | |
-| paths walked | 3,952 | |
-| undecodable | 0 | |
-| post-build HEAD | — | |
+| files scanned | 3,952 | 3,987 |
+| issues total | 4,764 | 4,826 |
+| auto-fixable total | 1,169 | 1,193 |
+| `missing_body_sections` | 835 | 854 |
+| `meeting_missing_from_timeline` | 315 | 320 |
+| `field_type_mismatch` | 19 | 19 |
+| `person_missing_name` | 0 | 0 |
+| `broken_wikilink` fixable sub-case | 0 | 0 |
+| `person_company_not_found` | 106 | 108 |
+| `meeting_attendee_not_found` | 151 | 151 |
+| `company_people_link_broken` | 42 | 42 |
+| `broken_wikilink` | 68 | 68 |
+| `orphaned_note` | 1,253 | 1,267 |
+| paths walked | 3,952 | 3,987 |
+| undecodable | 0 | 0 |
+| post-build HEAD | — | `d27f36d5c73c0b081587ff92342f3446b39cf9ea` + the WI-026 build in the working tree (this attestation ships in the same commit as the build) |
 
 A moved stem-keyed count is the delta this item exists to make visible; a moved auto-fixable count is
 vault drift between the two runs unless the run dates are the same day. Post-build HEAD SHA, run date and
 the report digest go here too.
+
+**Exit run — conductor-performed, 2026-09-21 07:03 BST**, same vault, same interpreter, same three commands
+verbatim (`-q`, `--report`, the §3 one-liner), `scripts/lint_vault.py` as built by WI-026. Both linter
+runs exited 1 (issues reported). `--report`: stdout 1,399,896 bytes,
+`sha256 = 50ab7c6f4dbb34b99fb484f85c2a04dbe696ece7c9db46731f5be296bb4dd5f3`, stderr empty.
+
+Reading the bracket: `undecodable` is 0 → 0, so the `read_error` path this item added has no live subject
+on either snapshot and NO stem-keyed delta is attributable to the build. Every moved figure is eleven days
+of vault drift, consistent with the +35 files scanned (`person_company_not_found` +2, `orphaned_note` +14,
+`missing_body_sections` +19, `meeting_missing_from_timeline` +5, auto-fixable +24); the three
+link-integrity counts keyed on stems that did not move (`meeting_attendee_not_found`,
+`company_people_link_broken`, `broken_wikilink`) are unchanged. AC-5(b)'s sign rule holds on the exit
+side too: the two zero-count rules are still zero, the three non-zero rules are still non-zero.

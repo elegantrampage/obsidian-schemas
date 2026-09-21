@@ -422,7 +422,7 @@ def _check_the_two_d8_cells_are_vacuous(vault: Path):
         with redirect_stderr(captured):
             outcome = lint_vault.apply_fixes([issue], vault)
 
-    assert outcome.refused == () and outcome.fixed == 1, captured.getvalue()
+    assert outcome.refused == () and outcome.repaired == 1, captured.getvalue()
 
     # (1) The delta the gate ACTUALLY received, captured at the call.
     assert len(seen) == 1

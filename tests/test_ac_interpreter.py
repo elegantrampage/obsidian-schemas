@@ -47,6 +47,12 @@ TESTS_ROOT = ROOT / "tests"
 WORK_ITEM_DOCS = (
     ROOT / "docs" / "write-door-bypasses.md",
     ROOT / "docs" / "identity-engine-endgame.md",
+    # WI-026. All five of its criteria EXECUTE the library, so it joins the wall
+    # that already exists rather than writing a second copy of the loop (which
+    # is what `tests/test_fixture_vault.py:1368-1398` did for WI-016). Disclosed
+    # cost, stated because the wall itself discloses it: five more `-S`
+    # subprocess re-execs on every floor run.
+    ROOT / "docs" / "lint-vault-fix-safety.md",
 )
 
 # The conveyor's child program, byte-for-byte in SHAPE: module path and check name

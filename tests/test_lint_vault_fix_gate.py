@@ -114,7 +114,7 @@ def _check_the_guard_fires_above_the_lock(vault: Path):
         outcome = lint_vault.apply_fixes(
             [_issue(vanished, "person_missing_name")], vault)
 
-    assert outcome.fixed == 0
+    assert outcome.repaired == 0
     assert outcome.refused == ()
     # The existing per-file handler renders the exception's MESSAGE, not its
     # type, so the oracle is built from the message the guard raises and the
@@ -163,7 +163,7 @@ def _check_the_delta_carries_only_the_keys_the_branches_assigned(vault: Path):
             [_issue(named, "field_type_mismatch"),
              _issue(missing, "person_missing_name")], vault)
 
-    assert outcome.fixed == 2 and outcome.refused == ()
+    assert outcome.repaired == 2 and outcome.refused == ()
     assert len(seen) == 2, "one gate call per file, unconditional in the frame"
 
     closed = {"auto_created", "name"}
@@ -198,7 +198,7 @@ def _check_a_refusal_is_recorded_counted_and_the_run_continues(vault: Path):
              _issue(healthy, "person_missing_name")], vault)
 
     assert len(outcome.refused) == 1, "the refusal is COUNTED"
-    assert outcome.fixed == 1, "and the run CONTINUES to the next file"
+    assert outcome.repaired == 1, "and the run CONTINUES to the next file"
     assert "name: Alice Example" in healthy.read_text()
 
     # The refused note is left as it was — no partial repair.
@@ -267,15 +267,29 @@ def _check_the_near_miss_produces_no_refusal_record(vault: Path):
         "hierarchy ROOT would record it as one — and the refusal count would "
         "then be greenable on a build with no gate at this arm at all."
     )
-    assert outcome.fixed == 0
+    assert outcome.repaired == 0
     printed = captured.getvalue()
     assert "Fix error on" in printed
     assert "Name gate refused" not in printed
 
 
 def test_the_fix_outcome_surfaces_both_counts():
-    """The interface change: `apply_fixes` returns a two-field record and the
-    CLI surfaces the refusal count beside the fixed count."""
-    assert lint_vault.FixOutcome._fields == ("fixed", "refused")
+    """The RECORD's shape, and the empty-input return.
+
+    Corrected (WI-026): this check's docstring used to claim "the CLI surfaces
+    the refusal count beside the fixed count", which its body has never looked
+    at — it reads `_fields` and an empty-input probe and nothing printed. The
+    CLI half is asserted where it can actually be asserted, against captured
+    stdout, by
+    `tests/test_lint_vault_fix_rules.py:test_every_auto_fixable_issue_is_accounted_for_and_the_printed_summary_says_so`.
+
+    The field set is WI-026's four-bucket partition: `fixed` became `repaired`
+    (one spelling per bucket across the record, the printed labels and the guard
+    vocabulary), and `errored` / `declined` are the two states the two-field
+    record could not represent.
+    """
+    assert lint_vault.FixOutcome._fields == (
+        "repaired", "refused", "errored", "declined")
     empty = lint_vault.apply_fixes([], Path("/nonexistent"))
-    assert empty.fixed == 0 and empty.refused == ()
+    assert empty.repaired == 0 and empty.refused == ()
+    assert empty.errored == () and empty.declined == ()

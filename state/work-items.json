@@ -1,8 +1,8 @@
 {
   "project": "obsidian-schemas",
   "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
-  "last_scanned": "2026-09-15T11:48:53Z",
-  "next_id": 31,
+  "last_scanned": "2026-09-21T07:05:19Z",
+  "next_id": 32,
   "items": [
     {
       "id": "WI-022",
@@ -18,6 +18,8 @@
         "small-mechanical"
       ],
       "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -275,6 +277,8 @@
         "corruption-class"
       ],
       "involvement": null,
+      "round_budget": 10,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [
@@ -689,6 +693,8 @@
         "small-mechanical"
       ],
       "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -711,6 +717,8 @@
         "entity-relationships"
       ],
       "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -735,6 +743,8 @@
         "small-mechanical"
       ],
       "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -992,6 +1002,8 @@
         "repository"
       ],
       "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -1014,6 +1026,8 @@
         "repository"
       ],
       "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -1034,6 +1048,8 @@
       "stage_changed": "2026-09-06",
       "tags": [],
       "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -1058,6 +1074,8 @@
         "root-fix"
       ],
       "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [
@@ -1082,6 +1100,8 @@
         "integration"
       ],
       "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -1106,6 +1126,8 @@
         "strangler-completion"
       ],
       "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -1372,6 +1394,8 @@
         "performance"
       ],
       "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -1394,6 +1418,8 @@
         "performance"
       ],
       "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -1416,6 +1442,8 @@
         "repository"
       ],
       "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -1429,17 +1457,19 @@
     {
       "id": "WI-026",
       "title": "lint_vault.py --fix safety: route through the guarded primitive + a test floor for scripts",
-      "stage": "specced",
+      "stage": "done",
       "file": "docs/lint-vault-fix-safety.md",
       "created": "2026-07-05",
-      "last_touched": "2026-09-15",
-      "stage_changed": "2026-09-15",
+      "last_touched": "2026-09-16",
+      "stage_changed": "2026-09-16",
       "tags": [
         "scripts",
         "write-safety",
         "testing"
       ],
       "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [
@@ -1459,6 +1489,27 @@
           "from": "exploring",
           "to": "specced",
           "at": "2026-09-15",
+          "by": "porter",
+          "forced": false
+        },
+        {
+          "from": "specced",
+          "to": "ready",
+          "at": "2026-09-16",
+          "by": "porter",
+          "forced": false
+        },
+        {
+          "from": "ready",
+          "to": "building",
+          "at": "2026-09-16",
+          "by": "porter",
+          "forced": false
+        },
+        {
+          "from": "building",
+          "to": "done",
+          "at": "2026-09-16",
           "by": "porter",
           "forced": false
         }
@@ -1484,17 +1535,17 @@
           "date": "2026-09-15",
           "reviewer": "dave",
           "channel": "cli",
-          "signed_at": "2026-09-15T10:59:30+01:00",
+          "signed_at": "2026-09-15T14:23:24+01:00",
           "provenance": "verified",
-          "signoff_escalation": "ESC-WI-026-exploring-awaiting-ac-signoff-b7c2f389",
-          "ac_hash": "03777fa0e132",
+          "signoff_escalation": "ESC-WI-026-specced-awaiting-ac-signoff-c376d8f5",
+          "ac_hash": "973d7a08f068",
           "intent_hash": "6a7cccabd378",
           "ac_hash_AC-1": "23030080e7eb",
-          "ac_hash_AC-2": "1e40f7ae8765",
+          "ac_hash_AC-2": "bdb83849dd61",
           "ac_hash_AC-3": "9bd601c3a0d4",
           "ac_hash_AC-4": "5cc1a0cc3737",
-          "ac_hash_AC-5": "7036c93e9f21",
-          "artifact": "docs/spec-reviews/WI-026-dave-review-2026-09-15.md"
+          "ac_hash_AC-5": "01784d0e28c1",
+          "artifact": "docs/spec-reviews/WI-026-dave-review-2026-09-15-2.md"
         },
         "data-premise": {
           "gate": "data-premise",
@@ -1502,6 +1553,41 @@
           "date": "2026-09-15",
           "model": "claude-opus-5",
           "note": "All three round-1 groundings re-executed and CLOSED against HEAD without editing either conductor-owned artifact \u2014 AC-5(b)'s tolerance is green rule by rule (821/835 delta +14 matching the artifact's own delta cell, 315/315, 19/19, and the two zeroes strict), AC-5(a)'s narrowed shape contract now runs clean over the committed bytes (five headings by PREFIX because two carry qualifiers, one delimited 40-hex SHA scoped to the header at `:12`, \u00a70 and \u00a73 measured at 3 and 2 fences with argv-first and stdout-last, \u00a71 and \u00a72 derived with zero fences, and the `Command:` element the first pass re-introduced is gone), and AC-2(a) now counts issues per `(path, check)` carrying the 8-over-5 figure I re-derived independently off `tests/fixture_vault.py:361-382`. The fold's new spec body introduced no fresh empirical defect I could produce: AC-4(d)'s `declined` and `refused` plants both trace end to end through the real pipeline, the nine rename sites grep exactly as enumerated, `missing_body_sections` is zero on the corpus by heading NAME and not merely by count, and AC-2(a)'s table survives the change this item makes to its own battery because `@Isolde Varnholt` reaches every pinned check behind either the widened `parse_error` guard or an `entity_type` gate. Counterexample hunt over the section-contract domain found exactly one false-by-design member, \u00a74, already dispositioned as a named exclusion with presence-only assertions because the conductor fills it at `ready \u2192 done` while this check sits on the floor for good."
+        },
+        "spec-reviewer": {
+          "gate": "spec-reviewer",
+          "verdict": "PROMOTE",
+          "date": "2026-09-16",
+          "model": "claude-opus-5",
+          "note": "Round 5's blocking issue is CLOSED and closed wider than raised \u2014 I enumerated seven surfaces, the seventh pass swept its own claim's vocabulary and returned twelve plus `## Scope Boundary` as the thirteenth, and I re-read eight at their own bytes rather than accepting the list; every one states that clause (iv) is total over omission shapes that NAME the path and not over ones that OBTAIN it unnamed, that `_resolve_vault_path:104-114` (re-grounded at `:111`, `ENV_VAULT_PATH:75`, `_is_unconfigured:86-101`) is a THIRD source, that the residue is an omission shape the deliberate-act bound does NOT cover, and that M5/M6/M7 are load-bearing again \u2014 with the falsified wording quoted and dated in place, the two HEADINGS carrying the claim qualified, and, decisively, the escalate-rather-than-REVISE instruction at `:3378-3383` now scoped to the deliberate-act level and stating in terms that an omission-level finding is a legitimate REVISE. The routed sufficiency call remains OPEN with Dave or the conductor and does not block: my round 5 pre-committed to exactly that (\"issue 1 stands alone and this item can still come back for round 6 on that basis\"), the residue is declared on every surface and costed at `:3405-3418`, and I confirmed the two facts that decide the cost (`module_import_uses:847` reports the ROOT module so the import-allowlist shortcut genuinely cannot separate M1's required `SKIP_REASONS` import from a repository import; `_is_unconfigured` swallows blank/whitespace/`\".\"` so the rule must be zero constructions) \u2014 a declared, bounded, costed decision with a named owner is a scope boundary, and because the closure is one clause inside machinery Task 7 already ships, a \"close it\" answer arriving later is an amendment rather than a re-spec. Mechanics re-run rather than inherited: sixteen canonical tasks with unique ordinals 1-16 and sixteen well-formed `verify:` declarations (fourteen test names, Task 1 `baseline`, Task 16 `hand-run`), no verify command writing outside write_authority, Write-Targets coverage exact both ways across nine builder fences with both precondition paths in HEAD and read, `OPEN: None`, all eight fold `desc` values diffed byte-for-byte against the LATEST SPEAKING round \u2014 which is now round 6, not the round 5 the folds' prose names \u2014 and all eight matching, every `landed:` ordinal resolving, and all eight `design`/`work` quotes read where they claim to sit and found faithful, with M8's `design:` correctly moved while its `desc` correctly did not. Nothing touches `## Intent` or `## Acceptance Criteria`, which I re-read in full, so `ac_hash: 973d7a08f068` stands and no re-sign is owed; AC-5 re-derived GREEN against HEAD (821/835 delta `+14`, 315/315, 19/19, 0/0, 0/0) with AC-5(a)'s shape predicates re-run against the committed bytes. Three non-blocking notes, and the first is a fresh find five rounds missed: VD-4's falsifiable artifact says `grep -rn \"run_lint\" tests/` returns nothing, and it returns two hits \u2014 `tests/test_vault_path_required.py:_run_lint_vault:344` and its call at `:367` \u2014 which is the very helper Design \u00a77 `:1963-1966` cites by name, so two live surfaces disagree about one grep. I resolved it at the code instead of preferring a surface: that helper subprocesses the script with `OBSIDIAN_VAULT_PATH` scrubbed and asserts only on returncode and stderr, and all three invocations exit at `main`'s no-vault guard before `run_lint` runs, so VD-4's CLAIM is true and I grounded it \u2014 only the parenthetical is wrong, it grounds no task, and AC-4(d) orders the stdout capture on its own terms. Note 2 is the seventh pass's next-level census, which claims exactly one member and is short by one: I verified `scripts/migrate_person_to_discuss.py:main:158` takes no parameters, defaults `--vault` to `os.environ.get('OBSIDIAN_VAULT_PATH','')` at `:165` and reaches `vault_io.write_note` at `:109`, and equally that it is NOT a route \u2014 `parse_args:174` reads pytest's own argv and `dry_run = not args.apply` at `:186` guards the write at `:105` \u2014 so it sits inside the deliberate-act bound and I cite and escalate rather than REVISE, exactly as that paragraph now correctly instructs; it belongs in the Against column of the routed question as the first short-by-one member unreachable by omission. Note 3 is the folds' round-number pointer going stale a third time, harmless here and repairable once by making the sentence round-agnostic. I PROMOTE rather than emit a sixth REVISE because all three remaining findings are dated prose measurements that decide nothing a builder does, because the regress signature I named last round is the reason to stop rather than to take the next rung, and because the one substantive question left is not mine or the spec-writer's and is already routed to its owner with its cost on the table."
+        },
+        "threat-modeler": {
+          "gate": "threat-modeler",
+          "verdict": "PROMOTE",
+          "date": "2026-09-16",
+          "model": "claude-opus-5",
+          "note": "The seventh pass landed the truthfulness correction in full and wider than it was handed \u2014 spec-review round 5 enumerated seven surfaces, the pass swept its own claim's vocabulary and returned TWELVE plus `## Scope Boundary` as the thirteenth, and I spot-checked six at their own bytes rather than accepting the list (`## Exploration Notes` `:982-992` and `:1026-1032`, Design \u00a76(d) `:1754-1769` and the M8 rule sentence `:1772`, Design \u00a77 `:1868-1873`/`:1990-2005`/`:2010-2017`, `## Mitigation Folds` `:2882-2904` and `:2915-2935`). Every one states the same correction with the falsified wording quoted and dated in place rather than deleted: clause (iv) is total over omission shapes that NAME the path and not over those that OBTAIN it unnamed, the library's `_resolve_vault_path` fallback is a THIRD source, that residue is an OMISSION shape so the deliberate-act bound does NOT cover it, and M5/M6/M7 are LOAD-BEARING again rather than belt-and-braces. The two HEADINGS carrying the claim are qualified too, and the repair that actually mattered landed: `:3378-3383` now scopes the escalate-rather-than-REVISE instruction to the deliberate-act level explicitly and states that an omission-level finding is NOT covered and IS a legitimate REVISE \u2014 which is what stops a bound with a false stated reason waving through the class it names. All eight `desc` values diffed byte-for-byte against my round-5 fences (`:2955`/`:2963`/`:2971`/`:2979`/`:2987`/`:2995`/`:3003`/`:3011` against `6475`/`6482`/`6489`/`6496`/`6503`/`6510`/`6517`/`6524`) and all eight hold; M8's fold `design:` at `:3012` correctly DID move and is a character-for-character quote of the corrected `:1772`; `## Mitigation Folds`' opening now names round 5 as the latest speaking round, closing the D8c staleness; and all sixteen task ordinals resolve, so the fences' 2/4/9/4/7/15/7/9 leave no D8b refusal latent. STRIDE is unchanged for a structural reason rather than a judgement: the pass moves no derivation, check, clause, count, `delta` key, gate call or `write_note` argument \u2014 I re-read Tasks 7, 9 and 15 and the `live_path_names` spec to confirm the mechanism is identical to round 5 \u2014 so there is no new surface to walk, and the one security-relevant change strictly increases what a later gate catches. My one new finding is the seventh pass's own next-level census (`:1142-1157`, `:2906-2935`), which claims the class of in-process callables resolving a vault from the environment has \"exactly ONE member\"; I re-ran the grep rather than reading it and it is short by one \u2014 `scripts/migrate_person_to_discuss.py:main:158` takes no parameters, defaults `--vault` to `os.environ.get('OBSIDIAN_VAULT_PATH', '')` at `:165`, and reaches `vault_io.write_note` at `:109`, yet appears in neither near-member list and is in no graded callee set. It is NOT a route and that is the finding rather than a hedge: reaching a write needs two deliberate acts, a constructed `sys.argv` past `parse_args:174` (pytest's own argv exits at argparse) and an explicit `--apply` to clear the `dry_run=True` default at `:186`/`:121`/`:40` guarding the write at `:105`, so it sits inside the deliberate-act bound at `:3362-3373`, and the check module has zero motive to import a one-shot script `:3318-3319` declares out of scope. It is a factual nit inside a claim the pass had already correctly bounded as \"an ENUMERATION measured at a date and never a total\" (`:2931-2933`) \u2014 not another false totality \u2014 and it carries one thing the ruling-holder should have: this is the FIRST time the enumeration-short-by-one pattern produced a member that is unreachable by omission, where rounds 2\u20135 each found one that was reachable, which is evidence the family is bottoming out and belongs in the Against column of the question at `:3392-3418`. I therefore emit EIGHT fences and not nine: `## Scope Boundary:3388-3391` records the sufficiency trigger as FIRED with the call OPEN with Dave or the conductor, nothing in this tree answers it, and I will not use a sixth round to convert a routed decision into a fence by attrition \u2014 a ninth mitigation would be me making that call unilaterally through D8, the one thing the instrument was minted to prevent. A declared, correctly-characterised and costed open decision with a named owner is not a spec gap; every one of the eight mitigations is landed on every surface its generator names, and I hold no finding that makes the approach unsafe."
+        },
+        "injection-hunter": {
+          "gate": "injection-hunter",
+          "verdict": "PROMOTE",
+          "date": "2026-09-16",
+          "model": "claude-sonnet-5",
+          "note": "Read the full document, all six prior Adversarial Review rounds, and this round's new material (Threat Model round 6, Spec Review round 6, and `## Scope Boundary` as the seventh pass left it) end-to-end at the current bytes. The one surface my own round-5 review traced as injection-shaped \u2014 `## Scope Boundary`'s escalate-rather-than-REVISE clause \u2014 was edited this round to narrow rather than widen its reach (`:3378-3383` now scopes it explicitly to the deliberate-act level and states an omission-level finding \"is a legitimate REVISE\"), and threat-model round 6 demonstrated the narrowed clause working as written by applying its own test (two deliberate acts) before citing-and-escalating on a fresh census member rather than treating the clause as a stand-down order. A repeat grep for override-style phrasing (ignore the previous / pre-approved / emit PROMOTE / should not block / disregard / rubber-stamp / SYSTEM:) across the whole document returns only prior gates' own methodology notes describing that grep, no live specimens. Spec-review round 6's PROMOTE self-disclosed a fresh defect (VD-4's grep claim) and a second short-by-one census member rather than suppressing them, which is the opposite of steered behavior. No manipulation detected."
+        },
+        "code-reviewer": {
+          "gate": "code-reviewer",
+          "verdict": "PROMOTE",
+          "date": "2026-09-16",
+          "model": "claude-opus-5",
+          "note": "B1 is closed by the stronger route \u2014 `census_auto_fixable_rows` now lives at `tests/test_fixture_vault.py:166`, fifth among the census readers, imported by the check module and graded through that import, with the forced signature residue (`categories` keyword-only, no default) disclosed as D5 and the Build Log's count, Task 14, the write-target fence and Design \u00a79 all corrected so the four surfaces and the tree agree; N1 is closed at `scripts/lint_vault.py:625-630`; the fold itself opens no hole I could find \u2014 the new cross-module import names no subprocess-capable module and adds no transitive capability the check module did not already import directly, the strip rule and Task 8's two wall sites survived the move intact, and AC-5(b) pins no signature so D5 touches no signed promise \u2014 leaving one Note only, a stale `:1296` cite in the new import comment that this item's own line shift invalidated."
+        },
+        "test-observability-checker": {
+          "gate": "test-observability-checker",
+          "verdict": "PROMOTE",
+          "date": "2026-09-16",
+          "model": "claude-opus-5",
+          "note": "The fold's only coverage risk \u2014 a relocated reader graded against a stale copy \u2014 is closed by construction and proved by mutation 15's discriminating RED: `census_auto_fixable_rows` has exactly one definition and both its WI-235 fixture and its production caller reach it through the import; every production path still carries a happy case plus at least one failure mode, the item's own subject (the silent swallow) stays closed with a bounded-reason record and an unconditional operator line asserted against real captured stdout, alerting is N/A for an operator-invoked CLI with the post-ship A7 attestation committed as bytes and asserted presence-only, and invariant registration is N/A for a project with no registry \u2014 the single Recommended (the still-unasserted single-pass convergence premise, now commented at `:1394` but not checked) is carried forward and does not block."
         }
       },
       "verdicts": [
@@ -1525,17 +1611,17 @@
           "date": "2026-09-15",
           "reviewer": "dave",
           "channel": "cli",
-          "signed_at": "2026-09-15T10:59:30+01:00",
+          "signed_at": "2026-09-15T14:23:24+01:00",
           "provenance": "verified",
-          "signoff_escalation": "ESC-WI-026-exploring-awaiting-ac-signoff-b7c2f389",
-          "ac_hash": "03777fa0e132",
+          "signoff_escalation": "ESC-WI-026-specced-awaiting-ac-signoff-c376d8f5",
+          "ac_hash": "973d7a08f068",
           "intent_hash": "6a7cccabd378",
           "ac_hash_AC-1": "23030080e7eb",
-          "ac_hash_AC-2": "1e40f7ae8765",
+          "ac_hash_AC-2": "bdb83849dd61",
           "ac_hash_AC-3": "9bd601c3a0d4",
           "ac_hash_AC-4": "5cc1a0cc3737",
-          "ac_hash_AC-5": "7036c93e9f21",
-          "artifact": "docs/spec-reviews/WI-026-dave-review-2026-09-15.md"
+          "ac_hash_AC-5": "01784d0e28c1",
+          "artifact": "docs/spec-reviews/WI-026-dave-review-2026-09-15-2.md"
         },
         {
           "gate": "data-premise",
@@ -1543,6 +1629,81 @@
           "date": "2026-09-15",
           "model": "claude-opus-5",
           "note": "All three round-1 groundings re-executed and CLOSED against HEAD without editing either conductor-owned artifact \u2014 AC-5(b)'s tolerance is green rule by rule (821/835 delta +14 matching the artifact's own delta cell, 315/315, 19/19, and the two zeroes strict), AC-5(a)'s narrowed shape contract now runs clean over the committed bytes (five headings by PREFIX because two carry qualifiers, one delimited 40-hex SHA scoped to the header at `:12`, \u00a70 and \u00a73 measured at 3 and 2 fences with argv-first and stdout-last, \u00a71 and \u00a72 derived with zero fences, and the `Command:` element the first pass re-introduced is gone), and AC-2(a) now counts issues per `(path, check)` carrying the 8-over-5 figure I re-derived independently off `tests/fixture_vault.py:361-382`. The fold's new spec body introduced no fresh empirical defect I could produce: AC-4(d)'s `declined` and `refused` plants both trace end to end through the real pipeline, the nine rename sites grep exactly as enumerated, `missing_body_sections` is zero on the corpus by heading NAME and not merely by count, and AC-2(a)'s table survives the change this item makes to its own battery because `@Isolde Varnholt` reaches every pinned check behind either the widened `parse_error` guard or an `entity_type` gate. Counterexample hunt over the section-contract domain found exactly one false-by-design member, \u00a74, already dispositioned as a named exclusion with presence-only assertions because the conductor fills it at `ready \u2192 done` while this check sits on the floor for good."
+        },
+        {
+          "gate": "spec-reviewer",
+          "verdict": "REVISE",
+          "date": "2026-09-15",
+          "model": "claude-opus-5",
+          "targets": "M5, M6, Task 7, Task 15, #mitigation-folds, #design, #verification",
+          "prior": "held",
+          "basis": "folded-material",
+          "findings": "2/3",
+          "note": "Both round-2 blockers closed and I verified them at the code rather than at the fold record \u2014 M3's `desc` at `:2172` is byte-identical to the round-3 fence at `:4135`, all four carried records diff clean against their re-emitted fences, and the provenance tightening is landed on all six surfaces I enumerated. What blocks is new material the threat model opened after the spec-writer's last turn: `## Threat Model \u2014 2026-09-15 (round 3)` emits SIX `kind: required` fences and is therefore the latest SPEAKING round, but `## Mitigation Folds` carries four and declares itself restated against round 2 (`:2097-2099`), so M5 (`:4149`, `landed: Task 7`) and M6 (`:4156`, `landed: Task 15`) have no record at all and D8c refuses `specced -> ready` \u2014 the same mechanical wall as my two prior rounds. A copied `desc` alone is insufficient: both mitigations are on zero surfaces. \u00a76(d)'s callee set is still the two-member hand list `apply_fixes`/`run_lint` (`:1349-1351`), and I confirmed `main:1252` independently \u2014 `--vault` carries `default=DEFAULT_VAULT` (`:1255`) and it calls `run_lint(..., do_fix=args.fix)` at `:1299-1308`, so the CLI reaches the live vault by OMITTING an argument, invisible to `drives`, to `bindings` (scoped by `drives`) and to the runtime door alike; and Task 15 hands `module_import_uses` the standing set, where `WALL_C_MODULES = FS_MODULES - {\"os\"}` (`tests/test_name_gate_wall.py:1043`, `tests/derivations.py:68`) holds neither `subprocess` nor `runpy`. Four surfaces owe M5 (\u00a76(d), Task 7, `## Verification`'s `drives` battery, the `tests/derivations.py` Write-Targets fence) and three owe M6 (Task 15, Design \u00a77, `## Verification`), each with the WI-235 shapes the widened matchers must and must not resolve; both land inside machinery the plan ships, so the four counts this document has re-synced once do not move. I am also FLAGGING THE REGRESS SIGNATURE rather than emitting round 4 on it: my three rounds are monotone but each finding lands on the surface the previous fold added \u2014 wall, then binding level, now callee and import level \u2014 and threat-model round 3's own note 1 identifies the next level (a decoy spelled `_temp_vault` is green, which I confirmed against \u00a76(d)'s `ast.Attribute.attr` resolution at `:1369-1372`) and declines to chase it in a place no later gate routes against. The pass that lands M5/M6 should record that line as a standing `## Scope Boundary` ruling \u2014 family closed at the omission level, the deliberate-act residue recorded as the mechanism's honest bound \u2014 which is a sufficiency call for Dave or the conductor, not mine. Everything else re-verifies clean: every symbol-anchored citation resolves AND means what the spec claims (the drift audit's one finding is a narration ordinal; the live cite at `:1436` already reads `:278`), Write-Targets coverage is exact both ways and M5/M6 add no target, sixteen canonical tasks each carry a well-formed `verify:`, every `landed: Task N` including 7 and 15 resolves, and the five signed criteria are untouched with AC-5 still GREEN against the committed baseline and census (821/835 delta `+14`, 315/315, 19/19, 0/0, 0/0)."
+        },
+        {
+          "gate": "spec-reviewer",
+          "verdict": "REVISE",
+          "date": "2026-09-15",
+          "model": "claude-opus-5",
+          "targets": "M7, M8, Task 7, Task 9, #design, #mitigation-folds, #scope-boundary, #verification",
+          "prior": "held",
+          "basis": "folded-material",
+          "findings": "2/3",
+          "note": "Round 3's two blockers closed and stayed closed \u2014 M5 and M6 are landed on every surface I enumerated last round and their fold records at `:2407-2421` carry `desc` values byte-identical to the round-3 fences, the M3 re-sweep overclaim is corrected in place at `:2325-2336`, Task 9 defines the containment check FIRST at `:2016-2021`, and the `## Scope Boundary` ruling I recommended landed at `:2655-2679`. What blocks is `## Threat Model \u2014 2026-09-15 (round 4)` (`:4864`), which emits EIGHT `kind: required` fences and is therefore the latest SPEAKING round, while `## Mitigation Folds` carries six and declares itself restated against round 3 (`:2274-2276`) \u2014 so M7 (`landed: Task 7`) and M8 (`landed: Task 9`) have no record and D8c refuses `specced -> ready`, and the substance of both is on zero surfaces. I verified both premises at the code rather than at the fence: `quarantine_garbage:1112-1144` is a FOURTH mutating entry point outside \u00a76(d)'s three-member callee set at `:1402` \u2014 the script's only `vault_io` mutation sites are `write_note:957`/`:975` in `apply_fixes` and `ensure_dir:1134`/`move_note:1140` in it \u2014 and its vault argument is the SECOND positional at `:1113`, identical in position to `apply_fixes`' at `:827`, so the position rule grades it with no new text (M7); and `grep vault_path scripts/lint_vault.py` returns `:827` as that parameter's ONLY occurrence in `apply_fixes`, whose write targets are `issue.file_path` (`:835`, `:853`, `:957`, `:975`), so the wall grades an argument that provably does not determine what gets written and the four-line escape passes all three clauses of Design \u00a77 with the runtime door executed and the import wall clean while rewriting the live vault \u2014 worse under `quarantine_garbage`, where `vault_path` is only the destination root (`:1116`) and the moved sources are `issue.file_path` (`:1121`), making it a data-LOSS shape (M8). The M8 fold owes one thing its `desc` does not state and the builder must not have to invent: the MECHANISM of the `_temp_vault` exemption, since Design \u00a77 (`:1523-1534`) and Task 9 (`:1988-1998`) both ORDER that function to name `lint_vault.DEFAULT_VAULT` and `os.environ.get(\"OBSIDIAN_VAULT_PATH\", \"\")`, so a flat token clause is RED against the module this spec prescribes and by-function / by-line-range / by-occurrence-count are three readings with three different failure modes. Blocking issue 2 is the WI-226 sweep the folds owe: three surfaces assert a completeness round 4 falsified \u2014 the folds' upward sweep at `:2348` and `:2351-2353` and `:2361-2364` (\"the script's complete set of mutating entry points\", \"empty of omission shapes\"), Design \u00a77's \"the trio is what makes the guard total\" at `:1517-1521` (its necessity companion at `:1596-1599` stays true and needs no edit), and most importantly `## Scope Boundary:2655-2679`, whose \"TOTAL over OMISSION shapes\" bound is the standing ruling a later gate is instructed to cite and route against, so an overstated scope there will wave through exactly the class it names. Both folds land inside shipped machinery \u2014 M7 is one set member in Task 7, M8 rides the same `VaultArgScan` inside Task 9's ONE existing check \u2014 so \u00a76's four derivations, \u00a77's five-plus-three check count, R4's \"eight checks\" and Task 16's direction do not move, and neither touches `## Intent` or `## Acceptance Criteria`, so `ac_hash: 973d7a08f068` and all five per-criterion hashes stay valid. On the arc: I flagged the regress signature last round and the ruling it asked for landed, and round 4 is NOT that pattern repeating \u2014 finding (b) is a fact about the script that predates this item and means every prior rung graded the wrong thing, and M8 closes at the two SOURCE tokens rather than enumerating a fifth door, so it is the fold that ends the family rather than extends it. If a FIFTH threat-model round opens a ninth mitigation on this family after M7 and M8 land as written, that is the sufficiency ruling Dave or the conductor owns and the next gate should escalate rather than emit a fifth REVISE. Everything else re-verifies clean: sixteen canonical tasks each with a well-formed `verify:`, every `landed: Task N` resolving, Write-Targets coverage exact both ways with M7/M8 adding no target, the drift audit's one finding archival only (the live cite at `:1514` already reads `:278`, confirmed at `tests/test_vault_path_required.py:278`, with `:320` correctly named as the universe line), and AC-5 still GREEN against the committed baseline and census (821/835 delta `+14`, 315/315, 19/19, 0/0, 0/0)."
+        },
+        {
+          "gate": "threat-modeler",
+          "verdict": "PROMOTE",
+          "date": "2026-09-16",
+          "model": "claude-opus-5",
+          "note": "The sixth pass landed M7 and M8 in full and I verified both at the code rather than at the fold record \u2014 M7's completeness claim settled by census (a `vault_io.` grep over the script returns exactly seven sites, `note_lock:858`/`read_note:859`/`write_note:957`/`read_note:961`/`write_note:975`/`ensure_dir:1134`/`move_note:1140`, so the four mutating ones give FOUR entry points and no fifth), `quarantine_garbage`'s vault argument confirmed the SECOND positional at `:1113` with `quarantine_dir` at `:1116` and moved sources `src = issue.file_path` at `:1121`, and M8's premise confirmed by `grep vault_path scripts/lint_vault.py` returning `:827` as that parameter's only occurrence in `apply_fixes`. All eight `desc` values in `## Mitigation Folds` are byte-identical to my round-4 fences, the exemption's mechanism is RULED by enclosing-FunctionDef at `:1627-1637`, both round-4 shortcuts are refused by name at `:1650-1654` and `:1661-1668`, the thirteenth and fourteenth mutations landed, and spec-review round 4's blocking issue 2 is discharged on all three surfaces. Re-emitting all eight unchanged. The finding is on the restated ruling's LOAD-BEARING PREMISE, not on a mechanism: `## Scope Boundary:3122-3124` rests the wall's totality on \"a drive can only reach the live vault by NAMING it\", and \u00a76(d):1612-1613 on \"exactly TWO sources in this module's universe\" \u2014 both false by one, because `obsidian_schemas/repositories/base.py:_resolve_vault_path:104-114` falls back to `os.environ.get(ENV_VAULT_PATH)` INSIDE the library (`ENV_VAULT_PATH = \"OBSIDIAN_VAULT_PATH\"` at `:75`, `_is_unconfigured:86-101` swallowing None/blank/\".\" too, `BaseRepository.__init__:154` calling it for all four repositories exported at `obsidian_schemas/__init__.py:73-79`), so `repo = PersonRepository()` beside `read_vault(repo.vault_path)` passes clause (iv) and clauses (i)-(iii) with the runtime door executed, the import wall clean (`obsidian_schemas` is in neither `WALL_C_MODULES` nor `{subprocess, runpy}`) and `FORBIDDEN_DEFAULT_PATTERNS` clean \u2014 and rewrites the live vault. It is an OMISSION shape inside the region the ruling declares total, not deliberate-act residue: the no-arg form is the library's documented convenience form, this tree has guarded the identical generator twice under `tests/` (`identity_fixture.py:seed_vault:85-100`, whose docstring names `_resolve_vault_path` and the `tests/` blind spot in terms, and `record_identity_golden.py:28,89`), the repo's own `NO_ARG_CONSTRUCTION` regex at `tests/test_vault_path_required.py:382` runs over MARKDOWN only with `DOC_SCAN_EXCLUDED` excluding `docs`, and the env var is UNSET in the cage but exported on Dave's machine (`docs/lint-vault-live-baseline.md:10-11`) where `CLAUDE.md`'s floor command is hand-run \u2014 green in the graded environment, live-vault write on the author's laptop. TWO OWNERS, deliberately not conflated: (a) the premise correction on `## Scope Boundary`, \u00a76(d) and \u00a77's `:1835-1836` is owed regardless and is a WI-226 truthfulness sweep in the spec-reviewer's lane, and it matters MORE if (b) is declined, because `:3141-3142` instructs later gates to cite that paragraph and escalate rather than REVISE, so a bound with a false stated reason will wave through exactly the class it names; (b) the ninth mechanism is the SUFFICIENCY call that `## Scope Boundary:3143-3146` assigns to Dave or the conductor in the document's own bytes, naming precisely this situation \u2014 a fifth threat-model round, a ninth mitigation, M7 and M8 landed as written \u2014 so I take the instrument at its word, emit EIGHT fences and route (b) there rather than making that call unilaterally through D8. For the ruling-holder: it is a real route but materially less likely than M8's (the script names no repository at all and every `tests/` construction passes an explicit vault), and if closed it costs one more CLOSED shape in the census Task 7 already builds \u2014 a callee resolving to a name ending `Repository`, graded by Task 9's existing clause (iv) with no new text, no new check and no count moves \u2014 with the requirement being ZERO constructions rather than \"no no-arg construction\", since `_is_unconfigured` swallows blank and `\".\"`; the import-allowlist shortcut cannot work (`module_import_uses` reports the ROOT module, so `obsidian_schemas.repositories.base` for `SKIP_REASONS` and `obsidian_schemas` for `PersonRepository` are indistinguishable) and I am not prescribing a global `os.environ` scrub, which is unscoped shared state in a process where two other modules manipulate that variable and which I have no shell to verify. M8's `desc` is re-emitted byte-identically despite carrying the falsified \"total over every omission route\" rationale, because what it REQUIRES has not moved and re-wording a rationale would re-stale a fresh record under the FIDELITY rule."
+        },
+        {
+          "gate": "spec-reviewer",
+          "verdict": "REVISE",
+          "date": "2026-09-16",
+          "model": "claude-opus-5",
+          "targets": "M8, #design, #scope-boundary, #mitigation-folds, #exploration-notes",
+          "prior": "held",
+          "basis": "folded-material",
+          "findings": "1/3",
+          "note": "Round 4's two blockers closed and stayed closed \u2014 M7 and M8 carry fold records whose `desc` values I diffed byte-for-byte against round 5's fences, the exemption's mechanism is RULED as innermost-enclosing-`FunctionDef` on all three surfaces stating it, \u00a77 reads \"FOUR parts\" with the falsified trio wording quoted and dated, and the folds' upward sweep records its correction in place. What blocks is the WI-226 truthfulness sweep threat-model round 5 handed to this lane, and I verified its factual half at the code rather than at the fence: `obsidian_schemas/repositories/base.py:_resolve_vault_path:104-114` falls back to `os.environ.get(ENV_VAULT_PATH)` INSIDE the library (`ENV_VAULT_PATH:75`, `_is_unconfigured:86-101` swallowing None/blank/`\".\"`, `BaseRepository.__init__:154` carrying it for all four repositories exported at `obsidian_schemas/__init__.py:74-77`), and the new check module MUST import from `obsidian_schemas` because M1's verify reads `SKIP_REASONS` from `repositories.base` \u2014 so `repo = PersonRepository()` beside `read_vault(repo.vault_path)` names none of clause (iv)'s three token shapes and passes (i)-(iv) with the runtime door executed, the import wall clean, `os_module_attribute_uses` clean and `FORBIDDEN_DEFAULT_PATTERNS:278` clean, while rewriting the live vault on the machine where `CLAUDE.md`'s floor command is hand-run. There is a THIRD source, so every sentence claiming the live path has TWO or that the source half is total over omission shapes is false. My contribution over round 5's account is the ENUMERATION: it named three surfaces, the sweep at source returns SEVEN \u2014 Exploration Notes `:977-980`, \u00a76(d) `:1610-1614` and the M8 rule sentence `:1616` (quoted as the fold's `design:` at `:2793`, which moves with it), \u00a77 `:1830-1836` and `:1841-1843`, `## Mitigation Folds` `:2702-2709` and `:2711-2718` (whose \"There is no third, because a call in this module either names its arguments in this module's `ast` or leaves the process\" is the sharpest of the seven and is exactly what the finding falsifies), and `## Scope Boundary` `:3119-3125`. A three-of-seven correction reproduces the shape my round 4 blocked on. Surface 7 is why this is blocking rather than a note: its closing sentences instruct a later gate to CITE the paragraph and escalate rather than REVISE, and it has now demoted the door census and the import wall to \"belt-and-braces\" on the strength of a false reason \u2014 so the ruling is weaker than the mechanism it describes, in the direction that costs the next gate its finding, and the demotion comes back out with the correction. Two mechanical riders: M8's `desc` does NOT move (round 5's FIDELITY ruling is sound \u2014 `desc` is the only machine-anchored field, the requirement did not move, and re-wording re-stales a fresh record into a D8c refusal), while the fold's `design:` at `:2793` is not machine-anchored and must move with \u00a76(d) `:1616`; and nothing in the correction touches `## Intent` or `## Acceptance Criteria` \u2014 no criterion states the wall's totality \u2014 so `ac_hash: 973d7a08f068` and all five per-criterion hashes stay valid and no re-sign is owed. The MECHANISM half is NOT mine and is NOT the spec-writer's: `## Scope Boundary:3143-3146` assigns it to Dave or the conductor and the situation matches the trigger on every element (fifth threat-model round, this family, M7 and M8 landed as written, a ninth mitigation the thing being weighed); round 5 correctly declined to force it through D8, I am not deciding it either, and it should be put to its owner in PARALLEL with pass seven rather than after it, since issue 1 is statable and owed whichever way it goes \u2014 more owed if the answer is \"stop\". On the arc: the regress signature IS present and I am naming it rather than iterating it \u2014 every round has declared a level closed BY CONSTRUCTION and the next has found the enumeration inside the construction, M8's \"two sources\" being a two-member enumeration wearing the word *sources* exactly as M5's \"three entry points\" wore *complete* \u2014 which is precisely why issue 2 goes to its owner; but issue 1 adds no mechanism, no derivation, no check and no count, it is the document telling the truth about the wall it already has, and it is what makes that escalation sound rather than self-undermining. Everything else re-verifies clean: sixteen canonical tasks each with one well-formed `verify:`, every `landed: Task N` resolving, all eight fold `design`/`work` quotes read where they claim to sit and faithful, Write-Targets coverage exact both ways with the sixth pass adding no target, the drift audit's one finding archival (the live cite at `:1656` already reads `:278`, with `:320` correctly named as the universe line at `:1659`), the WI-235 shapes shipped for all five count-oracles including `live_path_names`' non-vacuity and innermost-def scoping, and AC-5 still GREEN against the committed baseline and census (821/835 delta `+14`, 315/315, 19/19, 0/0, 0/0)."
+        },
+        {
+          "gate": "threat-modeler",
+          "verdict": "PROMOTE",
+          "date": "2026-09-16",
+          "model": "claude-opus-5",
+          "note": "The seventh pass landed the truthfulness correction in full and wider than it was handed \u2014 spec-review round 5 enumerated seven surfaces, the pass swept its own claim's vocabulary and returned TWELVE plus `## Scope Boundary` as the thirteenth, and I spot-checked six at their own bytes rather than accepting the list (`## Exploration Notes` `:982-992` and `:1026-1032`, Design \u00a76(d) `:1754-1769` and the M8 rule sentence `:1772`, Design \u00a77 `:1868-1873`/`:1990-2005`/`:2010-2017`, `## Mitigation Folds` `:2882-2904` and `:2915-2935`). Every one states the same correction with the falsified wording quoted and dated in place rather than deleted: clause (iv) is total over omission shapes that NAME the path and not over those that OBTAIN it unnamed, the library's `_resolve_vault_path` fallback is a THIRD source, that residue is an OMISSION shape so the deliberate-act bound does NOT cover it, and M5/M6/M7 are LOAD-BEARING again rather than belt-and-braces. The two HEADINGS carrying the claim are qualified too, and the repair that actually mattered landed: `:3378-3383` now scopes the escalate-rather-than-REVISE instruction to the deliberate-act level explicitly and states that an omission-level finding is NOT covered and IS a legitimate REVISE \u2014 which is what stops a bound with a false stated reason waving through the class it names. All eight `desc` values diffed byte-for-byte against my round-5 fences (`:2955`/`:2963`/`:2971`/`:2979`/`:2987`/`:2995`/`:3003`/`:3011` against `6475`/`6482`/`6489`/`6496`/`6503`/`6510`/`6517`/`6524`) and all eight hold; M8's fold `design:` at `:3012` correctly DID move and is a character-for-character quote of the corrected `:1772`; `## Mitigation Folds`' opening now names round 5 as the latest speaking round, closing the D8c staleness; and all sixteen task ordinals resolve, so the fences' 2/4/9/4/7/15/7/9 leave no D8b refusal latent. STRIDE is unchanged for a structural reason rather than a judgement: the pass moves no derivation, check, clause, count, `delta` key, gate call or `write_note` argument \u2014 I re-read Tasks 7, 9 and 15 and the `live_path_names` spec to confirm the mechanism is identical to round 5 \u2014 so there is no new surface to walk, and the one security-relevant change strictly increases what a later gate catches. My one new finding is the seventh pass's own next-level census (`:1142-1157`, `:2906-2935`), which claims the class of in-process callables resolving a vault from the environment has \"exactly ONE member\"; I re-ran the grep rather than reading it and it is short by one \u2014 `scripts/migrate_person_to_discuss.py:main:158` takes no parameters, defaults `--vault` to `os.environ.get('OBSIDIAN_VAULT_PATH', '')` at `:165`, and reaches `vault_io.write_note` at `:109`, yet appears in neither near-member list and is in no graded callee set. It is NOT a route and that is the finding rather than a hedge: reaching a write needs two deliberate acts, a constructed `sys.argv` past `parse_args:174` (pytest's own argv exits at argparse) and an explicit `--apply` to clear the `dry_run=True` default at `:186`/`:121`/`:40` guarding the write at `:105`, so it sits inside the deliberate-act bound at `:3362-3373`, and the check module has zero motive to import a one-shot script `:3318-3319` declares out of scope. It is a factual nit inside a claim the pass had already correctly bounded as \"an ENUMERATION measured at a date and never a total\" (`:2931-2933`) \u2014 not another false totality \u2014 and it carries one thing the ruling-holder should have: this is the FIRST time the enumeration-short-by-one pattern produced a member that is unreachable by omission, where rounds 2\u20135 each found one that was reachable, which is evidence the family is bottoming out and belongs in the Against column of the question at `:3392-3418`. I therefore emit EIGHT fences and not nine: `## Scope Boundary:3388-3391` records the sufficiency trigger as FIRED with the call OPEN with Dave or the conductor, nothing in this tree answers it, and I will not use a sixth round to convert a routed decision into a fence by attrition \u2014 a ninth mitigation would be me making that call unilaterally through D8, the one thing the instrument was minted to prevent. A declared, correctly-characterised and costed open decision with a named owner is not a spec gap; every one of the eight mitigations is landed on every surface its generator names, and I hold no finding that makes the approach unsafe."
+        },
+        {
+          "gate": "spec-reviewer",
+          "verdict": "PROMOTE",
+          "date": "2026-09-16",
+          "model": "claude-opus-5",
+          "note": "Round 5's blocking issue is CLOSED and closed wider than raised \u2014 I enumerated seven surfaces, the seventh pass swept its own claim's vocabulary and returned twelve plus `## Scope Boundary` as the thirteenth, and I re-read eight at their own bytes rather than accepting the list; every one states that clause (iv) is total over omission shapes that NAME the path and not over ones that OBTAIN it unnamed, that `_resolve_vault_path:104-114` (re-grounded at `:111`, `ENV_VAULT_PATH:75`, `_is_unconfigured:86-101`) is a THIRD source, that the residue is an omission shape the deliberate-act bound does NOT cover, and that M5/M6/M7 are load-bearing again \u2014 with the falsified wording quoted and dated in place, the two HEADINGS carrying the claim qualified, and, decisively, the escalate-rather-than-REVISE instruction at `:3378-3383` now scoped to the deliberate-act level and stating in terms that an omission-level finding is a legitimate REVISE. The routed sufficiency call remains OPEN with Dave or the conductor and does not block: my round 5 pre-committed to exactly that (\"issue 1 stands alone and this item can still come back for round 6 on that basis\"), the residue is declared on every surface and costed at `:3405-3418`, and I confirmed the two facts that decide the cost (`module_import_uses:847` reports the ROOT module so the import-allowlist shortcut genuinely cannot separate M1's required `SKIP_REASONS` import from a repository import; `_is_unconfigured` swallows blank/whitespace/`\".\"` so the rule must be zero constructions) \u2014 a declared, bounded, costed decision with a named owner is a scope boundary, and because the closure is one clause inside machinery Task 7 already ships, a \"close it\" answer arriving later is an amendment rather than a re-spec. Mechanics re-run rather than inherited: sixteen canonical tasks with unique ordinals 1-16 and sixteen well-formed `verify:` declarations (fourteen test names, Task 1 `baseline`, Task 16 `hand-run`), no verify command writing outside write_authority, Write-Targets coverage exact both ways across nine builder fences with both precondition paths in HEAD and read, `OPEN: None`, all eight fold `desc` values diffed byte-for-byte against the LATEST SPEAKING round \u2014 which is now round 6, not the round 5 the folds' prose names \u2014 and all eight matching, every `landed:` ordinal resolving, and all eight `design`/`work` quotes read where they claim to sit and found faithful, with M8's `design:` correctly moved while its `desc` correctly did not. Nothing touches `## Intent` or `## Acceptance Criteria`, which I re-read in full, so `ac_hash: 973d7a08f068` stands and no re-sign is owed; AC-5 re-derived GREEN against HEAD (821/835 delta `+14`, 315/315, 19/19, 0/0, 0/0) with AC-5(a)'s shape predicates re-run against the committed bytes. Three non-blocking notes, and the first is a fresh find five rounds missed: VD-4's falsifiable artifact says `grep -rn \"run_lint\" tests/` returns nothing, and it returns two hits \u2014 `tests/test_vault_path_required.py:_run_lint_vault:344` and its call at `:367` \u2014 which is the very helper Design \u00a77 `:1963-1966` cites by name, so two live surfaces disagree about one grep. I resolved it at the code instead of preferring a surface: that helper subprocesses the script with `OBSIDIAN_VAULT_PATH` scrubbed and asserts only on returncode and stderr, and all three invocations exit at `main`'s no-vault guard before `run_lint` runs, so VD-4's CLAIM is true and I grounded it \u2014 only the parenthetical is wrong, it grounds no task, and AC-4(d) orders the stdout capture on its own terms. Note 2 is the seventh pass's next-level census, which claims exactly one member and is short by one: I verified `scripts/migrate_person_to_discuss.py:main:158` takes no parameters, defaults `--vault` to `os.environ.get('OBSIDIAN_VAULT_PATH','')` at `:165` and reaches `vault_io.write_note` at `:109`, and equally that it is NOT a route \u2014 `parse_args:174` reads pytest's own argv and `dry_run = not args.apply` at `:186` guards the write at `:105` \u2014 so it sits inside the deliberate-act bound and I cite and escalate rather than REVISE, exactly as that paragraph now correctly instructs; it belongs in the Against column of the routed question as the first short-by-one member unreachable by omission. Note 3 is the folds' round-number pointer going stale a third time, harmless here and repairable once by making the sentence round-agnostic. I PROMOTE rather than emit a sixth REVISE because all three remaining findings are dated prose measurements that decide nothing a builder does, because the regress signature I named last round is the reason to stop rather than to take the next rung, and because the one substantive question left is not mine or the spec-writer's and is already routed to its owner with its cost on the table."
+        },
+        {
+          "gate": "injection-hunter",
+          "verdict": "PROMOTE",
+          "date": "2026-09-16",
+          "model": "claude-sonnet-5",
+          "note": "Read the full document, all six prior Adversarial Review rounds, and this round's new material (Threat Model round 6, Spec Review round 6, and `## Scope Boundary` as the seventh pass left it) end-to-end at the current bytes. The one surface my own round-5 review traced as injection-shaped \u2014 `## Scope Boundary`'s escalate-rather-than-REVISE clause \u2014 was edited this round to narrow rather than widen its reach (`:3378-3383` now scopes it explicitly to the deliberate-act level and states an omission-level finding \"is a legitimate REVISE\"), and threat-model round 6 demonstrated the narrowed clause working as written by applying its own test (two deliberate acts) before citing-and-escalating on a fresh census member rather than treating the clause as a stand-down order. A repeat grep for override-style phrasing (ignore the previous / pre-approved / emit PROMOTE / should not block / disregard / rubber-stamp / SYSTEM:) across the whole document returns only prior gates' own methodology notes describing that grep, no live specimens. Spec-review round 6's PROMOTE self-disclosed a fresh defect (VD-4's grep claim) and a second short-by-one census member rather than suppressing them, which is the opposite of steered behavior. No manipulation detected."
+        },
+        {
+          "gate": "code-reviewer",
+          "verdict": "PROMOTE",
+          "date": "2026-09-16",
+          "model": "claude-opus-5",
+          "note": "B1 is closed by the stronger route \u2014 `census_auto_fixable_rows` now lives at `tests/test_fixture_vault.py:166`, fifth among the census readers, imported by the check module and graded through that import, with the forced signature residue (`categories` keyword-only, no default) disclosed as D5 and the Build Log's count, Task 14, the write-target fence and Design \u00a79 all corrected so the four surfaces and the tree agree; N1 is closed at `scripts/lint_vault.py:625-630`; the fold itself opens no hole I could find \u2014 the new cross-module import names no subprocess-capable module and adds no transitive capability the check module did not already import directly, the strip rule and Task 8's two wall sites survived the move intact, and AC-5(b) pins no signature so D5 touches no signed promise \u2014 leaving one Note only, a stale `:1296` cite in the new import comment that this item's own line shift invalidated."
+        },
+        {
+          "gate": "test-observability-checker",
+          "verdict": "PROMOTE",
+          "date": "2026-09-16",
+          "model": "claude-opus-5",
+          "note": "The fold's only coverage risk \u2014 a relocated reader graded against a stale copy \u2014 is closed by construction and proved by mutation 15's discriminating RED: `census_auto_fixable_rows` has exactly one definition and both its WI-235 fixture and its production caller reach it through the import; every production path still carries a happy case plus at least one failure mode, the item's own subject (the silent swallow) stays closed with a bounded-reason record and an unconditional operator line asserted against real captured stdout, alerting is N/A for an operator-invoked CLI with the post-ship A7 attestation committed as bytes and asserted presence-only, and invariant registration is N/A for a project with no registry \u2014 the single Recommended (the still-unasserted single-pass convergence premise, now commented at `:1394` but not checked) is carried forward and does not block."
         }
       ],
       "acceptance_criteria": [
@@ -1594,6 +1755,8 @@
       "stage_changed": "2026-09-06",
       "tags": [],
       "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -1603,6 +1766,28 @@
       "verdicts": [],
       "acceptance_criteria": [],
       "summary": "`scripts/lint_vault.py` holds the vault-walking and lint core \u2014 `read_vault`, `build_indexes`, `run_lint`, the `VaultFile` record and the `Severity` enum \u2014 but it is not part of the installed `obsidia"
+    },
+    {
+      "id": "WI-031",
+      "title": "Close the third live-vault source in the WI-026 containment wall",
+      "stage": "idea",
+      "file": "docs/lint-vault-wall-third-source.md",
+      "created": "2026-09-21",
+      "last_touched": "2026-09-21",
+      "stage_changed": "2026-09-21",
+      "tags": [],
+      "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
+      "parent": null,
+      "children": [],
+      "depends_on": [],
+      "blocked": false,
+      "transitions": [],
+      "latest_verdicts": {},
+      "verdicts": [],
+      "acceptance_criteria": [],
+      "summary": "WI-026 (shipped 2026-09-16) built a containment wall around `tests/test_lint_vault_fix_rules.py` so"
     },
     {
       "id": "WI-020",
@@ -1619,6 +1804,8 @@
         "writer"
       ],
       "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -2119,6 +2306,8 @@
         "schema-evolution"
       ],
       "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -2143,6 +2332,8 @@
         "cross-project"
       ],
       "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -2165,6 +2356,8 @@
         "integration"
       ],
       "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -2188,6 +2381,8 @@
         "maintainability"
       ],
       "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [
@@ -2210,6 +2405,8 @@
       "stage_changed": "2026-08-31",
       "tags": [],
       "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -2232,6 +2429,8 @@
         "schema"
       ],
       "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -2254,6 +2453,8 @@
         "entity-relationships"
       ],
       "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [
@@ -2280,6 +2481,8 @@
         "root-fix"
       ],
       "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -2302,6 +2505,8 @@
         "repository"
       ],
       "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -2324,6 +2529,8 @@
         "schema-evolution"
       ],
       "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -2347,6 +2554,8 @@
         "real-data-fixtures"
       ],
       "involvement": null,
+      "round_budget": 12,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -2605,6 +2814,8 @@
         "repository"
       ],
       "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
       "parent": null,
       "children": [],
       "depends_on": [],
@@ -2629,6 +2840,8 @@
         "rfc2822"
       ],
       "involvement": null,
+      "round_budget": 20,
+      "spawn_budget": 95,
       "parent": null,
       "children": [],
       "depends_on": [

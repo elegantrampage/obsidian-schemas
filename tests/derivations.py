@@ -1836,3 +1836,429 @@ def prose_lines(files: Iterable[Path]) -> list:
                 continue
             out.append(ProseLine(module, lineno, owner_of(lineno), text))
     return out
+
+
+# --------------------------------------------------------------------------
+# WI-026 — lint_vault's fix rules, its move predicate, and the containment wall
+# over the check module that drives it.
+#
+# All four land HERE and nowhere else because `ast` is single-homed to this
+# module by three standing set-equality walls (tests/test_loud_fail_harness.py,
+# tests/test_name_gate_wall.py, tests/test_fixture_vault.py). They follow
+# `skip_reason_return_values`' loud-fail discipline: a node the scan cannot
+# resolve to a literal RAISES, never skips — an under-reading scan is green
+# against precisely the drift it exists to catch (LESSONS #46).
+# --------------------------------------------------------------------------
+
+
+def _call_callee_name(node) -> Optional[str]:
+    """The bare name a call's callee resolves to, in BOTH spellings.
+
+    `f(...)` yields `f` and `x.y.f(...)` yields `f`, so a module reached as
+    `lint_vault.run_lint` and one reached as an unqualified `run_lint` are the
+    same member. ONE rule, used by every scan below that names a callee, so the
+    three censuses cannot disagree about what a callee is.
+    """
+    func = node.func
+    if isinstance(func, ast.Name):
+        return func.id
+    if isinstance(func, ast.Attribute):
+        return func.attr
+    return None
+
+
+def auto_fixable_emitter_checks(files: Iterable[Path]) -> set:
+    """Every rule id ADVERTISED as auto-fixable: the `check` literal of every
+    `LintIssue(...)` construction that also passes `auto_fixable=` a `True`
+    Constant.
+
+    `check` is read POSITIONALLY as `args[1]` (the script's own form) and from
+    `keywords["check"]` otherwise, so the scan is total over both spellings.
+
+    Must NOT match: `auto_fixable=False`; a `LintIssue(...)` with no
+    `auto_fixable` keyword at all; the rule id as a string in a comment or a
+    docstring. RAISES on `auto_fixable=<a name>` and on a collected call whose
+    `check` is not a `str` Constant — an unresolvable emitter silently skipped
+    is a rule that joins the untested set with nothing going red.
+    """
+    found = set()
+    for path in files:
+        tree = _parse(path)
+        module = module_id(path)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            if _call_callee_name(node) != "LintIssue":
+                continue
+            flag = None
+            for keyword in node.keywords:
+                if keyword.arg == "auto_fixable":
+                    flag = keyword.value
+                    break
+            if flag is None:
+                continue
+            if not isinstance(flag, ast.Constant):
+                raise AssertionError(
+                    f"{module}:{node.lineno} passes auto_fixable= a value this "
+                    f"scan cannot resolve to a constant — an under-read here "
+                    f"would silently drop an auto-fixable rule from the set")
+            if flag.value is not True:
+                continue
+            arg = None
+            if len(node.args) >= 2:
+                arg = node.args[1]
+            else:
+                for keyword in node.keywords:
+                    if keyword.arg == "check":
+                        arg = keyword.value
+                        break
+            if not isinstance(arg, ast.Constant) or not isinstance(arg.value, str):
+                raise AssertionError(
+                    f"{module}:{node.lineno} constructs an auto-fixable "
+                    f"LintIssue whose `check` this scan cannot resolve to a "
+                    f"string literal")
+            found.add(arg.value)
+    return found
+
+
+def auto_fixable_branch_checks(files: Iterable[Path]) -> set:
+    """Every rule id a REPAIR BRANCH exists for: the string compared with `==`
+    against an `issue.check` attribute, SCOPED to the `FunctionDef` named
+    `apply_fixes`.
+
+    The scoping is load-bearing rather than tidy: `quarantine_garbage` carries
+    two more `issue.check ==` comparisons that are correctly outside this set.
+
+    RAISES on a comparison inside `apply_fixes` whose comparator is not a `str`
+    Constant.
+    """
+    found = set()
+    for path in files:
+        tree = _parse(path)
+        module = module_id(path)
+        for fid, func in _iter_functions(path, tree):
+            if fid.name != "apply_fixes" or "<locals>" in fid.qualname:
+                continue
+            for node in _own_body_nodes(func):
+                if not isinstance(node, ast.Compare):
+                    continue
+                if not (len(node.ops) == 1 and isinstance(node.ops[0], ast.Eq)):
+                    continue
+                left, right = node.left, node.comparators[0]
+                for attribute, other in ((left, right), (right, left)):
+                    if not (isinstance(attribute, ast.Attribute)
+                            and attribute.attr == "check"):
+                        continue
+                    if not (isinstance(other, ast.Constant)
+                            and isinstance(other.value, str)):
+                        raise AssertionError(
+                            f"{module}:{fid.qualname}:{node.lineno} compares "
+                            f"`.check` against a value this scan cannot resolve "
+                            f"to a string literal")
+                    found.add(other.value)
+                    break
+    return found
+
+
+def person_tier_arm_counts(files: Iterable[Path]) -> dict:
+    """`{module_id: (docstring_bullets, return_active_sites)}` for every module
+    defining `classify_person_tier`.
+
+    TWO numbers because one cannot see what the other sees. The bullet count is
+    the DOCUMENTED disjunct count; the `return "active"` site count is the
+    IMPLEMENTED one, and it is the load-bearing half — a seventh arm added as a
+    fifth `if …: return "active"` moves it whether or not the author touches the
+    docstring, and the arm with the largest blast radius in that file is the one
+    that RELOCATES a note.
+
+    A module with no such function contributes no key. A `classify_person_tier`
+    with no docstring RAISES. A `return "stub"` and a `return SOME_NAME` are
+    each simply not active sites.
+    """
+    counts = {}
+    for path in files:
+        tree = _parse(path)
+        module = module_id(path)
+        for fid, func in _iter_functions(path, tree):
+            if fid.name != "classify_person_tier" or "<locals>" in fid.qualname:
+                continue
+            doc = ast.get_docstring(func, clean=False)
+            if doc is None:
+                raise AssertionError(
+                    f"{module}:{fid.qualname} has no docstring — the documented "
+                    f"disjunct count is half of what this scan exists to report")
+            bullets = sum(1 for line in doc.splitlines()
+                          if line.strip().startswith("- "))
+            active = 0
+            for node in _own_body_nodes(func):
+                if (isinstance(node, ast.Return)
+                        and isinstance(node.value, ast.Constant)
+                        and node.value.value == "active"):
+                    active += 1
+            counts[module] = (bullets, active)
+    return counts
+
+
+# The containment wall's vocabulary (M3, M5, M7, M8).
+#
+# The callee set is the script's COMPLETE set of functions reaching a `vault_io`
+# MUTATING door, derived from the mutation-site census rather than hand-listed:
+# `write_note` inside `apply_fixes`, `ensure_dir` + `move_note` inside
+# `quarantine_garbage`, and the two entry points that reach them, `run_lint` and
+# `main`. `main` is the one that reaches the live vault by OMISSION — its
+# `--vault` carries `default=DEFAULT_VAULT` — so it is a member with NO
+# vault-argument position, and every collected `main` call therefore falls into
+# the arm that already RAISES on a call presenting no vault argument.
+MUTATING_DRIVE_VAULT_POSITIONS = {
+    "apply_fixes": 1,
+    "quarantine_garbage": 1,
+    "run_lint": 0,
+    "main": None,
+}
+VAULT_KEYWORD = "vault_path"
+
+#: `bindings` provenance for a single-target assignment whose value is not a call.
+NOT_A_CALL = "<not-a-call>"
+#: `live_path_names` enclosing scope for a site at module level.
+MODULE_LEVEL = "<module>"
+
+#: The three TOKENS a module can spell the live vault path with, and the
+#: codomain of `VaultArgScan.live_path_names`' third element. Public because a
+#: consumer asserting on them must READ them rather than re-spell them: the
+#: check module this scan grades is FORBIDDEN to carry the env key as a bare
+#: Constant outside its one door, so a hand-typed copy in that module's
+#: assertion would redden the very wall the assertion states.
+LIVE_PATH_DEFAULT_NAME = "DEFAULT_VAULT"
+LIVE_PATH_ENV_KEY = "OBSIDIAN_VAULT_PATH"
+LIVE_PATH_ENV_READ = "os.environ"
+LIVE_PATH_TOKENS = frozenset({
+    LIVE_PATH_DEFAULT_NAME, LIVE_PATH_ENV_KEY, LIVE_PATH_ENV_READ,
+})
+
+_LIVE_PATH_ENV_READERS = frozenset({"environ", "getenv"})
+
+
+class VaultArgScan(NamedTuple):
+    """The THREE censuses the containment wall runs, and no one of them is a
+    claim on its own.
+
+    `drives` grades a mutating call's vault ARGUMENT — its spelling.
+    `bindings` grades where that argument's identifier CAME FROM — its
+    provenance — because a drive can present the accepted spelling while the
+    door that produces it was never called.
+    `live_path_names` grades what the module can NAME at all, because
+    `apply_fixes` never reads its `vault_path` (its write targets come from the
+    issues), so a correctly-contained argument constrains nothing about the
+    bytes written.
+    """
+
+    drives: frozenset        # (module_id, lineno, identifier)
+    bindings: frozenset      # (module_id, lineno, identifier, provenance)
+    live_path_names: frozenset   # (module_id, lineno, token, enclosing)
+
+
+def _enclosing_function_names(tree) -> dict:
+    """`id(node) -> name of the INNERMOST enclosing function`, else MODULE_LEVEL.
+
+    INNERMOST rather than outermost, which is the whole of the scoping ruling: a
+    `def` written inside the exempt door reports its OWN name and is therefore
+    graded, so the exemption is the door's BODY and not the door's
+    neighbourhood.
+    """
+    mapping = {id(tree): MODULE_LEVEL}
+
+    def walk(node, current):
+        for child in ast.iter_child_nodes(node):
+            mapping[id(child)] = current
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                walk(child, child.name)
+            else:
+                walk(child, current)
+
+    walk(tree, MODULE_LEVEL)
+    return mapping
+
+
+def _target_names(node) -> set:
+    """Every `ast.Name` id appearing anywhere in a binding-target expression."""
+    return {sub.id for sub in ast.walk(node) if isinstance(sub, ast.Name)}
+
+
+def _binding_provenance(value) -> str:
+    """Where a single-target assignment's value came FROM.
+
+    A call yields the callee's OWN name, resolved by `_call_callee_name` so the
+    dotted and bare spellings agree. Anything else — an attribute, a subscript,
+    a literal, a bare name, a comprehension, a ternary — yields `NOT_A_CALL`.
+    RETURNED rather than raised: the scan reports and the WALL goes red naming
+    the line, which keeps the hazardous shape drivable as a fixture instead of
+    only as an exception.
+    """
+    if isinstance(value, ast.Call):
+        return _call_callee_name(value) or NOT_A_CALL
+    return NOT_A_CALL
+
+
+def _raise_if_other_binding(module: str, tree, ident: str) -> None:
+    """RAISE on any binding of `ident` that is not a single-target `ast.Assign`.
+
+    The enumeration is CLOSED because `ast` closes it — it is Python's whole
+    binding surface, not a sample of the shapes anyone thought of — and each
+    member raises rather than yielding a sentinel because provenance for it
+    cannot be read off one expression, so a sentinel would be a guess the wall
+    then grades.
+    """
+    def offend(node, shape):
+        raise AssertionError(
+            f"{module}:{getattr(node, 'lineno', '?')} binds {ident!r} via "
+            f"{shape}, which carries no readable provenance — the containment "
+            f"wall's claim is about EVERY binding of that name")
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            single = (len(node.targets) == 1
+                      and isinstance(node.targets[0], ast.Name)
+                      and node.targets[0].id == ident)
+            if single:
+                continue
+            if any(ident in _target_names(t) for t in node.targets):
+                offend(node, "a tuple/starred/attribute/subscript or multi-target "
+                             "assignment")
+        elif isinstance(node, (ast.AugAssign, ast.AnnAssign)):
+            if ident in _target_names(node.target):
+                offend(node, "an augmented or annotated assignment")
+        elif isinstance(node, (ast.For, ast.AsyncFor)):
+            if ident in _target_names(node.target):
+                offend(node, "a `for` target")
+        elif isinstance(node, (ast.With, ast.AsyncWith)):
+            for item in node.items:
+                if item.optional_vars is not None \
+                        and ident in _target_names(item.optional_vars):
+                    offend(node, "a `with ... as` target")
+        elif isinstance(node, ast.NamedExpr):
+            if ident in _target_names(node.target):
+                offend(node, "a walrus")
+        elif isinstance(node, ast.ExceptHandler):
+            if node.name == ident:
+                offend(node, "an `except ... as` target")
+        elif isinstance(node, ast.arg):
+            if node.arg == ident:
+                offend(node, "a parameter")
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            for alias in node.names:
+                if (alias.asname or alias.name.split(".")[0]) == ident:
+                    offend(node, "an import alias")
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if node.name == ident:
+                offend(node, "a def/class of that name")
+        elif isinstance(node, (ast.Global, ast.Nonlocal)):
+            if ident in node.names:
+                offend(node, "a global/nonlocal declaration")
+
+
+def mutating_drive_vault_args(files: Iterable[Path]) -> VaultArgScan:
+    """The containment wall's three censuses over `files` (WI-026, M3/M5/M7/M8).
+
+    `drives` — every call whose callee resolves to a member of
+    `MUTATING_DRIVE_VAULT_POSITIONS`, recorded as
+    `(module, lineno, <identifier bound to its VAULT argument>)`. The vault
+    argument is that member's declared position, or the `vault_path=` keyword.
+    A collected call presenting a vault argument at NEITHER — `main()` always,
+    `run_lint()` with no argument — RAISES, and so does one whose vault argument
+    is not a plain `ast.Name`, because the claim is that every mutating drive's
+    path came out of the module's ONE door and an expression the scan cannot
+    reduce to a bound name is precisely the case that must not pass silently.
+    A call to any other callee is not collected at all and does not raise.
+
+    `bindings` — for every identifier a `drives` triple names, EVERY binding
+    site of it IN THE SAME MODULE, as `(module, lineno, identifier,
+    provenance)`. Identifiers no drive names are not scanned at all, so a module
+    may bind whatever else it likes. An identifier a drive names that has NO
+    binding site in that module RAISES: a scan returning an empty set for it
+    would make "every binding came from the door" true by having found none.
+
+    `live_path_names` — every site NAMING the live vault path, at three CLOSED
+    shapes and nothing else, as `(module, lineno, token, enclosing)`:
+    a `DEFAULT_VAULT` attribute or bare name; a `str` Constant EQUAL to the
+    environment key (equality, never containment, so a docstring sentence and a
+    fixture string carrying the token are both invisible); and an `environ` /
+    `getenv` attribute or bare name. `enclosing` is the INNERMOST enclosing
+    function name or `MODULE_LEVEL`.
+    """
+    drives = set()
+    bindings = set()
+    live_path_names = set()
+
+    for path in files:
+        tree = _parse(path)
+        module = module_id(path)
+        enclosing = _enclosing_function_names(tree)
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            callee = _call_callee_name(node)
+            if callee not in MUTATING_DRIVE_VAULT_POSITIONS:
+                continue
+            position = MUTATING_DRIVE_VAULT_POSITIONS[callee]
+            argument = None
+            for keyword in node.keywords:
+                if keyword.arg == VAULT_KEYWORD:
+                    argument = keyword.value
+                    break
+            if argument is None and position is not None \
+                    and len(node.args) > position:
+                argument = node.args[position]
+            if argument is None:
+                raise AssertionError(
+                    f"{module}:{node.lineno} drives {callee}() with a vault "
+                    f"argument at neither its declared position nor the "
+                    f"{VAULT_KEYWORD}= keyword — a drive this census cannot "
+                    f"grade is the drive the wall exists to catch")
+            if not isinstance(argument, ast.Name):
+                raise AssertionError(
+                    f"{module}:{node.lineno} drives {callee}() with a vault "
+                    f"argument this scan cannot reduce to a bound name")
+            drives.add((module, node.lineno, argument.id))
+
+        for ident in {identifier for mod, _, identifier in drives if mod == module}:
+            _raise_if_other_binding(module, tree, ident)
+            seen = False
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Assign):
+                    continue
+                if len(node.targets) != 1 or not isinstance(node.targets[0], ast.Name):
+                    continue
+                if node.targets[0].id != ident:
+                    continue
+                seen = True
+                bindings.add((module, node.lineno, ident,
+                              _binding_provenance(node.value)))
+            if not seen:
+                raise AssertionError(
+                    f"{module} drives a mutating entry point with {ident!r}, "
+                    f"which this module never binds — its provenance is outside "
+                    f"this module's own text and the wall cannot cover it")
+
+        for node in ast.walk(tree):
+            token = None
+            if isinstance(node, ast.Attribute):
+                if node.attr == LIVE_PATH_DEFAULT_NAME:
+                    token = LIVE_PATH_DEFAULT_NAME
+                elif node.attr in _LIVE_PATH_ENV_READERS:
+                    token = LIVE_PATH_ENV_READ
+            elif isinstance(node, ast.Name):
+                if node.id == LIVE_PATH_DEFAULT_NAME:
+                    token = LIVE_PATH_DEFAULT_NAME
+                elif node.id in _LIVE_PATH_ENV_READERS:
+                    token = LIVE_PATH_ENV_READ
+            elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+                if node.value == LIVE_PATH_ENV_KEY:
+                    token = LIVE_PATH_ENV_KEY
+            if token is None:
+                continue
+            live_path_names.add((module, node.lineno, token,
+                                 enclosing.get(id(node), MODULE_LEVEL)))
+
+    return VaultArgScan(frozenset(drives), frozenset(bindings),
+                        frozenset(live_path_names))
