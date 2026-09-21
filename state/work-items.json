@@ -1,7 +1,7 @@
 {
   "project": "obsidian-schemas",
   "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
-  "last_scanned": "2026-09-21T14:13:40Z",
+  "last_scanned": "2026-09-21T14:28:37Z",
   "next_id": 33,
   "items": [
     {
@@ -1770,7 +1770,7 @@
     {
       "id": "WI-031",
       "title": "Close the third live-vault source in the WI-026 containment wall",
-      "stage": "done",
+      "stage": "building",
       "file": "docs/lint-vault-wall-third-source.md",
       "created": "2026-09-21",
       "last_touched": "2026-09-21",
@@ -1814,13 +1814,6 @@
         {
           "from": "ready",
           "to": "building",
-          "at": "2026-09-21",
-          "by": "session",
-          "forced": false
-        },
-        {
-          "from": "building",
-          "to": "done",
           "at": "2026-09-21",
           "by": "session",
           "forced": false

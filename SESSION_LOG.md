@@ -25,7 +25,15 @@ parked (no signal); WI-005 premise-drifted (a lazily-held `CompanyRepository` no
 keep all as they are.
 
 `queue_order` → WI-029, WI-030, WI-028, WI-025, WI-009, WI-011 (edited in state, `--fix` preserves
-it — the 87d7d44 shape). A live finding, the identity-conflict duplicate pair the load warned about,
+it — the 87d7d44 shape).
+
+**WI-029 launched (Dave: yes/yes) and died at step 0 — my fault, fixed.** The driver's floor is the
+linter under `--enforce`, and WI-031's hand-advanced `done` carried the D6 violation (no intent-check
+PROMOTE) I had recorded as "informational" that morning → floor RED → tooling-fault escalation
+(`ESC-WI-029-floor-tooling-fault-8b7b2600`). Repair: WI-031 REWOUND to `building` (the
+`building>done@session` transition removed; Build Log corrected), `--enforce` back to 0 errors,
+escalation answered "Fix … and re-run", WI-029 relaunched by hand. Rule written into HANDOFF and
+memory: a hand build stops at `building` and is driven for its exit half; never hand `→ done`. A live finding, the identity-conflict duplicate pair the load warned about,
 DISSOLVED between the two reads (1,172 → 1,171 notes, `.conflicts` empty an hour later); Dave's
 "fold into WI-029" is recorded there as a measurement instruction (count `.conflicts` at entry/exit,
 invariant zero over the corpus), names never written (M1). Not re-counted: WI-029's booked hand

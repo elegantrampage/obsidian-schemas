@@ -2,14 +2,14 @@
 id: WI-031
 title: Close the third live-vault source in the WI-026 containment wall
 project: obsidian-schemas
-stage: done
+stage: building
 created: 2026-09-21
 last_touched: 2026-09-21
 stage_changed: 2026-09-21
 touched_by: session
 tags: [scripts, write-safety, testing]
 depends_on: ["WI-026"]
-transitions: ["idea>exploring@2026-09-21@session", "exploring>specced@2026-09-21@session", "specced>ready@2026-09-21@session", "ready>building@2026-09-21@session", "building>done@2026-09-21@session"]
+transitions: ["idea>exploring@2026-09-21@session", "exploring>specced@2026-09-21@session", "specced>ready@2026-09-21@session", "ready>building@2026-09-21@session"]
 ---
 
 # Close the third live-vault source in the WI-026 containment wall
@@ -144,9 +144,15 @@ kind: test
   (8 checks), the full floor green (directional count unchanged — one check gained clause (v) and a
   battery; no `def test_` added), the work-item linter at 0 errors.
 - AC-1 signed by Dave in-session (the `## AC Sign-off` fence below is the record).
-- **Intent check, by hand (the D6 door).** `work_item_linter.py --enforce` records one standing
-  guard violation for this item — `building -> done` requires an intent-check PROMOTE verdict — and it
-  stays recorded rather than satisfied by a fence no gate wrote. The conductor's own answer to the
+- **Intent check — NOT by hand after all (corrected 2026-09-21, later the same day).** The first
+  version of this entry recorded the D6 violation (`building -> done` requires an intent-check PROMOTE
+  verdict) as informational. It is not: the driver's floor runs the linter WITH `--enforce`, so the
+  hand-advanced `done` turned this project's floor RED and killed the WI-029 launch at step 0
+  (tooling-fault). Repair: the item is REWOUND to `building` (the `building>done@session` transition
+  removed) and re-driven for its exit half — build-runner over the already-landed, checked tasks,
+  then code-reviewer, test-observability and intent-check as REAL verdicts — the WI-023 precedent
+  ("re-driven from building → done in one leg"). The conductor's own answer to the intent question
+  stays below as context for that gate, not as its verdict. The conductor's own answer to the
   gate's question, so the record is not empty: the frozen `## Intent` asks that the test module have
   NO route to Dave's live vault the wall does not grade, including the library's environment
   fallback, and that the 2026-09-16 ruling live in code rather than prose. The build lands exactly
