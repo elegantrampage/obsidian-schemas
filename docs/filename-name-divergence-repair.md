@@ -30,6 +30,19 @@ so they are not lost: one book note carrying `type: person` (`The New York Trilo
 Auster.md`, `name: Nicole Stocker`, G5(a)), four notes with frontmatter but no `type:` (G1 bucket
 (b), live), and three book notes whose frontmatter fence opened and did not parse (G1 bucket (d)).
 
+**Queue review 2026-09-21 (Dave: ranking agreed — this item is now FIRST in `queue_order`; "proceed
+with your recommendation" on the fold below).** Premise re-verified: the class has GROWN — the census
+(`docs/vault-shape-census.md:262`, measured 2026-09-07) counts **8 live** stem≠name person notes against
+the three named above, and `BaseRepository.save` still binds the filename from `entity.name`
+(`base.py:381`). FOLD, counts only: load-time identity-reconciliation conflicts
+(`PersonRepository.conflicts`, the load-time kind — one identifier on more than one note) are the
+same duplicate-note class as a forked stem, so this item's conductor entry/exit measurement records
+`len(PersonRepository().conflicts)` beside the divergence count, and the invariant test asserts it is
+zero over the corpus. On 2026-09-21 one such pair was observed at the morning load (a two-note
+conflict, last-wins) and had been merged by the re-check an hour later (1,172 → 1,171 person notes,
+conflicts 0) — nothing to repair by hand today, and exactly the shape that should be visible on a
+readout rather than in a log line nobody reads.
+
 ## Intent
 
 A person note's filename and its stored name agree, everywhere in the live vault, and stay that

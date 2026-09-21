@@ -1,5 +1,38 @@
 # Session Log
 
+## 2026-09-21 (later) — `/review-queue` run and ruled; queue_order rewritten
+
+Dave asked "what's next?", then ran `/review-queue`. All nineteen non-done items grounded against the
+estate as it is now (docs + code + a live read-only load: 1,172 people in 1.19s, reload 0.85s — the
+parked performance items' un-park signal is 5s; no signal). Ranking by compounding debt, all channels
+JUDGED (this project declares no `review_levels:`, so the selector is unevaluable by design):
+
+1. **WI-029** filename/name divergence — LEAK, the one live corruption class (census: 8 stem≠name
+   notes, each forks on its next `save()`; `base.py:381`). Full factory (L3: renames live notes).
+2. **WI-030** lint_vault package export — BREADTH/UNBLOCKS (two orchestrator sibling-path reaches
+   still live, allowlisted in workshop's boundary lint; the `_load_lint_vault` seam in two test modules
+   names it). Rubric L3 (new package module); **Dave: FULL FAT, no exception.**
+3. **WI-028** resolution policy — ROBUSTNESS; premise STRONGER than written: three policies now
+   (library `resolve` selection policy `person.py:150` since WI-023; HAL9000 `PERSON_RESOLVE_CUTOFF`
+   at `backend_fastapi/core/person_resolution.py:46`; exocortex `stages/resolve.py:243`), disagreeing
+   on two candidates ≥0.85. Citations re-anchored in the doc (Dave: proceed).
+4. **WI-025** decompose person.py — still 1,839 LOC; the identifier.py import-cycle cost is gone.
+5. **WI-009**, 6. **WI-011** — capability / low robustness; premises hold.
+
+Staleness: WI-001/014/015 already closed by Dave 09-06 (superseded); WI-002/003/012/013/006/010 stay
+parked (no signal); WI-005 premise-drifted (a lazily-held `CompanyRepository` now sits in
+`person.py:243` for name cleaning — a seed of the linking); WI-007/008/027 still-valid at idea. Dave:
+keep all as they are.
+
+`queue_order` → WI-029, WI-030, WI-028, WI-025, WI-009, WI-011 (edited in state, `--fix` preserves
+it — the 87d7d44 shape). A live finding, the identity-conflict duplicate pair the load warned about,
+DISSOLVED between the two reads (1,172 → 1,171 notes, `.conflicts` empty an hour later); Dave's
+"fold into WI-029" is recorded there as a measurement instruction (count `.conflicts` at entry/exit,
+invariant zero over the corpus), names never written (M1). Not re-counted: WI-029's booked hand
+repairs from the 09-05 shell pass; consumer demand for WI-007/008/009 beyond the headhunter agent doc.
+
+---
+
 ## 2026-09-15 → 09-21 — WI-026 SHIPPED idea→done on the porter; the exit bracket filled; WI-031 minted
 
 ### WI-026 (lint_vault --fix safety) — five Dave rulings, six spec-review rounds, one dark build

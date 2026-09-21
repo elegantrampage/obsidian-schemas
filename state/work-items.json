@@ -1,8 +1,8 @@
 {
   "project": "obsidian-schemas",
   "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
-  "last_scanned": "2026-09-21T08:04:07Z",
-  "next_id": 32,
+  "last_scanned": "2026-09-21T14:13:40Z",
+  "next_id": 33,
   "items": [
     {
       "id": "WI-022",
@@ -2905,6 +2905,28 @@
       "summary": "BookRepository was completed (2026-01-11) to manage reading list entities, but the equivalent for watch list items (movies, TV shows, documentaries) still doesn't exist. The Watch entity type likely f"
     },
     {
+      "id": "WI-032",
+      "title": "Validate the WhatsApp JID shape at the person boundary",
+      "stage": "idea",
+      "file": "docs/whatsapp-jid-value-type.md",
+      "created": "2026-09-21",
+      "last_touched": "2026-09-21",
+      "stage_changed": "2026-09-21",
+      "tags": [],
+      "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
+      "parent": null,
+      "children": [],
+      "depends_on": [],
+      "blocked": false,
+      "transitions": [],
+      "latest_verdicts": {},
+      "verdicts": [],
+      "acceptance_criteria": [],
+      "summary": "`Person.whatsapp` is a bare `str`, so every writer lets any string through: HAL9000's"
+    },
+    {
       "id": "WI-021",
       "title": "Close the write-door bypasses: name validation + address normalization on every mutation path",
       "stage": "done",
@@ -3170,14 +3192,11 @@
     }
   ],
   "queue_order": [
-    "WI-022",
-    "WI-016",
-    "WI-023",
-    "WI-028",
-    "WI-026",
-    "WI-025",
-    "WI-011",
     "WI-029",
-    "WI-009"
+    "WI-030",
+    "WI-028",
+    "WI-025",
+    "WI-009",
+    "WI-011"
   ]
 }
