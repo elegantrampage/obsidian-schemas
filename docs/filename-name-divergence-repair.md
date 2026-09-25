@@ -10,6 +10,8 @@ touched_by: session
 tags: []
 depends_on: []
 transitions: ["idea>exploring@2026-09-21@porter"]
+review_level: L3
+review_level_provenance: selector
 ---
 
 # Filename/name divergence repair: rename the forked stems, then pin the invariant
@@ -2298,4 +2300,25 @@ verdict: PROMOTE
 date: 2026-09-21
 model: claude-sonnet-5
 note: Round 1's CRITICAL (Book/Meeting `save()` faking provenance-binding via call-and-discard) is closed — re-simulated directly against AC-1's planted colliding-group oracle rather than the fold's prose, and the stub fails AC-1(b)/(c) on the divergent member's sibling-clobber regardless of AC-5's bucket rule. AC-5's monotone-taint residue (architect round 6, note 1) is confirmed real by direct read of `_taints_a_write` but bites only a hypothetical tenth write path, not any of the nine this item ships, so it is correctly non-blocking rather than a re-opening of this finding.
+```
+
+## AC Sign-off
+
+```verdict
+gate: ac-signoff
+verdict: PROMOTE
+date: 2026-09-25
+reviewer: dave
+channel: cli
+signed_at: 2026-09-25T11:22:44+01:00
+provenance: verified
+signoff_escalation: ESC-WI-029-exploring-awaiting-ac-signoff-c8fa2aec
+ac_hash: 15189b874b27
+intent_hash: 2dd3a4440900
+ac_hash_AC-1: c6f4d70405ec
+ac_hash_AC-2: 510393423e26
+ac_hash_AC-3: bb186845ac80
+ac_hash_AC-4: 82e8589871c2
+ac_hash_AC-5: 366c0cca779e
+artifact: docs/spec-reviews/WI-029-dave-review-2026-09-25.md
 ```
