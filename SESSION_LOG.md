@@ -1,5 +1,15 @@
 # Session Log
 
+## 2026-09-26 (evening) — WI-032 hand-launched from `idea` on factory-v14
+
+- Cold start verified against the handoff: floor 699 passed (~20s), tree clean and in sync at `349e711`,
+  linter `--enforce` 0 errors / 257 warnings (frozen citation drift), no pending escalation, no live
+  drive on this project, channel blessed at factory-v14 (10:34). A workshop-project gate (WI-383) was
+  running under the other token — not a bless window, not this project.
+- Dave: "launch wi-032". Hand launch from `idea` under the dave@davewascha token, headless, with the
+  floor command as `--test-command` and `--ac-python` = this repo's `.venv` interpreter. Consumer-visible
+  → full factory. The porter takes it from the first answered record onward.
+
 ## 2026-09-25 → 09-26 — WI-029 SHIPPED and the live vault repaired; WI-032/WI-033 to the top of the queue
 
 ### WI-029 (filename/name divergence repair + invariant) — idea→done in five days on the porter
