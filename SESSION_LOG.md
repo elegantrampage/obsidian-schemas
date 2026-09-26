@@ -1,5 +1,59 @@
 # Session Log
 
+## 2026-09-25 → 09-26 — WI-029 SHIPPED and the live vault repaired; WI-032/WI-033 to the top of the queue
+
+### WI-029 (filename/name divergence repair + invariant) — idea→done in five days on the porter
+
+- **09-21:** hand-launched from `idea` (first launch died at step 0 on the `--enforce` floor — WI-031's
+  hand `done`; fixed by rewinding WI-031 to `building`, floor re-recorded green). Architect REVISE ×4 then
+  PROMOTE, ac-red-team REVISE→PROMOTE (two revise-caps bought under the standing grant: the gate-refusal
+  predicate is `gate_write`'s own answer with the note's payload — `pure_digit` is sentinel-exempt when
+  `phones` are declared; AC-1 plants divergent Book/Meeting subjects and AC-5's seam-routed bucket is a
+  DATA-FLOW property). Parked at the WI-300 grounding door: the conductor authored the two precondition
+  artifacts — `docs/stem-divergence-live-baseline.md` (entry half: 8 divergent live notes, 0 conflicts,
+  7 RENAME incl. one case-only + 1 MERGE, blast radius 24 wikilinks / 14 attendee notes, booked repairs
+  1/4/3; counts only) and `docs/wi-029-consumer-audit.md` (three Explore agents in parallel; 19 of 19
+  consumer write sites on LOADED entities; zero Book/Meeting `save` callers; ONE consumer-visible rename
+  door, HAL9000's generic PATCH; structural stale-link findings recorded for the next review). Read-back
+  before the signature corrected AC-4's occupied rule to "a DIFFERENT note" and gave AC-2 arm (h)
+  CASE-ONLY (`7615990`). D4a: Dave's "proceed" 09-25 → `originate --from-escalation`, ac_hash
+  `15189b874b27` — it held to `done` (no D4b ever owed).
+- **09-25/26 at specced:** five spec-review rounds. Cap 1 bought under the grant (half-failed-rename
+  re-run does NOT restore the alias — say so; compare paths by file IDENTITY, `move_note` returns
+  resolved paths). Spec-reviewer round 4 then TIMED OUT at the 2400s gate ceiling on a 6,304-line doc
+  (827→873→1332→2401s) — tooling fault; the persisted worktree's folds were hand-landed onto live
+  (`8c39d74`, seed `b8e5d77`, byte-identical), the ceiling reported to the workshop conductor, raised
+  to 3600s in factory-v14 on Dave's word (workshop WI-387 minted for the structural trim); a
+  resume-blocked fork was cleared by dismissing the spent cap (its worktree == live, proven by cmp).
+  Cap 2 was Dave's ruling ("proceed with your recommendation"): `update_fields` renames MOVE FIRST,
+  WRITE SECOND so an occupied destination is refused with nothing written; the consumer-visible change
+  (HAL9000 PATCH onto an occupied note raises `NoteAlreadyExists` instead of forking) disclosed. Round
+  5: spec-reviewer + injection-hunter PROMOTE → ready → building (build-runner attempt 1 hit its own
+  2400s cap, attempt 2 in 19 min) → code-reviewer, test-observability, intent-check PROMOTE → **done
+  2026-09-26**, retrospective written. Floor 689 → **699**. Shipped: `_resolve_write_target` +
+  `rename_note` in `base.py`, the seam through every mutating path incl. Book/Meeting `save`,
+  `stem_name_divergence` in `lint_vault` (ERROR, never auto-fixed), four new test modules.
+- **Close-out on Dave's go ("proceed with the sequence as proposed"):** the live vault repaired through
+  the doors — 7 renames (7/7 readback; the case-only row two-stepped cleanly), row 8 + two duplicate
+  root notes quarantined (canonical notes already complete; nothing deleted), 3 book notes' frontmatter
+  fixed (root cause: `parse_frontmatter`'s optional-newline fence regex lets an in-value ` --- ` close
+  the fence — parser fix to mint), 21 incoming wikilinks retargeted (the door's alias lacks `@`, so
+  `[[@old]]` would go dark in Obsidian). Exit: divergent **8 → 0**, conflicts 0 → 0, parse_error 3 → 0,
+  book-titled person 1 → 0 (`docs/stem-divergence-live-baseline.md` §5). Ship condition MET.
+
+### Dave's identity rulings (mainspring threaded review, 2026-09-26; confirmed in-session)
+
+Two peer questions answered from the code: (1) WI-032 — `WhatsAppJID.parse` already accepts `@lid`;
+field → `list[WhatsAppJID]`, all identifier fields typed lists, provenance OFF the note, a `whatsapp_jid`
+resolution step (lids are indexed under `jid:` but nothing in the cascade reads that kind), migration
+with dry run + readback. Doc re-anchored. (2) introduced_by — Dave ruled NO stored field: **WI-033**
+minted (`TimelineEntry` relocates from HAL9000 into the library + a derived
+`PersonRepository.introduced_by` accessor). Both to the TOP of `queue_order` behind WI-029 (Dave:
+"yes, please add those items to the top of the queue"): WI-032, WI-033, WI-030, WI-028, WI-025,
+WI-009, WI-011.
+
+---
+
 ## 2026-09-21 (later) — `/review-queue` run and ruled; queue_order rewritten
 
 Dave asked "what's next?", then ran `/review-queue`. All nineteen non-done items grounded against the
