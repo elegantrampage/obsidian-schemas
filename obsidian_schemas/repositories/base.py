@@ -17,7 +17,12 @@ from ..errors import FrontmatterParseError, SchemaDriftError, bounded_detail
 from ..models import BaseEntity
 from ..name_gate import gate_write
 from ..parser import parse_markdown_file, parse_frontmatter
-from ..writer import write_markdown_file, write_frontmatter
+# `update_frontmatter_field` is imported as a BARE NAME and called unqualified
+# (WI-029): AC-5's enumeration reaches bare-name calls to a member of
+# `path_taking_writer_names`, and Task 10 patches this module's own binding to
+# drive the half-failed-rename residual. A `writer.update_frontmatter_field(...)`
+# spelling moves both.
+from ..writer import write_markdown_file, write_frontmatter, update_frontmatter_field
 # Module attribute call form throughout (WI-004 D7) — see writer.py's note.
 from obsidian_schemas import vault_io
 
@@ -73,6 +78,26 @@ class VaultPathNotConfiguredError(ValueError):
 
 
 ENV_VAULT_PATH = "OBSIDIAN_VAULT_PATH"
+
+# The four PRECONDITIONS `update_fields` refuses on before it writes anything
+# (WI-029). Declared as constants rather than spelled inline so a battery can
+# assert WHICH precondition refused without re-typing a message: the whole point
+# of the arm is that it cannot pass on a sibling clause. Each is a fragment of
+# the raised `ValueError`'s message, never the whole of it.
+NO_PROVENANCE_PRECONDITION = (
+    "a name change needs the provenance a move is resolved from"
+)
+WRITE_GUARD_PRECONDITION = (
+    "the write guard is not enforcing"
+)
+NAME_DECLARATION_PRECONDITION = (
+    "this entity's own type declares no 'name' field, so it derives no "
+    "@{name}.md destination"
+)
+FILENAME_RULE_PRECONDITION = (
+    "this delta moves the entity type's own filename rule with no rename to "
+    "follow it"
+)
 
 UNCONFIGURED_VAULT_MESSAGE = (
     "No Obsidian vault configured. Pass an explicit vault_path "
@@ -364,6 +389,30 @@ class BaseRepository(ABC, Generic[T]):
         self._ensure_loaded()
         return self._file_map.get(name.lower().strip())
 
+    def _resolve_write_target(self, entity: T) -> Optional[Path]:
+        """THE one place a mutation target is chosen from PROVENANCE (WI-029).
+
+        Returns the file this entity was parsed from when that file lies inside
+        THIS repository's vault, and None otherwise. It NEVER falls back: each
+        caller applies its own documented fallback, because the correct fallback
+        differs by path and a uniform one would convert `update_fields`' and the
+        body-writers' loud refusals into note CREATION.
+
+        Existence is deliberately not part of the resolution — the stamp is a
+        path, not a promise the file is still there. `save` creates at it (as the
+        name-derived path does today); the refusing callers keep their own
+        `.exists()` check one line later.
+        """
+        stamped = getattr(entity, "_source_path", None)
+        if stamped is None:
+            return None
+        candidate = Path(stamped)
+        try:
+            inside = candidate.resolve().is_relative_to(self.vault_path.resolve())
+        except (OSError, ValueError):
+            return None
+        return candidate if inside else None
+
     def save(
         self,
         entity: T,
@@ -388,9 +437,24 @@ class BaseRepository(ABC, Generic[T]):
         Returns:
             Path to the saved file
         """
+        # The target comes from PROVENANCE first (WI-029): an entity the library
+        # parsed writes back to its own note, so two notes sharing one stored
+        # `name:` no longer collapse onto one filename and a divergent stem no
+        # longer forks on the next save. The name-derived filename is the
+        # FALLBACK, and this path's fallback CREATES — that is today's behaviour
+        # for an entity with no provenance and it has to stay, or nothing can
+        # create a note. The WARNING precedes the write because
+        # `write_markdown_file` then reaches its zero case and refuses with
+        # `NoteAlreadyExists`: the readout must come first or it is never seen.
         name = getattr(entity, "name", "Unknown")
-        filename = f"@{name}.md"
-        file_path = self.vault_path / filename
+        resolved = self._resolve_write_target(entity)
+        derived = self.vault_path / f"@{name}.md"
+        if resolved is None and derived.exists():
+            logger.warning(
+                "no provenance on this %s: the write targets the derived "
+                "filename and a note already exists there, path=%s",
+                self.type_name, derived)
+        file_path = resolved or derived
 
         # NOT under _cache_lock: the repository lock spans the cache mutation
         # only, never the filesystem write, so no thread ever holds it while
@@ -408,8 +472,127 @@ class BaseRepository(ABC, Generic[T]):
         # Update cache — through the one adoption door.
         self._adopt(self._get_cache_key(entity), entity, file_path)
 
-        logger.info(f"Saved {self.type_name}: {filename}")
+        # The file ACTUALLY written, never the name-derived filename (WI-029):
+        # under the resolved-or-derived shape the write can land somewhere the
+        # derived name does not describe, and a log naming a file the call did
+        # not write is worse than no log — this class has to be reconstructable
+        # from a consumer's logs.
+        logger.info(f"Saved {self.type_name}: {file_path.name}")
         return file_path
+
+    def rename_note(self, entity: T, new_filename: str) -> Path:
+        """Door 3's one repository caller (WI-029). Moves the note THIS ENTITY
+        was parsed from to `new_filename` inside this vault, keeps the old stem
+        as an alias, repairs the caches, and RE-STAMPS the entity so its next
+        write follows the file instead of recreating the old stem.
+
+        The destination is the CALLER'S, never derived from the entity: deriving
+        it here would re-introduce a name-bound target on the one path whose
+        whole job is to move files, and each type's filename rule differs
+        (`@{name}.md`, `_get_file_name`).
+
+        A re-run is always SAFE — it never moves twice, never appends twice and
+        never forks — and it repairs exactly the residuals in which the MOVE did
+        not happen and the cause has gone. It repairs NOTHING that happened after
+        the move: after a rename whose move committed and whose alias write
+        raised, provenance has already moved to the destination, so a second call
+        takes the no-op branch and appends nothing. That residual's recovery is
+        one caller-side field edit (`update_fields(entity, {"aliases": [...]})`).
+        """
+        source = self._resolve_write_target(entity)
+        if source is None:
+            raise ValueError(
+                f"no provenance for this {self.type_name}: rename_note moves the "
+                f"note an entity was PARSED FROM, and this entity was not")
+        if not source.exists():
+            raise FileNotFoundError(f"File not found: {source}")
+
+        destination = self.vault_path / new_filename
+        try:                                            # M1 — CONTAINMENT
+            contained = destination.resolve().is_relative_to(
+                self.vault_path.resolve())
+        except (OSError, ValueError):
+            contained = False                           # unresolvable == not contained
+        if not contained:
+            raise ValueError(
+                f"refusing to move this {self.type_name} outside the vault: "
+                f"new_filename={new_filename!r}")
+
+        mode = vault_io.guard_mode()                 # M6 — FAIL CLOSED
+        if mode != "enforce":
+            raise ValueError(
+                f"refusing to move this {self.type_name} while the write guard "
+                f"is not enforcing (OBSIDIAN_SCHEMAS_WRITE_GUARD={mode!r}): "
+                f"under it door 3 OVERWRITES an occupied destination instead "
+                f"of raising NoteAlreadyExists")
+        old_stem = source.stem.lstrip("@")
+
+        # WHICH FILE each side names, never how it is SPELLED. `move_note`
+        # returns `_resolved(dest)` (vault_io.py:_resolved, :_move_locked), so a
+        # stamp written by an earlier rename is RESOLVED while
+        # `self.vault_path / new_filename` carries whatever spelling this
+        # repository was constructed with — two strings, one file. The PARENT
+        # is resolved and the RAW `.name` is not: resolving the directory eats
+        # the spellings the environment supplies, while leaving the basename
+        # alone keeps a case-only destination out of this branch even on a
+        # platform whose `resolve()` normalizes case. A final-component symlink
+        # is deliberately not followed here — a symlinked SOURCE is door 3's
+        # refusal and a symlinked DESTINATION is M1's containment question.
+        same_place = ((destination.parent.resolve(), destination.name)
+                      == (source.parent.resolve(), source.name))
+
+        if same_place:                                  # idempotent re-run
+            moved = source
+            moved_now = False
+        elif destination.exists() and source.samefile(destination):
+            # CASE-ONLY on a case-insensitive filesystem: `os.link` would raise
+            # FileExistsError against the note's OWN inode, so door 3 cannot go
+            # straight there. Two steps through a staging name DERIVED FROM THE
+            # SOURCE (never from the destination — the seam's value must reach
+            # every move's first positional), and the staging name's own
+            # existence is refused by door 3's syscall rather than by a check.
+            # M3: the staging name keeps the `.md` SUFFIX, so the window between
+            # the two moves holds a note every reader still sees.
+            staging = source.with_name(destination.stem + ".rename-tmp.md")
+            vault_io.move_note(source, staging)
+            moved = vault_io.move_note(staging, destination)
+            moved_now = True
+        else:
+            moved = vault_io.move_note(source, destination)
+            moved_now = True
+
+        entity._source_path = moved                     # RE-STAMP, before anything else can fail
+        new_stem = moved.stem.lstrip("@")
+        aliases = list(getattr(entity, "aliases", []) or [])
+        aliased = False
+        if old_stem and old_stem != new_stem and old_stem not in aliases:
+            aliases.append(old_stem)
+            aliased = True
+            # The FILE write is unconditional (`aliases:` is Obsidian's own
+            # type-agnostic key); the in-memory assignment is guarded on the
+            # DECLARED field, so this door never mints an undeclared extra on a
+            # Company, Book or Meeting entity.
+            update_frontmatter_field(moved, "aliases", aliases)
+            if hasattr(entity, "aliases"):
+                entity.aliases = aliases
+        if moved_now or aliased:
+            # The bytes at `moved` are ones THIS CALL committed, so the WI-004
+            # registry is told about them — exactly what door 2 does for its own
+            # write (`writer.py`'s `record_snapshot(resolved)`). Without this the
+            # moved note is left UNREGISTERED: `move_note` forgets BOTH paths'
+            # snapshots (`vault_io.py:_move_locked`) and door 1's alias write
+            # records none, so the entity's very next `save()` would find no
+            # stamp, take `write_markdown_file`'s ZERO CASE and refuse with
+            # `NoteAlreadyExists` against the note the rename just created —
+            # which is AC-2(e)'s own save. Guarded on "this call committed
+            # something" rather than unconditional, so the idempotent no-op
+            # branch cannot launder a THIRD PARTY's write into an accepted
+            # precondition.
+            vault_io.record_snapshot(moved)
+        self._adopt(self._get_cache_key(entity), entity, moved)
+        logger.info("Renamed %s note from %s to %s",        # M4 — BOTH ends
+                    self.type_name, source.name, moved.name)
+        return moved
 
     def update_fields(
         self,
@@ -434,8 +617,17 @@ class BaseRepository(ABC, Generic[T]):
             ValueError: If entity not found in repository
             FileNotFoundError: If entity's file doesn't exist
         """
+        # PROVENANCE first, then today's name-keyed lookup (WI-029). This path's
+        # fallback REFUSES rather than creating: returning a name-derived path
+        # here would convert a loud miss into a brand-new fork source. `resolved`
+        # is bound under its own name and not collapsed into `file_path`, because
+        # the name-change arm below must know WHICH arm answered — a move has no
+        # provenance to resolve from when this frame fell back.
         name = getattr(entity, "name", "")
-        file_path = self.get_file_path(name)
+        resolved = self._resolve_write_target(entity)
+        file_path = resolved
+        if file_path is None:
+            file_path = self.get_file_path(name)
 
         if file_path is None:
             raise ValueError(f"{self.type_name} not found in repository: {name}")
@@ -449,14 +641,68 @@ class BaseRepository(ABC, Generic[T]):
             content, stamp = vault_io.read_note(file_path)
             frontmatter, body = parse_frontmatter(content)
 
-            # If name is changing, preserve old filename stem as alias so the
-            # entity remains resolvable by its former name / wikilink target.
-            if "name" in updates and updates["name"] != frontmatter.get("name", ""):
-                old_stem = file_path.stem.lstrip("@")
-                aliases = frontmatter.get("aliases", [])
-                if old_stem not in aliases:
-                    aliases.append(old_stem)
-                    frontmatter["aliases"] = aliases
+            # A name change MOVES the file now (WI-029) rather than leaving it
+            # behind: the leave-behind is the divergence this item exists to end.
+            # The decision is computed here, inside the lock, because it reads
+            # `frontmatter` — the NOTE's stored value against the CALLER's dict,
+            # so a PATCH body echoing an unchanged name still writes.
+            renaming = ("name" in updates
+                        and updates["name"] != frontmatter.get("name", ""))
+            new_name = updates["name"] if renaming else None
+
+            # REFUSE BEFORE ANYTHING IS WRITTEN — the arm has TWO clauses.
+            #
+            # (1) A rename the door cannot complete. The predicate is the door's
+            # whole PRECONDITION class and not a list of remembered conjuncts:
+            # every reason the door refuses its own preconditions, i.e. every
+            # cause knowable from this frame's arguments and environment. A cause
+            # that depends on filesystem state at move time stays the syscall's
+            # (an occupied destination is `NoteAlreadyExists` out of `os.link`,
+            # never a pre-check here) and the residual it leaves is stated in the
+            # spec: the content write has committed, the note carries its new
+            # stored name at its old filename, and the recovery is to remove the
+            # cause and call `rename_note` DIRECTLY.
+            if renaming and (resolved is None
+                             or vault_io.guard_mode() != "enforce"
+                             or "name" not in type(entity).model_fields):
+                if resolved is None:
+                    precondition = NO_PROVENANCE_PRECONDITION
+                elif vault_io.guard_mode() != "enforce":
+                    precondition = WRITE_GUARD_PRECONDITION
+                else:
+                    precondition = NAME_DECLARATION_PRECONDITION
+                raise ValueError(
+                    f"update_fields refuses to rename this {self.type_name} to "
+                    f"{new_name!r}: {precondition}")
+
+            # (2) A delta that moves the entity type's OWN filename rule with no
+            # rename to follow it. Keyed on the REPOSITORY'S declared rule and
+            # never on `name` or a type name, so it is structurally inert for the
+            # two types whose rule IS `@{name}.md`, and DELTA-RELATIVE so an
+            # already-divergent note stays writable for every delta that does not
+            # move its rule further. The rule is recomputed only to COMPARE — it
+            # never composes a path, and nothing here renames a Book or Meeting.
+            derive = getattr(self, "_get_file_name", None)
+            if not renaming and derive is not None:
+                current_rule = derive(entity)            # FIRST, outside any try
+                declared = type(entity).model_fields
+                projected = entity.model_copy(
+                    update={k: v for k, v in updates.items() if k in declared})
+                refusal = ValueError(
+                    f"update_fields refuses this {self.type_name} update "
+                    f"{sorted(updates)}: {FILENAME_RULE_PRECONDITION}")
+                try:
+                    projected_rule = derive(projected)
+                except Exception as exc:
+                    # `model_copy(update=…)` does not validate, so a non-string
+                    # `title` or a non-list `topics` can raise out of the rule.
+                    # The rule cannot be recomputed over this delta: fail CLOSED,
+                    # the same direction M1 takes with an OSError out of its own
+                    # resolve, and never with an AttributeError leaking out of
+                    # `_get_file_name`.
+                    raise refusal from exc
+                if projected_rule != current_rule:
+                    raise refusal
 
             # Update frontmatter with new values — through the SEMANTIC gate
             # (WI-021, D4). IN-LOCK, because this frame refuses on the target's
@@ -474,12 +720,11 @@ class BaseRepository(ABC, Generic[T]):
             # once afterwards — a re-binding here would mint a spurious second
             # arm in the wall's own derived set.
             #
-            # NOTE, so the delta is specified knowingly rather than loosely: the
-            # alias append above introduces a value that is NOT in `updates`.
-            # Under the arm-shape split `aliases[]` passes through
-            # byte-identical on a dict-shaped arm, so there is nothing the gate
-            # would have done differently — but the delta handed to it is *the
-            # caller's `updates` dict*, not *everything this write introduces*.
+            # NOTE, so the delta is specified knowingly rather than loosely:
+            # since WI-029 the alias append lives in the door and no longer
+            # introduces a value here, so the delta handed to the gate is *the
+            # caller's `updates` dict* and that is now the whole of what this
+            # write introduces.
             frontmatter.update(gate_write(updates,
                                           declared_type=self.type_name,
                                           whole_record=False))
@@ -488,6 +733,25 @@ class BaseRepository(ABC, Generic[T]):
             yaml_content = write_frontmatter(frontmatter)
             new_content = f"---\n{yaml_content}---\n{body}"
             vault_io.write_note(file_path, new_content, precondition=stamp)
+
+            # Mirror what the write COMMITTED onto the entity, so the door does
+            # not overwrite a caller-supplied `aliases` list with the parsed one
+            # (WI-029). Gated on `renaming` because the door is this mirror's only
+            # consumer: an ungated form would add a caller-visible in-place
+            # mutation to every non-rename update as well. Keyed on the KEY THIS
+            # WRITE INTRODUCED and never on a type name.
+            if renaming and "aliases" in updates:
+                entity.aliases = frontmatter["aliases"]
+
+        # ---- the lock is RELEASED here. No lock is held across the door. ----
+        # `move_note` takes two locks in a global sorted order and the door's
+        # `update_frontmatter_field` takes a third, so a held outer lock is the
+        # one configuration that order cannot defend (reentrancy excuses
+        # re-acquisition, never ordering). The content write has already
+        # COMMITTED above, `forget_snapshot(source)` is `move_note`'s own
+        # business, and the reload below was already outside the block.
+        if renaming:
+            file_path = self.rename_note(entity, f"@{new_name}.md")
 
         # Reload entity from file to get updated model
         updated_entity = self._load_file(file_path)

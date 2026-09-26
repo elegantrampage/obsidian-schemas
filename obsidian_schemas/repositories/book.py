@@ -164,8 +164,20 @@ class BookRepository(BaseRepository[Book]):
         Returns:
             Path to the saved file
         """
-        filename = self._get_file_name(entity)
-        file_path = self.vault_path / filename
+        # PROVENANCE first, the derived filename as the CREATE fallback
+        # (WI-029). Book's filename rule is `_get_file_name` rather than
+        # `@{name}.md`, so divergence here is the same class with a different
+        # rule: a book whose `title`/`author` no longer name its file would
+        # otherwise be written on top of whatever note DOES sit at the derived
+        # filename. The WARNING precedes the write, which then reaches its zero
+        # case and refuses with `NoteAlreadyExists`.
+        resolved = self._resolve_write_target(entity)
+        derived = self.vault_path / self._get_file_name(entity)
+        if resolved is None and derived.exists():
+            logger.warning(
+                "no provenance on this book: the write targets the derived "
+                "filename and a note already exists there, path=%s", derived)
+        file_path = resolved or derived
 
         write_markdown_file(
             file_path,
@@ -180,7 +192,8 @@ class BookRepository(BaseRepository[Book]):
         # Update cache — through the one adoption door (WI-004 AC-18).
         self._adopt(self._get_cache_key(entity), entity, file_path)
 
-        logger.info(f"Saved book: {filename}")
+        # The file ACTUALLY written, never the derived filename (WI-029).
+        logger.info(f"Saved book: {file_path.name}")
         return file_path
 
     def get_by_author(self, author: str) -> List[Book]:

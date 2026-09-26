@@ -2292,3 +2292,363 @@ def mutating_drive_vault_args(files: Iterable[Path]) -> VaultArgScan:
     return VaultArgScan(frozenset(drives), frozenset(bindings),
                         frozenset(live_path_names),
                         frozenset(repository_constructions))
+
+
+# --------------------------------------------------------------------------
+# The WRITE-TARGET SEAM (WI-029, AC-5) — one derivation, two buckets, plus
+# ordering decision 5's structural half.
+#
+# Not a second scanner: the enumeration reuses `_is_write_call` and the taint
+# machinery is `_taints_a_write`'s seed → fixpoint → sink shape with a SECOND
+# SEED (a call to `_resolve_write_target`), a `with … as` hop, and one
+# ordering-aware clause the monotone fixpoint cannot express on its own.
+# --------------------------------------------------------------------------
+
+SEAM_FUNCTION = "_resolve_write_target"
+
+#: The two legal buckets, and the third answer — `None` — which FAILS the wall.
+LEAF_BUCKET = "leaf"
+SEAM_BUCKET = "seam"
+
+#: A path-taking leaf's path is its FIRST parameter and is spelled this way at
+#: all four of `writer.py`'s leaves today. A future leaf taking its path second,
+#: or under another name, is bucket `None` and a human decision made in the open.
+WRITER_PATH_PARAMETER = "file_path"
+
+#: `note_lock`, named once. `door_calls_inside_note_lock` reports a call to a
+#: two-lock door or a path-taking leaf nested inside a `with` mentioning it.
+NOTE_LOCK_NAME = "note_lock"
+
+#: The two-lock door. The single-path doors `write_note`/`create_note` are
+#: deliberately NOT in the lock-nesting set: `write_markdown_file` must call them
+#: inside its own lock (`writer.py:317`, `:319`, and `vault_io._require_lock`
+#: demands exactly that), so collecting them would make the scan RED against
+#: shipped code.
+TWO_LOCK_DOOR = "move_note"
+
+
+class WriteTargetSite(NamedTuple):
+    module: str
+    qualname: str
+    lineno: int          # the write call's line
+    bucket: Optional[str]    # "leaf" | "seam" | None == FAILS the wall
+
+
+def path_taking_writer_names(writer_path) -> frozenset:
+    """The writer module's PATH-TAKING PUBLIC WRITERS, derived and never listed:
+    every module-level `def` in writer.py whose FIRST parameter is `file_path`
+    and whose own body contains a write call. Today: write_markdown_file,
+    update_frontmatter_field, update_frontmatter_fields, roundtrip_file.
+
+    Derived rather than named because this set is BOTH halves of the wall's
+    enumeration: a bare-name call to a member is a write, and a member is the
+    archetypal bucket-(a) site. A hand list would drift from the module on the
+    first leaf anyone adds.
+    """
+    names = set()
+    path = Path(writer_path)
+    tree = _parse(path)
+    for fid, func in _iter_functions(path, tree):
+        if "." in fid.qualname:                  # a method, or a nested def
+            continue
+        args = func.args.posonlyargs + func.args.args
+        if not args or args[0].arg != WRITER_PATH_PARAMETER:
+            continue
+        if any(_is_write_call(n) for n in _own_body_nodes(func)):
+            names.add(fid.qualname)
+    return frozenset(names)
+
+
+def _bound_names(node) -> set:
+    """The LOCAL names an assignment target binds — `ast.Name` and the `Name`
+    elements of a `Tuple`/`List`, and deliberately nothing else.
+
+    NEVER the base of an `ast.Attribute` or `ast.Subscript` target: the rename
+    door's `entity._source_path = moved` binds no local name, and propagating
+    through it would taint `entity` itself and hand every later expression
+    mentioning the parameter a taint it did not earn. This is the one place the
+    new seed must NOT copy `_taints_a_write`'s `_names_in(target)` verbatim.
+    """
+    out = set()
+    for target in getattr(node, "targets", []) or []:
+        if isinstance(target, ast.Name):
+            out.add(target.id)
+        elif isinstance(target, (ast.Tuple, ast.List)):
+            for element in target.elts:
+                if isinstance(element, ast.Name):
+                    out.add(element.id)
+    return out
+
+
+def _with_as_names(item) -> set:
+    """The names a `with … as X` / `as (X, Y)` item binds."""
+    out = set()
+    bound = item.optional_vars
+    if isinstance(bound, ast.Name):
+        out.add(bound.id)
+    elif isinstance(bound, (ast.Tuple, ast.List)):
+        for element in bound.elts:
+            if isinstance(element, ast.Name):
+                out.add(element.id)
+    return out
+
+
+def _seam_seeds(func) -> tuple:
+    """(the names bound to a `_resolve_write_target` call, the seeding Assigns).
+
+    The seed is an ATTRIBUTE call — `self._resolve_write_target(entity)` — which
+    is the only spelling the seam has, since it is a private method.
+    """
+    seeds = set()
+    nodes = []
+    for node in _own_body_nodes(func):
+        if not isinstance(node, ast.Assign):
+            continue
+        value = node.value
+        if not (isinstance(value, ast.Call)
+                and isinstance(value.func, ast.Attribute)
+                and value.func.attr == SEAM_FUNCTION):
+            continue
+        bound = _bound_names(node)
+        if bound:
+            seeds |= bound
+            nodes.append(node)
+    return seeds, nodes
+
+
+def _taint_closure(func, seeds: set) -> set:
+    """`_taints_a_write`'s monotone fixpoint, plus the `with … as` hop.
+
+    The hop is not optional: `write_markdown_file` writes to `resolved`, bound by
+    `with vault_io.note_lock(file_path) as resolved` (`writer.py:258`), so
+    without it the archetypal bucket-(a) member fails and the wall is RED against
+    shipped code.
+    """
+    tainted = set(seeds)
+    body = _own_body_nodes(func)
+    changed = True
+    while changed:
+        changed = False
+        for node in body:
+            if isinstance(node, ast.Assign):
+                if not (_names_in(node.value) & tainted):
+                    continue
+                for name in _bound_names(node):
+                    if name not in tainted:
+                        tainted.add(name)
+                        changed = True
+            elif isinstance(node, (ast.With, ast.AsyncWith)):
+                for item in node.items:
+                    if not (_names_in(item.context_expr) & tainted):
+                        continue
+                    for name in _with_as_names(item):
+                        if name not in tainted:
+                            tainted.add(name)
+                            changed = True
+    return tainted
+
+
+def _if_tests_enclosing(func) -> dict:
+    """`id(node)` → the set of names mentioned by every enclosing `ast.If` test.
+
+    Computed by a stack walk over the function's OWN body, so a rebinding inside
+    `if file_path is None:` is distinguishable from an unconditional one — which
+    is the whole difference between the documented fallback arm and the
+    call-and-discard escape.
+    """
+    out = {}
+
+    def walk(node, tests):
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef,
+                                  ast.ClassDef)):
+                continue
+            out[id(child)] = set(tests)
+            if isinstance(child, ast.If):
+                walk(child, tests | _names_in(child.test))
+            else:
+                walk(child, tests)
+
+    walk(func, frozenset())
+    return out
+
+
+def _first_positional(call):
+    return call.args[0] if call.args else None
+
+
+def _write_call_sites(func, writer_names: frozenset) -> list:
+    """Every mutation site in this function's OWN body, in source order.
+
+    The union of two predicates, WIDER than AC-5's floor by exactly the amount
+    it must be: (i) the shipped `_is_write_call` — attribute calls whose attr is
+    in `{"write_text", "write_bytes"} | DOOR_NAMES`, reused rather than
+    re-spelled, so a tenth path built on a bare `Path.write_text` or on
+    `create_note` is enumerated too; plus (ii) BARE-NAME calls to a member of
+    `path_taking_writer_names`, which is what reaches `write_markdown_file` and
+    its three sibling leaves at all (`_is_write_call` gates on `ast.Attribute`).
+
+    `vault_io.py`'s own terminal writes (`os.replace`, `os.unlink`) are reached
+    by NEITHER predicate and are deliberately not enumerated: they ARE the write
+    door and sit below the seam by construction. A builder who widens this to raw
+    filesystem calls reddens the door this item ships through.
+    """
+    sites = []
+    for node in _own_body_nodes(func):
+        if not isinstance(node, ast.Call):
+            continue
+        if _is_write_call(node):
+            sites.append(node)
+        elif isinstance(node.func, ast.Name) and node.func.id in writer_names:
+            sites.append(node)
+    sites.sort(key=_pos)
+    return sites
+
+
+def _is_path_taking_leaf(fid, func, call) -> bool:
+    """Bucket (a): a MODULE-LEVEL function whose write target is tainted by its
+    own FIRST parameter.
+
+    Stated over module-level functions rather than "a parameter" in general,
+    because every repository method has `entity` as a parameter and a bucket keyed
+    on bare parameter-taint would admit
+    `file_path = self.vault_path / f"@{entity.name}.md"` — the exact shape the
+    wall exists to refuse. A future path-taking leaf written as a METHOD fails
+    loud and is someone's decision rather than a silent pass.
+    """
+    if "." in fid.qualname:
+        return False
+    args = func.args.posonlyargs + func.args.args
+    if not args or args[0].arg in ("self", "cls"):
+        return False
+    target = _first_positional(call)
+    if target is None:
+        return False
+    tainted = _taint_closure(func, {args[0].arg})
+    names = _names_in(target)
+    return bool(names) and names <= tainted
+
+
+def _is_seam_routed(func, call) -> bool:
+    """Bucket (b): the VALUE `_resolve_write_target` returned REACHES this write
+    call's FIRST POSITIONAL argument, as DATA FLOW and never as call-presence —
+    and no unconditional rebinding discards it on the way.
+
+    Call-presence certifies the wrong thing: a `save` override can call the seam,
+    discard the return, and write to its own `_get_file_name`-derived path — one
+    line, green wall, nothing routed. The ordering clause is what refuses that
+    while leaving the documented fallback arm (a rebinding of the SAME local
+    inside an `if` testing it) legal, which is the property the seam's asymmetry
+    depends on.
+    """
+    seeds, seeding = _seam_seeds(func)
+    if not seeds:
+        return False
+    tainted = _taint_closure(func, seeds)
+    target = _first_positional(call)
+    if target is None or not (_names_in(target) & tainted):
+        return False
+
+    seed_pos = min(_pos(node) for node in seeding)
+    sink_pos = _pos(call)
+    enclosing = _if_tests_enclosing(func)
+    for node in _own_body_nodes(func):
+        if not isinstance(node, ast.Assign):
+            continue
+        if not (seed_pos < _pos(node) < sink_pos):
+            continue
+        rebound = _bound_names(node) & tainted
+        if not rebound:
+            continue
+        if _names_in(node.value) & tainted:
+            continue                      # carries the resolved value forward
+        guarded = enclosing.get(id(node), set())
+        if not (rebound & guarded):
+            return False                  # UNCONDITIONAL discard — not routed
+    return True
+
+
+def write_target_buckets(files: Iterable[Path], writer_path) -> list:
+    """Every mutation site under `files`, classified into exactly one bucket.
+
+    A site in NEITHER bucket carries `bucket=None` and FAILS the wall, naming the
+    file, the function and the line. One site per write CALL, so a function
+    holding two writes contributes two.
+    """
+    writer_names = path_taking_writer_names(writer_path)
+    out = []
+    for path in files:
+        tree = _parse(path)
+        for fid, func in _iter_functions(path, tree):
+            for call in _write_call_sites(func, writer_names):
+                if _is_path_taking_leaf(fid, func, call):
+                    bucket = LEAF_BUCKET
+                elif _is_seam_routed(func, call):
+                    bucket = SEAM_BUCKET
+                else:
+                    bucket = None
+                out.append(WriteTargetSite(fid.module, fid.qualname,
+                                           call.lineno, bucket))
+    out.sort()
+    return out
+
+
+def _forbidden_lock_callees(files: Iterable[Path], writer_names: frozenset) -> set:
+    """`move_note`, the path-taking leaves, and every repository method that
+    itself calls `move_note` — the third clause DERIVED and never named.
+
+    That third clause is what makes `update_fields`' own `self.rename_note(...)`
+    placement checkable rather than promised: `functions_calling(files,
+    "move_note")` is exactly `{BaseRepository.rename_note}` after WI-029, so the
+    bare method name joins the set and a future second mover enlists by itself.
+    """
+    callees = {TWO_LOCK_DOOR} | set(writer_names)
+    for fid in functions_calling(files, TWO_LOCK_DOOR):
+        callees.add(fid.qualname.rsplit(".", 1)[-1])
+    return callees
+
+
+def door_calls_inside_note_lock(files: Iterable[Path], writer_path) -> list:
+    """Ordering decision 5's structural half (NOT part of AC-5's two buckets):
+    every call to `move_note`, to a member of `path_taking_writer_names`, or to a
+    repository method that itself calls `move_note`, that is lexically NESTED
+    inside a `with` statement whose items mention `note_lock`. EMPTY over
+    PACKAGE_ROOT.
+
+    `move_note` takes two locks in a global sorted order and each path-taking
+    leaf takes its OWN lock on a path the calling frame did not lock, so a held
+    outer lock is the one configuration that sorted order cannot defend —
+    reentrancy excuses re-acquiring a lock you already hold and says nothing
+    about ORDER.
+    """
+    files = list(files)
+    writer_names = path_taking_writer_names(writer_path)
+    forbidden = _forbidden_lock_callees(files, writer_names)
+    out = []
+    for path in files:
+        tree = _parse(path)
+        for fid, func in _iter_functions(path, tree):
+            for node in _own_body_nodes(func):
+                if not isinstance(node, (ast.With, ast.AsyncWith)):
+                    continue
+                if not any(NOTE_LOCK_NAME in _names_in(item.context_expr)
+                           or _attribute_names(item.context_expr)
+                           & {NOTE_LOCK_NAME}
+                           for item in node.items):
+                    continue
+                for inner in ast.walk(node):
+                    if not isinstance(inner, ast.Call):
+                        continue
+                    callee = _call_callee_name(inner)
+                    if callee in forbidden:
+                        out.append(WriteTargetSite(fid.module, fid.qualname,
+                                                   inner.lineno, callee))
+    out.sort()
+    return out
+
+
+def _attribute_names(node) -> set:
+    """Every ATTRIBUTE name mentioned in an expression — `vault_io.note_lock`
+    mentions `note_lock` as an attribute and not as a `Name`, so a rule written
+    on `_names_in` alone would see no lock at any site in this package."""
+    return {n.attr for n in ast.walk(node) if isinstance(n, ast.Attribute)}

@@ -65,6 +65,12 @@ SKIP_DIRS = {".obsidian", "Templates", "src", ".trash", "_quarantine", "_merged_
 
 WIKILINK_PATTERN = re.compile(r"\[\[([^\]|]+?)(?:\|[^\]]+?)?\]\]")
 
+#: WI-029. The marker a `stem_name_divergence` issue carries when the WRITE DOOR
+#: refuses the note's stored `name:` — divergent AND not repairable by moving the
+#: file, which is the shape the repair most needs to see rather than the one to
+#: suppress. Declared once so a consumer reads it instead of re-spelling it.
+NOT_RENAMEABLE_MARKER = "not-renameable"
+
 # ---------------------------------------------------------------------------
 # Data structures
 # ---------------------------------------------------------------------------
@@ -325,6 +331,27 @@ def classify_person_tier(vf: VaultFile) -> str:
 # Each check function yields LintIssue instances.
 
 
+def _gate_refusal_pattern(frontmatter: dict) -> Optional[str]:
+    """The DOOR's answer for this note's OWN stored record, not the bare
+    validator's. `gate_write` DERIVES `allow_phone_sentinel` from the payload
+    (name_gate.py:355-358) where `validate_strict` defaults it False
+    (name_validation.py:594) — they disagree on the one `sentinel_exempt`
+    branch, which the census measures at 2 live person notes.
+
+    Worth one line for whoever reads `apply_fixes`' note that the phone-sentinel
+    exemption is structurally unreachable on the `--fix` DELTA path: this call is
+    the opposite case. It gates the note's WHOLE record, so `phones` IS present
+    and the exemption IS reachable — which is exactly why the door and the bare
+    validator part company here.
+    """
+    try:
+        gate_write(frontmatter, declared_type=frontmatter.get("type"),
+                   whole_record=True)
+    except NameGateRefusal as exc:
+        return exc.pattern
+    return None
+
+
 def check_structural(files: list[VaultFile], idx: dict) -> list[LintIssue]:
     issues: list[LintIssue] = []
     for vf in files:
@@ -386,6 +413,53 @@ def check_structural(files: list[VaultFile], idx: dict) -> list[LintIssue]:
         # Skip types the linter doesn't model (moc, recipe, project, etc.)
         if vf.entity_type not in TYPE_TO_MODEL:
             continue
+
+        # stem_name_divergence (WI-029) — the filename stem and the stored
+        # `name:` disagree, so the library's next `save()` of this note forks it
+        # (or, where the canonical filename is taken, overwrites a sibling).
+        # ERROR, and never auto-fixable: relocation is the highest-blast-radius
+        # act in this tool and the per-note repair direction is a judgement no
+        # auto-fix can make.
+        #
+        # Placed AFTER the read_error/parse_error/missing_type arms, all of which
+        # `continue`, so WI-026's triage order is preserved by construction
+        # rather than by a second guard.
+        #
+        # The guard is `vf.entity_type == "person"` and NEVER `vf.is_at_prefixed`:
+        # a note whose stored `type:` is `person` is a person note wherever it
+        # lives, and the live vault's one MERGE row is a book-titled file at the
+        # vault root holding `type: person`. Narrowing to the `@` prefix passes
+        # every corpus arm and silently drops that row from the report.
+        if vf.entity_type == "person":
+            stored = vf.frontmatter.get("name")
+            # RAW on both sides, case-SENSITIVE, and exactly ONE leading `@`
+            # stripped — the filename the library MINTS is `f"@{name}.md"` with
+            # exactly one, so `@@Foo.md` holding `name: Foo` IS divergent and
+            # `lstrip("@")` would hide it. A cleaned or lower-cased comparison
+            # drops the corpus's double-space specimen and the live case-only row
+            # respectively.
+            stem = vf.stem[1:] if vf.stem.startswith("@") else vf.stem
+            # A note with NO stored name belongs to `person_missing_name`, which
+            # is auto-fixable and repairs in the OPPOSITE direction
+            # (`--fix` writes the stem into the field, lint_vault.py:1040-1045).
+            # Claiming it here would give one note an auto-fixable ERROR and a
+            # never-fixable ERROR that the first one silently repairs away. A
+            # non-string `name:` is skipped for the same kind of reason: neither
+            # declared repair direction is defined when the field is not a name.
+            if isinstance(stored, str) and stored.strip() and stem != stored:
+                pattern = _gate_refusal_pattern(vf.frontmatter)
+                marker = "" if pattern is None else (
+                    f" [{NOT_RENAMEABLE_MARKER}: pattern={pattern}] — this "
+                    f"divergence is not repaired by renaming the file to the "
+                    f"stored name; repair the field")
+                issues.append(
+                    LintIssue(
+                        vf.path, "stem_name_divergence", Severity.ERROR,
+                        f"Filename stem '{stem}' does not match stored name "
+                        f"'{stored}'{marker}",
+                        "structural",
+                    )
+                )
 
         # field_type_mismatch — auto_created as string
         raw_auto = vf.frontmatter.get("auto_created")

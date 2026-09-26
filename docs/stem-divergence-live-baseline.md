@@ -188,14 +188,54 @@ for the `parse_error` count.
 
 | figure | entry | exit |
 |---|---|---|
-| divergent live person notes | 8 | |
-| `len(PersonRepository($VAULT).conflicts)` | 0 | |
-| person notes loaded | 1,171 | |
-| rows gate-refused | 0 | |
-| destination occupied by a different note | 1 | |
-| incoming wikilinks naming an old stem | 24 | |
-| attendees notes naming an old stem | 14 | |
-| book-titled `type: person` | 1 | |
-| untyped frontmatter | 4 | |
-| `parse_error` | 3 | |
-| post-build HEAD | — | |
+| divergent live person notes | 8 | **0** |
+| `len(PersonRepository($VAULT).conflicts)` | 0 | **0** |
+| person notes loaded | 1,171 | 1,173 |
+| rows gate-refused | 0 | 0 (no rows) |
+| destination occupied by a different note | 1 | 0 (no rows) |
+| incoming wikilinks naming an old stem | 24 | 0 |
+| attendees notes naming an old stem | 14 | 0 |
+| book-titled `type: person` | 1 | 0 |
+| untyped frontmatter | 4 | 2 — the two that are not entity notes (a strategy note under Notes, a prompt file under Resources); the two person-shaped root notes were DUPLICATES of existing canonical notes and were quarantined |
+| `parse_error` | 3 | 0 |
+| post-build HEAD | — | `187f5e5920e9e9a360333741b235c1a4041b2228` + the WI-029 build in the working tree (this attestation ships in the same commit as the build) |
+
+**Exit run — conductor-performed, 2026-09-26 15:31 BST, on Dave's in-session go ("proceed with the
+sequence as proposed"), same vault, same §0 script verbatim, `--report`/`-q` only after the repair.**
+Pre-repair re-run of §0 at 15:10 (close-out step 1): the direction TABLE was UNCHANGED from 2026-09-21 —
+eight rows, same shapes, same (b2)/(b3) answers, 1,173 people (+2 drift), conflicts 0 — so no drift
+report was owed. The repair (close-out step 2), every write through `vault_io`'s doors, nothing deleted:
+
+- **7 RENAME through `BaseRepository.rename_note`** (guard `enforce`; every entity resolved to its own
+  file by provenance before the call): 7 of 7 moved, readback per row — new stem on disk, exactly one
+  directory entry (the case-only row 3 took the two-step branch and left no staging file), the old stem
+  in `aliases` (five rows already carried it from an earlier repair; the door appended the other two).
+- **1 MERGE (row 8):** the canonical person note already held every identifier the book-titled file
+  carried, so no field moved; the book-titled file went to `_quarantine/` through `move_note`.
+- **2 of the 4 untyped notes** were person-shaped root notes whose canonical `@{name}.md` ALREADY existed
+  (duplicates, not divergences): canonical notes already complete, both quarantined through `move_note`.
+  The other two untyped notes are not entity notes and were left as they are.
+- **3 `parse_error` book notes:** root cause is a `parser.py:parse_frontmatter` weakness, not the notes'
+  quoting — the fence regex's optional newline lets a ` --- ` INSIDE a quoted `description:` close the
+  frontmatter mid-line. Repaired by replacing the in-text `---` with an em dash and re-quoting the
+  field, written with a read-note precondition, every other key verified equal before and after; a
+  library fix is minted separately (HANDOFF).
+- **21 incoming wikilinks in 21 non-person notes retargeted** from the old stems to the new (the door's
+  alias is the stem without `@`, so `[[@old]]` links would otherwise go dark in Obsidian); 0 remain.
+
+`scripts/lint_vault.py --vault "$VAULT" --report`: exit 0, stdout 1,405,384 bytes,
+`sha256 = c2b2dc3d442d3ce07cc1c21ccaa446bb6bb8e000029c5abeaff785e4293db5f7`; `-q`: 4,008 files scanned,
+4,838 issues, **0 errors** (`stem_name_divergence` and `parse_error` both silent). `broken_wikilink` reads 70
+against 68 on 2026-09-21; none of the 70 names a renamed or quarantined stem — five days of vault drift
+(+21 files). The §0 script's exit stdout, verbatim:
+
+```
+DIVERGENT (census predicate): 0
+CONFLICTS len(PersonRepository(V).conflicts): 0
+PERSON NOTES loaded: 1173
+ROW | shape | stem-starts-@ | dest_occupied | gate(pattern) | wikilinks_to_old_stem | attendees_refs | company_refs | top_dir
+BOOKED HAND REPAIRS: type:person with non-@ stem: 0 | frontmatter but no type:: 2 | fence opened never closed: 0
+  untyped dirs: ['Notes', 'Resources'] | unclosed dirs: []
+```
+
+**Ship condition MET: divergence 0, conflicts 0.**

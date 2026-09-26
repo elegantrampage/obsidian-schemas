@@ -1400,7 +1400,14 @@ class PersonRepository(BaseRepository[Person]):
             ValueError: If person not found in repository
             WriteFailedError: If the write did not complete
         """
-        file_path = self.get_file_path(person.name)
+        # PROVENANCE first, then today's name-keyed lookup (WI-029): a body
+        # write of an entity the library parsed lands in the note it was
+        # parsed from, so a timeline entry for one member of a live
+        # name-collision pair can no longer land on the other. The refusal
+        # below is unchanged — this path must never CREATE a note.
+        file_path = self._resolve_write_target(person)
+        if file_path is None:
+            file_path = self.get_file_path(person.name)
         if not file_path or not file_path.exists():
             raise ValueError(f"Person file not found: {person.name}")
 
@@ -1519,7 +1526,14 @@ class PersonRepository(BaseRepository[Person]):
                 f"'prepend', got {operation!r}"
             )
 
-        file_path = self.get_file_path(person.name)
+        # PROVENANCE first, then today's name-keyed lookup (WI-029): a body
+        # write of an entity the library parsed lands in the note it was
+        # parsed from, so a timeline entry for one member of a live
+        # name-collision pair can no longer land on the other. The refusal
+        # below is unchanged — this path must never CREATE a note.
+        file_path = self._resolve_write_target(person)
+        if file_path is None:
+            file_path = self.get_file_path(person.name)
         if not file_path or not file_path.exists():
             raise ValueError(f"Person file not found: {person.name}")
 
@@ -1587,6 +1601,9 @@ class PersonRepository(BaseRepository[Person]):
                 get_to_discuss_items reported a corrupted note as "no items".
                 A legitimately fence-less note still returns its whole content.
         """
+        # The read-side sibling of WI-029's write seam, deliberately OUTSIDE it:
+        # this lookup shares the root cause (a target resolved from a name) but
+        # it READS, returning None on a miss rather than writing the wrong note.
         file_path = self.get_file_path(person.name)
         if not file_path or not file_path.exists():
             return None
@@ -1650,7 +1667,14 @@ class PersonRepository(BaseRepository[Person]):
                 "not found" returns.
             WriteFailedError: If the write did not complete.
         """
-        file_path = self.get_file_path(person.name)
+        # PROVENANCE first, then today's name-keyed lookup (WI-029): a body
+        # write of an entity the library parsed lands in the note it was
+        # parsed from, so a timeline entry for one member of a live
+        # name-collision pair can no longer land on the other. The refusal
+        # below is unchanged — this path must never CREATE a note.
+        file_path = self._resolve_write_target(person)
+        if file_path is None:
+            file_path = self.get_file_path(person.name)
         if not file_path or not file_path.exists():
             raise ValueError(f"Person file not found: {person.name}")
 
@@ -1716,7 +1740,14 @@ class PersonRepository(BaseRepository[Person]):
                 "not found" returns.
             WriteFailedError: If the write did not complete.
         """
-        file_path = self.get_file_path(person.name)
+        # PROVENANCE first, then today's name-keyed lookup (WI-029): a body
+        # write of an entity the library parsed lands in the note it was
+        # parsed from, so a timeline entry for one member of a live
+        # name-collision pair can no longer land on the other. The refusal
+        # below is unchanged — this path must never CREATE a note.
+        file_path = self._resolve_write_target(person)
+        if file_path is None:
+            file_path = self.get_file_path(person.name)
         if not file_path or not file_path.exists():
             raise ValueError(f"Person file not found: {person.name}")
 
@@ -1790,7 +1821,14 @@ class PersonRepository(BaseRepository[Person]):
                 "not found" returns.
             WriteFailedError: If the write did not complete.
         """
-        file_path = self.get_file_path(person.name)
+        # PROVENANCE first, then today's name-keyed lookup (WI-029): a body
+        # write of an entity the library parsed lands in the note it was
+        # parsed from, so a timeline entry for one member of a live
+        # name-collision pair can no longer land on the other. The refusal
+        # below is unchanged — this path must never CREATE a note.
+        file_path = self._resolve_write_target(person)
+        if file_path is None:
+            file_path = self.get_file_path(person.name)
         if not file_path or not file_path.exists():
             raise ValueError(f"Person file not found: {person.name}")
 

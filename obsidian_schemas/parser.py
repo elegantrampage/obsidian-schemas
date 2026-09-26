@@ -242,6 +242,14 @@ def parse_markdown_file(
     frontmatter, body = parse_frontmatter(content, path=file_path)
 
     entity, extra_fields = parse_to_model(frontmatter, expected_type, path=file_path)
+    # The ONE write of the provenance stamp (WI-029). The binding "this entity
+    # came from this file" is constructed here and was discarded one frame later
+    # by every `_load_file` in the package; keeping it is what lets
+    # `BaseRepository._resolve_write_target` choose a mutation target from
+    # PROVENANCE instead of re-deriving one from a name. A PrivateAttr, so it
+    # cannot reach frontmatter (`models.py:BaseEntity._source_path`).
+    if entity is not None:
+        entity._source_path = file_path
 
     return ParsedDocument(
         frontmatter=frontmatter,

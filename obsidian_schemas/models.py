@@ -17,7 +17,8 @@ Entity Types:
 
 from typing import List, Optional, Literal, Union, Type
 from datetime import date
-from pydantic import BaseModel, ConfigDict, Field
+from pathlib import Path
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 
 class BaseEntity(BaseModel):
@@ -38,6 +39,16 @@ class BaseEntity(BaseModel):
 
     type: str
     tags: List[str] = Field(default_factory=list)
+
+    #: The file this entity was PARSED FROM, or None. Set at the one parse
+    #: boundary that holds a path (`parser.parse_markdown_file`) and read by the
+    #: one function that chooses a write target
+    #: (`BaseRepository._resolve_write_target`). A PrivateAttr and never an
+    #: ordinary attribute: `extra="allow"` above means a bare assignment lands in
+    #: `model_extra`, which `writer.model_to_frontmatter` serializes into every
+    #: note the library writes (writer.py:120-123). A PrivateAttr is in neither
+    #: `model_fields` nor `model_extra`, so it is unwritable BY CONSTRUCTION.
+    _source_path: Optional[Path] = PrivateAttr(default=None)
 
 
 class Person(BaseEntity):

@@ -2,14 +2,14 @@
 id: WI-029
 title: 'Filename/name divergence repair: rename the forked stems, then pin the invariant'
 project: obsidian-schemas
-stage: specced
+stage: done
 created: 2026-09-06
-last_touched: 2026-09-25
-stage_changed: 2026-09-25
-touched_by: session
+last_touched: 2026-09-26
+stage_changed: 2026-09-26
+touched_by: spec-writer
 tags: []
 depends_on: []
-transitions: ["idea>exploring@2026-09-21@porter", "exploring>specced@2026-09-25@porter"]
+transitions: ["idea>exploring@2026-09-21@porter", "exploring>specced@2026-09-25@porter", "specced>ready@2026-09-26@porter", "ready>building@2026-09-26@porter", "building>done@2026-09-26@porter"]
 review_level: L3
 review_level_provenance: selector
 ---
@@ -23,7 +23,6 @@ Settled gate rounds for this item live in `docs/filename-name-divergence-repair-
 this item has already advanced past, byte-for-byte, append-only, never rewritten. READ ON DEMAND
 ONLY: each gate's latest standing round is still in this document, so nothing needed to advance this
 item is in the drawer. Open it only to read a settled round's full reasoning.
-
 
 ## Problem / Motivation
 
@@ -1129,6 +1128,51 @@ bytes are touched, no `## Mitigation Folds` record needed an edit — M1's, M3's
 sentences and Task-6 work text are unchanged byte for byte, the branch-key clause being a SEPARATE
 clause beside them — and every `ac_hash_AC-N` remains byte-intact.)*
 
+*(Read back a FIFTH time, 2026-09-25. The third spec-review round's two blocking findings and all six
+of its non-blocking notes were already folded when this pass opened — the fourth note above lists every
+site and each was re-read against the code, not against the note. So this pass ordered no fix and spent
+itself on the one rung the branch-key fix OPENED: the key settles which SPELLING takes which branch and
+said nothing about what ELSE makes `source.samefile(destination)` true, which is the same generator one
+level down. Design §2 now enumerates that population at source — a case variant, a hard link, a symlink
+at the destination naming the source — with each outcome read off `move_note`'s body, no work ordered,
+and pointers from the re-run table's second row and the `## Edge Cases` case-only entry. One Task 10
+precondition is stated in the same edit: the M1 arm's in-vault-SUBDIRECTORY cell must `mkdir` that
+directory, or `os.link` raises against a missing parent and the ACCEPTED cell is red for a reason that
+is not M1's. No signed fence's bytes are touched, no `## Mitigation Folds` record needed an edit — the
+sweep is a new paragraph BESIDE every sentence those records quote — and every `ac_hash_AC-N` remains
+byte-intact.)*
+
+*(Revised a SIXTH time, 2026-09-26, after the FOURTH spec-review round. Its one blocking finding is the
+THIRD member of one class — `update_fields`' rename branch commits its content write and then discovers
+the door will not complete the move — so it is answered with a FOLD and not a fourth disjunct. Round 2's
+finding 1 was that member for NO PROVENANCE and M7 was it for A TYPE DECLARING NO `name`; both causes
+are knowable in the frame and were closed by a disjunct. This round's — a destination ALREADY OCCUPIED
+by a different note, with no race, no configuration and no exotic type — is NOT knowable in the frame,
+and the precondition table's disposition of that row ("pre-checking is check-then-act and the syscall is
+the stronger answer") is RIGHT. What was missing is the RESIDUAL that disposition leaves, and a rule
+that partitions a surface while stating the residual of only one half is the generator. So the table
+gains its COMPLEMENT: for every row it answers NO, what the method leaves and what the caller must do,
+derived from the table's own rows and stated as one invariant — the content write has committed, the
+note carries its new stored `name:` at its old filename with no alias and the entity un-re-stamped, and
+the recovery is always "remove the cause, then call `rename_note` DIRECTLY", never a re-run of
+`update_fields`, whose trigger now reads the committed name back out of the note. The choice the rule
+makes is stated rather than left to silence — the residual is ACCEPTED, move-then-write is shown
+UNAVAILABLE (the door's alias write invalidates the content write's `precondition=stamp`) and
+pre-checking is refused — with the honest comparison against today, where the same call SUCCEEDS and
+leaves the same divergence silently. The three surfaces that said it could not happen are corrected: the
+`## Edge Cases` occupied-destination Decision is scoped to the DIRECT call with a new entry beside it,
+the `## Risk Analysis` `update_fields`-moves-a-file row no longer claims the alias unconditionally and
+gains its own row for the residual, and Prerequisites 7 discloses the three consumer-visible arms of the
+PATCH change that RAISE. `## Verification`'s failure-mode list gains the mode and Task 10 the arm that
+asserts the residual directly; Task 6 gains the negative clause that stops a builder "fixing" it by
+pre-checking or reordering. Three non-blocking notes land in the same edit: the `aliases` mirror is
+gated on `renaming` (Design §2's sequencing block and "Which `aliases` list wins", Task 6); the
+`update_fields`-now-works-on-Book-and-Meeting widening is declared as a decision in Design §5; and
+Design §1's `BaseEntity` quotation is restored to the verbatim source. No signed fence's bytes are
+touched, no `## Mitigation Folds` record needed an edit — M1's, M3's, M4's, M6's and M7's quoted Design
+sentences and Task-6 work text are unchanged byte for byte, every clause added being a SEPARATE clause
+or paragraph beside them — and every `ac_hash_AC-N` remains byte-intact.)*
+
 ### 1. Data model — the provenance stamp
 
 One new declared PRIVATE attribute on the base model, and nothing else. No frontmatter field, no
@@ -1138,15 +1182,29 @@ schema migration, no public signature change.
 
 ```python
 class BaseEntity(BaseModel):
+    """
+    Base class for all Obsidian entity types.
+
+    Allows extra fields for forward compatibility - any fields in the
+    frontmatter that aren't in the model will be preserved.
+    """
+
     model_config = ConfigDict(
         extra="allow",
+        # Use enum values when serializing
         use_enum_values=True,
+        # Allow population by field name or alias
         populate_by_name=True,
     )
 
     type: str
     tags: List[str] = Field(default_factory=list)
 ```
+
+*(Quoted verbatim from `obsidian_schemas/models.py:BaseEntity:23-40`, docstring and inline comments
+included — the earlier form of this block silently dropped the two `ConfigDict` comments and the
+docstring, which made one code quotation in this document a paraphrase while every other is exact;
+fourth spec-review round, non-blocking note 3.)*
 
 It gains exactly one member (and `PrivateAttr` joins the `pydantic` import):
 
@@ -1435,7 +1493,10 @@ note:
 
 **Four clauses in that body are the threat model's REQUIRED mitigations** (2026-09-25), folded here
 and into Task 6. They are clauses on work the plan already schedules; none of them moves the door's
-structure, the seam, or a signed criterion.
+structure, the seam, or a signed criterion. A FIFTH required mitigation, M7 (2026-09-26), lands one
+frame over in `update_fields`' pre-write refusal rather than in this body and is stated with that
+refusal below — the count here is of the DOOR's clauses, not of the item's required mitigations, which
+`## Mitigation Folds` carries at seven.
 
 - **The destination is CONTAINED (M1).**
   `rename_note` refuses a `new_filename` whose RESOLVED destination is not inside `self.vault_path`, raising `ValueError` before any `vault_io.move_note` call — the same containment test `_resolve_write_target` already applies to the SOURCE, applied to the caller-supplied destination, resolved rather than string-compared so that a symlink inside the vault cannot point the move outside it.
@@ -1486,9 +1547,10 @@ structure, the seam, or a signed criterion.
   staging name is still composed through `source.with_name(...)`, which is what keeps the seam's
   value in every move's first positional. The cost is honest and accepted: during a SUCCESSFUL
   two-step a concurrent `load()` can now see the staging note where before it saw nothing. That
-  window is two `move_note` calls wide, it exists only on the case-only branch (one live row), and
-  the alternative is trading a transient extra note for a permanent invisible one — which is the
-  direction door 3's own link-then-unlink ordering already chose.
+  window is two `move_note` calls wide, it exists only on the TWO-STEP branch — one live row, and the
+  branch's two other reachable members are enumerated in the same-file sweep below with no work
+  ordered — and the alternative is trading a transient extra note for a permanent invisible one, which
+  is the direction door 3's own link-then-unlink ordering already chose.
 - **The audit line names both ends (M4).**
   `rename_note`'s audit line names the SOURCE path as well as the destination, so a relocation performed by `update_fields` on a consumer's behalf is reconstructable from logs.
   The item argues its own logging rule at the `save` WARNING — the class must be *"reconstructable
@@ -1595,8 +1657,9 @@ branch stays reachable even on a platform whose `resolve()` canonicalizes case (
 resolves symlinks only and preserves case; the door must not DEPEND on that, which is the whole point
 of the finding). The two branches therefore remain distinct and total over the same-file population:
 same directory AND identical basename spelling is the no-op; same file under a DIFFERENT basename
-spelling is the case-only two-step, where `source.samefile(destination)` is the inode test and needs
-the `destination.exists()` guard because `samefile` raises on a missing operand. Task 10's IDEMPOTENCE
+spelling is the two-step — named for the case variant it exists to serve, and the sweep immediately
+below enumerates the rest of what reaches it — where `source.samefile(destination)` is the inode test
+and needs the `destination.exists()` guard because `samefile` raises on a missing operand. Task 10's IDEMPOTENCE
 arm plants the spelling divergence rather than waiting for the platform to supply it. **What this
 deliberately does NOT do is re-spell the stamp.** `entity._source_path = moved` keeps `move_note`'s own
 resolved answer rather than substituting the repository's spelling of it, because normalizing at the
@@ -1606,6 +1669,42 @@ introduces. The one visible consequence is that `get_file_path(name)` answers a 
 note the door moved, where `load()`'s entries carry the constructor's spelling: the same file either
 way, and every consumer of that mapping opens it, `.exists()`es it or hands it to a `vault_io` door,
 each of which resolves internally (`obsidian_schemas/vault_io.py:_resolved:234-243`).
+
+**And the next rung of THAT ladder, swept and DECLARED rather than left as the next round's finding.**
+The branch key above settles which SPELLING lands in which branch; it does not say what else can make
+`source.samefile(destination)` true. The second branch is NAMED for the member it exists to serve, and
+two other shapes reach it — so the population is enumerated at source rather than remembered, because
+"two distinct in-vault names for one inode" is a closed set: a CASE variant on a case-insensitive
+filesystem, or a LINK. Each member's outcome below is read off `move_note`'s own body rather than
+assumed, and **no work is ordered for any of them** — they are here so a later reader does not
+rediscover them as a defect:
+
+- **A case variant on a case-insensitive filesystem.** The member the branch exists for (live baseline
+  §2, row 3, the one live row). Two moves through the M3 staging name; one directory entry afterwards,
+  spelled in the new case, old spelling in `aliases`. Asserted by Task 10's case-only arm.
+- **A second HARD LINK inside the vault naming the same inode.** The two-step's first move succeeds
+  (source → staging) and its second RAISES `NoteAlreadyExists`, because the destination's own directory
+  entry is still present and `os.link` refuses it (`obsidian_schemas/vault_io.py:_move_locked:759-771`).
+  The residual is the case-only branch's mid-flight residual exactly — a VISIBLE `.md` note at the
+  staging name, which is M3's whole point — so the re-run table's second row already owns it and already
+  names the hand recovery. Loud, and nothing is lost.
+- **A SYMLINK at the destination naming the source.** M1 admits it, because it resolves INSIDE the
+  vault, and it is the case the door's own branch comment hands on when it says *"a symlinked
+  DESTINATION is M1's containment question"*. Both moves then run to completion and land the note back
+  where it started:
+  `move_note` resolves its `dest` (`obsidian_schemas/vault_io.py:move_note:741-742`), and by the time
+  the second move runs the first has already unlinked the symlink's target, so the non-strict
+  `resolve()` still answers the SOURCE path and `os.link` recreates the note there. The door returns
+  that path, re-stamps the entity to the file it actually occupies, appends no alias (`old_stem ==
+  new_stem` by then) and logs a rename from a name to itself. Nothing is lost, nothing is written that a
+  reader cannot see, and the caller learns from the RETURN VALUE which file it holds. Refusing it
+  instead would mean teaching the door a third symlink rule where `move_note` already owns the SOURCE
+  and M1 already owns the destination.
+
+That is the whole population, and the reason no work is ordered is the same in each row: the member is
+either the one Task 10 already asserts, a loud refusal whose residual M3 already made visible, or a
+no-op that returns the truth. A fourth shape would have to be a fourth way for two in-vault names to
+name one inode, which the filesystem does not provide.
 
 **What a half-failed rename leaves, and what a re-run does and does NOT repair** *(revised 2026-09-25
 after the third spec-review round's blocking finding 1; three surfaces of this document previously
@@ -1636,7 +1735,7 @@ than re-deriving it:
 | where the first call stopped | residual | what a re-run of the door does | the recovery |
 |---|---|---|---|
 | before or at the move — the door refused its own preconditions (no provenance, uncontained destination, a non-enforcing write guard: M6), `move_note` refused (`NoteAlreadyExists`, symlinked source), or the process died before the first `os.link` | nothing moved, nothing written, stamp unchanged | performs the whole rename — move, alias, `_adopt` — ONCE the cause is gone; a precondition refusal simply repeats identically until the argument, the environment or the vault changes | remove the cause the exception names (free the destination, pass provenance, pass an in-vault name, unset `OBSIDIAN_SCHEMAS_WRITE_GUARD` or set it back to `enforce`), then re-run |
-| case-only branch, between its two moves | the note sits at the staging name; the source is gone; the entity was never re-stamped | with the SAME entity: `FileNotFoundError` from the door's own `source.exists()`, since the stamp names a file that no longer exists. With an entity loaded from the STAGING note: it completes the move, but appends `<stem>.rename-tmp` to `aliases`, because that is honestly the stem it moved from | a hand rename (the residual is VISIBLE by M3, and this is the branch with one live row, repaired by the conductor by hand) |
+| the two-step branch, between its two moves — reached by a case variant, and by a hard link naming the same inode (the same-file sweep above) | the note sits at the staging name; the source is gone; the entity was never re-stamped | with the SAME entity: `FileNotFoundError` from the door's own `source.exists()`, since the stamp names a file that no longer exists. With an entity loaded from the STAGING note: it completes the move, but appends `<stem>.rename-tmp` to `aliases`, because that is honestly the stem it moved from | a hand rename (the residual is VISIBLE by M3, and this is the branch with one live row, repaired by the conductor by hand) |
 | after the move, at the alias write | moved, correctly stamped, one alias missing | safe NO-OP: `same_place`, no second move, nothing appended | `repo.update_fields(entity, {"aliases": [*entity.aliases, <the old stem>]})`, or a hand edit |
 | after everything | none | safe NO-OP | nothing to recover |
 
@@ -1645,6 +1744,14 @@ always SAFE — it never moves twice, never appends twice and never forks — an
 residuals in which the MOVE did not happen and the cause has gone. It repairs nothing that happened
 AFTER the move.** Task 10 asserts the no-op row; the first row is the ordinary AC-2 arms; the second
 is `## Edge Cases`' staging-name entry.
+
+**That table is scoped to the DOOR's own frame, and the scoping is load-bearing** *(2026-09-26)*. Its
+first row's *"nothing moved, nothing written"* is true of `rename_note` and of a caller that drives it
+directly; it is NOT the whole state when the caller is `update_fields`, whose content write has already
+COMMITTED by the time the door is entered. What that method leaves for each of those refusals is stated
+where the refusals are enumerated — the complement rule beneath Design §2's precondition table, below —
+and the two tables are read together: this one answers *what does a re-run of the DOOR do?*, that one
+answers *what did `update_fields` leave, and what does the caller do about it?*
 
 Five orderings inside it are decisions, not details:
 
@@ -1742,14 +1849,16 @@ method is a real sequencing constraint *(round 4 note 2)* and is prescribed rath
         decide the rename                      renaming = ("name" in updates and
                                                    updates["name"] != frontmatter.get("name", ""))
         REFUSE IT NOW IF IT CANNOT COMPLETE    if renaming and (resolved is None or
-                                                       vault_io.guard_mode() != "enforce"):
+                                                       vault_io.guard_mode() != "enforce" or
+                                                       "name" not in
+                                                       type(entity).model_fields):
                                                    raise ValueError(...)   # nothing written yet
         ...                                    # gate the delta
         write the content                      vault_io.write_note(file_path, new_content,
                                                                    precondition=stamp)
                                                # the LAST WRITE inside the lock; `stamp` is from
                                                # this frame's own read (base.py:449)
-        mirror what the write committed        if "aliases" in updates:
+        mirror what the write committed        if renaming and "aliases" in updates:
                                                    entity.aliases = frontmatter["aliases"]
                                                new_name = updates["name"] if renaming else None
     # ---- the `with` block ENDS here. NO lock is held across the call below. ----
@@ -1763,16 +1872,26 @@ because the frame commits against the OLD path with a stamp `move_note` then for
 (`base.py:493-495`, `ValueError` on a `None` reload). The alias append moves out of `update_fields`
 into the door, which is where AC-2(a) puts it and which stops the same list being appended twice.
 
-**`update_fields` composes `f"@{new_name}.md"` for every entity type, and that is correct rather than
-an oversight of the door's own docstring** *(third spec-review round, non-blocking note 4)*. The door
-takes its destination from the caller because "each type's filename rule differs (`@{name}.md`,
+**`update_fields` composes `f"@{new_name}.md"` for every entity type it lets through, and that is
+correct rather than an oversight of the door's own docstring** *(third spec-review round, non-blocking
+note 4; the reach claim below was ASSERTED and not enforced until threat-model M7, 2026-09-26)*. The
+door takes its destination from the caller because "each type's filename rule differs (`@{name}.md`,
 `_get_file_name`)", and the one in-library caller then hardcodes the `@{name}.md` rule. It is right for
 every type that can reach this line: `BaseRepository`, `PersonRepository` and `CompanyRepository` all
-derive `@{name}.md`, and the two types with a different rule cannot reach it at all, because the
-trigger is a change to a `name` field neither `Book` nor `Meeting` declares
-(`obsidian_schemas/models.py:Book`, `obsidian_schemas/models.py:Meeting:259-263`). A future caller
-whose type derives its filename otherwise composes the destination with `self._get_file_name(entity)`;
-the door is indifferent, which is why the rule lives in the caller.
+derive `@{name}.md`, and the two types with a different rule cannot reach it at all — **which is now a
+property of the code rather than a reading of the models.** The earlier form of this paragraph said the
+two types "cannot reach it, because the trigger is a change to a `name` field neither `Book` nor
+`Meeting` declares"; that is a fact about `obsidian_schemas/models.py` (`Person:79` and `Company:128`
+declare `name`; `Book:139` and `Meeting:247` do not, and `BaseEntity:39-40` declares only `type` and
+`tags`) which the trigger never consults, since it is
+`"name" in updates and updates["name"] != frontmatter.get("name", "")` — the CALLER's dict against the
+NOTE's frontmatter, and a book note carries no `name:` key, so `frontmatter.get("name", "")` is `""`
+and any non-empty `updates["name"]` set `renaming` True. The refusal's third disjunct
+(`"name" not in type(entity).model_fields`, M7, stated in full below) is what makes the sentence true:
+a `name` delta on a type that does not declare `name` is REFUSED before the content write, so by the
+time this composition runs the entity's class declares `name` and `@{name}.md` is its filename rule by
+construction. A future caller whose type derives its filename otherwise composes the destination with
+`self._get_file_name(entity)`; the door is indifferent, which is why the rule lives in the caller.
 
 **The door call sits OUTSIDE the `with vault_io.note_lock(file_path)` block — stated here because it
 is the one placement decision in this method a builder could get either way, and because the earlier
@@ -1804,8 +1923,9 @@ AC-2(g) then follows for free, because `_load_file` re-stamps on the reload.
 **The no-provenance name change refuses BEFORE the write — and so does every other PRECONDITION the
 door needs, which is the same clause and not a second one** *(revised 2026-09-25 after the second
 spec-review round's blocking finding 1; the predicate widened from `resolved is None` to the door's
-whole precondition class when threat-model M6 landed, and the heading keeps its original wording so
-this document's four pointers to it still resolve)*. The
+whole precondition class when threat-model M6 landed, and gained its third disjunct when M7 landed
+2026-09-26; the heading keeps its original wording so this document's four pointers to it still
+resolve)*. The
 method deliberately keeps a name-keyed fallback — AC-1(g)'s second half turns on it — so `resolved`
 can be `None` while `get_file_path(name)` answers, and for that entity `rename_note`'s documented
 behaviour is the RAISE in the invocation table's row 10. Written naively the sequence commits the new
@@ -1814,15 +1934,29 @@ divergent, un-aliased and unmoved, with an exception reaching a caller AFTER a s
 reload. So the decision is made where nothing has been written yet: **inside the lock, immediately
 after `renaming` is computed from `frontmatter` and BEFORE `gate_write`, `write_frontmatter` or
 `vault_io.write_note` are reached, `if renaming and (resolved is None or vault_io.guard_mode() !=
-"enforce"): raise ValueError`** — naming the method, the name it was asked to change to, and WHICH
-precondition failed: that a name change needs the provenance a move is resolved from, or that the
-write guard is not enforcing. The frame has performed one READ at that point, so the note is
+"enforce" or "name" not in type(entity).model_fields): raise ValueError`** — naming the method, the name
+it was asked to change to, and WHICH precondition failed: that a name change needs the provenance a move
+is resolved from, that the write guard is not enforcing, or that this entity's own type does not declare
+`name` and so derives no `@{name}.md` destination. The frame has performed one READ at that point, so the note is
 byte-identical, the caller sees the refusal instead of a half-applied rename, and the residual state
 is *nothing*.
 
-**The predicate is the door's PRECONDITION class and not a list of two, which is the whole of the
-rule.** M6 arrived as a second reason the door refuses before it touches the filesystem, and answering
-it with a second remembered conjunct would leave the THIRD as the next round's finding. So the class is
+**That same arm carries a SECOND CLAUSE, and it fires where `renaming` is FALSE** *(2026-09-26,
+threat-model M8; stated in full as "the THIRD rule" below, which is where the reasoning lives — it is
+named here so a builder reading this paragraph for the arm's SHAPE does not ship half of it)*. The
+disjunction above is the whole of `if renaming and (…)`, so every delta carrying no `name` key skips it
+entirely — and for a `Book` or a `Meeting` the filename rule is not made of `name`, so exactly those
+deltas are the ones that move it. The arm is therefore two clauses, both raised inside the lock before
+anything is gated or written:
+`if not renaming and derive is not None and derive(projected) != derive(entity): raise ValueError`,
+where `derive = getattr(self, "_get_file_name", None)` and `projected` is
+`entity.model_copy(update={k: v for k, v in updates.items() if k in type(entity).model_fields})`.
+
+**The predicate is the door's PRECONDITION class and not a list of remembered conjuncts, which is the
+whole of the rule.** M6 arrived as a second reason the door refuses before it touches the filesystem,
+and answering it with a second remembered conjunct would leave the THIRD as the next round's finding
+— which is exactly what happened: M7 is the third, and it was findable only because the table below
+declares its own coverage row by row. So the class is
 enumerated at source — the door's own refusal arms, read off the body above, split by whether their
 cause is knowable in this frame before the write:
 
@@ -1830,7 +1964,7 @@ cause is knowable in this frame before the write:
 |---|---|---|
 | no provenance (`source is None`) | YES — it is `resolved`, already bound at the head of the method | this conjunct |
 | a non-enforcing write guard (M6) | YES — `vault_io.guard_mode()` is a per-call environment read taking no path | this conjunct |
-| an uncontained destination (M1) | YES — the destination is `f"@{new_name}.md"` and `new_name` is in `updates` | **already refused earlier, by a different wall**: the only way that filename escapes is a `new_name` carrying a path separator, and `gate_write` refuses it on the delta before any write for both types that can reach this line (`path_hostile` for a person, the wider `COMPANY_TIER1_BRANCHES` class for a company, `obsidian_schemas/name_validation.py:_COMPANY_PATH_HOSTILE_RE:351`), while `Book` and `Meeting` cannot reach it at all — they declare no `name` field. Adding a containment conjunct here would PREEMPT the gate and degrade a `NameGateRefusal` carrying its `pattern` into a bare `ValueError`, so the right answer is that the class member is already closed, not that it is unclosed |
+| an uncontained destination (M1) | YES — the destination is `f"@{new_name}.md"` and `new_name` is in `updates` | **SPLIT BY DECLARED FIELD, and closed on both sides of the split** *(corrected 2026-09-26 with M7; the earlier answer delegated the whole row to `gate_write` and was wrong for every type that wall passes through)*. The only way that filename escapes is a `new_name` carrying a path separator. For the two types that DECLARE `name` and therefore derive `@{name}.md`, `gate_write` refuses it on the delta before any write (`path_hostile` for a person, the wider `COMPANY_TIER1_BRANCHES` class for a company, `obsidian_schemas/name_validation.py:_COMPANY_PATH_HOSTILE_RE:351`) — a different wall, and adding a containment conjunct here would PREEMPT it and degrade a `NameGateRefusal` carrying its `pattern` into a bare `ValueError`, so that half stays delegated. For every OTHER declared type the gate is a pass-through — `obsidian_schemas/name_gate.py:gate_write:319-344` returns the delta UNVALIDATED once `declared_type` is neither `person` nor `company` — so the residue is refused HERE, by the third disjunct (`"name" not in type(entity).model_fields`, M7), on the ground that `@{new_name}.md` is not that type's filename rule at all rather than on containment. Both halves together close the row for EVERY type; neither half rests on a premise about which types "cannot reach" this line |
 | the source no longer exists (`FileNotFoundError`) | NO — the frame READ that file inside the lock microseconds earlier, so an absent source is a concurrent delete and not a knowable precondition | nobody; it is the door's own raise, and the write-then-move window entry in `## Edge Cases` owns it |
 | `move_note`'s refusals (`NoteAlreadyExists`, symlinked source) | NO — both are filesystem state at move time | nobody, deliberately: pre-checking either here is exactly the check-then-act this document refuses elsewhere, and the syscall is the stronger answer |
 | the alias write raising | NO — it happens after the move by construction | nobody; the half-failure residual is stated in the re-run table |
@@ -1840,6 +1974,243 @@ a name change before its content write for every reason the door refuses its own
 things knowable from this frame's arguments and environment — and for no reason that depends on
 filesystem state at move time, which stays the syscall's.** A seventh refusal arm added to the door
 later is placed by that sentence rather than by remembering this list.
+
+**The COMPLEMENT of that rule — the half a rule that PARTITIONS a surface must also state**
+*(2026-09-26, after the fourth spec-review round's blocking finding)*. The rule above says which of the
+table's rows refuse EARLY. It said nothing about what the method LEAVES for the rows it answers NO, and
+a rule that partitions a surface while stating the residual of only one half is how this class keeps
+producing members: the finding that forced this paragraph is the THIRD time `update_fields`' rename
+branch has been found committing its content write and only then discovering the door will not complete
+the move — no provenance (round 2), a type declaring no `name` (M7), and now a destination ALREADY
+OCCUPIED by a different note, with no race, no configuration and no exotic type. The first two were
+closed by a disjunct because their causes are knowable in this frame; this one's is not, and
+pre-checking it is the check-then-act the table refuses, so the table's **NO** stands — which makes the
+RESIDUAL the whole of the answer rather than a footnote to it. Stated as one rule over the whole NO
+half, derived from the table's own rows:
+
+**For every row the table answers NO whose cause sits BEFORE or AT the move, `vault_io.write_note` at
+`obsidian_schemas/repositories/base.py:BaseRepository.update_fields:490` has already COMMITTED, so the
+method leaves the note carrying its NEW stored `name:` at its OLD filename, with no alias, with the
+entity UN-RE-STAMPED at that old path, and with the door's own exception reaching the caller after a
+successful write. The recovery is the same for every one of them and is NEVER a re-run of
+`update_fields`: remove the cause, then call `repo.rename_note(entity, f"@{new_name}.md")` DIRECTLY —
+the entity still carries the provenance the door resolves from, and a direct door call is safe by the
+RE-RUN table's first row — and then re-bind the entity from the path the door returns, because the refused call never
+reached its reload and the in-memory entity still holds the OLD `name`. A re-run of `update_fields`
+with the same `updates` is SAFE and is not the repair: the trigger compares the caller's dict against
+the note's frontmatter, which now already carries the new name, so `renaming` is False and the branch
+never fires. For the ONE NO row whose cause sits AFTER the move — the alias write — the move DID
+happen, and the re-run table's third row owns it and names its own one-field recovery.**
+
+Row by row, so the rule is CHECKED against the table rather than asserted over it:
+
+| the NO row | what `update_fields` leaves | where it is owned |
+|---|---|---|
+| the source no longer exists (`FileNotFoundError`) | a concurrent delete, and the two orderings differ: a delete landing BEFORE the content write makes `stat_stamp(target) != precondition` and `vault_io.write_note` refuses with `ExternalWriteConflict` (`obsidian_schemas/vault_io.py:write_note:685-698`), so NOTHING is committed; a delete landing after it leaves committed bytes at a path another actor removed, which is that actor's loss and not this method's | the write-then-move window entry in `## Edge Cases` |
+| `move_note`'s `NoteAlreadyExists` — the destination is ALREADY OCCUPIED by a DIFFERENT note, with no race and every precondition satisfied | the residual the rule states: the new `name:` committed, the note still at its old filename, no alias, the entity still stamped there — and the destination note BYTE-IDENTICAL, since `os.link` failed before anything was written | the `## Edge Cases` occupied-destination entry, its own `## Risk Analysis` row, and Task 10's arm |
+| `move_note`'s symlinked-source refusal (`WriteFailedError`) | the IDENTICAL residual by the identical route — `_resolve_write_target` answers the stamp, `source.exists()` follows the link and is True, and the door's refusal comes out of `move_note` (`obsidian_schemas/vault_io.py:move_note:736-740`) | the same entry; the two are ONE shape and are deliberately not listed apart |
+| the alias write raising | moved, correctly stamped, one alias missing — the move DID happen, so this row is the rule's exception and not an instance of it | the re-run table's third row |
+
+**The choice that rule makes, stated rather than left to silence, because the three available answers
+differ observably.** The residual is **ACCEPTED**. The two alternatives are rejected for cited reasons:
+
+- **Removing it by ORDERING — move first, write second — is UNAVAILABLE, not merely undesirable.** The
+  door does not only move: it appends the alias through
+  `update_frontmatter_field(moved, "aliases", aliases)` in the same call, and that write changes the
+  file's `st_mtime_ns` and `st_size`. The content write's `precondition=stamp` comes from this frame's
+  own `read_note` (`obsidian_schemas/repositories/base.py:BaseRepository.update_fields:449`), so after
+  a move-then-alias the precondition MISMATCHES and `vault_io.write_note` refuses every SUCCESSFUL
+  rename with `ExternalWriteConflict` (`obsidian_schemas/vault_io.py:write_note:685-698`) — the
+  ordering that removes a rare residual manufactures a certain one. Splitting the door so the alias
+  lands last would give `update_fields` a second composition rule over a door whose whole point is that
+  it is one call, and AC-2's SIGNED `why` prescribes this order in its own words — *"so the order is
+  write, then move, then rebind `file_path` to the door's return value before the reload"* — so
+  reversing it is a re-sign, not a spec edit.
+- **Removing it by PRE-CHECKING the destination** is the check-then-act the table already refuses, and
+  refuses correctly: the check answers a question the filesystem may answer differently one syscall
+  later, so the residual would survive at a smaller window while the package gained a SECOND authority
+  on occupancy beside `os.link`. The syscall stays the authority, and Task 6 says so in the negative.
+
+**And the residual is not the loss it first reads as — the comparison against today, made honestly.**
+Today this same call SUCCEEDS: `obsidian_schemas/repositories/base.py:BaseRepository.update_fields:454-459`
+appends the old stem to `aliases` in-lock, the write commits, the reload returns the entity. So today it
+SILENTLY manufactures exactly the divergence `## Verified Diagnosis` 1 and AC-2(c) exist to end, and
+after this item it manufactures the SAME divergence — in the one sub-population whose move cannot
+complete — and says so out loud. The one thing lost against today is the alias, and in THIS residual the
+old stem is still the note's own FILENAME: an `aliases` entry recording it is a reachability route the
+file itself already provides, not a route that goes dark. Keeping today's in-lock append to preserve it
+was considered and refused — it would put two writers on one `aliases` list one frame apart, which is
+the question "Which `aliases` list wins" settles in the other direction, to buy a decoration.
+
+**One precision about loudness, so the "every residual is detector-visible" claim is true where it is
+made.** For a PERSON subject this residual IS a `stem_name_divergence` and Task 11's arm reports it.
+`CompanyRepository` inherits `update_fields` and the door whole (it declares neither `save` nor
+`get_file_path`) and `Company` DECLARES `name` (`obsidian_schemas/models.py:Company:128`), so M7's
+disjunct passes and a company name change reaches the same residual — while the detector's arm is
+guarded on `vf.entity_type == "person"` (Design §3). That company residual is therefore the ONE
+FAILED-OPERATION residual this item leaves that the new detector cannot see, and it is named here rather
+than implied; widening the detector to a second type is a declared non-action (`## Scope Boundary`), and
+the guard's own reasoning is in Design §3. **One further detector-blind divergence exists and is NOT a
+residual of a failed operation but a SIGNED trade, so it is named beside this one rather than counted
+with it** *(2026-09-26, the next-level sweep behind M8)*: after this item a `save` of a `Book` or
+`Meeting` entity whose deriving fields the caller changed lands in the PARSED file instead of forking a
+second note, which is AC-1's promise and `## Verified Diagnosis` 1's whole point — and the resulting note
+no longer recomputes to its own filename, outside the detector's person-only arm. It is accepted by
+decision, stated in `## Scope Boundary` and `## Risk Analysis`, and is the conductor direction table's
+business; `update_fields` is the path where the same shape IS refused, because it alone takes a caller's
+DELTA and has the frame to judge it (M8, "the THIRD rule" below).
+
+**And the SECOND rule, which is what the M1 row got wrong and is the one that generalises**
+*(2026-09-26, threat-model M7)*. A row of that table may answer *"already refused earlier, by a
+different wall"* — but a delegation is only as total as the wall's OWN DECLARED SCOPE, so:
+**where a refusal is delegated to another wall, the delegation is checked against that wall's declared
+scope, never against a premise about which callers or types reach the line; wherever the wall is
+narrower than the delegating population, the residue is refused HERE.** The M1 row was answered by
+delegating to `gate_write` and then bounding the residue with "`Book` and `Meeting` cannot reach it at
+all — they declare no `name` field", a fact about `obsidian_schemas/models.py` that the trigger
+consults nowhere: `gate_write` is type-scoped BY DESIGN
+(`obsidian_schemas/name_gate.py:gate_write:319-344`, whose own comment reads *"a Book write is gated and
+handed straight back"*), while the trigger reads the caller's dict against the note's frontmatter. The
+member that fell through that gap is M7's, and it is closed by one disjunct rather than by a note:
+
+**`update_fields` refuses a `name` delta on an entity whose own class does not DECLARE `name` — the third disjunct of the same pre-write refusal, `"name" not in type(entity).model_fields`, keyed on the DECLARED FIELD and never on a type name — because `f"@{new_name}.md"` is not that type's filename rule and `gate_write` hands a `name` delta straight back UNVALIDATED for every `declared_type` that is neither `person` nor `company`, so the rename branch is reachable only for a type that derives `@{name}.md` BY CONSTRUCTION rather than by the trigger's silence.**
+
+Three things about that disjunct, so it is neither over- nor under-read. **It reads the CLASS, not the
+instance** — `type(entity).model_fields`, which is the spelling `obsidian_schemas/writer.py:108`'s own
+comment reserves ("Access model_fields from the class, not instance (Pydantic v2.11+ deprecation)") and
+which `obsidian_schemas/parser.py:199` and `obsidian_schemas/writer.py:112` already use; a `hasattr`
+or an `entity.model_fields` spelling would answer differently for a Book note that stores `aliases:` or
+`name:` as a pydantic EXTRA, and the extra is precisely the case that must still refuse, because such a
+note's filename rule is `_get_file_name` and `@{name}.md` is the wrong destination for it. **It REFUSES
+rather than silently skipping the branch, and that is why it is written as the refusal's NEGATIVE
+disjunct rather than as the trigger's positive conjunct.** M7's own `desc` states the requirement the
+other way round — *"the trigger gains one conjunct … `"name" in type(entity).model_fields`"* — and
+prescribes an oracle that RAISES (*"raises before the content write with that note BYTE-IDENTICAL"*);
+the two are the same requirement from the two sides, and the refusal is the side that satisfies both.
+Making the conjunct part of `renaming` itself would leave
+the caller's ungated `name:` committed into the note with no exception at all — the same residual, minus
+the loudness, and a `renaming` that silently answers False is exactly the unchecked reach premise this
+mitigation exists to replace. So the disjunct lives in the refusal, where the frame has performed one
+READ and the note is byte-identical afterwards, and `renaming` is left reading the caller's dict against
+the note's frontmatter unchanged; by the time it is USED to call the door, the entity's class declares
+`name`, which is the conjunct the `desc` names, established structurally rather than by silence. **It changes WHICH CALLS fire the rename branch and nothing else:** it adds
+no containment conjunct (M1 stays the door's, so no `NameGateRefusal` is degraded), does not widen
+`gate_write` to a third type, does not touch the Tier-1 tables, and does not move `save` or the five
+body-writers, none of which has a rename branch.
+
+**What the sweep behind that rule found, declared rather than left implicit** *(WI-226: the finding's
+GENERATOR is "a bound on a population asserted from the models and enforced by a predicate that never
+reads them", so the whole class is closed here and the next level named)*. MEMBERS — the same claim was
+made at three sites and checked at none: this table's M1 row, the `f"@{new_name}.md"` paragraph above,
+and Task 6's restatement of it. All three now rest on the disjunct. NEXT LEVEL, every other place this
+item bounds a population by type reach, read one at a time: `BaseRepository.save`'s `@{name}.md`
+derivation (`obsidian_schemas/repositories/base.py:BaseRepository.save:391-393`) is bounded by METHOD
+OVERRIDE — `BookRepository.save` and `MeetingRepository.save` exist and Task 5 keeps both — which
+dispatch makes structural, so it is not a member; ordering decision 3's in-memory alias assignment is
+already keyed on the declared field and the alias reconciliation on the key the write introduced, which
+are the two existing instances of the correct idiom and where M7's spelling comes from; the remaining
+table rows 4–6 delegate to the SYSCALL on an argument about what is knowable in this frame, which is a
+property of the frame and not of a type, so the second rule does not reach them; and the detector's
+`vf.entity_type == "person"` guard (Design §3) is a declared narrowing over vault BYTES with its own
+stated reasoning, not an unchecked reach premise. The sweep returned no fourth member.
+
+**And the THIRD rule, which is what the precondition table and M7 between them still left open, and is
+the one that makes this arm's coverage TYPE-GENERAL** *(2026-09-26, threat-model M8)*. Everything above
+describes ONE obligation — refuse a RENAME the door cannot complete — and the whole predicate that
+discharges it is `if renaming and (…)`. `renaming` is `"name" in updates and updates["name"] !=
+frontmatter.get("name", "")` (`obsidian_schemas/repositories/base.py:BaseRepository.update_fields:454`),
+so a delta carrying no `name` key never evaluates any of it. That is exactly correct for a `Person` or a
+`Company`, whose filename rule IS `@{name}.md` — and exactly wrong for the other two types this item
+newly lets into the frame, because their filename rule does not read `name` at all:
+`obsidian_schemas/repositories/book.py:BookRepository._get_file_name:340-355` derives from
+`entity.title` (`:346`) and `entity.author` (`:350-353`), and
+`obsidian_schemas/repositories/meeting.py:MeetingRepository._get_file_name:208-231` from `entity.date`
+(`:216`), `entity.topics[0]` (`:219-220`), `entity.attendees[:2]` (`:221-224`) and `entity.meeting_id`
+(`:226`) — six DECLARED model fields (`obsidian_schemas/models.py:Book.title:160`, `:author:161`;
+`obsidian_schemas/models.py:Meeting:260-263`). So the rule the arm is actually measured against is:
+
+**The pre-write arm has TWO obligations and not one: it refuses a RENAME the door cannot complete — the
+precondition class above — AND it refuses a WRITE that moves the entity type's OWN filename rule with no
+rename to follow it; a version of this arm stated over only the first is bounded by `name`, which is
+`Person`'s and `Company`'s filename rule and not the package's, and the residue it leaves is this
+document's own type-general divergence predicate manufactured by the method that exists to end it.**
+
+The second obligation is discharged by the arm's second clause, and this is the sentence the clause is
+measured against:
+
+**`update_fields` refuses, before its content write, a delta that moves the entity type's OWN filename rule when no rename will follow it — the same pre-write arm's second clause, `not renaming and derive is not None and derive(projected) != derive(entity)`, where `derive = getattr(self, "_get_file_name", None)` and `projected` is `entity.model_copy(update={k: v for k, v in updates.items() if k in type(entity).model_fields})` — keyed on the REPOSITORY'S OWN DECLARED FILENAME RULE and never on `name` or on a type name, and DELTA-RELATIVE (`derive(projected)` against `derive(entity)`, never against `file_path.name`) so that an ALREADY-divergent note stays writable for every delta that does not move its rule further.**
+
+Five things about that clause, so it is neither over- nor under-read.
+
+- **`derive` is `getattr(self, "_get_file_name", None)` and not a remembered type list, which is what
+  makes it total rather than a third member of the same class.** `_get_file_name` is declared on exactly
+  two repositories today — `obsidian_schemas/repositories/book.py:BookRepository._get_file_name:340` and
+  `obsidian_schemas/repositories/meeting.py:MeetingRepository._get_file_name:208`; `BaseRepository`,
+  `PersonRepository` and `CompanyRepository` declare none — so `derive` is `None` for the two types whose
+  rule is `@{name}.md` and the clause is STRUCTURALLY inert for them, rather than inert by a premise
+  about which types reach the line. That is the same DECLARED-CAPABILITY keying ordering decision 3 uses
+  for `aliases` and M7 uses for `name`, applied to the filename rule itself, and it is why the clause
+  survives the one change `## Scope Boundary` books as a separate item: if the `BaseRepository.save`
+  collapse ever puts `_get_file_name` on the base class, `derive` starts answering for all four types and
+  the `not renaming` conjunct — not a type list — is what keeps a `Person` name delta on the rename
+  branch where it belongs.
+- **`not renaming` is a CONJUNCT of this clause and not a coincidence.** A `name` delta on a type that
+  derives `@{name}.md` is the rename branch's business: the branch moves the file and appends the old
+  stem, which reconciles the rule rather than breaking it, so the clause must not reach it. A `name`
+  delta on a type that does NOT declare `name` is M7's, one clause up. The two clauses therefore
+  partition the delta space by whether a rename FOLLOWS the write, which is the property that actually
+  matters, and neither of them is keyed on a type name.
+- **The comparison is DELTA-RELATIVE, and that is load-bearing rather than defensive.** Comparing
+  `derive(projected)` against `file_path.name` would refuse every write to an already-divergent Book or
+  Meeting note — which is the live *"book-titled file holding a person note"* class and its siblings,
+  the exact population this item exists to repair and which `docs/stem-divergence-live-baseline.md` §4
+  books as a HAND repair. Such a note must stay writable for every delta that leaves its rule where it
+  found it; what is refused is a delta that moves it FURTHER.
+- **The projection is `model_copy(update=…)` restricted to DECLARED fields, and a raise out of it
+  REFUSES.** `model_copy` preserves `__pydantic_private__` and so preserves the stamp (Design §1,
+  "Survives `model_copy`"), and restricting the update to `type(entity).model_fields` keeps a caller's
+  undeclared key out of the projection where it could not have moved the rule anyway. `model_copy` does
+  NOT validate, so a delta supplying a non-string `title` or a non-list `topics` makes `derive(projected)`
+  raise — compute `derive(entity)` FIRST, outside any `try`, and treat ANY exception out of
+  `derive(projected)` as *the rule cannot be recomputed over this delta* and raise the same `ValueError`.
+  Fail closed, the same direction M1 takes with an `OSError` out of its own resolve, and never a silent
+  pass. `derive(entity)` needs no guard: the entity came through model validation, so its declared fields
+  hold their declared types.
+- **It ADDS NO CAPABILITY, and that is what makes it the cheap answer rather than the scope-expanding
+  one.** It does not teach the door or `update_fields` a second filename rule for COMPOSING a
+  destination — `_get_file_name` is recomputed only to COMPARE, never to build a path — it renames no
+  Book or Meeting note, puts `_get_file_name` on no rename path, touches neither `gate_write` nor the
+  Tier-1 tables, and moves neither `save`, the two `save` overrides nor the five body-writers.
+  `## Scope Boundary` already declines to teach the door those two rules *"where refusal costs nothing
+  anyone does today"* — this clause is that stated alternative made real instead of asserted.
+
+**What the sweep behind THAT rule found, declared rather than left implicit** *(WI-226; the generator
+here is one level up from M7's — not "a bound enforced by a predicate that never reads the models" but
+**a guard keyed on the PERSON instance (`name`) of a predicate this document itself states
+TYPE-GENERALLY**, which is the shape that produced M7 and M8 from the same paragraph two rounds apart).
+MEMBERS — every guard this item ships, asked whether it is keyed on `name` or on the type's own rule:
+the rename-branch trigger is `name`-keyed and M7 closes it on the DECLARED field; `update_fields`'
+content write was `name`-keyed by omission and M8 closes it on the DECLARED RULE; the detector's
+`vf.entity_type == "person"` arm (Design §3) is `name`-keyed by declaration, with its own stated
+reasoning over vault BYTES, and stays a declared narrowing — it is the reason M8's residual would be
+SILENT and is why M8 refuses rather than reports. NEXT LEVEL — the other eight write paths, asked the
+same question one at a time. `BaseRepository.save` and the two `save` overrides DERIVE their own target
+from the entity's current fields and have no rename to reconcile, so they cannot leave a delta
+unresolved; what they leave instead is the seam's own declared trade — after this item a `save` of an
+entity whose deriving fields the caller changed lands in the PARSED file rather than forking a second
+note, which is AC-1's signed promise and `## Verified Diagnosis` 1's whole point, and refusing there
+would refuse the criterion. That trade's own residual is named rather than implied: for a Book or
+Meeting subject it is a divergence the detector's person-only arm cannot see, the same detector-blind
+class as the COMPANY residual named in the loudness precision above, and it is the conductor direction
+table's business rather than this door's. The five body-writers write BODY sections and carry no
+frontmatter field delta at all, so no deriving field can move through them — structural, not asserted.
+`rename_note` takes its destination from the CALLER by design, and the caller's rule is
+`f"@{new_name}.md"`, which M7 makes true by construction. INTERSECTION — a type declaring BOTH `name`
+and its own `_get_file_name` override exists nowhere today (`Person:79` and `Company:128` declare `name`
+and override nothing; `Book:139` and `Meeting:247` override and declare no `name`), and under the two
+clauses as written it is already total if one appears: its `name` delta sets `renaming` and goes to the
+rename branch, its non-`name` deriving delta hits the second clause, and its non-deriving delta writes.
+The sweep returned no member the two clauses leave open and one declared trade, stated above.
 
 Three things fix that as the chosen answer rather than the door's raise leaking upward. The predicate
 must be `renaming`, not `"name" in updates`: Prerequisites 7 records that the one consumer-visible
@@ -1881,10 +2252,15 @@ declares the field (`obsidian_schemas/models.py:Person:80`) and `extra="allow"` 
 company in exactly one situation — a caller passing `aliases` in the SAME `update_fields` call as a
 name change, because the write at `base.py:490` commits the caller's list while the entity still holds
 the parsed one, and the door would then overwrite the caller's list with the stale one plus the old
-stem. **`update_fields` reconciles on its own side and the door is not changed:** where the committed
-`updates` carried an `aliases` key, mirror the committed value onto the entity
+stem. **`update_fields` reconciles on its own side and the door is not changed:** where the call is RENAMING
+**and** the committed `updates` carried an `aliases` key, mirror the committed value onto the entity
 (`entity.aliases = frontmatter["aliases"]`) before the door call, captured inside the lock with the
-rest of the rename decision. That is keyed on the KEY THIS WRITE INTRODUCED and never on a type name —
+rest of the rename decision. **The `renaming` conjunct is part of the clause and not an optimization**
+*(fourth spec-review round, non-blocking note 1)*: this mirror exists solely to stop the door
+overwriting the caller's list with the parsed one, the door is the only consumer, and an ungated form
+would give `repo.update_fields(person, {"aliases": […]})` with no name change a NEW in-place mutation
+of the caller's object that today's `update_fields` never performs — benign, but a caller-visible
+widening neither Prerequisites 7 nor `## Risk Analysis` discloses, bought for nothing. That is keyed on the KEY THIS WRITE INTRODUCED and never on a type name —
 ordering decision 3's own rule, applied one frame over — and it mints nothing on a non-Person entity,
 because the note itself now carries `aliases:` precisely because this call committed it, so the
 `model_extra` value is a mirror of the file rather than an invented field. The alternative, having the
@@ -2365,7 +2741,7 @@ module and it needs no fence awareness at all.
 | the resolution function | `obsidian_schemas/repositories/base.py:BaseRepository.get_file_path:354` (placed beside) | new private method |
 | the door | `obsidian_schemas/repositories/base.py` | new public method `rename_note`, including its M1 destination containment and its M6 `vault_io.guard_mode()` fail-closed refusal — one read of an existing `vault_io` function, no new import and no `os.environ` access |
 | `save` | `obsidian_schemas/repositories/base.py:BaseRepository.save:391-393`, `:411` | three lines, plus the INFO line naming the file actually written; `overwrite`/gate/adopt untouched |
-| `update_fields` | `obsidian_schemas/repositories/base.py:BaseRepository.update_fields:438`, `:454-459`, `:490-495` | seam at the top, binding `resolved`; a `ValueError` inside the lock when the update changes the name and the door's preconditions do not hold — `resolved is None` or `vault_io.guard_mode() != "enforce"` (M6) — raised before anything is gated or written; the alias-append block becomes the door call — placed OUTSIDE the `note_lock` block, after the write commits, before the reload — with the committed `aliases` value mirrored onto the entity where the caller supplied one |
+| `update_fields` | `obsidian_schemas/repositories/base.py:BaseRepository.update_fields:438`, `:454-459`, `:490-495` | seam at the top, binding `resolved`; a `ValueError` inside the lock when the update changes the name and the door's preconditions do not hold — `resolved is None`, or `vault_io.guard_mode() != "enforce"` (M6), or `"name" not in type(entity).model_fields` (M7) — raised before anything is gated or written; the alias-append block becomes the door call — placed OUTSIDE the `note_lock` block, after the write commits, before the reload — with the committed `aliases` value mirrored onto the entity where the caller supplied one |
 | the five body-writers | `obsidian_schemas/repositories/person.py` (`:1403`, `:1522`, `:1653`, `:1719`, `:1793`) | one line each, `ValueError` arms unchanged |
 | the two `save` overrides | `obsidian_schemas/repositories/book.py:BookRepository.save:167`, `obsidian_schemas/repositories/meeting.py:MeetingRepository.save:189` | three lines each, plus each override's INFO line |
 | the detector | `scripts/lint_vault.py:check_structural:328`, plus one module constant and one helper | read-only arm |
@@ -2381,6 +2757,41 @@ today's `ValueError`) — the two shapes written out above. Nine SITES, ~3 lines
 one new door, no public signature change. The count that matters downstream is the SITE count (AC-1's
 path set and AC-5's seam bucket both quantify over it); the line count is stated only so a builder
 does not read "one line" as a constraint on the shape.
+
+**One CAPABILITY WIDENING falls out of Task 3's reorder and is declared here rather than left to read
+as a side effect** *(fourth spec-review round, non-blocking note 2)*. Today `update_fields` is
+unusable on a `Book` or a `Meeting`: it opens `name = getattr(entity, "name", "")`, which is `""` for
+both, and `get_file_path("")` answers `None` — `BookRepository.get_file_path:326-338` keys on
+`title.lower().strip()` — so the method raises ABOVE the lock
+(`obsidian_schemas/repositories/base.py:BaseRepository.update_fields:437-441`) and the frame never
+runs. Task 3's `resolved`-first shape binds the file from the STAMP, so after this item the whole frame
+runs for those two types and `repo.update_fields(<a stamped book>, {"status": "read"})` SUCCEEDS —
+Task 10's M7 arm asserts exactly that as its ACCEPTED half. That is INTENDED and is the correct
+direction: the seam's whole claim is that a write of an entity the library parsed lands in the note it
+was parsed from, and a method that refuses two of the four entity types because its name-keyed opener
+cannot see them is the name binding, not a boundary. Its blast radius is measured at zero — the audit
+records 0 consumer call sites on `BookRepository.save`/`MeetingRepository.save` and the generic PATCH
+as the only consumer route to those two repositories
+(`docs/wi-029-consumer-audit.md:134-140`, `:371-376`) — and what it does NOT widen is stated by the
+DELTA and not by the branch, which is this paragraph's own 2026-09-26 correction *(threat model round 6,
+M8; the earlier wording read "the one thing it does NOT widen is the rename branch, which M7 refuses for
+both types", and that bound is `name`-shaped while neither of those two types' filename rule reads
+`name` —
+`obsidian_schemas/repositories/book.py:BookRepository._get_file_name:340-355` derives from `title` and
+`author`, `obsidian_schemas/repositories/meeting.py:MeetingRepository._get_file_name:208-231` from
+`date`, `topics`, `attendees` and `meeting_id` — so the sentence was true of the rename branch and
+silent about the six declared fields that actually compose those filenames)*. Stated correctly, the
+widening admits exactly the deltas that leave the type's own filename rule where they found it: a
+`{"status": …}` or `{"description": …}` on a Book, a `{"tags": …}` on a Meeting, which is the ACCEPTED
+half Task 10's M7 arm already asserts. A delta carrying `name` is refused by M7's clause, and a delta
+touching any of those six DERIVING fields is refused by M8's — the second clause of the same pre-write
+arm (Design §2, "the THIRD rule"), because such a write commits silently, moves nothing, records no
+alias for the stem the note is leaving behind and raises nothing, manufacturing this document's own
+type-general divergence predicate on the one externally-supplied route the item names. No criterion
+quantifies over this: AC-1's path set restricts a Book and Meeting subject to that type's `save`
+override, so the widening is additional capability outside every signed promise rather than a change to
+one — and the two refusals narrow it back to the deltas that were safe to admit, rather than adding a
+behaviour the signed set did not contemplate.
 
 **Read-side sites that share the root cause and are deliberately NOT in the write seam**, named so a
 builder does not route them: `PersonRepository._get_body_content`
@@ -2453,7 +2864,16 @@ Explicit, because the reviewer hunts for the unstated ones:
    from note content"). Its containment half was true of the SOURCE and false of the door: the
    destination `rename_note` moves to is caller-supplied and was contained nowhere, so M1 applies the
    identical resolved-containment test to it before any `vault_io.move_note` call (Design §2, "The
-   destination is CONTAINED"). The claim now covers the whole item rather than half of it.
+   destination is CONTAINED"). The claim now covers the whole item rather than half of it. **A THIRD
+   half, added 2026-09-26 with M7:** the one place in this item where an externally-supplied string
+   COMPOSES a write target is `update_fields`' `f"@{new_name}.md"`, and `new_name` comes out of
+   `updates` — i.e. off the untrusted side of this same boundary, since Prerequisites 7's one
+   consumer-visible door forwards an arbitrary PATCH body that may carry `name`. That composition is
+   bounded on both sides and neither side is an assumption: `gate_write` refuses a separator-carrying
+   `name` on the delta for the two types it validates, the pre-write refusal's third disjunct refuses the
+   delta outright for every type it does not, and M1 contains whatever destination does reach the door.
+   The residue the FIRST two leave — a `name:` key committed into a note the door then refuses to move —
+   is what M7 closes (Design §2's precondition table, the M1 row).
 7. **Consumers are out of reach and the contract change is disclosed.** HAL9000, Exocortex and
    orchestrator install `-e` and are outside `pipeline-runners.yaml:write_authority:34-38`. The audit
    answers: 19 of 19 consumer sites on the nine paths are on LOADED entities; 0 `auto_load=False`
@@ -2461,7 +2881,36 @@ Explicit, because the reviewer hunts for the unstated ones:
    0 consumer call sites. The one consumer-visible behaviour change is HAL9000's generic entity PATCH
    (`routers/entities.py:461`), which forwards an arbitrary body that may carry `name` and which
    today forks — after this item it MOVES the file and keeps an alias. That is in Dave's signed
-   read-back (conductor read-back note 4): disclosed, not discovered.
+   read-back (conductor read-back note 4): disclosed, not discovered. **Three sub-populations of that
+   one change RAISE where today's call returns 200, and they are disclosed here rather than left to
+   the consumer to discover** *(added 2026-09-26 after the fourth spec-review round; the read-back's
+   "a move with an alias" is the MAIN arm and these are the arms beside it, none of which changes what
+   Dave signed — the read-back describes the capability, and a refusal is that capability declining
+   rather than a second behaviour)*. A PATCH carrying `name` against an entity with no provenance
+   raises `ValueError` (Design §2's pre-write refusal, first disjunct); against a `Book` or `Meeting`
+   it raises `ValueError` (M7, third disjunct); and against a name whose `@{name}.md` is ALREADY
+   OCCUPIED by a different note it commits the field and then raises `NoteAlreadyExists`, leaving the
+   residual Design §2's complement rule states and `## Edge Cases` resolves. **A FOURTH arm is
+   disclosed here too, and it is the one that does NOT fit that sentence's "where today's call returns
+   200" frame** *(added 2026-09-26 with M8)*: a PATCH carrying NO `name` key against a `Book` or
+   `Meeting`, touching one of the six fields that type's own filename rule is made of — `title` or
+   `author` for a Book, `date`, `topics`, `attendees` or `meeting_id` for a Meeting — raises
+   `ValueError` naming the filename-rule precondition (Design §2's second clause). Today that same
+   call raises too, one frame earlier and for an unrelated reason: `update_fields` opens
+   `get_file_path(getattr(entity, "name", ""))`, which for a Book is `_file_map.get("")` and answers
+   `None`, so the method refuses ABOVE the lock
+   (`obsidian_schemas/repositories/base.py:BaseRepository.update_fields:437-441`,
+   `obsidian_schemas/repositories/book.py:BookRepository.get_file_path:326-338`). So the consumer sees
+   a refusal before and a refusal after, with a different and more accurate message — no capability is
+   withdrawn. What Task 3's `resolved`-first reorder DOES newly admit for those two types is the
+   complement, a delta that leaves the filename rule where it found it (`{"status": …}` on a Book,
+   `{"tags": …}` on a Meeting), which today raises and after this item succeeds: that is the widening
+   Design §5 declares, and this arm is its bound rather than a second behaviour. The audit
+   (`docs/wi-029-consumer-audit.md:84`) records the generic PATCH as the route and says nothing about
+   an occupied destination, which is why the disclosure is made here from the design rather than read
+   off the audit. The third is the only one of the three that leaves state behind, it is the direction
+   table's MERGE shape (`docs/stem-divergence-live-baseline.md` §2 measures it at 1 of 8 live rows),
+   and its recovery is one direct `rename_note` call once the destination is free.
 8. **The repair run and the exit attestation happen OUTSIDE the cage.** The builder ships the seam,
    the door, the detector and the batteries; it does not touch Dave's vault, does not fill
    `docs/stem-divergence-live-baseline.md` §5, and does not run `--fix` against anything.
@@ -2585,12 +3034,96 @@ artifact a reader can re-run; if any were false, the work would be invalid.
   write), so it is one clause. Task 9's `update_fields` cell cannot reach this (it mutates `{"title":
   …}`) and AC-2's name-change arm binds a `_load_file`-stamped subject, so Task 10 asserts it directly.
 
+- **Case:** `update_fields` is called with a `name` key on an entity whose own type does NOT declare
+  `name` — a stamped `Book` or `Meeting`, reachable through HAL9000's generic entity PATCH, which
+  forwards an arbitrary body (Prerequisites 7).
+  **Decision:** REFUSED with `ValueError`, in the same in-lock arm and on the same third disjunct
+  (`"name" not in type(entity).model_fields`), so the note is byte-identical afterwards: no `name:` key
+  committed, no file moved, no reload. The same entity's update carrying no `name` key is unaffected and
+  still writes through the seam exactly as Task 3 routes it — **for every field that is not one of the
+  six that type's own filename rule is made of** *(bound added 2026-09-26 with M8; the sentence
+  previously blessed the whole complement, and the complement contains `title`/`author` for a Book and
+  `date`/`topics`/`attendees`/`meeting_id` for a Meeting, whose delta the entry immediately below
+  refuses)*. A `Book` or `Meeting` note that STORES a
+  `name:` key as a pydantic extra refuses identically and that is the correct direction, not a lost
+  capability: its filename rule is `_get_file_name`, so `@{name}.md` is the wrong destination for it, and
+  renaming such a note is the conductor's direction table's business (the booked "book-titled file
+  holding a person note" hand repair) rather than this door's.
+  **Reasoning:** *(Threat model 2026-09-26, M7.)* The trigger is `"name" in updates and updates["name"]
+  != frontmatter.get("name", "")` — the caller's dict against the note's frontmatter — and a book note
+  carries no `name:`, so `frontmatter.get("name", "")` is `""` and any non-empty `updates["name"]` would
+  set `renaming` True. `gate_write` then hands the delta back UNVALIDATED, because it validates a `name`
+  delta for `person` and `company` only (`obsidian_schemas/name_gate.py:gate_write:319-344`), so
+  `base.py:490` COMMITS the caller's `name:` into the note and only then does `rename_note` raise:
+  `@x/y.md` reaches `os.link` against a missing parent (`WriteFailedError`,
+  `obsidian_schemas/vault_io.py:_move_locked:772-773`) and `@a/../../x.md` resolves above the vault and
+  raises M1's containment `ValueError`. M1 holds in both — nothing is written outside the vault and
+  nothing is hard-linked out — so the harm is not an escape; it is the committed-write-then-raise residual
+  the no-provenance entry above calls *"strictly the worst of the three available answers"*, on an
+  externally-supplied value, and SILENT where `## Risk Analysis` claims every residual is
+  detector-visible, since Task 11's arm fires only on `vf.entity_type == "person"`. THIS ITEM creates the
+  reachability: today `update_fields` opens with `get_file_path(getattr(entity, "name", ""))`, which for a
+  Book answers `None` and raises above the lock (`base.py:437-441`, `:354-365`), while Task 3's
+  `resolved`-first shape binds the file from the stamp and runs the whole frame. Refusing is chosen over
+  composing the destination with `self._get_file_name(entity)` instead: that would make this item ship a
+  SECOND filename rule through the door for two types with zero measured consumer call sites
+  (Prerequisites 7: 0 on `BookRepository.save`/`MeetingRepository.save`) and would put Book's and
+  Meeting's stem derivation on the rename path with no live direction table behind it — a capability this
+  item was not asked for, where refusal costs nothing anyone is doing today.
+
+- **Case:** `update_fields` is called with NO `name` key on a stamped `Book` or `Meeting`, where the
+  delta touches one of the fields that type's own filename rule is made of — `{"title": "New Title"}`
+  on a book living at `Old Title - Author.md`, `{"date": …}` or `{"topics": [...]}` on a meeting —
+  reachable through the same generic entity PATCH (Prerequisites 7), which forwards an arbitrary body.
+  **Decision:** REFUSED with `ValueError` naming the FILENAME-RULE precondition and the field(s) at
+  issue, in the same in-lock pre-write arm, on its SECOND clause
+  (`not renaming and derive is not None and derive(projected) != derive(entity)`), so the note is
+  byte-identical afterwards: no field committed, no file moved, no reload. The same entity's delta
+  touching only fields the rule does not read (`{"status": …}` on a Book, `{"tags": …}` on a Meeting)
+  still SUCCEEDS and lands in the file the entity was parsed from — that is the widening Design §5
+  declares. An ALREADY-divergent Book or Meeting note — one whose file does not match its own rule
+  today, the live *"book-titled file holding a person note"* class — also still accepts any delta that
+  does not move its rule further, because the comparison is `derive(projected)` against
+  `derive(entity)` and never against `file_path.name`. And a `Person` or `Company` is untouched: their
+  repositories declare no `_get_file_name` at all, so `derive` is `None` and the clause is structurally
+  inert for them.
+  **Reasoning:** *(Threat model 2026-09-26, M8.)* `renaming` is
+  `"name" in updates and updates["name"] != frontmatter.get("name", "")`
+  (`obsidian_schemas/repositories/base.py:BaseRepository.update_fields:454`) and the entire rename-side
+  predicate is `if renaming and (…)`, so a delta with no `name` key evaluates none of it;
+  `obsidian_schemas/name_gate.py:gate_write:319-344` hands a non-`person`, non-`company` delta back
+  UNVALIDATED; and `base.py:490` COMMITS. Nothing moves, nothing raises, no alias records the stem the
+  note is leaving behind — the note's own filename rule no longer recomputes to the file it lives in,
+  which is verbatim this document's type-general divergence predicate
+  (`## Exploration Notes`, "Divergence is not a Person-only predicate": *"that string ≠ the file it was
+  parsed from"*) manufactured by the method that exists to end it. It is SILENT where
+  `## Risk Analysis` claims every residual is loud and detector-visible, because Task 11's arm fires
+  only on `vf.entity_type == "person"`. THIS ITEM creates the reachability, exactly as it does for M6
+  and M7: today `update_fields` opens `get_file_path(getattr(entity, "name", ""))`, which for a Book is
+  `_file_map.get("")` and raises ABOVE the lock (`base.py:437-441`,
+  `obsidian_schemas/repositories/book.py:BookRepository.get_file_path:326-338`), while Task 3's
+  `resolved`-first shape binds the file from the stamp and runs the whole frame — the premise Design §5
+  states in its own words as the widening it declares. The route is external and is the one this item
+  already singles out: `docs/wi-029-consumer-audit.md:84` records `routers/entities.py:461` as
+  `repo.update_fields(entity, body)` with *"`body` is an arbitrary HTTP PATCH dict"*, and `:137` names
+  the same route as the ONLY consumer path to those two repositories — so `PATCH
+  /api/entities/book/{name}` with `{"title": …}` is an ordinary request, not an attack. Refusing is
+  chosen over the two alternatives for the same reasons the M7 entry gives one row up: composing the
+  destination with `self._get_file_name(entity)` and MOVING the note would ship a second filename rule
+  through the door for two types with zero measured consumer call sites and no live direction table
+  behind it, and committing-then-reporting is the silent divergence itself. `## Scope Boundary` already
+  declared refusal the right answer *"where **refusal** costs nothing anyone does today"*; this clause
+  is that declaration made real.
+
 - **Case:** Two callers race `update_fields` with a name change — the content write commits inside the
   lock and the door's move happens after that lock has released, so there is now a WINDOW between them.
-  **Decision:** Accepted knowingly. Every interleaving is LOUD, is exactly the `stem_name_divergence`
-  the new detector reports, and is recoverable by re-running the idempotent door — every one of them
-  is a MOVE that did not happen, which is the residual a re-run does complete (the half-failed ALIAS
-  write is the one it does not, and it has its own entry below). A concurrent write of
+  **Decision:** Accepted knowingly. Every interleaving is LOUD, is (for a Person subject) exactly the
+  `stem_name_divergence` the new detector reports, and is recoverable by re-running **the DOOR** —
+  `repo.rename_note(entity, f"@{new_name}.md")`, never a re-run of `update_fields`, whose trigger now
+  reads the committed name back out of the note's own frontmatter and so never fires the branch
+  (Design §2, "The COMPLEMENT of that rule"). Every one of them is a MOVE that did not happen, which
+  is the residual a door re-run does complete (the half-failed ALIAS write is the one it does not, and
+  it has its own entry below). A concurrent write of
   the source loses to last-writer-wins and then moves with the file; a concurrent move or delete of the
   source gives `FileNotFoundError` from the door's own `source.exists()` check; a concurrent create at
   the destination gives `NoteAlreadyExists` by syscall — which holds because M6 has already refused the
@@ -2673,7 +3206,8 @@ artifact a reader can re-run; if any were false, the work would be invalid.
   (nothing appended twice, and after a half-failure nothing appended at all), the stamp still naming
   that file. AC-2 is signed and gains no arm; the battery covering it does.
 
-- **Case:** The rename destination is occupied by a DIFFERENT note (the live MERGE row).
+- **Case:** The rename destination is occupied by a DIFFERENT note (the live MERGE row), on a DIRECT
+  `rename_note` call.
   **Decision:** `move_note` refuses by syscall with `NoteAlreadyExists` and both files are
   byte-identical afterwards. The door does not merge — merging is a conductor judgement, per the
   direction table.
@@ -2681,7 +3215,45 @@ artifact a reader can re-run; if any were false, the work would be invalid.
   (`obsidian_schemas/vault_io.py:_move_locked:759-771`), not a check-then-act. That refusal is
   CONDITIONAL on the write guard, which is why M6 makes an enforcing guard a precondition of the door
   rather than qualifying this Decision: the entry below owns the non-enforcing case and the door never
-  reaches `move_note` in it, so this sentence is true of every call that gets that far.
+  reaches `move_note` in it, so this sentence is true of every call that gets that far. **The
+  byte-identical half is scoped to the DIRECT call and is false on the `update_fields` path**, which is
+  the entry immediately below — it was previously stated here unscoped, and this section's only
+  occupied-destination entry therefore said the `update_fields` residual could not happen *(fourth
+  spec-review round's blocking finding, 2026-09-26)*.
+
+- **Case:** `update_fields` is called with a name change whose destination `@{new_name}.md` is ALREADY
+  OCCUPIED by a DIFFERENT note — every precondition satisfied, no race, no configuration, no exotic
+  type: a stamped `Person` or `Company`, an enforcing write guard, a `name` the gate accepts. (The
+  same shape, by the same route, for a SYMLINKED source, whose refusal also comes out of `move_note`.)
+  **Decision:** The content write COMMITS and the door then raises — `NoteAlreadyExists` for the
+  occupied destination, `WriteFailedError` for the symlinked source — so the residual is **the note
+  carrying its NEW stored `name:` at its OLD filename, with no alias, with the entity still stamped at
+  that old path, and an exception on the caller after a successful write**. The destination note is
+  BYTE-IDENTICAL: `os.link` failed before anything was written to it. This is ACCEPTED, and the
+  recovery is stated rather than left to the caller to infer: remove the cause — for the occupied
+  destination that is the direction table's MERGE, a conductor judgement the door is specified never to
+  make — then call `repo.rename_note(entity, f"@{new_name}.md")` DIRECTLY and re-bind the entity from
+  the path it returns. A re-run of `update_fields` with the same `updates` is SAFE and is NOT the
+  repair: the note's frontmatter now already carries the new name, so `renaming` is False and no move
+  is attempted.
+  **Reasoning:** *(Fourth spec-review round's blocking finding, 2026-09-26; the THIRD member of the
+  class "`update_fields`' rename branch commits its content write and then discovers the door will not
+  complete the move", which is why Design §2 answers it with the rule total over the precondition
+  table's whole NO half — "The COMPLEMENT of that rule" — rather than with a fourth disjunct.)* The
+  two alternatives are refused there with their citations: move-then-write is UNAVAILABLE, because the
+  door's own alias write invalidates the content write's `precondition=stamp` and would turn every
+  successful rename into an `ExternalWriteConflict`
+  (`obsidian_schemas/vault_io.py:write_note:685-698`), and AC-2's signed `why` prescribes
+  write-then-move in its own words; pre-checking the destination is the check-then-act the precondition
+  table refuses, since the check answers a question the filesystem may answer differently one syscall
+  later while the package gains a second authority beside `os.link`. And the residual is not a
+  regression against today, which is the comparison that decides it: today this same call SUCCEEDS
+  (`base.py:454-459` appends the old stem in-lock, the write commits, the reload returns) and silently
+  leaves exactly this divergence — `## Verified Diagnosis` 1, the thing AC-2(c) exists to end — so what
+  changes is that the caller now LEARNS, and the one thing lost is an `aliases` entry naming a stem the
+  note still occupies as its own filename. Loudness has one honest bound: for a Person the residual is
+  exactly the `stem_name_divergence` Task 11 reports, while the same residual on a COMPANY note is
+  outside the detector's `vf.entity_type == "person"` guard — stated in Design §2 rather than implied.
 
 - **Case:** `OBSIDIAN_SCHEMAS_WRITE_GUARD` is set to `observe` — the estate's own documented rollback
   lever (`docs/concurrent-access.md:4286`) and measure-before-adopting mode (`:2556`) — and a rename
@@ -2719,7 +3291,12 @@ artifact a reader can re-run; if any were false, the work would be invalid.
   **Reasoning:** AC-2(h). A door that compares destination STRINGS refuses the one repair that works
   for that row; `os.link` against the note's own inode raises `FileExistsError` regardless of
   spelling. The staging name is derived from the source so the seam's value reaches every move's
-  first positional — AC-5's own rule, applied to the item's own door.
+  first positional — AC-5's own rule, applied to the item's own door. Two OTHER shapes reach this same
+  branch and neither is left open: Design §2's same-file sweep enumerates them and orders no work — a
+  second in-vault HARD LINK to the note takes the two-step and its second move raises
+  `NoteAlreadyExists`, leaving exactly the visible staging note the entry below owns, while an in-vault
+  SYMLINK at the destination naming the source runs both moves and lands the note back where it
+  started, the door returning that path and appending nothing.
 
 - **Case:** The destination and the entity's stamp name the SAME file under two different strings —
   the stamp is `move_note`'s RESOLVED answer from an earlier rename while `self.vault_path` is
@@ -2862,10 +3439,14 @@ artifact a reader can re-run; if any were false, the work would be invalid.
 - **Case:** Re-running the whole build, or re-running the repair, or re-running the detector.
   **Decision:** All idempotent. The seam is a pure resolution; `rename_note` short-circuits when the
   note is already at the destination (by file identity, not by string) and never appends an alias
-  twice; the detector writes nothing. One residual a re-run does NOT repair, named so "idempotent" is
-  not over-read: a missing alias left by a rename whose move committed and whose alias write raised —
-  the entry above states it and names the one-field recovery. A repair row whose MOVE did not happen
-  is completed by the re-run exactly as this entry says.
+  twice; the detector writes nothing. TWO residuals a re-run does NOT repair, named so "idempotent" is
+  not over-read. (1) A missing alias left by a rename whose move committed and whose alias write raised
+  — the entry above states it and names the one-field recovery. (2) A `update_fields` name change whose
+  door raised BEFORE the move (an occupied destination, a symlinked source): re-running
+  `update_fields` is safe and completes NOTHING, because the note's frontmatter already carries the
+  committed new name so `renaming` is False; the repair is a direct `rename_note` call once the cause
+  is gone (Design §2, "The COMPLEMENT of that rule"). A repair row whose MOVE did not happen is
+  completed by re-running THE DOOR exactly as this entry says.
   **Reasoning:** The live repair is a conductor act that may need a second pass after a partial
   failure, and a door that is not idempotent turns that into a second incident.
 
@@ -2903,7 +3484,7 @@ well-formed, and D10b runs at `building → done`, after every task has landed. 
 to make each task self-verifying — that would put a battery in front of the code it measures and
 invert the WI-149 rule about deriving an oracle from what the test itself created.
 
-- [ ] **Task 1 — Capture the pre-build baselines, before the first edit that moves them.** Run the
+- [x] **Task 1 — Capture the pre-build baselines, before the first edit that moves them.** Run the
   floor command and record its case count; run EVERY pinned derivation named here — the list, not a
   count, is the obligation, and Task 14 re-checks exactly what this task recorded — and record their values
   (`functions_reserializing_parsed_frontmatter` = 4, `functions_parsing_then_writing - writers` =
@@ -2913,7 +3494,7 @@ invert the WI-149 rule about deriving an oracle from what the test itself create
   tasks compare against, and a baseline nobody captured is a value no check holds.
   verify: baseline — an informational capture whose only artifact is the Build Log; no later check asserts the recorded numbers, only that the pins did not move.
 
-- [ ] **Task 2 — Declare and set the provenance stamp, and add the resolution function.** Add
+- [x] **Task 2 — Declare and set the provenance stamp, and add the resolution function.** Add
   `_source_path: Optional[Path] = PrivateAttr(default=None)` to
   `obsidian_schemas/models.py:BaseEntity` with the comment block from
   Design §1, importing `PrivateAttr` and `Path`. Set it at the one parse site that holds a path,
@@ -2948,7 +3529,7 @@ invert the WI-149 rule about deriving an oracle from what the test itself create
   resolves (existence is not part of the answer).
   verify: test_the_parse_stamps_provenance_and_the_stamp_cannot_reach_a_note test_the_seam_returns_the_stamp_only_inside_this_vault
 
-- [ ] **Task 3 — Route `save` and `update_fields` through the seam.** Change
+- [x] **Task 3 — Route `save` and `update_fields` through the seam.** Change
   `BaseRepository.save` to the CREATE-fallback shape (resolved-or-derived, with the WARNING emitted
   before the write when provenance is absent and the derived target exists) and
   `BaseRepository.update_fields` to the REFUSE-fallback shape (guarded rebinding, then today's
@@ -2970,7 +3551,7 @@ invert the WI-149 rule about deriving an oracle from what the test itself create
   (`obsidian_schemas/repositories/book.py:BookRepository.save:183` and Meeting's counterpart).
   verify: test_no_library_write_can_fork_a_person_note
 
-- [ ] **Task 4 — Route the five mutating body-writers.** Replace the identical
+- [x] **Task 4 — Route the five mutating body-writers.** Replace the identical
   `file_path = self.get_file_path(person.name)` opener at
   `obsidian_schemas/repositories/person.py` `:1403`, `:1522`, `:1653`, `:1719`, `:1793` with the
   REFUSE-fallback shape. Leave every `ValueError`, every `.exists()` check, every falsy return and
@@ -2980,7 +3561,7 @@ invert the WI-149 rule about deriving an oracle from what the test itself create
   read-side sibling that is deliberately outside the write seam.
   verify: test_no_library_write_can_fork_a_person_note
 
-- [ ] **Task 5 — Route Book's and Meeting's `save` overrides.** Apply the CREATE-fallback shape to
+- [x] **Task 5 — Route Book's and Meeting's `save` overrides.** Apply the CREATE-fallback shape to
   `obsidian_schemas/repositories/book.py:BookRepository.save` and
   `obsidian_schemas/repositories/meeting.py:MeetingRepository.save`, keeping
   `self._get_file_name(entity)` as the fallback expression and both `_adopt` calls unchanged. Each
@@ -2992,7 +3573,7 @@ invert the WI-149 rule about deriving an oracle from what the test itself create
   item and would move the population every criterion here quantifies over.
   verify: test_no_library_write_can_fork_a_person_note
 
-- [ ] **Task 6 — Ship the rename door, contained and audited, and call it from `update_fields`.** Add
+- [x] **Task 6 — Ship the rename door, contained and audited, and call it from `update_fields`.** Add
   `BaseRepository.rename_note` exactly as Design §2 specifies, including the idempotent branch, the
   case-only two-step through a source-derived staging name, the re-stamp before the alias write, the
   delegation of the alias append to `writer.update_frontmatter_field`, and the single `_adopt`.
@@ -3015,13 +3596,28 @@ invert the WI-149 rule about deriving an oracle from what the test itself create
   raised, a re-run appends nothing (provenance has moved, so `old_stem == new_stem`) and that is the
   specified behaviour, not a bug to fix here — Task 10 asserts `aliases` UNCHANGED on the second call
   and asserts the whole residual directly, and `## Edge Cases` names the caller-side recovery.
+  **DO NOT PRE-CHECK THE DESTINATION'S OCCUPANCY, IN THE DOOR OR IN `update_fields`, AND DO NOT REORDER
+  `update_fields` TO MOVE BEFORE IT WRITES:** an occupied `@{new_name}.md` reaches `os.link` and comes
+  back as `NoteAlreadyExists` (`obsidian_schemas/vault_io.py:_move_locked:759-771`), which is the
+  stronger answer and is the only authority on occupancy this package has — a pre-check is check-then-act
+  and would leave the same residual at a smaller window (Design §2's precondition table, and the
+  COMPLEMENT rule beneath it, which is the authority for what that residual IS and what the caller does
+  about it). The reorder is worse than unchosen, it is UNAVAILABLE: the door appends the alias through
+  `update_frontmatter_field(moved, …)` in the same call, which moves the file's `st_mtime_ns` and
+  `st_size`, so a content write carrying this frame's `precondition=stamp` (`base.py:449`) would then
+  MISMATCH and `vault_io.write_note` would refuse every SUCCESSFUL rename with `ExternalWriteConflict`
+  (`obsidian_schemas/vault_io.py:write_note:685-698`). Write, then move, then rebind — which is also
+  what AC-2's signed `why` prescribes in its own words. Task 10 asserts the accepted residual directly,
+  so a builder who "fixes" it by pre-checking turns that arm RED on the raised LEAF.
   **IMPORT THE ALIAS WRITER AS A BARE NAME:** extend
   `obsidian_schemas/repositories/base.py:20`'s existing `from ..writer import write_markdown_file,
   write_frontmatter` with `update_frontmatter_field` and call it unqualified. Two things key on that
   spelling: AC-5's bucket (ii) enumerates BARE-NAME calls to a member of `path_taking_writer_names`
   (Design §4), and Task 10 patches `obsidian_schemas.repositories.base.update_frontmatter_field` to
   drive the half-failure residual — a `writer.update_frontmatter_field(...)` spelling moves both.
-  Four clauses of that body are the threat model's required mitigations and are not optional.
+  Four clauses of that body are the threat model's required mitigations and are not optional (a fifth
+  and a sixth, M7 and M8, are required too and land in `update_fields`' pre-write refusal further down
+  this task — its first and second clause respectively — not in the door).
   **(M1) Contain the destination:** immediately after `destination = self.vault_path / new_filename`,
   raise `ValueError` unless `destination.resolve().is_relative_to(self.vault_path.resolve())`, with
   an `OSError`/`ValueError` out of the resolve treated as NOT contained, and raise BEFORE any
@@ -3059,9 +3655,9 @@ invert the WI-149 rule about deriving an oracle from what the test itself create
   decision 5 — reentrancy excuses re-acquisition, never ordering). Compose the destination as
   `f"@{new_name}.md"`, the caller's rule and not the door's: it is correct for every type that can
   reach this line (`BaseRepository`, `PersonRepository` and `CompanyRepository` all derive
-  `@{name}.md`) and `Book`/`Meeting` cannot reach it at all, since the trigger is a change to a `name`
-  field neither declares (Design §2, "`update_fields` composes `f"@{new_name}.md"` for every entity
-  type"). Hand the door the caller's own
+  `@{name}.md`), and `Book`/`Meeting` cannot reach it because the M7 disjunct below REFUSES them —
+  not because the trigger declines to fire, which it does not (Design §2, "`update_fields` composes
+  `f"@{new_name}.md"` for every entity type it lets through"). Hand the door the caller's own
   `entity` parameter, never a re-parsed or freshly-constructed view: that is the object the door
   re-stamps and `_adopt`s, and AC-2(e)/(g) turn on it. Keep the name-change condition
   (`"name" in updates and updates["name"] != frontmatter.get("name", "")`)
@@ -3073,20 +3669,87 @@ invert the WI-149 rule about deriving an oracle from what the test itself create
   decision is computed and BEFORE
   `gate_write`, `write_frontmatter` or `vault_io.write_note` are reached, `raise ValueError` when the
   update changes the name and the door's PRECONDITIONS do not hold — `resolved is None` **or**
-  `vault_io.guard_mode() != "enforce"` (M6) — naming the method, the requested new name, and WHICH
-  precondition failed: that a name change needs the provenance a move is resolved from, or that the
-  write guard is not enforcing. Both disjuncts, not one: a name change that reaches the door under
-  `observe` fails for the same structural reason a no-provenance one does, and answering only the
-  remembered conjunct leaves the next precondition as the next round's finding. Design §2's
+  `vault_io.guard_mode() != "enforce"` (M6) **or** `"name" not in type(entity).model_fields` (M7) —
+  naming the method, the requested new name, and WHICH
+  precondition failed: that a name change needs the provenance a move is resolved from, that the
+  write guard is not enforcing, or that this entity's type declares no `name` and so derives no
+  `@{name}.md` destination. All THREE disjuncts, not one and not two: a name change that reaches the door
+  under `observe` fails for the same structural reason a no-provenance one does, and answering only the
+  remembered conjunct leaves the next precondition as the next round's finding — which is precisely how
+  M7 arrived. **And the ARM is two CLAUSES, not one**: everything in this paragraph is `if renaming and
+  (…)`, so it is never evaluated for a delta carrying no `name` key — which is exactly the gap M8
+  arrived through, because `Book`'s and `Meeting`'s filename rules are not made of `name`. The second
+  clause is stated below under **(M8)** and both are raised from the same place, before anything is
+  gated or written (Design §2, "The pre-write arm has TWO obligations and not one"). Design §2's
   precondition table is the authority for which of the door's refusal arms belong in this test and
   which stay the syscall's — read it rather than extending the disjunction by guess; in particular do
-  NOT add a containment conjunct for M1 here, because `gate_write` on the delta already refuses a
-  `new_name` carrying a path separator before any write, for both types that can reach this line, and
-  a `ValueError` raised earlier would degrade a `NameGateRefusal` carrying its `pattern`. Without this
-  arm the sequence commits the new name
-  at `base.py:490` and only then hits `rename_note`'s raise, leaving a divergent
-  un-aliased note and an exception after a successful write; with it the frame has performed one READ
-  and the note is byte-identical. Test the STORED value and not `"name" in updates`: a PATCH body
+  NOT add a containment conjunct for M1 here, because for the two types that DECLARE `name`
+  `gate_write` on the delta already refuses a `new_name` carrying a path separator before any write and
+  a `ValueError` raised earlier would degrade a `NameGateRefusal` carrying its `pattern` — while for
+  every type that wall passes through, the M7 disjunct is what closes the same row, on the ground that
+  the type derives no `@{name}.md` at all rather than on containment (Design §2, the M1 row and the
+  delegation rule beneath the table). **(M7) Refuse a `name` delta on a type that does not declare
+  `name`:** the third disjunct is `"name" not in type(entity).model_fields` — the DECLARED field, read
+  off the CLASS (`type(entity)`, never the instance: `obsidian_schemas/writer.py:108`'s own comment
+  reserves that spelling for the pydantic v2.11+ deprecation, and an instance or `hasattr` spelling
+  would answer differently for a note storing `name:` as an EXTRA, which is exactly the case that must
+  still refuse) and never a type-name comparison, the same keying ordering decision 3 already uses for
+  `aliases`; it is needed because `gate_write` hands a `name` delta straight back UNVALIDATED for every
+  `declared_type` that is neither `person` nor `company` (`obsidian_schemas/name_gate.py:gate_write:319-344`,
+  whose own comment reads *"a Book write is gated and handed straight back"*) while the trigger reads the
+  CALLER's dict against the NOTE's frontmatter and consults the model nowhere — so without it a stamped
+  Book or Meeting entity handed `{"name": <anything>}` has `frontmatter.get("name", "")` answer `""`,
+  sets `renaming` True, passes the other two disjuncts, COMMITS the ungated caller-supplied `name:` at
+  `base.py:490`, and only then raises out of `rename_note` (`@x/y.md` → `WriteFailedError` from
+  `os.link` against a missing parent, `obsidian_schemas/vault_io.py:_move_locked:772-773`;
+  `@a/../../x.md` → M1's containment `ValueError`), which is the committed-write-then-raise residual
+  this whole arm exists to prevent and which the new detector cannot see because it fires only on
+  `vf.entity_type == "person"`. Task 3's `resolved`-first binding is what makes that frame reachable at
+  all — today's `get_file_path(getattr(entity, "name", ""))` opener answers `None` for a Book and raises
+  above the lock (`base.py:437-441`, `:354-365`). Do NOT instead compose the destination with
+  `self._get_file_name(entity)` for those two types: that ships a second filename rule through the door
+  with no live direction table behind it (`## Scope Boundary`). **(M8) Refuse a delta that moves the
+  entity type's OWN filename rule when no rename will follow it — the arm's SECOND CLAUSE, which fires
+  where `renaming` is FALSE:** bind `derive = getattr(self, "_get_file_name", None)` and, when it is not
+  `None` and `not renaming`, project the delta onto the entity's declared fields —
+  `projected = entity.model_copy(update={k: v for k, v in updates.items() if k in
+  type(entity).model_fields})`, which preserves the private stamp (Design §1, "Survives `model_copy`")
+  and keeps an undeclared caller key out of a comparison it could not have moved — and `raise
+  ValueError` naming the METHOD, the field(s) at issue and THIS precondition when `derive(projected) !=
+  derive(entity)`. Compute `derive(entity)` FIRST and outside any `try`; wrap only `derive(projected)`,
+  and treat ANY exception out of it as *the rule cannot be recomputed over this delta* and raise the
+  same `ValueError` — `model_copy(update=…)` does not validate, so a delta supplying a non-string
+  `title` or a non-list `topics` would otherwise leak an `AttributeError`/`TypeError` out of
+  `_get_file_name`; fail closed, the direction M1 takes with an `OSError` out of its own resolve.
+  Read it off `self` and never off a type list: `_get_file_name` is declared on exactly
+  `obsidian_schemas/repositories/book.py:BookRepository._get_file_name:340` and
+  `obsidian_schemas/repositories/meeting.py:MeetingRepository._get_file_name:208`, so `derive` is `None`
+  for `BaseRepository`, `PersonRepository` and `CompanyRepository` and the clause is STRUCTURALLY inert
+  for the two types whose rule is `@{name}.md`. Compare DELTA-RELATIVELY (`derive(projected)` against
+  `derive(entity)`) and NEVER against `file_path.name`: the latter spelling refuses every write to an
+  already-divergent Book or Meeting note, which is the live "book-titled file holding a person note"
+  class this item exists to repair. Keep the `not renaming` conjunct: a `name` delta on a type that
+  declares `name` belongs to the rename branch, which reconciles the rule by moving the file, and a
+  `name` delta on a type that does not is M7's clause one line up. It is needed because the rename-side
+  predicate is the WHOLE of `if renaming and (…)` while `Book`'s filename is made of `title` and
+  `author` (`book.py:346`, `:350-353`) and `Meeting`'s of `date`, `topics`, `attendees` and
+  `meeting_id` (`meeting.py:216`, `:219-226`) — six DECLARED fields
+  (`obsidian_schemas/models.py:Book.title:160`, `:author:161`;
+  `obsidian_schemas/models.py:Meeting:260-263`) — so without it a stamped Book handed `{"title": "New
+  Title"}` leaves `renaming` False, evaluates no disjunct at all, is handed back UNVALIDATED by
+  `gate_write` (`obsidian_schemas/name_gate.py:gate_write:319-344`), COMMITS at `base.py:490`, moves
+  nothing, records no alias for the stem it is leaving behind and raises nothing — the item's own
+  type-general divergence, manufactured silently, and invisible to Task 11's `vf.entity_type ==
+  "person"` arm. Do NOT instead rename the note by composing `self._get_file_name(entity)`: the rule is
+  recomputed here only to COMPARE, never to build a path, and the door learns no second filename rule
+  (`## Scope Boundary`). Without the REFUSAL
+  ARM AS A WHOLE the residual is the same shape reached two ways, and both are what the arm exists to
+  prevent: with any one of its three RENAME-SIDE disjuncts missing the sequence commits the new name at
+  `base.py:490` and only then hits `rename_note`'s raise, leaving a divergent un-aliased note and an
+  exception after a successful write; with its SECOND CLAUSE missing the sequence commits at the same
+  line, reaches no door at all and raises NOTHING, leaving the same divergent un-aliased note in
+  silence. With the arm entire, in both directions, the frame has performed one READ and the note is
+  byte-identical. Test the STORED value and not `"name" in updates`: a PATCH body
   echoing an unchanged name must still write (Design §2, "The no-provenance name change refuses BEFORE
   the write", which also carries the precondition table and records why re-stamping from
   `get_file_path` is the wrong fix). **RECONCILE THE
@@ -3094,7 +3757,9 @@ invert the WI-149 rule about deriving an oracle from what the test itself create
   value onto the entity (`entity.aliases = frontmatter["aliases"]`) before the door call, captured inside
   the lock with the rest of the rename decision — otherwise the door's in-memory list is the parsed one
   and overwrites the caller's (Design §2, "Which `aliases` list wins"). Keyed on the key this write
-  introduced, never on a type name. The alias append itself moves INTO the
+  introduced, never on a type name, and GATED ON `renaming`: the mirror's only consumer is the door, so
+  an ungated `if "aliases" in updates:` would add a caller-visible in-place mutation to every non-rename
+  update as well, which today's `update_fields` never performs. The alias append itself moves INTO the
   door, where its two halves are deliberately asymmetric: the FILE write through
   `writer.update_frontmatter_field` is unconditional (`aliases:` is Obsidian's own type-agnostic key)
   while the in-memory assignment stays guarded by `hasattr(entity, "aliases")`, so the door never mints
@@ -3104,7 +3769,7 @@ invert the WI-149 rule about deriving an oracle from what the test itself create
   the door, whose membership of `functions_parsing_then_writing` is pinned by set equality.
   verify: test_a_person_note_is_renamed_only_through_the_one_door_and_stays_reachable
 
-- [ ] **Task 7 — Build the AC-5 derivation in `tests/derivations.py`.** Add `WriteTargetSite`,
+- [x] **Task 7 — Build the AC-5 derivation in `tests/derivations.py`.** Add `WriteTargetSite`,
   `SEAM_FUNCTION`, `path_taking_writer_names` and `write_target_buckets` per Design §4, reusing
   `_is_write_call`, `_own_body_nodes`, `_names_in`, `_assign_targets_name` and `_pos` rather than
   re-implementing them, and extending the taint propagation with the `with … as` hop and the
@@ -3119,7 +3784,7 @@ invert the WI-149 rule about deriving an oracle from what the test itself create
   shipped code. This is the ONLY module in the repo that may name `ast`.
   verify: test_every_write_site_resolves_its_target_through_the_one_seam test_a_person_note_is_renamed_only_through_the_one_door_and_stays_reachable
 
-- [ ] **Task 8 — Write AC-5's check and its planted-escape battery.** New module
+- [x] **Task 8 — Write AC-5's check and its planted-escape battery.** New module
   `tests/test_write_target_seam_wall.py` holding
   `test_every_write_site_resolves_its_target_through_the_one_seam` (zero-arg, raising, preceded by
   `ensure_project_interpreter(__file__)`). The live half runs `write_target_buckets` over
@@ -3137,7 +3802,7 @@ invert the WI-149 rule about deriving an oracle from what the test itself create
   shape's oracle is the exact source the test itself wrote, never a substring of the tree.
   verify: test_every_write_site_resolves_its_target_through_the_one_seam
 
-- [ ] **Task 9 — Write AC-1's sweep.** In `tests/test_provenance_write_seam.py`, add
+- [x] **Task 9 — Write AC-1's sweep.** In `tests/test_provenance_write_seam.py`, add
   `test_no_library_write_can_fork_a_person_note` (zero-arg, raising). Materialize the frozen corpus
   into a temp vault with `materialize_vault`; DERIVE the subject set as the union of the two
   manifest predicates (divergent: `declared_type == "person"`, a declared `fields` mapping — SKIP a
@@ -3170,7 +3835,7 @@ invert the WI-149 rule about deriving an oracle from what the test itself create
   `BaseRepository.rename_note` EQUAL `write_target_buckets`' seam set.
   verify: test_no_library_write_can_fork_a_person_note
 
-- [ ] **Task 10 — Write AC-2's door battery.** In the same module, add
+- [x] **Task 10 — Write AC-2's door battery.** In the same module, add
   `test_a_person_note_is_renamed_only_through_the_one_door_and_stays_reachable` (zero-arg, raising)
   covering arms (a)–(h): resolution through the seam and reachability under both names via `get`,
   `get_by_email` and the alias route; `NoteAlreadyExists` with both files byte-identical; the
@@ -3223,6 +3888,33 @@ invert the WI-149 rule about deriving an oracle from what the test itself create
   sequence is the `## Edge Cases` Decision and the `## Risk Analysis` mitigation made falsifiable;
   before this round both claimed the re-run performed the repair, and nothing in the battery could
   have contradicted them.
+  **THE OCCUPIED DESTINATION, REACHED THROUGH `update_fields`** — the accepted residual, ASSERTED
+  rather than described *(fourth spec-review round's blocking finding, 2026-09-26)*, and the arm no
+  other cell in this battery reaches: AC-2(b)'s drives the door DIRECTLY, M6's `update_fields` half runs
+  under `observe` and so refuses before the write, and M7's subject is a Book. Set
+  `OBSIDIAN_SCHEMAS_WRITE_GUARD` to `"enforce"` explicitly through `tests/support.py:patcher:73` for the
+  whole arm, for the M6 arm's own reason — an ambient `observe` would make it pass on the wrong refusal
+  (WI-149). Plant TWO person notes as BYTES: subject A at `@Old.md` carrying `name: Old` and a body, and
+  a DIFFERENT note B at `@New.md` carrying its own distinct `name:` and body; capture B's bytes and A's
+  bytes. Bind A with `repo._load_file(<A's path>)` so it is stamped. Call
+  `repo.update_fields(entity_A, {"name": "New"})` and assert the residual exactly as Design §2's
+  complement rule states it: the raised exception is `NoteAlreadyExists` — the LEAF, and the
+  discrimination that matters, because a bare `ValueError` would mean the method or the door PRE-CHECKED
+  the destination, which Task 6 forbids and which `NoteAlreadyExists` being a `LoudFailError` (hence a
+  `ValueError`) would otherwise hide; the vault's filename SET is unchanged; B is BYTE-IDENTICAL to the
+  bytes the test wrote; A's file now parses with `name: New` while still sitting at `@Old.md` — which is
+  the assertion that pins the write as COMMITTED rather than assumed, and the one an implementation that
+  refused early would fail; A's `aliases` does NOT contain `Old`; and `entity_A`'s stamp still names
+  `@Old.md` (the door raised above its re-stamp), compared `.resolve()`d on both sides per this check's
+  one rule. Then the two recovery arms, which are what make the Decision falsifiable rather than
+  narrative. NOT-A-REPAIR: with B still in place, call `repo.update_fields(entity_A, {"name": "New"})` a
+  SECOND time and assert it does NOT raise, records NO `move_note` call (through the same recording
+  delegate M3's arm installs), and leaves the filename SET unchanged — because the note's frontmatter
+  now already carries `New`, so `renaming` is False. THE DOCUMENTED RECOVERY: remove B (the direction
+  table's MERGE, performed here by the test as the conductor would by hand), call
+  `repo.rename_note(entity_A, "@New.md")` DIRECTLY, and assert it MOVES — `@New.md` holds A's bytes,
+  `@Old.md` is gone, the moved note's `aliases` now carries `Old`, and the returned path and the stamp
+  both name the new file. Every oracle is the exact path and the exact bytes the test itself wrote.
   **THE NO-PROVENANCE NAME CHANGE, REFUSED BEFORE THE WRITE** — the arm no existing battery reaches
   (Task 9's `update_fields` cell carries no `name` key; AC-2's name-change arm binds a
   `_load_file`-stamped subject). Bind a subject the repository CAN answer by name but whose entity
@@ -3254,16 +3946,22 @@ invert the WI-149 rule about deriving an oracle from what the test itself create
   `with vault_io.note_lock(...)` holding a `write_note` call — a single-path door, which MUST stay
   legal), and a method that calls `move_note` after its `with` block has exited (the shape Task 6
   ships). Each planted oracle is the exact source the test wrote, never a substring of the tree.
-  It then drives the four mitigations Task 6 folded
-  into the door, each pinned BOTH ways so the clause cannot pass by refusing everything.
+  It then drives the six mitigations Task 6 folded — the four in the door's own body
+  (M1, M3, M4, M6) and, in `update_fields`' pre-write refusal, M7 on its rename-side disjunction and M8
+  on its second clause — each pinned BOTH ways so the clause
+  cannot pass by refusing everything.
   **(M1)** `rename_note` raises `ValueError` and leaves the vault's filename set unchanged for each
   of the escape's three reachable spellings — a traversing relative name built as
   `os.path.relpath(<a path the test created OUTSIDE the temp vault>, vault)`, the absolute path of
   that same outside file, and an in-vault filename that is a SYMLINK to it (the spelling a string
   compare cannot see; assert the outside file was NOT hard-linked to, by comparing its `st_nlink`
   before and after) — while an ordinary in-vault destination and a destination inside an in-vault
-  SUBDIRECTORY both still move, so the clause is not "refuse everything". Every oracle is a path the
-  test itself created; nothing is matched on a prefix or a substring of the tree.
+  SUBDIRECTORY both still move, so the clause is not "refuse everything". **Create that sub-directory
+  before the call:** `move_note` reaches `os.link` against a missing parent and raises
+  `FileNotFoundError` into a `WriteFailedError`
+  (`obsidian_schemas/vault_io.py:_move_locked:772-773`), so an ACCEPTED cell written without the
+  `mkdir` is RED against a correct door for a reason that has nothing to do with M1. Every oracle is a
+  path the test itself created; nothing is matched on a prefix or a substring of the tree.
   **(M3)** the case-only branch's staging name stays in the `.md` namespace: wrap
   `obsidian_schemas.repositories.base.vault_io.move_note` in a recording delegate (restored in a
   `finally`) that forwards to the real door, drive one case-only rename, and assert that the recorded
@@ -3313,9 +4011,69 @@ invert the WI-149 rule about deriving an oracle from what the test itself create
   which is the assertion distinguishing the early in-lock refusal from a door raise after the content
   write has committed — while `repo.update_fields(entity, {"title": "…"})` under the same mode still
   SUCCEEDS and lands in that file, so the widened predicate refuses name changes and not every update.
+  **(M7)** `update_fields` refuses a `name` delta on a type that does not DECLARE `name`, pinned BOTH
+  ways, and this arm's subject is a BOOK and not a person. Plant a book note by writing BYTES into the
+  temp vault — the same colliding-group shape Task 9 builds, one note whose `_get_file_name` output it
+  lives at — carrying `type: book`, a `title:` and NO `name:` key at all, and bind it with
+  `BookRepository(vault)._load_file(path)` so the entity is STAMPED (an unstamped one refuses on the
+  first disjunct and the arm would be vacuous). Set
+  `OBSIDIAN_SCHEMAS_WRITE_GUARD` to `"enforce"` explicitly through `tests/support.py:patcher:73` for the
+  whole arm, for the M6 arm's own reason: a mode inherited from the runner is an environmental shape the
+  test did not create (WI-149), and an ambient `observe` would make this arm pass on the WRONG disjunct.
+  REFUSED: `repo.update_fields(entity, {"name": "x/y", "status": "read"})` raises `ValueError`; the
+  vault's filename SET is unchanged; the book note is BYTE-IDENTICAL to the bytes the test wrote — which
+  is the assertion that distinguishes refusing before the content write from raising after it, and is
+  the whole finding, since without the disjunct that file comes back carrying `name: x/y` and `status:
+  read`; and the raised message names the TYPE-DECLARATION precondition rather than provenance or the
+  guard mode, so the arm cannot pass on a sibling disjunct (assert on the substring the refusal is
+  specified to carry, taken from Task 6's own wording, never on the whole message). Assert the same for
+  a name spelling that ESCAPES — `{"name": "a/../../x"}` — because the two reach different failures
+  downstream of the missing disjunct (`WriteFailedError` versus M1's `ValueError`) and both must be
+  refused HERE, before either. ACCEPTED, three arms so the disjunct is shown to refuse the branch and
+  not every update: the SAME book entity through `repo.update_fields(entity, {"status": "read"})`
+  SUCCEEDS and the change lands in that file; a person subject's name change in the same vault still
+  MOVES, with both files reachable exactly as the arms above assert (the control that fails a disjunct
+  written as an unconditional refusal or keyed on the wrong sense); and a book note that STORES a
+  `name:` key as a pydantic extra — planted as bytes carrying both `title:` and `name:`, then
+  `_load_file`d — is ALSO refused, which is the direction Design §2's third bullet declares correct and
+  the arm that fails an `entity.model_fields` or `hasattr(entity, "name")` spelling while the specified
+  `type(entity).model_fields` passes. Every oracle is the exact path and the exact bytes the test itself
+  wrote.
+  **(M8)** `update_fields` refuses a delta that moves the entity type's OWN filename rule when no
+  rename will follow it, pinned BOTH ways, and the arm is written to cover the RULE rather than one
+  field. Reuse the stamped Book the M7 arm already plants — a note written as BYTES into the temp vault
+  carrying `type: book`, a `title:`, an `author:` and NO `name:` key, living at the filename
+  `BookRepository._get_file_name` derives from those two values, bound with
+  `BookRepository(vault)._load_file(path)` so it is STAMPED — and plant one stamped Meeting beside it
+  the same way. Set `OBSIDIAN_SCHEMAS_WRITE_GUARD` to `"enforce"` explicitly through
+  `tests/support.py:patcher:73` for the whole arm, for the M6 arm's own reason: an ambient mode is an
+  environmental shape the test did not create (WI-149). REFUSED, and the four cells are chosen so the
+  clause is shown to read the RULE and not a remembered field —
+  `repo.update_fields(<the book>, {"title": "New Title"})` and `{"author": "New Author"}` on that same
+  book, and `repo.update_fields(<the meeting>, {"date": "2026-01-01"})` and `{"topics": ["Other"]}` on
+  the meeting — each asserting: `ValueError` raised; the vault's filename SET unchanged; the subject's
+  file BYTE-IDENTICAL to the bytes the test wrote, which is the assertion that distinguishes refusing
+  BEFORE the content write from committing it and is the whole finding, since without the clause that
+  file comes back carrying the new value at its old filename with no alias and no exception; and the
+  raised message naming the FILENAME-RULE precondition rather than provenance, the guard mode or the
+  type declaration, so the cell cannot pass on a sibling clause (assert on the substring Task 6
+  specifies, never on the whole message). ACCEPTED, four arms, each of which fails a different wrong
+  spelling: the SAME book through `repo.update_fields(entity, {"status": "read"})` SUCCEEDS and the
+  change lands in that file (`obsidian_schemas/models.py:Book.status:163` feeds no filename — this is
+  the arm the M7 ACCEPTED half already asserts and it must stay green), and the same meeting through
+  `{"tags": ["x"]}` likewise; an ALREADY-DIVERGENT planted Book — written as bytes at a filename that
+  is NOT its own rule's output, then `_load_file`d — still accepts `{"status": "read"}`, which is the
+  arm that fails a `derive(projected) != file_path.name` spelling; a PERSON name change in the same
+  vault still MOVES through the door exactly as the arms above assert, which is the control that fails
+  a clause written without the `not renaming` conjunct or one reaching a repository that declares no
+  `_get_file_name`; and a delta supplying a NON-STRING value for a deriving field
+  (`{"title": ["a", "b"]}` on the book) is refused with the SAME `ValueError` and NOT with an
+  `AttributeError`/`TypeError` leaking out of `_get_file_name`, which is the fail-closed direction Task
+  6 prescribes and the arm that fails an unguarded `derive(projected)`. Every oracle is the exact path
+  and the exact bytes the test itself wrote; nothing is matched on a prefix or a substring of the tree.
   verify: test_a_person_note_is_renamed_only_through_the_one_door_and_stays_reachable
 
-- [ ] **Task 11 — Ship the detector.** Add `NOT_RENAMEABLE_MARKER`, `_gate_refusal_pattern` and the
+- [x] **Task 11 — Ship the detector.** Add `NOT_RENAMEABLE_MARKER`, `_gate_refusal_pattern` and the
   `stem_name_divergence` arm to `scripts/lint_vault.py:check_structural`, placed after the
   `TYPE_TO_MODEL` guard so the `read_error`/`parse_error`/`missing_type` arms keep their triage
   order. ERROR, `structural`, `auto_fixable` left at its default. Add one comment naming why this
@@ -3323,7 +4081,7 @@ invert the WI-149 rule about deriving an oracle from what the test itself create
   path cannot. Touch no other check, no category list, and no `apply_fixes` branch.
   verify: test_lint_vault_reports_stem_name_divergence_and_never_repairs_it
 
-- [ ] **Task 12 — Write AC-3's battery, inside the five-part containment door.** New module
+- [x] **Task 12 — Write AC-3's battery, inside the five-part containment door.** New module
   `tests/test_stem_name_divergence_detector.py` holding
   `test_lint_vault_reports_stem_name_divergence_and_never_repairs_it` (zero-arg, raising). It
   inherits WI-026/WI-031's containment clauses in full because it drives `lint_vault`'s mutating
@@ -3376,7 +4134,7 @@ invert the WI-149 rule about deriving an oracle from what the test itself create
   itself wrote — never a prefix, a substring or a layout of the tree.
   verify: test_lint_vault_reports_stem_name_divergence_and_never_repairs_it
 
-- [ ] **Task 13 — Write AC-4's baseline-shape check and its reader battery.** New module
+- [x] **Task 13 — Write AC-4's baseline-shape check and its reader battery.** New module
   `tests/test_stem_divergence_baseline_shape.py` holding
   `test_the_stem_divergence_live_baseline_is_committed_and_shaped` (zero-arg, raising) and
   `test_the_baseline_readers_reach_their_claimed_shapes`. Readers live in this module and are driven
@@ -3434,7 +4192,7 @@ invert the WI-149 rule about deriving an oracle from what the test itself create
   Every planted oracle is text the test itself wrote.
   verify: test_the_stem_divergence_live_baseline_is_committed_and_shaped test_the_baseline_readers_reach_their_claimed_shapes
 
-- [ ] **Task 14 — Close wall membership and the count pins, then run the floor.** In
+- [x] **Task 14 — Close wall membership and the count pins, then run the floor.** In
   `tests/test_provenance_write_seam.py`, add
   `test_every_wall_this_item_joins_is_run_on_the_final_text` (zero-arg, raising) following
   `tests/test_name_gate_wall.py:test_wall_membership_is_closed_by_running_each_walls_predicate:1057`'s
@@ -3471,6 +4229,158 @@ invert the WI-149 rule about deriving an oracle from what the test itself create
   module to name the member (not merely the count), and say which design decision moved it.
   Finally run the floor command; it must be GREEN with a case count no lower than Task 1's.
   verify: test_every_wall_this_item_joins_is_run_on_the_final_text test_wi020_derivations_survive_the_routing test_wall_membership_is_closed_by_running_each_walls_predicate test_write_failure_raises_and_noops_keep_their_return
+
+## Build Log — 2026-09-26 (build-runner, resumed after a spawn timeout)
+
+Fourteen tasks landed. The floor is GREEN. Only things a future reader needs in order to understand
+why the code looks the way it does are below; it is not a commit log.
+
+### 0. The resume, and what the cursor actually was
+
+The first build spawn TIMED OUT mid-build and the drive worktree retained its edits. It had **not**
+written a `## Build Log`, so the prescribed resume cursor did not exist and the objection's instruction
+to read it could not be followed as written. The cursor was reconstructed from the TREE instead — the
+diff against HEAD, the presence or absence of each task's named artifact, and a floor run — which
+placed the stop between Task 12 and Task 13: Tasks 2–12's code and batteries were all present and the
+floor was green at 696, while `tests/test_stem_divergence_baseline_shape.py` (Task 13) did not exist
+and `test_every_wall_this_item_joins_is_run_on_the_final_text` (Task 14) was named in
+`tests/test_provenance_write_seam.py`'s own module docstring but not defined in it. Task 1's baselines
+were also unrecorded, and recording them after the edits had landed is a different act from recording
+them before — see §1. This session built Tasks 13 and 14, recovered Task 1, and re-ran everything.
+
+Shell liveness was probed first (WI-228 P4): `Bash` execs, so nothing here was written blind.
+
+### 1. Task 1's baselines — recovered from pristine HEAD, not from memory
+
+Task 1 asks for a capture taken BEFORE the first edit that moves it, and the timed-out spawn made its
+edits without taking one. Re-reading the pins in the edited tree would have recorded the
+POST-conditions under a pre-condition's name, which is the one thing the task exists to prevent. So the
+baselines were taken from a pristine export of HEAD — `git archive HEAD | tar -x -C $TMPDIR/...`, driven
+with this project's own interpreter — which is HEAD's text by construction and required no writable
+git state. **The list is the obligation, not the numbers**, and Task 14 re-runs exactly this list:
+
+| pin | HEAD (baseline) | final text | moved? |
+|---|---|---|---|
+| floor case count | 689 | **699** | grew by 10, directional invariant satisfied |
+| `functions_reserializing_parsed_frontmatter` | 4 | 4 | no |
+| `functions_parsing_then_writing - writers` | `{write_markdown_file}` | `{write_markdown_file}` | no |
+| `non_completed_write_sites(PACKAGE_ROOT)` | 8 | 8 | no |
+| `non_completed_write_sites(person.py)` | 8, over the five qualnames | 8, same five | no |
+| `base_repository_subclasses` | 4 | 4 | no |
+| `load_file_implementations` | 3 | 3 | no |
+
+The five `person.py` qualnames, recorded in full because a set that MOVED is edited to name its new
+member rather than bumped: `append_to_timeline`, `append_to_body_section`, `update_to_discuss_item`,
+`remove_to_discuss_item`, `_get_body_content`. Not one pin moved, so no pin-holding module needed an
+edit — the three CONDITIONAL Write Targets (`tests/test_concurrent_access.py`,
+`tests/test_name_gate_wall.py`, `tests/test_loud_fail_write.py`) are UNWRITTEN exactly as predicted.
+
+### 2. M2's observation, which Task 2 asked for as an observation and not an assertion
+
+Task 2 requires the Build Log to record where a FORGED `_source_path:` key in a note's own frontmatter
+ends up, and to assert only the property. Measured on **pydantic 2.12.5**: the forged key IS RETAINED —
+it appears in `entity.model_extra` as the raw string, and `model_dump()` includes it. The property
+holds regardless and is what the check asserts: `getattr(entity, "_source_path")` — verbatim the
+accessor `_resolve_write_target` reads — answers the file the entity was PARSED FROM, never the forged
+value, because the `PrivateAttr` is a different namespace from `model_extra`. Pinning the retention
+would make this arm RED against correct code on a pydantic release that stops keeping
+underscore-prefixed extras, which is exactly why Task 2 forbade it.
+
+One consequence worth stating so nobody reads AC-1(h) as broken: a note that ALREADY carries a forged
+`_source_path:` will round-trip that key back out, because `extra="allow"` round-trips every unknown
+key and always has. That is pre-existing behaviour for arbitrary frontmatter and not something the stamp
+introduces — the library never MINTS the key, which is the half AC-1(h) measures and the half Task 2's
+key-set arm asserts against the entity the test itself built.
+
+### 3. One line in the door that Task 6 did not enumerate, and why it stays
+
+`rename_note` contains `vault_io.record_snapshot(moved)`, guarded on "this call committed something".
+Task 6's enumeration of the door's body does not name it. It is load-bearing rather than decorative, and
+that was established by mutation and not by argument: replacing the call with `pass` turns AC-2's check
+RED with `NoteAlreadyExists` on the save-after-rename arm — `move_note` forgets BOTH paths' snapshots
+and the door's alias write records none, so the moved note is left UNREGISTERED and the entity's very
+next `save()` takes `write_markdown_file`'s zero case and refuses against the note the rename just
+created. That is AC-2(e)'s own save. The line was restored and the floor re-run green afterwards.
+The guard matters as much as the call: unconditional, the idempotent no-op branch would launder a THIRD
+PARTY's write into an accepted precondition.
+
+### 4. What the Task 14 RUN returned that `## Wall Membership` did not name
+
+`## Wall Membership` says anything the RUN returns that the section did not name is named here and
+satisfied — never worked around, and never satisfied by narrowing the wall. One row did:
+
+**Wall D's requirement under-reaches.** The row reads "no new `parse_markdown_file` caller outside
+`obsidian_schemas/repositories/base.py`". Run over this item's touched package files, the callers are
+three, not one: `Book` and `Meeting` carry standing `_load_file` OVERRIDES that parse, and both files
+joined the touched list at Task 5. Both are pre-existing at HEAD (`git show HEAD:…` confirms the call in
+each), so nothing was gained — but a module-level permitted list would have BLESSED whatever happened to
+be there, which is the narrowing the rule forbids. The satisfying form is strictly stronger than the row
+as stated: the parse-caller set over the touched package files is asserted EQUAL to the three
+`_load_file` implementations, a set `load_file_implementations` derives INDEPENDENTLY of that call and
+which Task 1 pins at three. So a parse call added to the door, to `save`, or to a body-writer in any of
+these files is RED, where the row as written would have passed it in `base.py`. Verified to discriminate:
+a planted module with a `parse_markdown_file` caller fires the assertion.
+
+### 5. This module was the `_email_index` pin's only offender, which is the cheapest possible proof the pin is not vacuous
+
+Task 14 warns that WI-023's zero-sites pin assembles its needle FROM PARTS so a module under its roots
+is not its own counterexample, and that no new test module may spell the attribute whole. Written the
+obvious way first — a helper named after the thing it checks, plus a docstring naming it — Task 14's
+own check reddened that pin at three sites in `tests/test_provenance_write_seam.py`. The scan is a TEXT
+scan and cannot tell a mention from a use. The helper is therefore named periphrastically
+(`_wi029_the_deleted_identity_attribute_is_named_nowhere`) and its docstring names the attribute
+nowhere. Recorded because the next author will reach for the obvious name too.
+
+### 6. An undeclared Write Target: `tests/test_company_name_contract.py`
+
+That file is MODIFIED and `## Write Targets` does not declare it. It is inside this project's write
+authority (`tests/**`), so it is a declaration gap and not an authority one, and the edit is a forced
+consequence of Tasks 3 and 6 rather than a choice: its `_drive_update_fields` arm driver planted a
+company note, called `update_fields(entity, {"name": member})`, and returned the SEED path as the file
+the arm wrote. Since this item, that call MOVES the note, so the seed path no longer exists when the
+arm's oracle reads it. The driver now asks the repository which file it wrote
+(`repo.get_file_path(member)`) rather than recomposing the filename rule, which keeps it true whatever
+that rule is; the arm's own leg (`"stored"`) is unchanged, because the arm's write is still name-free —
+the MOVE happens in `rename_note`, to a destination the caller composes. A comment at `ARM_LEGS` records
+that distinction, since the old comment's "derive no filename" reading is now only half true.
+
+### 7. Also in the worktree and NOT this item's: `docs/whatsapp-jid-value-type.md`
+
+An untracked file carrying WI-032's frontmatter (`stage: idea`, created 2026-09-21). It was present when
+this spawn started, is not referenced by anything here, and was deliberately NOT touched — the run scope
+forbids editing another item's tracked document. Named so the exit gate does not read it as this build's
+output.
+
+### 8. Verification actually performed
+
+- **Floor:** `.venv/bin/python -m pytest tests -q` → **699 passed** in ~21s. Baseline at HEAD was 689
+  under the same interpreter, so the DIRECTIONAL invariant holds (+10 and no file silently lost).
+- **Each AC check under the conveyor's own shape**, not only under pytest: all five invoked as
+  `getattr(mod, name)()` with zero arguments through an `importlib` bootstrap, all five PASS. This is
+  the WI-089 shape mismatch that bounced 8-of-9 elsewhere, and pytest collection does not test it.
+- **Task 14's two new arms shown to DISCRIMINATE**, not merely to pass: wall D fires on a planted
+  `parse_markdown_file` caller; the check-contract half fires on a module whose first statement is not
+  the interpreter bridge.
+- **Task 13's readers shown to discriminate** against the LIVE artifact's own bytes, in memory: flipping
+  row 8's direction from `MERGE` to `RENAME` produces exactly one violation. The live read is
+  non-vacuous — 8 direction rows, 12 §1 figures, 8 `.md` tokens — and the privacy rule is GREEN on the
+  committed artifact for precisely the token census Design §4a enumerates (three existing repo paths
+  across four tokens, the `*.md` glob, `@{name}.md` three times).
+- **The `record_snapshot` line** established load-bearing by mutation and reverted (§3).
+
+### 9. Things deliberately NOT done
+
+- **No `criteria` fence was written or touched.** `## Acceptance Criteria` is FROZEN AND SIGNED
+  (`ac_hash 15189b874b27`); `## Scope Boundary` names it and `## Intent` among what the builder must not
+  touch. Every criterion's check now resolves and passes, which is the builder's whole obligation there.
+- **No stage advance and no `state/work-items.json` write.** That is the conveyor's, via
+  `stage_advancer.py`; `state/**` is deny-class for a builder in any case.
+- **AC-4's EXIT half is not satisfied and cannot be from in here.** `docs/stem-divergence-live-baseline.md`
+  §5 is a named EMPTY section by design. The item's declared SHIP CONDITION is that the conductor re-runs
+  the §0 script and `scripts/lint_vault.py --vault "$VAULT" --report` against the live vault, appends the
+  attestation, and reads zero on both divergence and conflicts. The shape check asserts §5 is PRESENT with
+  its figure names and both re-run commands, and asserts nothing about its values — deliberately, since
+  the population is live and an equality written today is stale by build time.
 
 ## Write Targets
 
@@ -3511,7 +4421,7 @@ why: Task 2 — `parse_markdown_file` stamps the entity it just derived; `parse_
 
 ```writes
 path: obsidian_schemas/repositories/base.py
-why: Tasks 2, 3 and 6 — `_resolve_write_target` (Task 2, the pure resolver), `rename_note` with its M1 destination containment, M6 guard-mode fail-closed refusal, M3 staging name and M4 both-ends audit line, `save`'s CREATE fallback and its resolved-target INFO line, `update_fields`' REFUSE fallback (binding `resolved`), its in-lock `ValueError` for a name change whose door preconditions do not hold — no provenance, or a non-enforcing write guard (M6) — raised before anything is written, its mirroring of a caller-supplied `aliases` value onto the entity, and its write→move→rebind ordering with the door call placed OUTSIDE the `note_lock` block. Walls it joins: routing A/B/C (the move goes through `vault_io.move_note`, never `Path.rename`; `Path.resolve`, `Path.is_relative_to`, `Path.exists` and `Path.samefile` are READS and legal; M6 adds `vault_io.guard_mode()`, a module-attribute call on the already-imported `vault_io` that touches no filesystem and names no `os` member — and it is read through that function precisely so this file does not become a second `os.environ` home, which `vault_io._env_setting:104-115` forbids in writing); `non_completed_write_sites` over PACKAGE_ROOT (the door must contain no falsy return — M1 and M6 both RAISE, neither returns `None`); `functions_reserializing_parsed_frontmatter` and `functions_parsing_then_writing` (the door must contain no `parse_frontmatter` call); the new `write_target_buckets` scan (both new writers must classify SEAM-ROUTED — M1's two `contained = …` assignments bind a name the seed never tainted, M6's `mode = vault_io.guard_mode()` likewise binds a never-tainted name out of a value mentioning none, and `same_place = …` binds a name the fixpoint DOES taint, out of a value that mentions `source`, so the ordering-aware rebinding clause (which fires only on an Assign binding a tainted name out of a value mentioning NO tainted name) does not fire on any of them, and every `move_note`/`update_frontmatter_field` first positional in the door is still a name tainted by `source`; and `update_fields`' three-name head is legal by the clause that legalises the fallback itself — `resolved` is the seeded name, `file_path = resolved` is an Assign whose value mentions a tainted name, and `file_path = self.get_file_path(name)` rebinds a tainted name inside an `ast.If` whose test names it, which is AC-5's fifth ACCEPTED near-miss; the post-door `file_path = moved` lies AFTER the write call by position and so is outside the clause's span); WI-021's arm sweep and gate-placement pins (no new frontmatter arm, no new gate call); the new `door_calls_inside_note_lock` scan, which must stay EMPTY — `rename_note` holds no `note_lock` of its own and `update_fields` calls it AFTER its `with vault_io.note_lock(file_path)` block has exited.
+why: Tasks 2, 3 and 6 — `_resolve_write_target` (Task 2, the pure resolver), `rename_note` with its M1 destination containment, M6 guard-mode fail-closed refusal, M3 staging name and M4 both-ends audit line, `save`'s CREATE fallback and its resolved-target INFO line, `update_fields`' REFUSE fallback (binding `resolved`), its in-lock `ValueError` for a name change whose door preconditions do not hold — no provenance, a non-enforcing write guard (M6), or an entity whose own type declares no `name` and therefore derives no `@{name}.md` destination (M7) — raised before anything is written, that same arm's SECOND CLAUSE refusing a NON-rename delta that moves the entity type's own `_get_file_name` rule (M8), its mirroring of a caller-supplied `aliases` value onto the entity ON THE RENAMING PATH ONLY, and its write→move→rebind ordering with the door call placed OUTSIDE the `note_lock` block — no destination pre-check and no move-before-write anywhere in either method, the occupied-destination residual being ACCEPTED and stated (Design §2, "The COMPLEMENT of that rule"). Walls it joins: routing A/B/C (the move goes through `vault_io.move_note`, never `Path.rename`; `Path.resolve`, `Path.is_relative_to`, `Path.exists` and `Path.samefile` are READS and legal; M6 adds `vault_io.guard_mode()`, a module-attribute call on the already-imported `vault_io` that touches no filesystem and names no `os` member — and it is read through that function precisely so this file does not become a second `os.environ` home, which `vault_io._env_setting:104-115` forbids in writing; M7 adds `type(entity).model_fields`, a class-attribute read that touches no filesystem, names no `os` member, imports nothing and is the spelling `writer.py:108`'s comment and `parser.py:199` already use; M8 adds `getattr(self, "_get_file_name", None)` and `entity.model_copy(update=…)`, both of them an attribute read and a pydantic call that touch no filesystem, name no `os` member and import nothing — `_get_file_name` is CALLED only to compare two derived strings and its result never becomes a path); `non_completed_write_sites` over PACKAGE_ROOT (the door must contain no falsy return — M1 and M6 both RAISE, neither returns `None`, and M7's disjunct and M8's second clause each extend or sit beside an existing `raise ValueError` rather than adding a return); `functions_reserializing_parsed_frontmatter` and `functions_parsing_then_writing` (the door must contain no `parse_frontmatter` call); the new `write_target_buckets` scan (both new writers must classify SEAM-ROUTED — M1's two `contained = …` assignments bind a name the seed never tainted, M6's `mode = vault_io.guard_mode()` likewise binds a never-tainted name out of a value mentioning none, M8's `derive = getattr(self, "_get_file_name", None)` and `projected = entity.model_copy(update=…)` do the same (neither name is ever tainted, and `entity` is not the seeded name — the seed is `self._resolve_write_target(entity)`'s RETURN, bound to `resolved`), and `same_place = …` binds a name the fixpoint DOES taint, out of a value that mentions `source`, so the ordering-aware rebinding clause (which fires only on an Assign binding a tainted name out of a value mentioning NO tainted name) does not fire on any of them, and every `move_note`/`update_frontmatter_field` first positional in the door is still a name tainted by `source`; and `update_fields`' three-name head is legal by the clause that legalises the fallback itself — `resolved` is the seeded name, `file_path = resolved` is an Assign whose value mentions a tainted name, and `file_path = self.get_file_path(name)` rebinds a tainted name inside an `ast.If` whose test names it, which is AC-5's fifth ACCEPTED near-miss; the post-door `file_path = moved` lies AFTER the write call by position and so is outside the clause's span); WI-021's arm sweep and gate-placement pins (no new frontmatter arm, no new gate call); the new `door_calls_inside_note_lock` scan, which must stay EMPTY — `rename_note` holds no `note_lock` of its own and `update_fields` calls it AFTER its `with vault_io.note_lock(file_path)` block has exited.
 ```
 
 ```writes
@@ -3541,7 +4451,7 @@ why: Task 7 — `WriteTargetSite`, `SEAM_FUNCTION`, `path_taking_writer_names`, 
 
 ```writes
 path: tests/test_provenance_write_seam.py
-why: Tasks 2, 9, 10, 14 — AC-1, AC-2, the two seam unit checks (both authored in Task 2, including M2's read-direction arm), AC-2's non-AC arms (the door's IDEMPOTENCE, `door_calls_inside_note_lock` asserted EMPTY over PACKAGE_ROOT with its planted both-ways battery — ordering decision 5 — and M6's both-ways guard-mode arm, which drives `OBSIDIAN_SCHEMAS_WRITE_GUARD` through `tests/support.py:patcher:73` — the project's own zero-fixture `monkeypatch` stand-in, whose `setitem` restores the prior value on exit and POPS the key where it was unset, so no later check inherits a mode this module set, and which is the same helper `tests/test_concurrent_access.py:706`, `:737` already uses for that variable) and the wall-membership closure. NEW FILE, so it joins every derived population that sweeps TESTS_ROOT: the `ast` single-home equality (it must not import `ast` — it imports the scans from `tests/derivations.py`); `modules_using_ast`'s non-vacuity; `skip_reason_literal_sites` (it must not hand-type a `SKIP_REASONS` member — import it); and the check contract, so every AC-named function is a top-level zero-argument `def` that RAISES on failure and the module's first statement is `ensure_project_interpreter(__file__)`.
+why: Tasks 2, 9, 10, 14 — AC-1, AC-2, the two seam unit checks (both authored in Task 2, including M2's read-direction arm), AC-2's non-AC arms (the door's IDEMPOTENCE, the half-failed rename's residual, the OCCUPIED-DESTINATION residual reached through `update_fields` — the raised leaf, the committed `name:` at the unmoved filename, the absent alias, the un-re-stamped entity, the byte-identical destination note, the re-run's no-op and the direct-`rename_note` recovery — `door_calls_inside_note_lock` asserted EMPTY over PACKAGE_ROOT with its planted both-ways battery — ordering decision 5 — M7's both-ways arm over a planted stamped BOOK note, which additionally constructs a `BookRepository` over the same temp vault and sets the guard mode to `"enforce"` explicitly so the refusal is attributable to M7's disjunct and not to an ambient mode, and M6's both-ways guard-mode arm, which drives `OBSIDIAN_SCHEMAS_WRITE_GUARD` through `tests/support.py:patcher:73` — the project's own zero-fixture `monkeypatch` stand-in, whose `setitem` restores the prior value on exit and POPS the key where it was unset, so no later check inherits a mode this module set, and which is the same helper `tests/test_concurrent_access.py:706`, `:737` already uses for that variable) and the wall-membership closure. NEW FILE, so it joins every derived population that sweeps TESTS_ROOT: the `ast` single-home equality (it must not import `ast` — it imports the scans from `tests/derivations.py`); `modules_using_ast`'s non-vacuity; `skip_reason_literal_sites` (it must not hand-type a `SKIP_REASONS` member — import it); and the check contract, so every AC-named function is a top-level zero-argument `def` that RAISES on failure and the module's first statement is `ensure_project_interpreter(__file__)`.
 ```
 
 ```writes
@@ -3589,7 +4499,7 @@ wall.
 
 | wall | its universe | what it requires of this item's files |
 |---|---|---|
-| `tests/test_write_routing.py:test_filesystem_mutation_is_single_homed:87` (Walls A/B/C) | `python_files_under(PACKAGE_ROOT, SCRIPTS_ROOT)` | no filesystem-mutation capability, no non-read-only `os` member and no mutation-capable import outside `obsidian_schemas/vault_io.py`. The door moves through `vault_io.move_note`; the detector's checks are read-only; `Path.samefile`, `Path.exists` and `Path.resolve` are reads and legal; M6's `vault_io.guard_mode()` is a call on the already-imported `vault_io` module and names no `os` member, which is exactly why the mode is read through that function rather than through `os.environ` (`obsidian_schemas/vault_io.py:_env_setting:104-115`) |
+| `tests/test_write_routing.py:test_filesystem_mutation_is_single_homed:87` (Walls A/B/C) | `python_files_under(PACKAGE_ROOT, SCRIPTS_ROOT)` | no filesystem-mutation capability, no non-read-only `os` member and no mutation-capable import outside `obsidian_schemas/vault_io.py`. The door moves through `vault_io.move_note`; the detector's checks are read-only; `Path.samefile`, `Path.exists` and `Path.resolve` are reads and legal; M6's `vault_io.guard_mode()` is a call on the already-imported `vault_io` module and names no `os` member, which is exactly why the mode is read through that function rather than through `os.environ` (`obsidian_schemas/vault_io.py:_env_setting:104-115`); M7's `type(entity).model_fields` is a class-attribute read that adds no import, no `os` member and no filesystem capability; M8's `getattr(self, "_get_file_name", None)` and `entity.model_copy(update=…)` are the same — an attribute read and a pydantic call, no import, no `os` member, and `_get_file_name`'s result is COMPARED and never turned into a path |
 | `tests/test_loud_fail_harness.py:103`, `tests/test_name_gate_wall.py:_check_the_ast_capability_stays_single_homed:1132`, `tests/test_lint_vault_fix_rules.py:_check_the_derived_walls_this_item_joins:1956` | `python_files_under(PACKAGE_ROOT, TESTS_ROOT)`, a set EQUALITY | `ast` is named ONLY by `tests/derivations.py`. Four new test modules and two edited package modules each have exactly one legal way to obtain syntax: import the scan |
 | `tests/test_loud_fail_write.py:_check_write_failure_raises_and_noops_keep_their_return:112` | `non_completed_write_sites(python_files_under(PACKAGE_ROOT))`, bidirectional map | every falsy return in a write path is classified, and a classified site that DISAPPEARS is red exactly as a new one is. `rename_note` must raise, never return falsy; the body-writers' returns must not move |
 | `tests/test_concurrent_access.py:test_wi020_derivations_survive_the_routing:1060` | `python_files_under(PACKAGE_ROOT)` | the routing pins it carries, listed and not counted: 4 reserializing writers, the discrimination guard `{write_markdown_file}`, 8 falsy-return sites, 4 subclasses, 3 `_load_file`s |
@@ -3617,15 +4527,66 @@ predicate list.
 
 ## Mitigation Folds
 
-All SIX `kind: required` mitigations of the LATEST speaking `## Threat Model` round (2026-09-25,
-round 4), each folded into a `## Design` sentence AND an Implementation-Plan task in the same edit.
-Four land on Task 6 (the door), one on Task 2 (the stamp) and one on Task 13 (AC-4's privacy wall),
-exactly as the modeler's fences name them. Their batteries are Task 10 (M1, M3, M4, M6 — each pinned
+All EIGHT `kind: required` mitigations of the LATEST speaking `## Threat Model` round (2026-09-26,
+round 6 — the SECOND section carrying that date), each folded into a `## Design` sentence AND an
+Implementation-Plan task in the same edit.
+Six land on Task 6 (four in the door's own body; M7 and M8 in `update_fields`' pre-write refusal one
+frame over — M7 on its rename-side disjunction, M8 on its second clause), one on Task 2 (the stamp)
+and one on Task 13 (AC-4's privacy wall), exactly as the modeler's
+fences name them. Their batteries are Task 10 (M1, M3, M4, M6, M7, M8 — each pinned
 both ways), Task 2's own check (M2) and Task 13's reader battery (M5, pinned both ways through the same
-token function the live arm calls). M1–M5's `desc` values were re-emitted byte-identically by round 4
-and are restated here unchanged; M6 is new in round 4, and its fold widened `update_fields`' pre-write
-refusal from one remembered conjunct to the door's whole PRECONDITION class (Design §2's precondition
-table) so the next refusal arm is placed by a rule rather than by the next round's finding.
+token function the live arm calls). M1–M7's `desc` values were re-emitted byte-identically by round 6
+and are restated here unchanged; M8 is new in round 6.
+
+**M7 is the SECOND fold in one class and is folded as the class, not as the case** (WI-226). Round 4's
+M6 fold widened `update_fields`' pre-write refusal from one remembered conjunct into the door's whole
+PRECONDITION class, with a table enumerating the refusal arms — and round 5's finding is INSIDE that
+table: its M1 row answered "already refused earlier, by a different wall" and the wall it named,
+`gate_write`, validates a `name` delta for exactly two declared types. The GENERATOR is therefore not
+"the M1 row" but *a bound on a population asserted from the models and enforced by a predicate that
+never reads them*. So this fold closes the generator — Design §2 now carries a second rule beneath the
+table, **a refusal delegated to another wall is only as total as that wall's own DECLARED SCOPE, and
+wherever the wall is narrower the residue is refused HERE** — restates the three sites that made the
+unchecked claim (the M1 row, the `f"@{new_name}.md"` paragraph, Task 6's restatement) on the disjunct
+instead, and DECLARES the next level's sweep: `BaseRepository.save`'s `@{name}.md` derivation is bounded
+by METHOD OVERRIDE and so is structural rather than a member; ordering decision 3's alias guard and the
+alias reconciliation are the two existing instances of the correct idiom; the table's remaining rows
+delegate to the SYSCALL on an argument about what is knowable in the frame, which is a property of the
+frame and not of a type; and the detector's `entity_type == "person"` guard is a declared narrowing over
+vault bytes with its own reasoning. The sweep returned no fourth member.
+
+**M8 is the THIRD fold in one class, and the class is one level ABOVE M7's — which is why closing M7's
+generator did not close it** (WI-226). M7's fold closed *a bound enforced by a predicate that never reads
+the models* and swept that level honestly; M8 came out of the SAME paragraph two rounds later, through
+the fold's own new material — Design §5's capability-widening declaration, whose bound read *"the one
+thing it does NOT widen is the rename branch, which M7 refuses for both types"*. That bound is
+`name`-shaped, and `Book`'s filename is made of `title` and `author`
+(`obsidian_schemas/repositories/book.py:BookRepository._get_file_name:340-355`) while `Meeting`'s is
+made of `date`, `topics`, `attendees` and `meeting_id`
+(`obsidian_schemas/repositories/meeting.py:MeetingRepository._get_file_name:208-231`). So the GENERATOR
+is one rung up: **a guard keyed on the PERSON instance (`name`) of a predicate this document itself
+states TYPE-GENERALLY** — its own divergence definition is *"the filename this type's own write rule
+recomputes from the entity's current fields differs from the file it was parsed from"*, and every guard
+the item had shipped keyed on the `name` reading of it. This fold closes that class rather than the
+`{"title": …}` instance. Design §2 now carries a THIRD rule — **the pre-write arm has TWO obligations,
+refuse a RENAME the door cannot complete AND refuse a WRITE that moves the type's own filename rule with
+no rename to follow it** — and the clause discharging the second is keyed on
+`getattr(self, "_get_file_name", None)`, the repository's OWN declared rule, so it covers `title`,
+`author`, `date`, `topics`, `attendees` and `meeting_id` by construction rather than by enumeration and
+stays correct if a base-class `_get_file_name` or a fifth type ever appears. It restates the two sites
+that made the `name`-shaped claim — Design §5's widening bound and the M7 `## Edge Cases` entry's
+*"unaffected"* sentence — on the rule instead of leaving them standing. NEXT LEVEL, declared: the other
+eight write paths, asked one at a time whether any can leave a delta that moves the type's rule
+unresolved — `save` and the two `save` overrides derive their own target and have no rename to
+reconcile, and what they leave is AC-1's SIGNED trade (in-place divergence instead of today's fork),
+accepted by decision and named in `## Scope Boundary` and `## Risk Analysis` rather than closed by a
+clause; the five body-writers carry no frontmatter field delta at all, so no deriving field can move
+through them; `rename_note` takes its destination from the CALLER, whose rule M7 makes true by
+construction. INTERSECTION: a type declaring BOTH `name` and its own `_get_file_name` exists nowhere
+today (`Person:79`/`Company:128` declare `name` and override nothing; `Book:139`/`Meeting:247` override
+and declare no `name`) and is already total under the two clauses as written — its `name` delta goes to
+the rename branch, its non-`name` deriving delta to M8's clause, its non-deriving delta writes. The
+sweep returned no member the two clauses leave open, and one declared trade.
 
 ```fold
 id: M1
@@ -3675,6 +4636,22 @@ landed: Task 6
 work: **(M6) Fail closed when the write guard is not enforcing:** bind `mode = vault_io.guard_mode()` immediately after M1's containment block and, unless it equals `"enforce"`, `raise ValueError` naming the mode — before any `vault_io.move_note` call, beside the door's other precondition refusals. Read it through `vault_io.guard_mode()` and NEVER through `os.environ`: `base.py:9` already imports `os` and that spelling would build, but `obsidian_schemas/vault_io.py:_env_setting:104-115` reserves environment access to itself in writing and `vault_io` is already imported at `base.py:22`, so the call costs no import. Without this clause every occupied-destination refusal this item relies on is conditional on an environment variable: under `OBSIDIAN_SCHEMAS_WRITE_GUARD=observe`, `obsidian_schemas/vault_io.py:_move_locked:757-771` does `os.replace(source, target)` instead of raising `NoteAlreadyExists`, destroying the occupied note and returning the destination as a success, so the door would alias, `_adopt` and log a rename that overwrote a third party (WI-004's declared residual R9, `docs/concurrent-access.md:649-656`, acceptable while door 3 had one quarantine caller and not once this item drives it on every name change in three `-e` consumers). Do NOT widen this to `save`, the body-writers or `create_note`'s identical arm — that arm is AC-1(f)'s and stays WI-004's (Design §2, "M6's exact bound"). THE SAME CONDITION REFUSES EARLIER IN `update_fields`, IN THE ARM BELOW: the widened predicate is stated there, because a name change that reaches the door under `observe` would otherwise commit its content write first and raise after it. — verify: test_a_person_note_is_renamed_only_through_the_one_door_and_stays_reachable
 ```
 
+```fold
+id: M7
+desc: `update_fields` must not fire its rename branch for an entity whose own type does not derive `@{name}.md`, because the fold's precondition table answers the M1 row with a wall that covers two declared types and the trigger that reaches it consults the model nowhere — `obsidian_schemas/name_gate.py:319-344` returns a `name` delta UNVALIDATED for every `declared_type` that is neither `person` nor `company` (the path-hostile refusal the table delegates to is `_PATH_HOSTILE_RE = re.compile(r"/")` for a person and `_COMPANY_PATH_HOSTILE_RE:351` for a company, and `update_fields` passes `declared_type=self.type_name`, which is `"book"` and `"meeting"` at `book.py:47-49` and `meeting.py:48-50`), while the trigger is `"name" in updates and updates["name"] != frontmatter.get("name", "")` (`base.py:454`) — the caller's dict against the note's frontmatter, never `type(entity).model_fields` — so a stamped Book or Meeting entity handed `{"name": <anything>}` (Prerequisites 7's generic consumer PATCH forwards an arbitrary body that may carry `name`) sets `renaming` True against a book note's absent `name:`, passes the widened disjunction with provenance present and the guard enforcing, passes the gate untouched, COMMITS the new `name:` at `base.py:490`, and only then reaches `rename_note(entity, f"@{new_name}.md")` where `@x/y.md` raises `WriteFailedError` from `os.link` against a missing parent (`vault_io.py:_move_locked:772-773`) and `@a/../../x.md` raises M1's containment `ValueError` — M1 holds in both, so nothing lands outside the vault, but the residual is an ungated caller-supplied `name:` committed into a note that then did not move, which is exactly the state this arm exists to prevent and which the detector cannot see because it fires only on `entity_type == "person"`; THIS ITEM creates the reachability, since today's `get_file_path(getattr(entity, "name", ""))` opener answers `None` for a Book and raises above the lock (`base.py:437-441`, `:354-365`) while Task 3's `resolved`-first shape binds the file from the stamp and runs the frame; so the trigger gains one conjunct keyed on the DECLARED FIELD and never on a type name — `"name" in type(entity).model_fields`, the same keying ordering decision 3 already uses for `aliases` — which makes Design §2's "`Book` and `Meeting` cannot reach it at all" structural instead of asserted and closes the M1 row for every type rather than for two, WITHOUT adding a containment conjunct (M1 stays the door's, so no `NameGateRefusal` is degraded) and without touching `gate_write` or the Tier-1 tables, which `## Scope Boundary` declares read-never-edited; pinned BOTH ways in Task 10 against a planted colliding Book group member the battery already builds: `update_fields(<a stamped book>, {"name": "x/y", "status": "…"})` raises before the content write with that note BYTE-IDENTICAL and the vault's filename SET unchanged, while the SAME entity through `update_fields(entity, {"status": "…"})` still succeeds and lands in that file and a Person name change still moves — so the conjunct refuses the branch and not every update.
+design: `update_fields` refuses a `name` delta on an entity whose own class does not DECLARE `name` — the third disjunct of the same pre-write refusal, `"name" not in type(entity).model_fields`, keyed on the DECLARED FIELD and never on a type name — because `f"@{new_name}.md"` is not that type's filename rule and `gate_write` hands a `name` delta straight back UNVALIDATED for every `declared_type` that is neither `person` nor `company`, so the rename branch is reachable only for a type that derives `@{name}.md` BY CONSTRUCTION rather than by the trigger's silence.
+landed: Task 6
+work: **(M7) Refuse a `name` delta on a type that does not declare `name`:** the third disjunct is `"name" not in type(entity).model_fields` — the DECLARED field, read off the CLASS (`type(entity)`, never the instance: `obsidian_schemas/writer.py:108`'s own comment reserves that spelling for the pydantic v2.11+ deprecation, and an instance or `hasattr` spelling would answer differently for a note storing `name:` as an EXTRA, which is exactly the case that must still refuse) and never a type-name comparison, the same keying ordering decision 3 already uses for `aliases`; it is needed because `gate_write` hands a `name` delta straight back UNVALIDATED for every `declared_type` that is neither `person` nor `company` (`obsidian_schemas/name_gate.py:gate_write:319-344`, whose own comment reads *"a Book write is gated and handed straight back"*) while the trigger reads the CALLER's dict against the NOTE's frontmatter and consults the model nowhere — so without it a stamped Book or Meeting entity handed `{"name": <anything>}` has `frontmatter.get("name", "")` answer `""`, sets `renaming` True, passes the other two disjuncts, COMMITS the ungated caller-supplied `name:` at `base.py:490`, and only then raises out of `rename_note` (`@x/y.md` → `WriteFailedError` from `os.link` against a missing parent, `obsidian_schemas/vault_io.py:_move_locked:772-773`; `@a/../../x.md` → M1's containment `ValueError`), which is the committed-write-then-raise residual this whole arm exists to prevent and which the new detector cannot see because it fires only on `vf.entity_type == "person"`. Task 3's `resolved`-first binding is what makes that frame reachable at all — today's `get_file_path(getattr(entity, "name", ""))` opener answers `None` for a Book and raises above the lock (`base.py:437-441`, `:354-365`). Do NOT instead compose the destination with `self._get_file_name(entity)` for those two types: that ships a second filename rule through the door with no live direction table behind it (`## Scope Boundary`). — verify: test_a_person_note_is_renamed_only_through_the_one_door_and_stays_reachable
+```
+
+```fold
+id: M8
+desc: `update_fields` must REFUSE, before its content write, a delta that moves the entity type's OWN filename rule when no rename will follow it — because Design §5's capability-widening declaration bounds the newly-reachable Book/Meeting frame with "the one thing it does NOT widen is the rename branch, which M7 refuses for both types", and neither of those two types' filename rule reads `name`: `obsidian_schemas/repositories/book.py:_get_file_name:340-355` derives from `title` and `author` (`models.py:Book.title:160`, `:author:161`) and `obsidian_schemas/repositories/meeting.py:_get_file_name:208-231` from `date` (`:216`), `topics[0]` (`:219-220`), `attendees[:2]` (`:221-224`) and `meeting_id` (`:226`) (`models.py:Meeting:260-263`), so a delta touching any of those SIX declared fields carries no `name` key, leaves `renaming` False at `base.py:454` and therefore never evaluates the pre-write refusal at all (the whole predicate is `if renaming and (...)`), is handed back UNVALIDATED by `gate_write` for a non-person non-company `declared_type` (`obsidian_schemas/name_gate.py:319-344`), and is COMMITTED at `base.py:490` with nothing moved, no alias recorded for the stem the note is leaving behind and NO exception — a note whose type's own filename rule no longer recomputes to the file it lives in, which is verbatim this document's own type-general divergence predicate (Exploration Notes' type table, "that string ≠ the file it was parsed from") manufactured by the method that exists to end it, SILENT where `## Risk Analysis` claims every residual is loud and detector-visible, and invisible to Task 11's arm because it fires only on `vf.entity_type == "person"`; THIS ITEM creates the reachability exactly as it does for M6 and M7, since today `update_fields` opens `get_file_path(getattr(entity, "name", ""))` which for a Book is `_file_map.get("")` and raises ABOVE the lock (`base.py:437-441`, `book.py:get_file_path:326-338`) while Task 3's `resolved`-first shape binds the file from the stamp and runs the whole frame — the premise Design §5's declaration states in its own words — and the route is external and already singled out by this item (`docs/wi-029-consumer-audit.md:84`, `routers/entities.py:461` forwards "an arbitrary HTTP PATCH dict" and is the ONE consumer path to those two repositories, `:137`), so an ordinary `PATCH /api/entities/book/{name}` body `{"title": …}` is the trigger; the refusal is therefore one more DISJUNCT on the same in-lock pre-write arm Task 6 already prescribes, evaluated independently of `renaming` and keyed on the REPOSITORY'S OWN DECLARED FILENAME RULE rather than on a type name or a remembered field list — `derive = getattr(self, "_get_file_name", None)`, and when it is not None and `not renaming`, project the delta onto the entity's declared fields (`entity.model_copy(update={k: v for k, v in updates.items() if k in type(entity).model_fields})`, which preserves the private stamp per Design §1) and `raise ValueError` naming the method, the field(s) at issue and THIS precondition when `derive(projected) != derive(entity)`; the comparison is DELTA-RELATIVE (`derive(projected)` against `derive(entity)`, never against `file_path.name`) so that an ALREADY-divergent Book or Meeting note — the live "book-titled file holding a person note" class and its siblings — stays writable for every delta that does not move its rule further, and the `not renaming` conjunct is what keeps the disjunct from ever reaching a Person or Company, whose rule IS `@{name}.md` and whose `name` delta the rename branch reconciles, so the clause stays total if the `BaseRepository.save` collapse `## Scope Boundary` books as a separate item ever puts `_get_file_name` on the base class; this ADDS NO capability and makes `## Scope Boundary`'s own stated alternative real instead of asserted — that section declines to teach the door Book's and Meeting's filename rule on the ground that "where refusal costs nothing anyone does today", and refusal is what this disjunct supplies — so the door learns no second filename rule, no Book or Meeting note is renamed, `gate_write` and the Tier-1 tables stay read-never-edited, and `save`, the two `save` overrides and the five body-writers are all untouched, none of them having a rename to reconcile; pinned BOTH ways in Task 10 on the same planted stamped Book the M7 arm already builds, with `OBSIDIAN_SCHEMAS_WRITE_GUARD` set to `"enforce"` explicitly for the arm (the M6 rule, WI-149) — REFUSED: `update_fields(<a stamped book at "Old Title - Author.md">, {"title": "New Title"})` raises `ValueError` whose message names the filename-rule precondition and not provenance, the guard mode or the type declaration (so the arm cannot pass on a sibling disjunct), the vault's filename SET is unchanged, and the book note is BYTE-IDENTICAL to the bytes the test wrote — which is the assertion that distinguishes refusing before the content write from committing it, and is the whole finding, since without the disjunct that file comes back carrying `title: New Title` at its old filename with no alias and no exception; the same for `{"author": …}` on that Book and for `{"date": …}` and `{"topics": [...]}` on a planted stamped Meeting, so the clause is shown to cover the RULE and not one field; ACCEPTED, three arms so it refuses the delta class and not every update: the SAME book entity through `update_fields(entity, {"status": "read"})` still SUCCEEDS and lands in that file (`models.py:Book.status:163` feeds no filename — this is the arm Task 10's M7 ACCEPTED half already asserts and it must stay green), an ALREADY-divergent planted Book whose file does not match its own rule still accepts a `{"status": …}` delta (the arm that fails a `derive(projected) != file_path.name` spelling), and a Person name change in the same vault still MOVES through the door exactly as the arms above assert (the control that fails a disjunct written without the `not renaming` conjunct).
+design: `update_fields` refuses, before its content write, a delta that moves the entity type's OWN filename rule when no rename will follow it — the same pre-write arm's second clause, `not renaming and derive is not None and derive(projected) != derive(entity)`, where `derive = getattr(self, "_get_file_name", None)` and `projected` is `entity.model_copy(update={k: v for k, v in updates.items() if k in type(entity).model_fields})` — keyed on the REPOSITORY'S OWN DECLARED FILENAME RULE and never on `name` or on a type name, and DELTA-RELATIVE (`derive(projected)` against `derive(entity)`, never against `file_path.name`) so that an ALREADY-divergent note stays writable for every delta that does not move its rule further.
+landed: Task 6
+work: **(M8) Refuse a delta that moves the entity type's OWN filename rule when no rename will follow it — the arm's SECOND CLAUSE, which fires where `renaming` is FALSE:** bind `derive = getattr(self, "_get_file_name", None)` and, when it is not `None` and `not renaming`, project the delta onto the entity's declared fields — `projected = entity.model_copy(update={k: v for k, v in updates.items() if k in type(entity).model_fields})`, which preserves the private stamp (Design §1, "Survives `model_copy`") and keeps an undeclared caller key out of a comparison it could not have moved — and `raise ValueError` naming the METHOD, the field(s) at issue and THIS precondition when `derive(projected) != derive(entity)`. Compute `derive(entity)` FIRST and outside any `try`; wrap only `derive(projected)`, and treat ANY exception out of it as *the rule cannot be recomputed over this delta* and raise the same `ValueError` — `model_copy(update=…)` does not validate, so a delta supplying a non-string `title` or a non-list `topics` would otherwise leak an `AttributeError`/`TypeError` out of `_get_file_name`; fail closed, the direction M1 takes with an `OSError` out of its own resolve. Read it off `self` and never off a type list: `_get_file_name` is declared on exactly `obsidian_schemas/repositories/book.py:BookRepository._get_file_name:340` and `obsidian_schemas/repositories/meeting.py:MeetingRepository._get_file_name:208`, so `derive` is `None` for `BaseRepository`, `PersonRepository` and `CompanyRepository` and the clause is STRUCTURALLY inert for the two types whose rule is `@{name}.md`. Compare DELTA-RELATIVELY (`derive(projected)` against `derive(entity)`) and NEVER against `file_path.name`: the latter spelling refuses every write to an already-divergent Book or Meeting note, which is the live "book-titled file holding a person note" class this item exists to repair. Keep the `not renaming` conjunct: a `name` delta on a type that declares `name` belongs to the rename branch, which reconciles the rule by moving the file, and a `name` delta on a type that does not is M7's clause one line up. It is needed because the rename-side predicate is the WHOLE of `if renaming and (…)` while `Book`'s filename is made of `title` and `author` (`book.py:346`, `:350-353`) and `Meeting`'s of `date`, `topics`, `attendees` and `meeting_id` (`meeting.py:216`, `:219-226`) — six DECLARED fields (`obsidian_schemas/models.py:Book.title:160`, `:author:161`; `obsidian_schemas/models.py:Meeting:260-263`) — so without it a stamped Book handed `{"title": "New Title"}` leaves `renaming` False, evaluates no disjunct at all, is handed back UNVALIDATED by `gate_write` (`obsidian_schemas/name_gate.py:gate_write:319-344`), COMMITS at `base.py:490`, moves nothing, records no alias for the stem it is leaving behind and raises nothing — the item's own type-general divergence, manufactured silently, and invisible to Task 11's `vf.entity_type == "person"` arm. Do NOT instead rename the note by composing `self._get_file_name(entity)`: the rule is recomputed here only to COMPARE, never to build a path, and the door learns no second filename rule (`## Scope Boundary`). — verify: test_a_person_note_is_renamed_only_through_the_one_door_and_stays_reachable
+```
+
 ## Verification
 
 **Happy path (the smoke test).** In a temp copy of the frozen corpus, load `@Quillam Ostrivane.md`
@@ -3699,8 +4676,14 @@ measure provenance against derivation:
 | `BookRepository.save` | set `book.status` or `book.description` — never `title` or `author` — then `repo.save(entity, body=<the note's current body>)` | the WI-126 body guard is entity-type-AGNOSTIC (`obsidian_schemas/writer.py:write_markdown_file:285-302`), so row 1's constraint applies here identically; the planted Book/Meeting group members may instead be written with NO body at all, in which case the plain `repo.save(entity)` is legal *(third spec-review round, non-blocking note 3)* |
 | `MeetingRepository.save` | set `meeting.tags` — `Meeting` declares `type`, `date`, `attendees`, `topics` and `meeting_id` (`obsidian_schemas/models.py:Meeting:259-263`) and INHERITS `tags` from `BaseEntity` (`obsidian_schemas/models.py:40`), so `tags` and `type` are the only two of its six fields that feed no filename rule and `tags` is the legal minimal mutation *(the citation previously spanned the wrong lines for `tags`; second spec-review round, non-blocking note 5)*; then `repo.save(entity, body=<the note's current body>)` on the same rule as the two rows above | |
 
-**Failure modes that must fail gracefully, each asserted:** a rename onto an occupied destination
-(`NoteAlreadyExists`, both files byte-identical); a rename of a symlinked source (`WriteFailedError`,
+**Failure modes that must fail gracefully, each asserted:** a DIRECT rename onto an occupied destination
+(`NoteAlreadyExists`, both files byte-identical); **an `update_fields` NAME CHANGE onto an occupied
+destination — the same refusal reached one frame up, where the content write has already committed
+(`NoteAlreadyExists` the LEAF and not a pre-check `ValueError`, the vault's filename SET unchanged, the
+DESTINATION note byte-identical, and the SOURCE note carrying its new stored `name:` at its old filename
+with NO alias and the entity still stamped there — the residual asserted and not described, with the
+re-run shown to be a no-op and the documented direct-`rename_note` recovery driven)**; a rename of a
+symlinked source (`WriteFailedError`,
 unmoved); a rename of an entity with no provenance (`ValueError`); a save of an entity whose stored
 name the DOOR refuses (`NameGateRefusal` carrying the branch's `pattern`, no file changed); an
 `update_fields`/body-writer call with no provenance on an unloaded repository (`ValueError`, no note
@@ -3714,14 +4697,31 @@ whitespace-only (never reported as divergent — the arm's `stored.strip()` conj
 **a rename, and an `update_fields` name change, attempted while `OBSIDIAN_SCHEMAS_WRITE_GUARD` is
 `observe` (`ValueError` naming the mode, raised before any `vault_io.move_note` call and — for
 `update_fields` — before its content write, the filename SET unchanged and every file byte-identical,
-while a non-rename update under the same mode still succeeds: M6)**; and — the threat model's four door mitigations — a
+while a non-rename update under the same mode still succeeds: M6)**; **an `update_fields` call carrying a
+`name` key on a STAMPED entity whose own type declares no `name` — a `Book` or `Meeting`, with or without
+a stored `name:` extra (`ValueError` naming the type-declaration precondition, raised before the content
+write, the note BYTE-IDENTICAL, the filename SET unchanged, for the escaping and the non-escaping
+spelling alike, while that same entity's `{"status": …}` update still succeeds and a person's name change
+still moves: M7)**; **an `update_fields` call on a STAMPED `Book` or `Meeting` carrying NO `name` key but
+touching one of the six fields that type's own filename rule is made of — `title`/`author` for a Book,
+`date`/`topics`/`attendees`/`meeting_id` for a Meeting (`ValueError` naming the FILENAME-RULE
+precondition, raised before the content write, the note BYTE-IDENTICAL, the filename SET unchanged; a
+non-string value for such a field refused with that same `ValueError` and never an `AttributeError`
+leaking out of `_get_file_name`; while a `{"status": …}` on the same book, a `{"tags": …}` on the same
+meeting, any delta on an ALREADY-divergent note that leaves its rule where it found it, and a person's
+name change all still succeed: M8)**; and — the threat model's four door mitigations — a
 rename to a destination that resolves outside the vault in any of its three spellings (`ValueError`,
 nothing moved, nothing hard-linked outside: M1), a case-only rename interrupted between its two moves
 (the residual file is inside `*.md` and every reader still sees it: M3), and a successful rename whose
-audit line names the source as well as the destination (M4). Each of the four is pinned BOTH ways in
-Task 10, M6's second direction being that under the default `enforce` the same occupied-destination
-call still raises `NoteAlreadyExists` and an ordinary in-vault rename still moves — the arm that stops
-a fail-closed clause from passing by refusing everything. The stamp's READ direction is a
+audit line names the source as well as the destination (M4). Each of those four, and M7 and M8 one frame
+over in `update_fields`, is pinned BOTH ways in
+Task 10 — M6's second direction being that under the default `enforce` the same occupied-destination
+call still raises `NoteAlreadyExists` and an ordinary in-vault rename still moves, the arm that stops
+a fail-closed clause from passing by refusing everything; M7's being that the same book entity's
+non-`name` update still succeeds and a person's name change still moves; and M8's being the four
+ACCEPTED arms that separate a clause reading the type's RULE from one refusing every Book and Meeting
+write — a non-deriving delta on each of the two types, an already-divergent note still writable, and a
+person's name change still moving. The stamp's READ direction is a
 correctness arm rather than a failure mode and sits with Task 2's check: a note declaring
 `_source_path` for a DIFFERENT file still resolves to its own (M2).
 
@@ -3748,8 +4748,14 @@ template literal and an existing repo path do not.
 and are outside this tree's write authority, so this is verified by the committed audit rather than
 by a test that pretends to reach them: 19 of 19 call sites on the nine changed paths are on LOADED
 entities, 0 `auto_load=False` constructions, 0 reconstructions feed a write, 0 consumer call sites on
-`BookRepository.save`/`MeetingRepository.save`, and exactly one consumer-visible behaviour change
-(HAL9000's generic entity PATCH at `routers/entities.py:461`, disclosed in Dave's signed read-back).
+`BookRepository.save`/`MeetingRepository.save`, and exactly one consumer-visible ROUTE whose behaviour
+changes (HAL9000's generic entity PATCH at `routers/entities.py:461`, disclosed in Dave's signed
+read-back). What that route's behaviour changes TO is enumerated in Prerequisites 7 and not compressed
+into a count: the MAIN arm (a name change now moves the file and keeps an alias), four disclosed RAISE
+arms beside it (no provenance; a `Book`/`Meeting` `name` delta, M7; an occupied destination; and a
+`Book`/`Meeting` delta that moves that type's own filename rule, M8), and the widening Design §5
+declares (a `Book`/`Meeting` delta that does NOT move that rule now SUCCEEDS where today the method
+raises above the lock).
 Inside the tree, `PersonRepository.create_stub`, `find_or_create_stub` and `resolve_or_create` are
 CREATE paths and keep today's behaviour by construction — their entities carry no stamp and their
 target is the name-derived filename.
@@ -3868,6 +4874,31 @@ path he did not authorize per run.
   list below. M6 does not touch any of them: it refuses at the DOOR THIS ITEM SHIPS, which is the
   only one whose blast radius this item creates. Repairing door 2's arms would move `create_note`'s
   behaviour, which AC-1(f) leans on, and belongs to WI-004's backlog.
+- **Not widening `gate_write` to a third type, and not teaching the door Book's or Meeting's filename
+  rule** *(the bound M7 declares for itself, 2026-09-26)*. M7 refuses a `name` delta on a type that
+  declares no `name`; it does not make `name_gate.py` validate one for `book` or `meeting` (that file is
+  on the unchanged list below, the Tier-1 tables are read and never edited, and widening the gate is a
+  second behaviour with its own both-ways pinning obligation), and it does not compose the rename
+  destination with `self._get_file_name(entity)` for those two types. That second option would be a NEW
+  capability — renaming book and meeting notes by their derived stem — against 0 measured consumer call
+  sites (Prerequisites 7) and with no live direction table behind it, where refusal costs nothing anyone
+  does today. The one live instance of the shape, a book-titled file holding a person note, is already a
+  BOOKED HAND REPAIR in `docs/stem-divergence-live-baseline.md` §4 and stays there. **M8 is this
+  non-action made REAL rather than a second exception to it** *(2026-09-26)*: this bullet says refusal
+  is the right answer where teaching the door a second filename rule costs more than it buys, and M8's
+  clause is that refusal. It recomputes `self._get_file_name` only to COMPARE the delta against the
+  entity, never to compose a destination; `rename_note` is untouched, no Book or Meeting note is
+  renamed, and `_get_file_name` reaches no rename path.
+
+- **Not applying M8's clause to `save` or the two `save` overrides, and not refusing the divergence
+  they leave** *(the bound M8 declares for itself, 2026-09-26)*. Those three derive their own target
+  from the entity's current fields and have no rename to reconcile, so after this item a `save` of an
+  entity whose deriving fields the caller changed lands in the PARSED file rather than forking a second
+  note. That is AC-1's signed promise and `## Verified Diagnosis` 1's whole point — a refusal there
+  would refuse the criterion — so the resulting in-place divergence is an ACCEPTED trade against today's
+  fork, named in Design §2's sweep and `## Risk Analysis` rather than closed by a clause. For a Book or
+  Meeting subject it is outside the new detector's person-only arm, the same detector-blind class as the
+  COMPANY residual, and it is the conductor direction table's business.
 - **Not widening WI-022's seven mangled company notes into this build.** They ride the same conductor
   repair run if the direction table covers them; the library change already reaches `CompanyRepository`
   for free, since it declares neither `save` nor `get_file_path`.
@@ -3889,15 +4920,18 @@ which are hash-signed.
 | risk | likelihood | impact | mitigation |
 |---|---|---|---|
 | A consumer's `save()` now lands in a different file than it did yesterday, and something downstream depended on the old target | low | high — it is a live vault | The audit measured it: 19/19 consumer sites are on LOADED entities, so the new target is the note they READ. The one behaviour change a consumer can observe (HAL9000's generic PATCH now MOVES on a name change) is disclosed in Dave's signed read-back rather than discovered |
-| `update_fields` now MOVES a file on every name change, permanently | certain (it is the design) | medium — incoming references go stale | The old stem is kept as an alias, so the library's own resolvers and Obsidian both still find the note; only this project's linter resolves by stem, and the resulting warning volume is measured (24 + 14) and accepted knowingly |
+| `update_fields` now MOVES a file on every name change, permanently | certain (it is the design) | medium — incoming references go stale | On every name change whose MOVE COMPLETES the old stem is kept as an alias, so the library's own resolvers and Obsidian both still find the note; only this project's linter resolves by stem, and the resulting warning volume is measured (24 + 14) and accepted knowingly. **The alias is NOT claimed unconditionally** *(corrected 2026-09-26 after the fourth spec-review round, which found this mitigation false for the sub-population whose move cannot complete)*: where the door raises before the move — an occupied destination, a symlinked source — no alias is appended and no file moves, and the residual is the row below. Where the move completes and only the alias write raises, the alias is the one thing missing and the row two below it owns that |
+| An `update_fields` name change whose destination `@{new_name}.md` is ALREADY OCCUPIED by a different note (or whose source is a symlink): the content write commits and the door then raises, leaving the note carrying its NEW stored name at its OLD filename with no alias, and an exception on a successful write | low but ORDINARY — no race, no configuration, no exotic type; the direction table measures the occupied-destination shape at 1 of 8 live rows (`docs/stem-divergence-live-baseline.md` §2, the MERGE row) and HAL9000's generic PATCH is a live route to it (Prerequisites 7) | medium — a divergence manufactured by the method that exists to end them, and for a COMPANY subject it is outside the new detector's `vf.entity_type == "person"` arm | ACCEPTED, with the residual and its recovery stated as a RULE over the precondition table's whole NO half rather than as one more case (Design §2, "The COMPLEMENT of that rule"): remove the cause — for an occupied destination that is the direction table's MERGE, a conductor judgement the door is specified never to make — then call `repo.rename_note(entity, f"@{new_name}.md")` DIRECTLY and re-bind the entity from the returned path; a re-run of `update_fields` is safe and completes nothing, because the committed name is now the stored one. Removing it by ORDERING is unavailable, not merely unchosen — the door's own alias write invalidates the content write's `precondition=stamp` and would turn every successful rename into an `ExternalWriteConflict` (`obsidian_schemas/vault_io.py:write_note:685-698`), and AC-2's signed `why` prescribes write-then-move — and removing it by PRE-CHECKING the destination is the check-then-act the precondition table refuses, which would leave the same residual at a smaller window while adding a second authority beside `os.link`. It is not a regression against today: today the same call SUCCEEDS and leaves exactly this divergence silently (`base.py:454-459`), and the only thing lost is an `aliases` entry naming a stem the note still occupies as its own filename. Task 10 asserts the residual directly — the raised leaf, the unchanged filename SET, the destination note byte-identical, the committed `name:`, the absent alias, the un-re-stamped entity — plus the re-run's no-op and the direct-door recovery |
 | The rename door fails between the move and the alias write | low | low — the note is where it should be and correctly stamped; one reachability route is lost | REVISED after the third spec-review round (2026-09-25): the earlier mitigation read "the door is idempotent, so a re-run completes it", which the prescribed door cannot do — `old_stem` is read off the source, provenance has already moved to the destination, so the re-run is a safe NO-OP that appends nothing. What actually holds: the entity is re-stamped before the alias write (so no later `save` recreates the old stem — no fork), the exception is loud, the re-run is safe, and the missing alias is repaired by one caller-side field edit (`repo.update_fields(entity, {"aliases": […, <old stem>]})` or by hand), which `## Edge Cases` states and Task 10 pins as the `aliases`-unchanged property. `move_note` is link-then-unlink, so a mid-flight kernel failure leaves a duplicate rather than a hole |
 | The idempotent re-run silently performs a two-step move, because the branch discriminant is a raw string compare while the stamp comes back from `move_note` RESOLVED | medium — it is the default on macOS, the platform the floor runs on | medium — an interrupted re-run leaves a `.rename-tmp.md` where the document says nothing moved, and a battery pinning "no move" is RED against correct code | The branch key is file identity, not spelling: `(destination.parent.resolve(), destination.name) == (source.parent.resolve(), source.name)` (Design §2, Task 6). Task 10 asserts it on a vault path the test itself spelled divergently from its resolved form, with a non-vacuity assertion that the two spellings really do differ, so the arm cannot pass by the platform's good luck |
 | The case-only two-step leaves a `.rename-tmp.md` file behind | low | low | REVISED after the threat model's M3 (2026-09-25): the earlier mitigation read "the staging name is outside `*.md`, so no reader picks it up" — which is the same fact that would make the failure SILENT, offered as the reason it is safe. The staging name now keeps the `.md` suffix, so the leftover is a note Obsidian, all three `file_pattern` globs and `lint_vault` all see, and the new detector reports it as a divergence. The second `move_note` still raises loudly if the staging name is occupied, and the state is recovered by a HAND rename — not by a door re-run, for the reason Design §2's re-run table gives (the same entity's stamp names the pre-move source, which is gone) |
 | A caller sends the rename door a destination outside the vault — `..`, an absolute path, or an in-vault symlink pointing out | low | high — a note written outside the vault, under a clean name nothing flags | M1: the door refuses on the RESOLVED destination before any `move_note` call, the same test the seam applies to the source. Pinned both ways in Task 10 — all three escape spellings refused, an ordinary destination and an in-vault subdirectory still moving — so the clause cannot degenerate into refusing everything |
 | `update_fields` calls the two-lock door, and a builder places the call inside the `note_lock` block it already holds | low, but it is the natural reading of the surrounding code | high — a deadlock between two concurrent movers, in a library three consumers run | Design §2 states the placement (outside the block, after the write commits, before the reload) and ordering decision 5 states WHY reentrancy does not license the other placement; `door_calls_inside_note_lock` asserts it structurally as an EMPTY set over `PACKAGE_ROOT`, pinned both ways in Task 10 so it cannot pass by forbidding the single-path doors `write_markdown_file` legitimately calls inside its own lock |
 | A builder lets `rename_note`'s no-provenance raise leak out of `update_fields` after the content write has committed, leaving a note renamed in its field, un-aliased, unmoved, and an exception on a successful write | low, but it is what the naive ordering produces | medium — a divergence manufactured by the method that exists to end them, on the one population the method's own fallback serves | The refusal is moved BEFORE the write: inside the lock, after the name-change decision, before anything is gated or written (Design §2, "The no-provenance name change refuses BEFORE the write"; Task 6). Task 10 asserts the note is BYTE-IDENTICAL after the refusal, which is the assertion that distinguishes refusing early from refusing late, and asserts the non-rename and unchanged-name updates still succeed so the clause is not "refuse every unstamped update". The two alternatives are rejected in writing: skipping the move keeps today's leave-behind, and re-stamping from `get_file_path` would hand the door whichever member of a collision won the vault walk |
-| `update_fields` is no longer ATOMIC across write-then-move, because the move cannot be held inside the lock | certain (it is the design) | low — every residual is loud, detector-visible and recoverable | The interleavings are walked in `## Edge Cases`: a concurrent source write loses to last-writer-wins and moves with the file, a concurrent move or delete gives `FileNotFoundError` from the door's own `source.exists()`, a concurrent create at the destination gives `NoteAlreadyExists` by syscall — the syscall arm holding because M6 has already refused the call where the write guard is not enforcing, the row below. None lands one person's bytes in another's note, each residual is exactly the `stem_name_divergence` the new detector reports, and each is a MOVE that did not happen, which re-running the idempotent door completes (pinned in Task 10; the one residual a re-run does NOT repair is the missing alias after a move that succeeded, which is the row above). The alternative placement is a deadlock in a library three consumers run |
+| `update_fields` is no longer ATOMIC across write-then-move, because the move cannot be held inside the lock | certain (it is the design) | low — every residual is loud, detector-visible and recoverable | The interleavings are walked in `## Edge Cases`: a concurrent source write loses to last-writer-wins and moves with the file, a concurrent move or delete gives `FileNotFoundError` from the door's own `source.exists()`, a concurrent create at the destination gives `NoteAlreadyExists` by syscall — the syscall arm holding because M6 has already refused the call where the write guard is not enforcing, the row below. None lands one person's bytes in another's note, each residual is — for a PERSON subject — exactly the `stem_name_divergence` the new detector reports (the one subject type this item leaves outside that arm is a COMPANY, named in Design §2's complement rule rather than implied here), and each is a MOVE that did not happen, which re-running THE DOOR completes — `repo.rename_note(entity, …)` and never a re-run of `update_fields`, whose trigger reads the committed name back out of the note (pinned in Task 10; the one residual a door re-run does NOT repair is the missing alias after a move that SUCCEEDED, the "fails between the move and the alias write" row). The alternative placement is a deadlock in a library three consumers run |
 | A consumer (or the conductor's own repair shell) sets `OBSIDIAN_SCHEMAS_WRITE_GUARD=observe` — the estate's documented rollback lever — and door 3's occupied-destination refusal silently becomes an `os.replace` that DESTROYS the occupied note | medium — it is the runbook's own cheapest rollback (`docs/concurrent-access.md:4286`) and the measure-before-adopting mode the three consumers are invited to set (`:2556`), read per call with no restart | high — one person's bytes land in another's note and the overwritten one is UNRECOVERABLE, in the one act Rollback says `git` cannot undo; WI-004 declared it acceptable (R9) only while door 3 had a single quarantine caller, a premise this item removes | M6: the door reads `vault_io.guard_mode()` beside M1's containment block and REFUSES with `ValueError` before any `move_note` call, and `update_fields` refuses the same condition inside its lock before its content write, so nothing is half-applied. Pinned both ways in Task 10 — refused under `observe` for an occupied AND an ordinary destination, still moving (and still raising `NoteAlreadyExists` on an occupied one) under `enforce` — with the environment set and restored in a `finally`. The residual is a capability LOSS while the mode is set, which is the intended direction for a rollback lever and is stated in Prerequisites 9 |
+| A consumer PATCHes a `name` key onto a Book or Meeting entity — the generic entity PATCH forwards an arbitrary body — and `update_fields` commits an ungated `name:` into the note and only then discovers the door will not move it | low today (0 measured consumer call sites on Book's and Meeting's write paths), but it is what the naive trigger produces and THIS ITEM is what makes the frame reachable at all | medium — a note gains a caller-supplied field it has no rule for, unmoved, un-aliased, with an exception after a successful write, and it is the ONE residual of this item the new detector cannot report (Task 11's arm fires only on `vf.entity_type == "person"`), so the non-atomicity row above's "every residual is exactly the `stem_name_divergence` the new detector reports" claim would be false as written | M7: the pre-write refusal's third disjunct is `"name" not in type(entity).model_fields` — keyed on the DECLARED field, read off the class, never on a type name — so the delta is refused inside the lock before anything is gated or written and the note is byte-identical. It closes a class rather than a case: Design §2's delegation rule now says a refusal handed to another wall is only as total as that wall's DECLARED SCOPE, which is what `gate_write`'s two-type coverage (`obsidian_schemas/name_gate.py:gate_write:319-344`) breaks. Pinned both ways in Task 10 — the escaping and non-escaping spellings both refused with the note byte-identical, against the same entity's non-`name` update succeeding, a person's name change still moving, and a stored-`name:`-extra book still refusing |
+| A consumer PATCHes a Book's `title` (or `author`, or a Meeting's `date`/`topics`/`attendees`/`meeting_id`) — no `name` key, so the rename branch never fires — and `update_fields` COMMITS the field, moves nothing, records no alias for the stem the note is leaving behind, and raises nothing | low today (0 measured consumer call sites on Book's and Meeting's write paths, and the generic PATCH is the only route, `docs/wi-029-consumer-audit.md:84`, `:137`), but it is an ORDINARY request — `PATCH /api/entities/book/{name}` with `{"title": …}` — and THIS ITEM is what makes the frame reachable at all (Task 3's `resolved`-first reorder; Design §5's declared widening) | medium — this document's own type-general divergence predicate manufactured SILENTLY by the method that exists to end it, and it is the QUIETEST residual in the item: M7's raises, the occupied-destination one raises, and this one raises nothing and is invisible to Task 11's `vf.entity_type == "person"` arm, so the non-atomicity row's "every residual is loud, detector-visible and recoverable" would be false as written | M8: the pre-write arm's SECOND CLAUSE, `not renaming and derive is not None and derive(projected) != derive(entity)` with `derive = getattr(self, "_get_file_name", None)` — keyed on the REPOSITORY'S OWN DECLARED FILENAME RULE, never on `name` or a type name — so the delta is refused inside the lock before anything is gated or written and the note is byte-identical. It closes a class rather than a case: the generator is a guard keyed on the PERSON instance (`name`) of a predicate this document states TYPE-GENERALLY, which produced M7 and M8 from the same paragraph two rounds apart, and Design §2's third rule now states the arm's TWO obligations (refuse a rename the door cannot complete; refuse a write that moves the type's own rule with no rename to follow). It adds no capability — the rule is recomputed only to COMPARE, never to build a path — and the comparison is DELTA-RELATIVE so an already-divergent Book or Meeting note stays writable. Pinned both ways in Task 10 across four REFUSED cells spanning both types and four ACCEPTED arms. The one place in this item where the same shape is ACCEPTED rather than refused is `save` and the two `save` overrides, and it is accepted by a SIGNED decision rather than by omission: a `save` of an entity whose deriving fields the caller changed now lands in the parsed file instead of forking a second note, which is AC-1's promise and `## Verified Diagnosis` 1's point — refusing there would refuse the criterion; its own residual for a Book or Meeting subject is detector-blind, the same class as the COMPANY residual named in Design §2's loudness precision, and is the conductor direction table's business |
 | The seam is shipped but a tenth write path is added later and routes around it | medium over time | high — the class reopens silently | AC-5's derived scan, pinned both ways with a planted-escape battery including the two shapes a builder optimizing for green would reach for first |
 | The live baseline has drifted in the four days since it was measured | medium | medium — a repair row that cannot be executed | No criterion asserts the number 8; the build-runner re-runs §0's script at Verify-Assumptions and treats a changed TABLE as a drift report; AC-4's exit half re-runs the identical script |
 | Four new check modules each add a foreign-interpreter re-exec to the AC battery | certain | low — battery wall-clock only | `ensure_project_interpreter` is a NO-OP under the floor command and under CI, so the floor is unaffected; only the conveyor's per-criterion runs pay it, and they pay it once each |
@@ -4001,11 +5035,146 @@ that section's whole body, nested `###` subsections included (`hash_section`,
 
 **What each round changed** is listed in the corresponding `## Design` revision note and named at every
 site it lands — the second note for the second spec-review fold, the THIRD note for the fold of
-threat-model M5, and this round's fold of threat-model **M6** in Design §2's new "The door FAILS CLOSED
-when the write guard is not enforcing" bullet and the "CLASS behind M6" paragraph beside it. Nothing
+threat-model M5, the FOURTH for threat-model **M6** in Design §2's "The door FAILS CLOSED
+when the write guard is not enforcing" bullet and the "CLASS behind M6" paragraph beside it, and the
+FIFTH for threat-model **M7** in Design §2's delegation rule beneath the precondition table, and the
+SIXTH for the fourth spec-review round's blocking finding in Design §2's **"The COMPLEMENT of that
+rule"** block beneath the same table, and the SEVENTH for threat-model **M8** in Design §2's **"the
+THIRD rule"** block, which is the last block in that section and states the pre-write arm's TWO
+obligations. Nothing
 below adds spec content; it records things a later reader would otherwise have to re-derive.
 
-### This round (M6) — what moved, and the two things it deliberately did NOT move
+### This round (threat-model M8) — the SAME paragraph found twice, two rounds apart, and why the fold had to climb a rung
+
+The two findings came out of one paragraph: Design §2's account of who may reach the rename branch. M7
+(round 5) found the branch REACHABLE for a type that declares no `name`, because the trigger reads the
+caller's dict against the note's frontmatter and consults the model nowhere. M8 (round 6) found the
+complement — a delta carrying NO `name` key — UNGUARDED for those same two types, because the whole
+rename-side predicate is `if renaming and (…)` and `Book`'s and `Meeting`'s filenames are not made of
+`name` at all. M7's fold swept its own level honestly and still did not reach M8, and the reason is
+worth carrying: **M7's generator was "a bound enforced by a predicate that never reads the models"; M8's
+is one rung up — "a guard keyed on the PERSON instance (`name`) of a predicate this document itself
+states TYPE-GENERALLY".** Every guard the item had shipped keyed on `name`, which is `Person`'s and
+`Company`'s filename rule and not the package's, while the item's own divergence definition is stated
+over *the filename this type's own write rule recomputes*. Sweeping the members of M7's class could not
+find that, because M8 is not a member of it — it is the same class re-instantiated one level of
+abstraction up.
+
+The practical consequence, and the thing to reach for first on a bounce round of this shape: **when the
+finding sits inside the previous fold's own new prose, check whether the KEY the fold chose is the
+general form of the predicate or one type's instance of it.** M7 keyed on the declared FIELD
+(`"name" in type(entity).model_fields`), which was the right key for the rename branch and still a
+`name`-shaped key. M8 keys on the declared RULE (`getattr(self, "_get_file_name", None)`), which is what
+the document's own type-general divergence predicate actually quantifies over — and once it is keyed
+there, the six deriving fields are covered by construction, a fifth type is covered, and a base-class
+`_get_file_name` is covered, none of them by enumeration.
+
+Three things the fold deliberately did NOT do, recorded so a later round does not re-litigate them.
+It did not teach the door or `update_fields` a second filename rule for COMPOSING a destination — the
+rule is recomputed only to compare — because that is the NEW capability `## Scope Boundary` declines
+against 0 measured consumer call sites. It did not compare against `file_path.name`, which would have
+refused every write to an already-divergent Book or Meeting note, i.e. to the exact population the item
+exists to repair. And it did not extend the same clause to `save` or the two `save` overrides: what they
+leave is AC-1's SIGNED trade (in-place divergence instead of today's fork), so a refusal there would
+refuse the criterion — that is declared in the sweep, in `## Scope Boundary` and in `## Risk Analysis`
+rather than closed by a clause.
+
+### The fourth spec-review round — the THIRD member of one class, and why the answer is a residual rule and not a disjunct
+
+The finding's GENERATOR, which is the only part worth carrying forward: `update_fields`' rename branch
+commits its content write inside the lock and only then discovers the door will not complete the move.
+Three members so far — no provenance (spec-review round 2), a type declaring no `name` (threat model
+M7), a destination already occupied (this round). The first two were closed by adding a disjunct to the
+pre-write refusal, and that was right for both, because their causes are knowable in the frame from its
+own arguments and environment. **The third is not, and the difference is the whole lesson:** its cause
+is filesystem state at move time, the precondition table already answers that row **NO** for the right
+reason, and a fourth disjunct would have been a pre-check — check-then-act, a second authority on
+occupancy beside `os.link`, and the same residual at a smaller window.
+
+So the fold is the table's COMPLEMENT rather than a fourth conjunct, and the shape is the one the
+previous two folds already used one level up: a rule total over the surface, derived from the table's
+own rows. Rule 1 said which rows refuse EARLY; the complement says what the method LEAVES for the rows
+it answers NO, and what the caller does about it. Written once, checked row by row against the table in
+a four-row table of its own, so the next reader can falsify it in the same breath — and so the FOURTH
+NO row, if one is ever added to the door, is placed by the rule instead of arriving as round five's
+finding.
+
+Three things this round decided that a later reader should not have to re-derive:
+
+- **Move-then-write is UNAVAILABLE, not merely unchosen, and the reason is in the door's own body.**
+  `rename_note` appends the alias through `update_frontmatter_field(moved, …)` in the same call, so a
+  move performed BEFORE `update_fields`' content write moves the file's `st_mtime_ns` and `st_size` and
+  the content write's `precondition=stamp` — taken from this frame's own `read_note` — then MISMATCHES,
+  turning every SUCCESSFUL rename into an `ExternalWriteConflict`
+  (`obsidian_schemas/vault_io.py:write_note:685-698`). The reorder that removes a rare residual
+  manufactures a certain one. AC-2's signed `why` prescribing write-then-move is the second reason and
+  not the first; the code is the first.
+- **The residual is not a regression against today, and that is what makes ACCEPT the right call.**
+  Today the same call succeeds and silently leaves the very divergence `## Verified Diagnosis` 1 and
+  AC-2(c) exist to end (`base.py:454-459` appends the old stem, the write commits, the reload returns).
+  After this item the same divergence is produced in the one sub-population whose move cannot complete,
+  and the caller is told. The only thing lost is an `aliases` entry naming a stem the note STILL
+  OCCUPIES as its own filename — a route the file already provides. Keeping today's in-lock append to
+  preserve it was considered and refused: two writers on one `aliases` list, one frame apart, for a
+  decoration.
+- **The recovery is the same for every NO row and is NOT a re-run of `update_fields`.** The trigger
+  reads the caller's dict against the note's frontmatter, which now already carries the committed name,
+  so a re-run is a safe no-op that completes nothing. `repo.rename_note(entity, f"@{new_name}.md")`
+  once the cause is gone is the repair — the entity is still stamped at the unmoved file, which is
+  exactly the provenance the door resolves from.
+
+One precision folded in the same edit, because the loudness claim had to be true where it is made: for
+a PERSON subject the residual IS a `stem_name_divergence` the new detector reports, while `Company` —
+which declares `name`, inherits `update_fields` and the door whole, and is therefore reachable — sits
+outside the detector's `vf.entity_type == "person"` guard. That is the one residual of this item the
+detector cannot see (M7 removed the Book/Meeting one by refusing it outright), and it is named in
+Design §2's complement rule and in `## Risk Analysis` rather than implied.
+
+### The round before (M7) — the fold of a finding that lives INSIDE the previous fold
+
+The fifth threat-model round's one new `kind: required` mitigation, M7, folded at every site the contract
+names and at the sites its own class sweep reached:
+
+- **Design §2, the pre-write refusal** — a third disjunct, `"name" not in type(entity).model_fields`, in
+  the sequencing block, in the prose predicate and in the refusal message's "WHICH precondition failed"
+  list.
+- **Design §2, the precondition table** — the M1 row's answer CORRECTED. It read "already refused
+  earlier, by a different wall" and delegated the whole row to `gate_write`, bounding the residue with
+  "`Book` and `Meeting` cannot reach it at all — they declare no `name` field". That is a fact about
+  `obsidian_schemas/models.py` the trigger never consults: the trigger reads the caller's dict against
+  the note's frontmatter, a book note carries no `name:`, so `frontmatter.get("name", "")` is `""` and
+  any non-empty `updates["name"]` fired the branch. The row is now SPLIT by declared field and closed on
+  both sides.
+- **Design §2, beneath the table — the class closure, which is the WI-226 half of this fold.** The
+  generator is not "the M1 row" but *a bound on a population asserted from the models and enforced by a
+  predicate that never reads them*, so the second rule is stated at source: **a refusal delegated to
+  another wall is only as total as that wall's own DECLARED SCOPE, and wherever the wall is narrower the
+  residue is refused HERE.** The three sites that carried the unchecked claim (the M1 row, the
+  `f"@{new_name}.md"` paragraph, Task 6's restatement) now rest on the disjunct, and the next level's
+  sweep is DECLARED with its four non-members and its result (no fourth member).
+- **`## Edge Cases`, Prerequisites 6, Design §5** — one new entry for a `name` key on a type that
+  declares none; the trust boundary's THIRD half, naming `f"@{new_name}.md"` as the one place in this
+  item where an externally-supplied string composes a write target and the three bounds on it; the
+  integration row's third disjunct.
+- **Task 6, Task 10, `## Verification`, `## Risk Analysis`, `## Scope Boundary`, the `base.py` and
+  `tests/test_provenance_write_seam.py` `writes` fences, `## Wall Membership`, `## Mitigation Folds`** —
+  the clause, its both-ways battery over a planted stamped BOOK note, the failure-mode entry, a new risk
+  row naming the detector-blindness the finding turned on, the not-doing entry for widening `gate_write`
+  or teaching the door `_get_file_name`, the wall notes for `type(entity).model_fields`, and the M7 fold
+  record.
+
+Three deliberate NON-moves. **No signed criterion was edited** — AC-2 gains no arm; M7's battery is a
+non-AC arm of AC-2's check, exactly as M6's and the idempotence arm are. **`name_gate.py` is untouched**:
+widening the gate to a third type is a second behaviour with its own pinning obligation and the file is
+on the unchanged list. **The door learns no second filename rule** — composing the destination with
+`self._get_file_name(entity)` for Book and Meeting would be a NEW capability against 0 measured consumer
+call sites, and the one live instance of the shape is already a booked hand repair. Task 6's
+"do NOT add a containment conjunct for M1 here" instruction is KEPT and qualified rather than deleted:
+it is right for the two types the gate validates (a `ValueError` raised earlier would degrade a
+`NameGateRefusal` carrying its `pattern`) and it was the whole of the answer only because the row it
+pointed at was wrong.
+
+### Two rounds before (M6) — what moved, and the two things it deliberately did NOT move
 
 The fourth threat-model round's one new `kind: required` mitigation, M6, is folded at every site the
 contract names and at the sites its own class sweep reached:
@@ -4040,6 +5209,36 @@ names it. The three non-blocking notes of round 4 needed no work beyond that: th
 cosmetic log line and the `update_fields` message's pre-existing name disclosure are both recorded by
 the modeler as not-required, and the `os.environ`-versus-`guard_mode()` spelling warning is folded
 into both the Design bullet and Task 6's clause.
+
+### The round after the third spec review — the findings were already folded; what I re-derived, and the one rung I added
+
+This pass opened on a document whose bytes already carried the third spec-review round's fix, so it
+produced no repair. What it produced instead is a READ-BACK and one rung, and both are recorded here so
+the next reviewer does not have to guess which is which.
+
+- **Re-derived rather than inherited, because a fold can be right in prose and wrong in code.**
+  `vault_io.move_note` returns `_move_locked`'s `target`, which is `_resolved(dest)` — a bare non-strict
+  `Path(dest).resolve()` (`obsidian_schemas/vault_io.py:_resolved:234-243`,
+  `obsidian_schemas/vault_io.py:move_note:741-742`, `obsidian_schemas/vault_io.py:_move_locked:783`), so
+  the stamp a rename writes really is resolved; `obsidian_schemas/repositories/base.py:_resolve_vault_path:104-114`
+  really is `Path(str(candidate).strip())` and resolves nothing; `tests/support.py:temp_dir:31-37` really
+  hands back an unresolved `mkdtemp` path; and `tests/support.py:Patcher.setitem:59-65` really pops a key
+  it found unset, which is the restore Task 10's M6 arm needs. The branch key, the half-failure residual
+  and the one-field recovery are correct against those.
+- **The rung.** The file-identity key answers WHICH SPELLING takes which branch. It says nothing about
+  what ELSE makes `source.samefile(destination)` true, and that is the same generator one level down —
+  exactly the shape §3a's ladder rule and the re-run table were each written to stop. Two distinct
+  in-vault names for one inode is a closed set (a case variant, or a link), so Design §2 now enumerates
+  it with each outcome read off `move_note`'s body: the case variant is Task 10's asserted arm; a hard
+  link makes the second move raise `NoteAlreadyExists` and leaves precisely the visible staging note M3
+  exists to guarantee; a symlink at the destination naming the source runs both moves and lands the note
+  back where it started, the door returning that path and appending nothing. **No work is ordered for
+  any of them** — each is either already asserted, a loud refusal with a visible residual, or a no-op
+  that returns the truth — and that is a decision, not an omission.
+- **One Task 10 precondition, the WI-149 shape.** The M1 arm's ACCEPTED cell renames into an in-vault
+  SUBDIRECTORY; `os.link` against a missing parent raises into a `WriteFailedError`
+  (`obsidian_schemas/vault_io.py:_move_locked:772-773`), so the task now says the test creates that
+  directory. Without the clause the cell is red against a correct door for a reason that is not M1's.
 
 ### The duplicated `## Adversarial Review — 2026-09-25` heading — a conductor question, recorded and NOT answered here
 
@@ -4087,11 +5286,18 @@ mitigation, M5, was folded two rounds ago (Design §4a, Task 13, `## Verificatio
 fence, a `## Mitigation Folds` record), and its five non-blocking notes needed no work: four record that
 material this document already carries is correct, and the fifth was the stale "five planted members"
 count in a `writes` fence — corrected then, re-stated as the LIST rather than as a number, and the list
-is what grew when plant (vii) landed. **The M1–M5 `## Mitigation Folds` records were NOT edited this
-round and none needed to be:** the fourth threat-model round re-emitted all five `desc` values
-byte-identically, and M6's clause sits BESIDE M1's in the door rather than inside it, so every quoted
-Design sentence and Task-6 work text those five records carry is still byte-identical to the text at its
-site. Only the section's preamble and the new M6 record moved. Three dispositions are deliberate
+is what grew when plant (vii) landed. **The M1–M6 `## Mitigation Folds` records were NOT edited in the
+M7 round and none needed to be:** the fifth threat-model round re-emitted all six `desc` values
+byte-identically, and M7's disjunct sits in `update_fields`' refusal one frame over — it touches no
+sentence M1–M6's records quote. That was CHECKED after the M7 edits rather than assumed, and the check's
+scope is stated so a later reader does not have to redo it: all six `design:` sentences still resolve to
+their unwrapped Design lines verbatim, and the four Task-6 `work:` values (M1, M3, M4, M6) still resolve
+to their clauses verbatim — M7's clause was inserted after M6's and edited neither. Two pre-existing,
+pre-M7 deviations are carried unchanged because this round did not touch their tasks: M2's `work:` (Task
+2) compresses the arm's closing three sentences into one parenthetical, and M5's `work:` (Task 13)
+stitches five non-contiguous stretches with semicolons and rewords the reader-battery tail; M6's drops
+the `**` emphasis markers around its final sentence. All three date from the rounds that authored them.
+Only the section's preamble and the new M7 record moved this round. Three dispositions are deliberate
 NON-actions and are recorded so
 they read as decisions rather than omissions: **M1's residual** (resolve-then-`os.link` is check-then-act
 against an attacker who can plant a symlink between the two — out of this item's threat model, bounded in
@@ -4101,8 +5307,81 @@ and **the no-op branch's cosmetic audit line** (round 4's first non-blocking not
 branch M4's INFO line reads "Renamed … from @New.md to @New.md"; the modeler recorded it as harmless,
 not a security defect and not folded, so it is carried unchanged rather than spent a clause on).
 None of the three is a `kind: required` mitigation and none has a fold record, which is correct: the
-latest speaking threat-model round's SIX required mitigations are the only ones `## Mitigation Folds`
+latest speaking threat-model round's EIGHT required mitigations are the only ones `## Mitigation Folds`
 carries.
+
+**Round 5's three non-blocking notes, dispositioned so the next round does not re-find them.** (1) The
+`guard_mode()` double read — `update_fields` checks the mode inside its lock and `rename_note` checks it
+again after that lock releases, so an in-process `os.environ` mutation between the two would put the
+door's refusal after the committed write. The modeler ordered no work: it needs code inside the process
+to move the variable, which is strictly more privileged than the boundary Prerequisites 6 draws, and
+Design §2's re-run table already owns the outcome by name. Carried unchanged. (2) AC-2(b)'s
+occupied-destination arm depends on the ambient environment while only the M6 arm is told to set it —
+worth one line so a conductor reading a red AC-2(b) checks the shell before the code, and NOT a spec
+edit, because the direction is safe (under an ambient `observe` the arm goes RED, not green) and AC-2 is
+signed. M7's own arm follows the M6 rule and sets `enforce` explicitly, which is now stated in Task 10.
+(3) Round 4's three carried-forward dispositions stand: the no-op branch's cosmetic audit line, the
+`update_fields` message's pre-existing person-name disclosure (a shipped class — `base.py`'s
+`ValueError(f"{self.type_name} not found in repository: {name}")` already does the same in the same
+method), and the `os.environ`-versus-`guard_mode()` spelling warning, folded into both the Design bullet
+and Task 6's clause. **OPEN security questions: none**, in round 5 as in round 4.
+
+**The FOURTH spec-review round (2026-09-26), dispositioned so the next round does not re-find any of
+it.** Its one blocking finding is folded as the class (above, and in Design §2's "The COMPLEMENT of
+that rule"); all three of its non-blocking notes are CLOSED rather than carried, each at its own site:
+the `aliases` mirror is gated on `renaming` (Design §2's sequencing block, "Which `aliases` list
+wins", Task 6, and the `base.py` `writes` fence), the Book/Meeting `update_fields` widening is declared
+as a decision with its measured blast radius (Design §5), and Design §1's `BaseEntity` quotation is
+restored verbatim from `obsidian_schemas/models.py:BaseEntity:23-40`. Its carried-forward notes are
+re-dispositioned unchanged and none acquired work this round: the duplicated `## Adversarial Review`
+heading is the conductor's (above, still not answered here); M1's exact bound, the write-then-move
+window and the no-op branch's cosmetic audit line remain the three declared NON-actions listed in the
+paragraph above; the `guard_mode()` double read stays deferred for the modeler's own reason, and the
+reviewer's observation that it is this round's class one step further out is right and changes nothing
+— it needs a privileged actor inside the process, where the occupied destination needs only a taken
+filename, which is exactly why one is deferred and the other is folded; AC-2(b)'s ambient-environment
+dependence stays a conductor reading note and not a spec edit (the direction is safe and AC-2 is
+signed); and architect round 6's out-of-scope items stand as `## Scope Boundary` names them.
+**The `## Mitigation Folds` records were NOT edited this round and none needed to be**, checked after
+the edits rather than assumed and with the same stated scope as the M7 round's check: all seven
+`design:` sentences still resolve to their unwrapped Design lines verbatim, and the five Task-6
+`work:` values (M1, M3, M4, M6, M7) still resolve to their clauses verbatim — every clause this round
+added to Design §2 is a separate paragraph BESIDE the sentences those records quote, and Task 6's new
+DO-NOT-PRE-CHECK clause was inserted above the M1 clause and edited none of them. The two pre-existing
+deviations (M2's compressed `work:`, M5's stitched one) are carried unchanged for the same reason: this
+round touched neither Task 2 nor Task 13.
+
+**The SIXTH threat-model round (2026-09-26, the second section under that date), dispositioned so the
+next round does not re-find any of it.** Its one new required mitigation, M8, is folded as the CLASS
+one rung above M7's — Design §2's third rule ("the pre-write arm has TWO obligations"), the second
+clause in Task 6, the both-ways battery in Task 10, the bound restated in Design §5 and in the M7
+`## Edge Cases` entry, a new `## Edge Cases` entry, a `## Risk Analysis` row, two `## Scope Boundary`
+bullets, the fourth disclosed RAISE arm in Prerequisites 7, the `## Verification` failure-mode
+enumeration, the `base.py` `writes` fence, the Walls A/B/C row of `## Wall Membership`, and a
+`## Mitigation Folds` record. Its four non-blocking notes need no work and are dispositioned here.
+(1) The three closures of the fifth fold LAND (the `renaming`-gated `aliases` mirror, Design §5's
+declared widening, Design §1's restored `BaseEntity` quotation) — recorded, nothing ordered; the
+widening's BOUND is where this round's finding sat, and that bound is now corrected in place.
+(2) `_get_cache_key`'s `""` key for a Book reaching `update_fields`' cache surgery is a CORRECTNESS
+observation and not a security one: with the frame newly reachable, `old_name_key = name.lower()` is
+`""` (`obsidian_schemas/repositories/base.py:BaseRepository.update_fields:498`) while `new_name_key` is
+the title, so the removal half operates on a cache entry that is almost never there — nothing is
+corrupted on disk, no wrong note is written, and the index is merely not cleaned for a key that was
+never set. `## Scope Boundary` already declines `_get_cache_key`'s strip asymmetry in the same
+neighbourhood; carried as a NON-action, recorded so the next round does not re-find it. (3) Round 5's
+three non-blocking notes stand exactly as the paragraphs above disposition them, including the
+`guard_mode()` double read (deferred: it needs a privileged actor inside the process, where this
+round's finding needed only an ordinary PATCH field) and AC-2(b)'s ambient-environment dependence
+(a conductor reading note; AC-2 is signed). (4) The duplicated `## Adversarial Review` heading is still
+the conductor's and is still not answered here. **OPEN security questions: none**, in round 6 as in
+rounds 4 and 5. **The M1–M7 `## Mitigation Folds` records were NOT edited this round and none needed to
+be**, checked after the edits rather than assumed and with the same stated scope: all seven `design:`
+sentences still resolve to their unwrapped Design lines verbatim, and the five Task-6 `work:` values
+(M1, M3, M4, M6, M7) still resolve to their clauses verbatim — the new M8 clause was inserted AFTER
+M7's and before the "Without the REFUSAL ARM AS A WHOLE" sentence, which no record quotes, and the two
+other Task-6 edits (the "four clauses of that body" preamble and the "All THREE disjuncts" sentence)
+both sit outside every quoted span. Task 2 and Task 13 were not touched, so M2's and M5's pre-existing
+`work:` deviations are carried unchanged for the fourth round running.
 
 ## Architectural Review — 2026-09-21
 
@@ -4605,1652 +5884,238 @@ model: claude-opus-5
 note: Every premise re-executed independently and all hold — the nine write paths derived fresh from a door-grep (13 enclosing functions: 9 repository paths + writer.py's 4 leaves), premise 13's four divergent corpus members and single name-sharing group note for note, the one `sentinel_exempt` Tier-1 record out of ten with `gate_write` deriving the flag the bare validator defaults `False`, and the census's 8 / 2 / largest-collision-2; both grounding artifacts are in HEAD, dated, produced by the DOOR call the criteria name, and the live baseline passes AC-4's own consistency rule (0 gate-refused, 7 RENAME + 1 MERGE, row 3 same-file, row 8 different-note). Counterexample hunt over two enumerated domains found one false-by-design class — `vault_io.py`'s own `os.replace`/`os.unlink` terminal writes — excluded by AC-5's enumeration predicate and legal under bucket (a) anyway, so no criterion moves; the four-day-old live baseline is the only rot risk and is contained by the Intent carrying no frozen count plus AC-4's exit re-run.
 ```
 
-## Threat Model — 2026-09-25
+## Threat Model — 2026-09-26
 
-**Recommendation: PROMOTE to threat-modeled — the approach is sound and its one genuinely new
-capability is a RELOCATION door whose destination is caller-supplied and never containment-checked;
-four required mitigations, each one clause, each landed on a plan task**
+**Recommendation: PROMOTE to threat-modeled — round 6 (the SECOND section carrying today's date under this
+heading; round 5 is the earlier one, and this is a distinct round, not a re-emission of it). M1 through M7
+all HELD: I re-verified each against the code or the artifact it prescribes, every ordinal is unmoved, and
+the seven fences below are RE-EMITTED with byte-identical `desc`. The FIFTH fold — the fourth spec-review
+round's occupied-destination complement rule — is correct at every citation it rests on, and I checked its
+three non-blocking closures too: all three land. The finding this round is inside the fold again, and again
+it is the fold's own widening that made it findable. Design §5's new "One CAPABILITY WIDENING" declaration
+states, as a decision, that Task 3's `resolved`-first reorder makes `update_fields` usable on `Book` and
+`Meeting` for the first time, and bounds it with *"the one thing it does NOT widen is the rename branch,
+which M7 refuses for both types"*. That bound is `name`-shaped, and those two types' filename rule does not
+read `name`: `BookRepository._get_file_name` derives from `title` and `author` (`book.py:340-355`) and
+`MeetingRepository._get_file_name` from `date`, `topics`, `attendees` and `meeting_id`
+(`meeting.py:208-231`). So a delta carrying NO `name` key — the exact delta the M7 `## Edge Cases` entry
+blesses as *"unaffected"* — passes every disjunct, passes `gate_write` untouched, COMMITS, moves nothing,
+aliases nothing and raises nothing: a silent, detector-blind instance of this item's own defect class,
+newly reachable through the one externally-supplied door the item names. One new required mitigation, M8,
+one more disjunct on the predicate Task 6 already prescribes, keyed on the repository's own declared
+filename rule.**
 
-Cold-start spawn. I read the document in full including the five architect rounds, both red-team
-rounds and the data-premise audit, then re-executed the security-relevant claims against this
-worktree with Read/Grep rather than trusting the account of them — `vault_io`'s three doors and
-`_resolved`, `name_gate.gate_write`'s type dispatch, both Tier-1 tables' `path_hostile` records,
-`BaseRepository.save`/`update_fields` as they stand today, and the door body Design §2 specifies.
-The seam itself is the safest part of this item: it REMOVES a name-derived target, and a name is the
-one value in the payload an attacker can influence. What it adds is a door that moves files.
-
-### Trigger check
-
-Five fire. (1) **Filesystem operations on user-owned files** — the item ships the package's first
-repository-level relocation capability over Dave's live vault. (2) **Persists data** — every write
-path in the package changes where it lands. (3) **Untrusted input crossing into a trusted decision** —
-vault BYTES (frontmatter, filenames) become a typed model at `obsidian_schemas/parser.py`, and this
-item makes a value carried on that model decide where a write goes. (4) **PII** — person notes carry
-names, emails and phones; the item adds a new WARNING and a new ERROR that quote them, and commits a
-live-vault evidence artifact. (5) **Out-of-repo blast radius** — three consumers install `-e` and
-inherit both the behaviour change and the new door.
-
-### STRIDE review
-
-**Spoofing — one surface, and it is the stamp's provenance.** The item's whole safety argument is
-§7.6's claim that *"the stamp is a path the package itself produced from a path the caller handed it,
-never a value read out of a note"*. That claim decides whether `_resolve_write_target`'s answer is
-trusted input, so it is worth an assertion rather than a sentence. `BaseEntity.model_config` sets
-`extra="allow"` (`obsidian_schemas/models.py:31-32`), so a crafted note declaring `_source_path:` in
-its frontmatter reaches model construction; the design is correct that the parse's own assignment
-lands last (`obsidian_schemas/parser.py:parse_markdown_file:244`, on the `entity is not None` arm) and
-that a pydantic v2 `PrivateAttr` wins attribute lookup over `__pydantic_extra__` — so the forgery does
-not take. But *does not take* is a property of two implementation details in two files, and nothing in
-the plan asserts it: Task 2's check tests the WRITE direction (the stamp cannot reach a note) and AC-1(h)
-tests the same direction over the sweep. The READ direction — a note cannot set the stamp — is
-untested. If it ever regressed, the consequence is precisely the corruption this item exists to end,
-turned into a directed one: a note that steers a consumer's `save()` into a different person's file.
-The containment in `_resolve_write_target` bounds it to inside the vault and no further. **M2.**
-
-**Tampering — the destination of `rename_note` is unbounded, and this is the finding.** The seam
-resolves the SOURCE through a containment test (Design §2:
-`candidate.resolve().is_relative_to(self.vault_path.resolve())`), and §7.6 states the property as if it
-covered the door. It does not. `rename_note(entity, new_filename)` computes
-`destination = self.vault_path / new_filename` (Design §2, doc `:1234`) and hands it straight to
-`vault_io.move_note` with no containment test of its own, and there is nothing underneath to catch it:
-`_resolved` is a bare `Path(path).resolve()` with no notion of a vault root
-(`obsidian_schemas/vault_io.py:_resolved:234-243`), and `move_note` checks a symlinked SOURCE and
-nothing about where `dest` points (`obsidian_schemas/vault_io.py:move_note:721-750`). Two reachable
-spellings, and pathlib decides both:
-
-- **A direct consumer call.** `rename_note` is PUBLIC and this item is the first thing to ship a
-  relocation capability to HAL9000, Exocortex and orchestrator. `Path(vault) / "../../../x.md"`
-  traverses and `Path(vault) / "/tmp/x.md"` replaces the vault root outright — an absolute operand
-  wins. HAL9000 already forwards arbitrary request bodies into this layer
-  (`routers/entities.py:461`, the one consumer-visible change in Dave's signed read-back), so a
-  filename derived from request data reaching the new door is the obvious next call site, not a
-  contrived one.
-- **A symlinked DESTINATION inside the vault — and this one defeats the gate.** `_resolved` FOLLOWS
-  symlinks. A dangling symlink at `@Target.md` pointing outside the vault resolves to the outside
-  path, `os.link` succeeds there, and the note lands outside — with a perfectly clean name, so no
-  Tier-1 branch is involved at all. (A non-dangling one is refused by `os.link`'s `FileExistsError` →
-  `NoteAlreadyExists`, `obsidian_schemas/vault_io.py:_move_locked:758-771`.) This is why the
-  mitigation has to test the RESOLVED destination and not the string.
-
-What stands between this and the one in-library caller today is accidental and partial. `update_fields`
-gates the delta above the write (`obsidian_schemas/repositories/base.py:483-485`) and for a Person a
-`name` containing `/` is refused by `path_hostile` (`obsidian_schemas/name_validation.py:249-259`,
-regex `/` and nothing else); Company has its own wider table (`:397-401`). But that is a NAME-HYGIENE
-component doing path containment as a side effect, in a table this item's Scope Boundary declares
-"read, never edited" — and `gate_write` returns a declared non-person type's delta **untouched**
-without validating any name (`obsidian_schemas/name_gate.py:305-344`), so the protection is
-type-dependent as well as incidental. Depending on it is the shape LESSONS #1 calls a boundary you can
-route around. The door should refuse an escaping destination itself, in one clause, using the test the
-seam already performs on the source. **M1.**
-
-*Not a finding, checked and clean:* the occupied-destination refusal is a syscall and not a
-check-then-act, so the `.exists()`/`samefile` branch in the door is a routing decision and not a TOCTOU
-gate; `move_note` sorts both locks into a global total order and they are reentrant
-(`vault_io.py:744-750`), so calling the door from inside `update_fields`' held lock introduces no
-ordering edge; and cross-device escape fails loud, since `os.link` across filesystems raises `OSError`
-→ `WriteFailedError`.
-
-**Repudiation — one act is newly unreconstructable.** The item argues its own logging rule explicitly:
-the `save` WARNING exists so *"the class becomes reconstructable from a consumer's logs instead of
-being discovered as a corrupted note months later"* (doc `:585-588`). The door's audit line does not
-meet that bar — `logger.info("Renamed %s note to %s", self.type_name, moved.name)` (Design §2)
-records the destination and drops the source. After this item `update_fields` MOVES a file on every
-name change, permanently, in three consumer repositories (the risk table rates that likelihood
-*certain*), so the one act with no undo is the one whose before-state is not in the log. Naming both
-ends is one format string. **M4.**
-
-**Information disclosure — no new class; the existing wall is correctly placed.** The new WARNING
-quotes an absolute vault path containing a person's name, which is a real PII surface but is the
-package's shipped idiom, not a new one: `save` already logs `@{name}.md` at INFO
-(`obsidian_schemas/repositories/base.py:411`) and `vault_io._refuse` already logs full resolved paths
-at WARNING (`vault_io.py:195-198`). The detector's ERROR quotes a stem and a stored name — a linter
-reporting a filename is the point, and it runs on Dave's machine on Dave's vault. The place this
-genuinely matters is the committed artifact, and it is already walled: AC-4 asserts no absolute path
-and no note filename leaks, importing `FORBIDDEN_DEFAULT_PATTERNS` rather than re-spelling it, and the
-close-out procedure redacts to counts, classes and directions. The `_source_path` stamp is unwritable
-by construction (`writer.model_to_frontmatter` composes from `model_fields` + `model_extra` +
-`extra_fields`, `obsidian_schemas/writer.py:106-131`) and AC-1(h) asserts it. Nothing to require.
-
-**Denial of service — nothing realistic, one availability finding under Tampering's heading.** No
-network, no untrusted-size input, no recursion, no retry loop. The seam adds two `Path.resolve()`
-calls per write where today there are none; negligible. The one availability concern is the case-only
-two-step. Door 3's own design principle is stated in its docstring — *"link-then-unlink, deliberately
-over unlink-then-link: a failure between the two leaves BOTH paths present, and a duplicate is
-recoverable by hand while a lost note is not"* (`obsidian_schemas/vault_io.py:move_note:732-734`). The
-two-step stages through `source.with_name(destination.name + ".rename-tmp")`, which manufactures
-exactly the hole door 3 refuses to manufacture: between the two moves, and permanently if the process
-dies there, the note is not a `*.md` file, so Obsidian does not show it, `lint_vault` does not read it,
-the repository does not load it and the new detector cannot report it. The risk table rates this
-low/low and gives as its mitigation *"the staging name is outside `*.md`, so no reader picks it up"* —
-which is the same fact that makes the failure silent, offered as the reason it is safe. Keeping the
-staging name inside the `.md` namespace costs one expression and converts a silent disappearance into
-a visible, lintable, divergent note. It is one live row (baseline §2, row 3), repaired by hand by the
-conductor, so the likelihood is low and the fix is cheap enough that low is not a reason to skip it.
-**M3.**
-
-**Elevation of privilege — none.** No credentials, no tokens, no scopes, no network egress, no
-subprocess, no new import capability. The item's privilege surface is filesystem reach, and that is
-what M1 bounds. WI-031's containment (no test may reach `OBSIDIAN_VAULT_PATH` or an absolute path) is
-preserved and extended: AC-3's module ships the five-part door, AC-5's wall forbids a tenth write path,
-and `## Wall Membership` enumerates the routing walls A/B/C that keep filesystem-mutation capability
-single-homed in `vault_io.py`. The repair itself stays outside the cage.
-
-### Mitigations
-
-Four required, declared as fences below. All four are clauses on work the plan already schedules; none
-changes the approach, the seam, the door's structure or any signed acceptance criterion, which is why
-this is a PROMOTE with folds rather than a REVISE. Three land on Task 6 (the door) and one on Task 2
-(the stamp).
-
-1. **M1 — contain the door's destination.** `rename_note` refuses a `new_filename` whose RESOLVED
-   destination is not inside `self.vault_path`, raising before any `move_note` call. Resolved and not
-   string-compared, because the escape has two spellings and only one of them is in the string. This is
-   the same test `_resolve_write_target` already applies to the source, which is what makes §7.6's
-   trust-boundary claim true of the whole item rather than of half of it. Task 6.
-2. **M2 — assert the stamp is unforgeable from note content.** Task 2's check already owns the write
-   direction; it gains the read direction. One note whose frontmatter declares `_source_path` pointing
-   at a second note, parsed, then `_resolve_write_target` asserted to answer the first note's own path.
-   Task 2.
-3. **M3 — the case-only staging window must not be silent.** The staging name keeps the `.md` suffix so
-   an interrupted rename leaves a note every reader can still see. Task 6.
-4. **M4 — the relocation audit line names both ends.** Task 6.
-
-```mitigation
-kind: required
-id: M1
-desc: `rename_note` must refuse a destination whose RESOLVED path is not inside `self.vault_path`, raising before any `vault_io.move_note` call — the containment test `_resolve_write_target` already applies to the source, applied to the caller-supplied destination, resolved rather than string-compared so that a symlink inside the vault cannot point the move outside it.
-landed: Task 6
-```
-
-```mitigation
-kind: required
-id: M2
-desc: The provenance stamp must be unforgeable from note content, asserted and not assumed — a note whose own frontmatter declares `_source_path` naming a DIFFERENT file must still resolve, through `_resolve_write_target`, to the file it was parsed from.
-landed: Task 2
-```
-
-```mitigation
-kind: required
-id: M3
-desc: The case-only two-step must not move the note out of the `*.md` namespace — the staging name keeps the `.md` suffix, so a rename interrupted between the two moves leaves a note that Obsidian, the repository and `lint_vault` can all still see rather than a file no reader picks up.
-landed: Task 6
-```
-
-```mitigation
-kind: required
-id: M4
-desc: `rename_note`'s audit line must name the SOURCE path as well as the destination, so a relocation performed by `update_fields` on a consumer's behalf is reconstructable from logs.
-landed: Task 6
-```
-
-### Notes (non-blocking)
-
-- **A pre-existing extras leak, not this item's to fix.** Any frontmatter key the models do not declare
-  survives a round-trip through `entity.model_extra` and is re-serialized by `model_to_frontmatter`
-  (`obsidian_schemas/writer.py:106-131`). AC-1(h) asserts no note *gains* a path-valued key, which is
-  the right scope for this item; a note that already carries one keeps it. Worth knowing only so a
-  builder does not read AC-1(h) as a claim that the package sanitizes extras.
-- **`gate_write` validates no name for a declared non-person, non-company type**
-  (`obsidian_schemas/name_gate.py:319-344`). Correct and deliberate — a Book title is not a person name
-  — and noted only because it is why M1 cannot be satisfied by leaning on the gate.
-- **The detector's `_gate_refusal_pattern` calls `gate_write` on every person note in the vault.** It is
-  a pure predicate with no write arm and `lint_vault` already imports both symbols
-  (`scripts/lint_vault.py:47-48`), so this adds no capability to the tool — confirming, rather than
-  flagging, that the read-only property AC-3(d) asserts holds at the call as well as at the issue.
-- **OPEN security questions: none.**
-
-```verdict
-gate: threat-modeler
-verdict: PROMOTE
-date: 2026-09-25
-model: claude-opus-5
-note: The seam removes a name-derived write target and is the safe half; the new capability is `rename_note`, whose destination is caller-supplied and contained nowhere — `self.vault_path / new_filename` traverses on `..` and is replaced outright by an absolute operand, `vault_io._resolved` is a bare `Path.resolve()` with no vault root (`vault_io.py:234-243`) and `move_note` checks only a symlinked SOURCE (`:721-750`), so the only thing bounding the one in-library caller today is `path_hostile`'s `/` regex in a name-hygiene table this item declares out of scope, which a symlinked destination bypasses entirely and which `gate_write` skips for a declared non-person type (`name_gate.py:319-344`) — closed by M1, one clause reusing the containment `_resolve_write_target` already performs on the source, with M2 asserting the stamp is unforgeable from note content (the read direction of §7.6's trust boundary, untested today), M3 keeping the case-only staging name inside `*.md` so an interrupted rename does not manufacture the hole door 3 is designed to avoid, and M4 logging the relocation's source; all four are clauses on scheduled tasks, none moves the approach or a signed criterion, zero OPEN questions.
-```
-
-## Spec Review — 2026-09-25
-
-**Recommendation: REVISE — return to spec writer (gaps to fix)**
-
-Cold-start spawn, first spec-review round on this document. I read it from line 1 in full — the
-five architect rounds, both red-team rounds, the sign-off, the data audit and the threat model —
-then re-read the code at every load-bearing citation rather than trusting the injected drift audit,
-which proves only that symbols resolve. Rulings on record: WI-021's gate-name-output-is-an-identity
-ruling (approach G's rejection), Dave's `ac_hash 15189b874b27` sign-off freezing AC-1…AC-5 and the
-Intent, and the exploration's own accept-the-linter-noise disposition — I route against all three
-rather than re-litigating them, and none of the findings below touches a signed criterion's text.
-
-This is an unusually well-grounded spec. The seam is argued from the code rather than asserted, the
-fallback asymmetry is the right shape, AC-5's data-flow rebuild is correct against
-`tests/derivations.py`'s actual machinery, and the four threat-model folds are faithful. The findings
-below are four places where the *document* decides something two ways, or where a class the live
-vault contains has no member anywhere in the batteries.
-
-### Citation verification
-
-I read the code at every load-bearing citation. All resolve and all quote accurately, including the
-ones a wrong reading would have made the design unbuildable:
-
-- `obsidian_schemas/repositories/base.py:BaseRepository.save:391-393` / `:398` / `:411`;
-  `update_fields:438`, `:440-441`, `:449`, `:454-459`, `:466-469`, `:483-485`, `:490`, `:493-495`;
-  `_adopt:184-191` (the `_file_map[name_key] = file_path` write at `:188`); `_ensure_loaded:210-213`;
-  `load:241-248`; `get_file_path:354-365`; `_load_file:311-314` — and `:313`'s
-  `vault_io.remember_snapshot(file_path, stamp)`, which is what makes the provenance-bound `save`
-  reach `write_markdown_file`'s 2u arm rather than its zero case. That is load-bearing for the whole
-  design and the spec does not cite it; it is nonetheless TRUE, so this is a note rather than a gap.
-- `obsidian_schemas/writer.py:model_to_frontmatter:89` composing from `model_fields` → `model_extra`
-  → `extra_fields` at `:106-131`; `write_markdown_file:160`, the `entity is not None` gate arm at
-  `:229-233`, the one `gate_write` call at `:252-253`, `with vault_io.note_lock(file_path) as
-  resolved` at `:258`, `is_create` at `:275`, the two write calls at `:317`/`:319`;
-  `update_frontmatter_field:333` (`:393`), `update_frontmatter_fields:405` (`:451`),
-  `roundtrip_file:463` (`:504`) — all four path-taking leaves write their own FIRST parameter, so
-  AC-5's bucket (a) holds, and `write_markdown_file` is the one that needs the `with … as` hop
-  exactly as Design §4 says.
-- `obsidian_schemas/vault_io.py:_resolved:234-243` (a bare `Path(path).resolve()`, symlink-following,
-  no vault root); `move_note:721-750` with the sorted two-lock acquisition at `:744-750` and the
-  symlink-source refusal at `:736-740`; `_move_locked:753-783` with `os.link`'s `FileExistsError` →
-  `NoteAlreadyExists` at `:759-771` and `forget_snapshot` at `:780-781`. First positionals are
-  `path`/`path`/`src` at `:670`/`:701`/`:721` — Design §4's "first positional is the total rule" is
-  correct at every door.
-- `obsidian_schemas/parser.py:parse_markdown_file:244` is the `parse_to_model` line and `:246-252`
-  the `ParsedDocument(...)`, so the two-line insertion lands where the snippet shows;
-  `parse_markdown_content:283` passes `file_path=None`. `models.py:BaseEntity:31-32` quotes verbatim.
-- `scripts/lint_vault.py:check_structural:328` with `read_error`/`parse_error` `continue` at
-  `:340-359`, `missing_type` at `:373-381`, the `TYPE_TO_MODEL` guard at `:387-388`;
-  `read_vault:121` globbing `*.md` at `:123` and reading `entity_type` off the stored record at
-  `:176`; `gate_write`/`NameGateRefusal` already imported at `:47-48`; `NameGateRefusalRecord:865`;
-  `FixOutcome:926`; `CATEGORY_ORDER:1206`; the `person_missing_name` repair at `:1040-1045`; the
-  phone-sentinel-unreachable comment at `:1009-1014`.
-- `tests/derivations.py:DOOR_NAMES:47`, `_own_body_nodes:245`, `_names_in:282`, `_is_write_call:286`,
-  `_taints_a_write:361-409` (seed `:368-382`, fixpoint `:389-401`, sink `:404-408`),
-  `functions_calling:873`, `_pos:924`, `_assign_targets_name:928`, `mutating_drive_vault_args:2175`.
-  The monotonicity claim and the `_names_in(target)` hazard Design §4 warns about are both real as
-  written.
-- `tests/fixture_vault.py:CORPUS_DIGEST:44`, `NOTES:217`, the four divergent specimens at `:255-260`,
-  `:261-266`, `:297-301`, `:302-306`, the collision third at `:273-276`, the whitespace
-  discriminator at `:246-254`, the phone specimen at `:288-293`, `LOADABLE:521`'s "22 person files",
-  `materialize_vault:626`. Premise 13 reproduces note for note.
-- `tests/support.py:captured_logs:91` does default `level=logging.WARNING`, so Task 10's explicit
-  `level=logging.INFO` for M4 and its silence for (f)'s WARNING are both right.
-- `tests/test_concurrent_access.py:test_wi020_derivations_survive_the_routing:1060` (the `{write_markdown_file}`
-  set equality at `:1081`, `non_completed_write_sites == 8` at `:1085`);
-  `tests/test_name_gate_wall.py:test_wall_membership_is_closed_by_running_each_walls_predicate:1057`;
-  `tests/test_loud_fail_write.py:test_write_failure_raises_and_noops_keep_their_return:105`;
-  `tests/test_lint_vault_fix_rules.py:1703`'s `auto_fixable_emitter_checks` set equality.
-- `docs/stem-divergence-live-baseline.md` `:144-153` (the eight rows), `:155-156` (the two vocabularies
-  Task 13 pins), `§0`–`§5` all present. AC-4's consistency rule does pass against it.
-
-One stale SYMBOL, non-blocking and listed below: premise 11 names `entity_to_frontmatter`; the
-function is `model_to_frontmatter` (`obsidian_schemas/writer.py:model_to_frontmatter:89`). Design §1
-uses the correct name, so nothing downstream is wrong.
-
-### Blocking issues
-
-**1. The live vault's row 8 — a non-`@`-prefixed file holding `type: person` — has no member in any
-battery, and AC-3(b)'s own wording points a builder away from it.**
-
-`docs/stem-divergence-live-baseline.md:153` is one of the eight divergences this item exists to
-repair: *"a **book-titled file** (no `@`, at the vault root) holding `type: person`"*, destination
-occupied by a different note, the item's single live MERGE and one of its four booked hand repairs
-(`§4`, `## Hand repairs riding along`). Design §3's arm is correct for it — the guard is
-`vf.entity_type == "person"` and the stem strip is conditional
-(`stem = vf.stem[1:] if vf.stem.startswith("@") else vf.stem`), and `check_structural`'s loop does
-reach such a file, since the `is_at_prefixed` tests sit only on `no_frontmatter` and `missing_type`
-and `person` is in `TYPE_TO_MODEL` (`scripts/lint_vault.py:check_structural:362-388`).
-
-The problem is that nothing anywhere pins it, and one criterion reads as forbidding it. AC-3(b)
-requires the check to emit nothing for *"every non-`@`-prefixed note"* among the corpus notes. Over
-the frozen corpus that is satisfiable two ways, because every `declared_type="person"` entry in
-`tests/fixture_vault.py:NOTES:217-479` is `@`-prefixed: by `vf.entity_type == "person"` (correct,
-Design §3) and by `vf.is_at_prefixed and vf.entity_type == "person"` (wrong, and the narrower reading
-of AC-3(b)'s clause). Both pass AC-3(a) with four, both pass AC-3(b), both pass AC-3(c)/(d)/(e) — and
-the second one silently misses the live row on the report Dave actually runs, which is the fourth
-"Examples of done" scenario verbatim.
-
-This is the exact WI-286 shape this document already invoked twice and closed twice by PLANTING: the
-sentinel-exempt phone stub for the door-predicate spelling (`## Exploration Notes`, "And the corpus
-cannot tell the two rules apart"), and the Book/Meeting colliding groups for the call-and-discard
-stub (the red-team's round 1). The third member of the same class was not planted. The fix is the
-same two edits and touches no signed text: in **Task 12**, plant a non-`@`-prefixed note carrying
-`type: person` and a stem that differs raw from its stored `name:` — row 8's shape — and assert it is
-emitted as a `stem_name_divergence` ERROR; and in **Design §3**, state in one clause that the guard is
-`entity_type` and NOT `is_at_prefixed`, naming baseline row 8 as the live subject, so a builder
-reading AC-3(b)'s "every non-`@`-prefixed note" does not narrow the guard to satisfy it.
-(A builder's question this answers: *"AC-3(b) says never report a non-`@` note — do I gate the new arm
-on `is_at_prefixed`?"*)
-
-**2. The lock scope of `update_fields`' call to `rename_note` is unspecified, and the safety argument
-the document gives for the placement it implies is unsound.**
-
-Design §2 states the ordering as a prescription:
-
-> write the content … `# still inside `with vault_io.note_lock(file_path)`` / THEN move
-> `moved = self.rename_note(…)` / THEN rebind / THEN reload
-
-and then argues (same section, the paragraph ending the door's prescription) that *"calling the door
-from inside the already-held lock is itself safe, since it sorts both resolved paths into a global
-total order and the locks are reentrant (`vault_io.py:744-750`)"*. AC-2's `why` repeats it and
-`## Edge Cases` resolves *"one renames while another saves"* with *"it introduces no new
-lock-ordering edge"*.
-
-Reentrancy only excuses re-acquiring the lock you already hold; it does not preserve the global
-order. `move_note` sorts `[src, dest]` and acquires in that order (`vault_io.py:744-750`), which is
-deadlock-free only while nobody holds either lock across the call. A caller holding `note_lock(A)`
-that then calls `move_note(A, B)` with `B < A` acquires A-then-B against the total order; a
-concurrent `move_note(B, A)` acquires B-then-A, and the two block. `rename_note` also calls
-`writer.update_frontmatter_field(moved, …)`, which takes `note_lock(moved)` itself
-(`obsidian_schemas/writer.py:update_frontmatter_field:363-393`) — a second out-of-order acquisition
-from inside the same held lock. Today no site in the tree holds a note lock across `move_note`
-(`scripts/lint_vault.py:1343` is the only caller and holds none), so this item introduces the edge.
-
-The document's own ordering decision 5 states the correct rule and reaches the opposite conclusion —
-*"holding the source lock across a call that acquires the destination's would violate that order for
-a concurrent mover"* — which is why this is a contradiction rather than a debatable trade-off: the
-spec is buildable both ways and the Edge Case is resolved on the half that does not hold. Nothing in
-the sequencing argument requires the call to be inside: `vault_io.write_note(file_path, …,
-precondition=stamp)` has already committed, `forget_snapshot(source)` is `move_note`'s business, and
-the reload at `base.py:493-495` is outside the `with` already. State the placement explicitly in
-Design §2 and in Task 6's work text, and correct whichever of the two safety sentences does not
-survive it.
-(Builder's question: *"Does `moved = self.rename_note(...)` go inside or after the `with
-vault_io.note_lock(file_path)` block?"*)
-
-**3. Design §2's `update_fields` ordering block hands the door `updated_view`, a name the document
-never defines, and the paragraph below it says to hand it `entity`.**
-
-The block reads `moved = self.rename_note(updated_view, f"@{new_name}.md")`; two paragraphs later:
-*"the door is called with the caller's `entity` (already stamped by the parse) — never with a
-freshly-constructed view."* `updated_view` appears nowhere else in the document. This is not
-cosmetic: `rename_note` re-stamps whatever it is handed (`entity._source_path = moved`), reads
-`aliases` off it, and `_adopt`s it — so AC-2(e) ("a `save()` on the SAME in-memory entity lands in
-the new file") and AC-2(g) both turn on which object it gets. The prose answer is the right one and
-the code line contradicts it; make the block say `entity`.
-
-**4. The `## Acceptance Criteria` preamble still says the set is unsigned, contradicting the
-`ac-signoff` fence and the Scope Boundary.**
-
-The section opens *"Draft — proposed at `exploring`, to be reviewed and signed by Dave through
-`/review-spec` before `→ specced`. The spec-writer refines them in place; nothing here is frozen
-yet."* The `## AC Sign-off` fence records `verdict: PROMOTE`, `reviewer: dave`, `signed_at:
-2026-09-25T11:22:44+01:00`, `ac_hash: 15189b874b27` plus five per-criterion hashes, and
-`## Scope Boundary` lists *"the `## Intent` and `## Acceptance Criteria` sections of this document,
-which are hash-signed"* among the files the builder must not touch. `## Design`'s own opening says
-the ACs "are **not touched by this spec**". Three surfaces state the ruling and the fourth — the one
-a builder reads immediately before the criteria themselves — still states the pre-ruling behaviour
-and invites an in-place refinement that would break the signature. One sentence; it is the WI-226
-sweep, not a style note.
-
-### Non-blocking notes
-
-- **`rename_note`'s idempotent branch ships untested.** `## Edge Cases` resolves two cases on it —
-  *"The rename fails halfway"* (**Decision:** *"re-running `rename_note(entity, same)` is idempotent:
-  the `destination == source` branch skips the move and appends the alias"*) and *"Re-running the
-  whole build, or re-running the repair"* — and neither AC-2's eight arms nor Task 10's battery names
-  an idempotency assertion. The branch is also what `## Risk Analysis`'s rollback row leans on
-  ("recoverable by hand or by re-running the idempotent door"). AC-2 is signed and cannot gain an
-  arm; Task 10 can, at the cost of one sentence.
-- **`save`'s INFO line will name a file it did not write.** Task 3 says *"do not touch `save`'s gate,
-  `overwrite`, `_adopt` or logging"*, and today's line is
-  `logger.info(f"Saved {self.type_name}: {filename}")` with `filename = f"@{name}.md"`
-  (`obsidian_schemas/repositories/base.py:BaseRepository.save:392`, `:411`). Under the
-  resolved-or-derived shape the write can land elsewhere while the log still says `@{name}.md` — the
-  exact defect M4 corrects one method over, and the shape the `## Approach` WARNING exists to make
-  "reconstructable from a consumer's logs". Say whether the line logs the resolved target.
-- **The alias write is unguarded for types that declare no `aliases` field.** The door does
-  `update_frontmatter_field(moved, "aliases", aliases)` unconditionally while guarding only the
-  in-memory half with `if hasattr(entity, "aliases")`. Only `Person` declares the field
-  (`obsidian_schemas/models.py:Person:80`); `Company`, `Book` and `Meeting` do not, and
-  `CompanyRepository` inherits the door whole — which `## Scope Boundary` explicitly contemplates for
-  WI-022's seven mangled company notes. Writing Obsidian's own `aliases` key onto a non-Person note is
-  arguably right, but the asymmetry between the two halves reads as an oversight rather than a
-  decision; one clause settles it.
-- **Counting slips, three of them, the class the earlier rounds kept catching.**
-  `## Verified Diagnosis` opens *"Four load-bearing claims"* over six numbered items. The
-  `tests/test_concurrent_access.py` write-target fence says *"four count pins"*, lists five, and the
-  next sentence says *"The design holds all five still"*. `## Wall Membership`'s row for the same
-  module says *"the four routing pins"* and lists five. Also, `## Approach` and the blast-radius
-  bullet call the call-site edits *"nine one-line call-site edits"*, while the REFUSE-fallback shape
-  Design §2 prescribes is three lines at each of the seven refusing sites.
-- **Premise 11 names a symbol that does not exist.** `entity_to_frontmatter` → `model_to_frontmatter`
-  (`obsidian_schemas/writer.py:model_to_frontmatter:89`). Exploration-notes archaeology, corrected
-  everywhere downstream; worth one word so a later reader does not grep for it.
-- **The read-back's "one true live subject of the not-renameable marker" is not one.** Conductor
-  read-back note 2 says *"Row 8 … is the one live MERGE and the one true live subject of the
-  not-renameable marker"*, echoing `docs/stem-divergence-live-baseline.md:159-161`. The marker fires on
-  the DOOR PREDICATE, and row 8's (b3) column reads `WRITTEN`; `§1`'s own figure is *"divergent rows
-  the WRITE DOOR refuses (b3): 0 of 8"*. So no live row carries the marker — which is what the same
-  note's preceding sentence says ("their discriminating members ONLY in the frozen corpus and the
-  plants"). Row 8 is not-renameable because its destination is occupied, which the marker does not
-  encode and the direction table does. Nothing in the criteria depends on it; the sentence will
-  mislead the conductor at the exit attestation.
-- **Tasks 3, 4, 5, 6, 7 and 11 declare a `verify:` naming a test authored in a later task.** D10a is
-  satisfied (the declarations are well-formed) and D10b runs after every task has landed, so this
-  refuses nothing — but a builder finishing Task 3 has nothing runnable to prove it beyond the floor.
-  Worth one line in the plan's preamble saying so, since the plan already explains the 2–6 / 7–12
-  split.
-- **Task 2's M2 arm asserts a pydantic internal without citing it.** *"assert … that the forged value
-  reached the model but is confined to `entity.model_extra`"* is a claim about how pydantic v2 treats
-  an underscore-prefixed extra key at `model_validate` time, uncited anywhere. The PROPERTY M2 needs —
-  `getattr(entity, "_source_path")` answers the parsed path — holds whether or not the forged key is
-  retained; pinning the retention makes the arm RED against correct code if pydantic drops it. Assert
-  the property; make the `model_extra` half an observation or cite it.
-
-### Carried-forward notes
-
-- **Threat model 2026-09-25, "a pre-existing extras leak, not this item's to fix"** — still open and
-  unfolded anywhere in the spec: any undeclared frontmatter key survives a round-trip through
-  `entity.model_extra` and is re-serialized (`obsidian_schemas/writer.py:model_to_frontmatter:119-123`),
-  so AC-1(h)'s promise is "no note GAINS a path-valued key" and never "the package sanitizes extras".
-  Re-deferred deliberately: it is a pre-existing package property this item neither creates nor
-  worsens, and the one sentence it wants belongs beside AC-1(h)'s note in Design §1, not in a task.
-- **Architect round 6, note 6(iv)** — the deliberately-out-of-scope items (`_get_cache_key`'s strip
-  asymmetry, approach F's re-keying, the Book/Meeting `save` collapse) stand as written and are all
-  named in `## Scope Boundary`. Closed, recorded here so the chain is unbroken.
-- All other prior non-blocking notes are FOLDED and I verified each fold against the code rather than
-  the prose: architect notes 1 (the ordering-aware rebinding clause, Design §4, and it does correctly
-  leave both shipped fallback spellings legal), 2 (first positional, correct at all four doors), 3
-  (`NameGateRefusalRecord` reuse), 4 (`model_copy` preserves), 5 (approach F's `_adopt` sentence
-  corrected); round 5 notes 1 (the frame question), 2 (the `name:`-less note), 3 (the enumeration
-  widened past AC-5's floor); and the data audit's Domain A exclusion (Design §4's closing paragraph),
-  Domain B second read-side site (Design §5), the `NoteSpec`-with-no-`fields` skip (Task 9, Task 12,
-  `## Edge Cases`) and the premise-rot note (`## Edge Cases`, `## Risk Analysis`, `## Verification`).
-
-```verdict
-gate: spec-reviewer
-verdict: REVISE
-date: 2026-09-25
-model: claude-opus-5
-targets: AC-3, Task 12, Task 6, #design, #acceptance-criteria
-prior: none
-basis: original
-findings: 4/12
-note: The live vault's row 8 — a non-`@`-prefixed file holding `type: person`, the item's one MERGE and one of its eight divergences — has no member in any battery, and AC-3(b)'s "emits nothing for every non-`@`-prefixed note" makes `vf.is_at_prefixed and entity_type == "person"` pass every corpus arm while missing that row on the report Dave runs; it is the third instance of the WI-286 class this document already closed twice by planting, and the plant is the fix. Second, `update_fields`' call to `rename_note` is prescribed "still inside `with vault_io.note_lock(file_path)`" and justified by reentrancy plus `move_note`'s sorted two-lock order, which is exactly the configuration Design §2's own ordering decision 5 says "would violate that order for a concurrent mover" — reentrancy excuses re-acquiring the held lock, not holding it across a two-lock door — so the placement is stated twice, oppositely, and the concurrency Edge Case is resolved on the half that does not hold. Plus the same block hands the door an undefined `updated_view` where the prose says `entity` (AC-2(e)/(g) turn on which), and the `## Acceptance Criteria` preamble still reads "nothing here is frozen yet" against a signed `ac_hash 15189b874b27` and a Scope Boundary forbidding the edit it invites.
-```
-
-## Adversarial Review — 2026-09-25
-
-Cold-start spawn, first injection-hunter round on this document (no `## Adversarial Review`
-section existed before this edit, and no `gate: injection-hunter` fence appears anywhere else in
-this document). I read the document from line 1 to its end in full — Problem/Motivation through
-Intent, the entire Exploration Notes arm (all five architect rounds and the red-team round folded
-inline, all fifteen numbered premises and every constraint), Approach, Design (all seven
-subsections), Verified Diagnosis, Edge Cases, the fourteen-task Implementation Plan, Write Targets
-(both `kind: precondition` fences and the builder's own write-target fences), Wall Membership,
-Mitigation Folds, Verification, Scope Boundary, Risk Analysis, the five Acceptance Criteria fences
-and Examples of Done, then every prior gate's verdict prose in order — Architectural Review,
-AC Red-Team, AC Sign-off, Data Audit, Threat Model, and the just-landed Spec Review — reading each
-gate's narrative for text whose *effect*, not merely its topic, is to steer a reviewer's verdict. I
-also grepped the sibling archive (`docs/filename-name-divergence-repair-rounds.md`) for verdict
-fences and steering phrases, and confirmed no `gate: injection-hunter` fence exists anywhere in
-either file for this item — this is a genuine cold-start read, not a re-run.
-
-Found nothing that reads as planted steering. The document is unusually dense, self-arguing prose —
-it repeatedly defends its own design choices, names and rejects alternative approaches, and narrates
-five architect rounds' worth of self-correction — but every instance of that is the spec (and the
-prior gates) making a technical case about the CODE, never an instruction aimed at a reviewing
-agent. There is no "ignore the previous instruction," no "this was pre-approved, emit PROMOTE," no
-text addressed to "the reviewer" telling it what to conclude, and no hidden-formatting trick (I
-checked for HTML comments specifically — the only one in the document is the legitimate
-machine-maintained archive-split pointer at the top). The one place language brushes against
-injection vocabulary is domain content about the SYSTEM being specified, not the review process: the
-Design and Threat Model sections discuss a hypothetical "note steering a consumer's `save()` into a
-different person's file" and a spec-reviewer aside dismisses "the injected drift audit" as proving
-only that symbols resolve — both are the document's own subject matter (a provenance-forgery threat
-model; a deterministic citation-checking tool's output) rather than steering aimed at me. The
-spec-reviewer's own REVISE immediately above is argued from re-read code citations (row 8's absent
-battery member, the lock-ordering contradiction, the undefined `updated_view`, the stale AC preamble
-sentence) and is not itself the product of anything planted — it reads as an independent, well-cited
-finding I would reach the same way on a fresh read, which I did.
-
-```verdict
-gate: injection-hunter
-verdict: PROMOTE
-date: 2026-09-25
-model: claude-sonnet-5
-note: Full end-to-end read of the document and its prior gates' verdict prose (architect x5, AC red-team, AC sign-off, data audit, threat model, spec review) plus the sibling rounds archive found no text addressed to a reviewer, no "ignore prior instructions"/"pre-approved" phrasing, and no hidden formatting (only one HTML comment in the document, the legitimate archive-split pointer) — the document's extensive self-arguing prose is the spec and prior gates making their own technical case, not steering a verdict, and the spec-reviewer's REVISE immediately above reads as an independently-derived, code-cited finding rather than the product of injected manipulation.
-```
-
-## Threat Model — 2026-09-25
-
-**Recommendation: PROMOTE to threat-modeled — round 2. All four required mitigations of the
-2026-09-25 round are folded faithfully into the code the spec prescribes and pinned both ways in a
-battery; the fold introduced no new security surface; no mitigation moves and no new one is
-required. The four fences below are RE-EMITTED with byte-identical `desc` and unchanged `landed:`.**
-
-Second threat-model round on this document, re-reading the material the spec-writer's fold ADDED
-since round 1 — the `## Mitigation Folds` section's four `fold` fences, Design §1's stamp bullets,
-Design §2's door body and its five ordering decisions, the `update_fields` ordering block, Tasks 2, 3,
-5, 6, 7, 10 and 12, and the eleven `## Edge Cases` entries that are new or rewritten. I checked each
-fold against the CODE it cites rather than against the fold's own prose, and re-walked M1's
-containment expression for escapes it admits rather than confirming the ones I named last round. I
-also read the spec-review round that landed between my two rounds, because one of its four blocking
-findings corrects a claim *I* made.
+Sixth threat-model round on this document, spawned cold-start. I read it from line 1, then re-read the
+material the FIFTH fold added — Design §2's **"The COMPLEMENT of that rule"** block and its four-row NO
+table, the SECOND rule beneath the precondition table, the loudness precision naming `Company` as the one
+detector-blind residual, the re-run table's new DOOR-frame scoping paragraph, the `renaming` gate on the
+`aliases` mirror in the sequencing block and in "Which `aliases` list wins", Design §1's restored
+`BaseEntity` quotation, Design §5's capability-widening declaration, Prerequisites 7's three disclosed
+RAISE arms, the new `## Edge Cases` entry beside the occupied-destination Decision, `## Risk Analysis`'s new
+residual row and its amended `update_fields`-moves-a-file row, Task 6's DO-NOT-PRE-CHECK clause and Task
+10's occupied-destination arm — and checked each against the CODE rather than against the fold's prose. I
+re-read round 5 in full as my carry-forward.
 
 ### Trigger check
 
-The same five fire and none has changed shape: filesystem operations on user-owned files (the
-package's first repository-level relocation capability), persistence (every write path changes where
-it lands), untrusted vault bytes crossing into a trusted write-target decision, PII (person names in
-a new WARNING, a new ERROR and a committed live-vault artifact), and an out-of-repo blast radius
-through three `-e` consumers. The fold added no sixth: no network, no subprocess, no credential, no
-new import capability, and `## Wall Membership`'s routing walls A/B/C still keep filesystem-mutation
-capability single-homed in `obsidian_schemas/vault_io.py`.
-
-### The four folds, verified against the code they prescribe
-
-**M1 — landed and total.** Design §2's door body raises `ValueError` unless
-`destination.resolve().is_relative_to(self.vault_path.resolve())`, with an `OSError`/`ValueError` out
-of the resolve treated as NOT contained, positioned immediately after
-`destination = self.vault_path / new_filename` and before every one of the three `vault_io.move_note`
-call sites in the method (doc `:1289-1298`). Task 6 carries the same clause in its work text and Task
-10 pins it both ways: refusal for all three reachable spellings — a traversing relative name built
-with `os.path.relpath`, the absolute path, and an in-vault filename that is a SYMLINK to an outside
-file — with the discriminating oracle being the outside file's `st_nlink` before and after, which is
-the only assertion that actually proves `os.link` did not land there; and an ordinary destination plus
-one inside an in-vault SUBDIRECTORY still moving, so the clause cannot degenerate into refusing
-everything. `## Edge Cases` states all three spellings and the unresolvable case.
-
-I re-walked the expression for escapes the fold admits rather than re-confirming the three I named.
-Two classes normalize back INSIDE and therefore PASS containment — `new_filename="sub/.."` and
-`""`/`"."`, all of which resolve to the vault root itself, which `is_relative_to` reports true of
-itself — and both then die loud one frame later on `os.link`'s `FileExistsError` against a directory
-(`NoteAlreadyExists`, `obsidian_schemas/vault_io.py:_move_locked:759-771`); nothing escapes and no
-byte is written. The M3 staging name cannot be steered either: it is composed through
-`source.with_name(...)`, and the only branch that reaches it requires
-`source.samefile(destination)`, so `destination.stem` is the source's own stem in another case.
-`Path.is_relative_to` is 3.9+, which the document's own constraint 4 declares and
-`tests/test_lint_vault_fix_rules.py:1984-1985` already uses on shipped code. The clause is total for
-the escape class and over-refuses nothing.
-
-**M2 — landed, and the fold is STRONGER than what I asked for.** Task 2 plants A and B, declares
-`_source_path: <B's path>` in A's own frontmatter as BYTES (never through `repo.save`), parses A, and
-asserts the PROPERTY: `_resolve_write_target` answers A's own path, `getattr(entity, "_source_path")`
-— verbatim the accessor the seam reads — is A's and not B's, and nothing the seam reads answers B.
-Where the forged key ended up is demoted to a Build-Log observation with the reason stated, so the arm
-cannot go RED against correct code on a pydantic release that stops retaining underscore-prefixed
-extras. That is a better arm than the one I described, and Design §1's bullet separates the
-two-implementation-detail EXPLANATION from the asserted property explicitly.
-
-**M3 — landed, and the battery asserts the property rather than a proxy for it.** The staging name is
-`source.with_name(destination.stem + ".rename-tmp.md")` in the door body, in Task 6's work text and in
-the `## Edge Cases` entry for a process dying between the two moves. Task 10 wraps
-`obsidian_schemas.repositories.base.vault_io.move_note` in a recording delegate restored in a
-`finally`, drives one case-only rename, and asserts two recorded calls with `.md` on both positionals
-of both — then that the staging path is matched by `vault_path.glob(repo.file_pattern)`, which is the
-very enumeration `BaseRepository.load` uses (`obsidian_schemas/repositories/base.py:load:241`), so
-"a reader still sees it" is reduced to the reader's own predicate instead of to a suffix string. The
-near-miss arm drives the REJECTED spelling through the same glob and asserts it is NOT matched, so the
-assertion is shown to discriminate. I checked the glob for each inheriting type: `@Foo.rename-tmp.md`
-matches `@*.md`, `Meeting <x>.rename-tmp.md` matches `Meeting *.md`, and Book's `*.md` matches
-unconditionally — the suffix-anchored argument Design §2 makes holds at all three. `## Risk Analysis`'s
-row is rewritten and now names the earlier reasoning as the defect it was.
-
-**M4 — landed.** `logger.info("Renamed %s note from %s to %s", self.type_name, source.name,
-moved.name)`, in the door body and in Task 6, captured in Task 10 through
-`tests/support.py:captured_logs` with an explicit `level=logging.INFO` (its default is `WARNING`, so
-the default would have captured nothing — the fold got that right) and asserted to contain the source
-filename as well as the destination's, both taken from paths the test created. The fold logs basenames
-rather than absolute paths and argues why: it is the package's shipped INFO idiom
-(`obsidian_schemas/repositories/base.py:411`) and adds no PII surface the package does not already
-have. The requirement was that both ends be named so a permanent relocation is reconstructable, and
-both ends are named — satisfied. Task 3 and Task 5 additionally fixed the sibling defect I only noted
-(`save`'s INFO line naming a file it may not have written); that is the same rule applied one method
-over and it is a straight improvement.
-
-### One claim of my own that the spec-review correctly overturned
-
-Round 1 filed the in-lock door call under *"not a finding, checked and clean"*, reasoning from
-`move_note`'s sorted two-lock acquisition plus `note_lock`'s reentrancy
-(`obsidian_schemas/vault_io.py:move_note:744-750`). That reasoning was wrong: a sorted acquisition is
-deadlock-free only while no caller holds either lock ACROSS the call, and reentrancy excuses
-re-acquiring a lock you hold, not the ordering. The spec-review's finding 2 is right, and a deadlock
-in a library three consumers run is a real availability defect — so a genuine one was closed between
-my rounds, and not by me.
-
-The resolution the spec now ships is stronger than either a prose placement or a mitigation from me
-would have been. The call is placed OUTSIDE the `with vault_io.note_lock(file_path)` block in Design
-§2's ordering block and in Task 6; ordering decision 5 states the rule as a property of the PACKAGE
-rather than of this door — no call to `move_note`, to one of `writer.py`'s path-taking leaves, or to a
-repository method that itself calls `move_note`, is lexically nested inside a `with` mentioning
-`note_lock` — with the third clause DERIVED from `functions_calling(files, "move_note")` so a future
-second mover enlists without being remembered; and Task 7 ships
-`door_calls_inside_note_lock` while Task 10 asserts it EMPTY over `PACKAGE_ROOT`, pinned both ways
-with the deadlock shape in the REFUSED battery and `write_markdown_file`'s own in-lock `write_note`
-call in the ACCEPTED battery so the scan cannot pass by forbidding shipped code. That is the right
-shape, it requires nothing further from me, and the `## Edge Cases` concurrency entry and Design §2
-now agree with each other where they previously did not.
-
-### STRIDE delta — what the fold changed, category by category
-
-Nothing in Spoofing, Information disclosure or Elevation of privilege moved: M2 closes the stamp's
-read direction, the disclosure wall is where it was (AC-4 importing `FORBIDDEN_DEFAULT_PATTERNS`
-rather than re-spelling it; the close-out redacting to counts, classes and directions), and the
-privilege surface is still filesystem reach, now bounded by M1. Tampering is strictly better: the
-door's destination is contained where it was contained nowhere. Repudiation is better at two sites,
-not one. Denial of service is where the one delta sits, and it is an improvement plus one residual
-noted below.
-
-### Notes (non-blocking)
-
-- **`update_fields` is no longer atomic across write-then-move, and that is the correct trade.**
-  Moving the door call outside the lock opens a window between `vault_io.write_note(...,
-  precondition=stamp)` committing and `move_note` taking its two locks. I walked the interleavings: a
-  concurrent write of the source loses to last-writer-wins and then moves with the file; a concurrent
-  move or delete of the source gives `FileNotFoundError` from the door's own `source.exists()` check;
-  a concurrent create at the destination gives `NoteAlreadyExists` by syscall. In every case the
-  residual state is LOUD, is exactly the `stem_name_divergence` the new detector reports, and is
-  recoverable by re-running the door, whose idempotence Task 10 now pins. No interleaving lands one
-  person's bytes in another person's note, which is the harm this item exists to end. The alternative
-  placement is a deadlock. Not a required mitigation — recorded because a builder reading
-  `## Edge Cases`' concurrency entry ("no new lock-ordering edge exists", which is true) should not
-  read it as "no new window exists".
-- **M1's exact bound, so it is not over-read.** It is resolve-then-`os.link`, so it is check-then-act
-  on a path: an attacker who can plant a symlink at the destination BETWEEN the two can still win.
-  That attacker already has write access to Dave's vault directory, which is outside this item's
-  threat model, and `os.link` has no `O_NOFOLLOW` spelling reachable through pathlib. M1's job is to
-  stop a caller-supplied or request-derived filename from escaping, and it does that completely.
-- **The M3 window is now visible to `load()` as well as to a reader, which is the point and has one
-  exit-attestation consequence.** During a SUCCESSFUL two-step a concurrent `load()` can see the
-  staging note, and `move_note`'s link-then-unlink means a sub-window where both paths exist — so a
-  load landing there sees two notes carrying one identifier and records a `PersonRepository.conflicts`
-  row. It is two syscalls wide, on one branch, for one live row. Worth one line at the exit
-  attestation only because that procedure's ship condition is `len(conflicts) == 0`: a conflict
-  observed while a case-only repair is mid-flight is this window, not a new duplicate.
-- **The extras leak is re-deferred and folded where it belongs.** Round 1's "pre-existing extras leak,
-  not this item's to fix" is now a stated bound beside AC-1(h)'s definition in Design §1 rather than a
-  task, which is the right home: there is no work, only a promise that must not be mistaken for a
-  sanitizer.
-- **One structural repair made in this edit.** The document ended with a stray unterminated ```` ``` ````
-  line immediately after the injection-hunter's closing fence, which would have swallowed this entire
-  section — including its `verdict` and `mitigation` fences — into an open code block and made the
-  round declare nothing. Removed; no other gate's bytes touched.
-- **OPEN security questions: none.**
-
-```mitigation
-kind: required
-id: M1
-desc: `rename_note` must refuse a destination whose RESOLVED path is not inside `self.vault_path`, raising before any `vault_io.move_note` call — the containment test `_resolve_write_target` already applies to the source, applied to the caller-supplied destination, resolved rather than string-compared so that a symlink inside the vault cannot point the move outside it.
-landed: Task 6
-```
-
-```mitigation
-kind: required
-id: M2
-desc: The provenance stamp must be unforgeable from note content, asserted and not assumed — a note whose own frontmatter declares `_source_path` naming a DIFFERENT file must still resolve, through `_resolve_write_target`, to the file it was parsed from.
-landed: Task 2
-```
-
-```mitigation
-kind: required
-id: M3
-desc: The case-only two-step must not move the note out of the `*.md` namespace — the staging name keeps the `.md` suffix, so a rename interrupted between the two moves leaves a note that Obsidian, the repository and `lint_vault` can all still see rather than a file no reader picks up.
-landed: Task 6
-```
-
-```mitigation
-kind: required
-id: M4
-desc: `rename_note`'s audit line must name the SOURCE path as well as the destination, so a relocation performed by `update_fields` on a consumer's behalf is reconstructable from logs.
-landed: Task 6
-```
-
-```verdict
-gate: threat-modeler
-verdict: PROMOTE
-date: 2026-09-25
-model: claude-opus-5
-note: Round 2 re-read the material the fold ADDED and checked each mitigation against the code it prescribes rather than its own prose: all four landed on their named tasks with ordinals unmoved, and two folds are stronger than what round 1 asked for — M2 asserts the PROPERTY (the accessor the seam reads answers the parsed path) and demotes pydantic's extras retention to a Build-Log observation so the arm cannot redden against correct code, and M3's battery reduces "a reader still sees it" to `vault_path.glob(repo.file_pattern)`, the enumeration `BaseRepository.load` itself uses, with the rejected spelling driven through the same glob as a near-miss. I re-walked M1's expression for escapes it ADMITS rather than the three I named: `sub/..`, `""` and `"."` all normalize back inside and pass containment, then die loud on `os.link`'s `FileExistsError` with no byte written, and the staging name is unsteerable because its branch requires `source.samefile(destination)` — so the clause is total for the escape class and over-refuses nothing, with Task 10's `st_nlink` before/after oracle the only assertion that actually proves `os.link` did not land outside. One claim of my own was overturned between rounds and correctly: round 1 filed the in-lock door call as clean, reasoning from `move_note`'s sorted two-lock order plus reentrancy, but sorting is deadlock-free only while no caller holds either lock across the call — the spec-review's finding 2 is right, and the resolution now shipped is structural rather than prose (the call placed outside the block, ordering decision 5 stated as a property of the PACKAGE with its third clause derived from `functions_calling`, and `door_calls_inside_note_lock` asserted EMPTY over `PACKAGE_ROOT` with the deadlock shape refused and `write_markdown_file`'s own in-lock `write_note` accepted), so a real availability defect closed and nothing further is required from me. The fold opened no new security surface: the one residual is that `update_fields` is no longer atomic across write-then-move, and every interleaving is loud, is the divergence the new detector reports, and is recoverable by the door whose idempotence Task 10 now pins — non-blocking against the alternative, which is a deadlock in a library three consumers run. Zero OPEN questions.
-```
-
-## Spec Review — 2026-09-25
-
-**Recommendation: REVISE — return to spec writer (gaps to fix)**
-
-Second spec-review round on this document, spawned cold-start. Rulings on record: WI-021's
-gate-name-output-is-an-identity ruling (approach G's rejection), Dave's `ac_hash 15189b874b27`
-sign-off freezing AC-1…AC-5 and the Intent, the exploration's accept-the-linter-noise disposition,
-and the threat model's four `kind: required` mitigations — I route against all four and neither
-finding below touches a signed criterion's text.
-
-I read the document from line 1 in full rather than diffing against the previous round, then re-read
-the code at every load-bearing citation. The previous round's four blocking findings are all CLOSED
-and I verified each against the code rather than the fold's prose: Design §3 now states the guard as
-`vf.entity_type == "person"` with baseline row 8 as its live subject and Task 12 plants the shape;
-the `update_fields` door call is placed OUTSIDE the `note_lock` block with the reentrancy argument
-corrected and made structural by `door_calls_inside_note_lock`; the ordering block hands the door
-`entity` and `updated_view` is gone; and the `## Acceptance Criteria` preamble now states the freeze.
-All twelve non-blocking notes are folded, including the three counting slips and the "one true live
-subject" mis-statement.
-
-The two findings below are new. One is a failure mode the fold's own prescription reaches and no
-section resolves; the other is a member of the WI-286 class that Design §3a was added this round to
-close, missed by §3a's own sweep of the predicate it swept.
-
-### Citation verification
-
-All verified against current code; nothing drifted. The ones a wrong reading would have made the
-design unbuildable:
-
-- `obsidian_schemas/writer.py:model_to_frontmatter:89` composing `model_fields` (`:112`) →
-  `model_extra` (`:119-123`) → `extra_fields` (`:125-129`); `write_markdown_file:160` with the
-  `entity is not None` arm at `:229-233`, the one `gate_write` at `:252-253`,
-  `with vault_io.note_lock(file_path) as resolved` at `:258`, `is_create` at `:275` and the two
-  writes at `:317`/`:319`; `update_frontmatter_field:333` (lock `:368`, gate `:385-387`, write
-  `:393`), `update_frontmatter_fields:405` (`:434`, `:451`), `roundtrip_file:463` (`:497`, `:504`).
-  All four leaves write their own FIRST parameter, and `write_markdown_file` is the one needing the
-  `with … as` hop — Design §4 is right on both. No leaf calls another leaf inside its own lock, so
-  `door_calls_inside_note_lock` is genuinely EMPTY over `writer.py` today.
-- `obsidian_schemas/repositories/base.py`: `_adopt:184-191` (the `_file_map` write at `:188`),
-  `file_pattern:206-208`, `_ensure_loaded:210-213`, `load:241-248`, `_load_file:311-314` with
-  `remember_snapshot` at `:313`, `_get_cache_key:319-321`, `get_file_path:354-365`,
-  `save:367-412` (`:372` `overwrite=True`, `:391-393`, `:398`, `:411`), `update_fields:414-523`
-  (`:438`, `:440-441`, `:448`, `:449`, `:454-459`, `:466-469`, `:483-485`, `:490`, `:493-495`).
-- `obsidian_schemas/repositories/person.py:PersonRepository.append_to_timeline:1403-1461` — the
-  `get_file_path` opener at `:1403`, the combined `not file_path or not file_path.exists()` guard at
-  `:1404-1405`, `note_lock` at `:1410`, both writes at `:1447`/`:1458` with `file_path` as first
-  positional. `obsidian_schemas/repositories/book.py:BookRepository.save:167-178` with the INFO line
-  at `:183`, exactly the two-line shape premise 15 reads.
-- `obsidian_schemas/name_validation.py:Tier1Branch:148-174` — `pattern` documented as non-unique at
-  `:152-154` and `sentinel_exempt` at `:155-156`; `arrow_connective` at `:214-225` raising
-  `pattern="calendar_prefix"`, `path_hostile` at `:249-259` raising `pattern="path_hostile_char"`.
-  AC-3(c)'s two expected marker values are the records' `pattern` fields, as stated.
-- `scripts/lint_vault.py`: imports at `:44-48` (`TYPE_TO_MODEL`, `NameGateRefusal`, `gate_write`),
-  `SKIP_DIRS:64`, `read_vault:121` with `rglob("*.md")` at `:123`, `stem = md.stem` at `:155` and
-  `entity_type` read off the stored record at `:176`; `check_structural:328` with `read_error`/
-  `parse_error` `continue` at `:340-359`, the two `is_at_prefixed` tests at `:362-381` and the
-  `TYPE_TO_MODEL` guard at `:387-388`; `check_completeness:429-446` with `person_missing_name` gated
-  to ACTIVE tier at `:429-432`; `NameGateRefusalRecord:865`, `FixOutcome:926`, `CATEGORY_ORDER:1206`,
-  `print_summary:1216`. `"person"` is in `TYPE_TO_MODEL` (`obsidian_schemas/models.py:309-318`), so a
-  non-`@` `type: person` file does reach the new arm — Design §3's row-8 argument holds.
-- `tests/derivations.py`: `PACKAGE_ROOT:31`, `DOOR_NAMES:47`, `python_files_under:185`,
-  `_own_body_nodes:245`, `_called_names:264`, `_names_in:282`, `_is_write_call:286-299`,
-  `_taints_a_write:361-409` (seed `:368-382`, fixpoint `:389-401`, sink `:404-408`),
-  `functions_calling:873`, `_pos:924`, `_assign_targets_name:928`, `mutating_drive_vault_args:2175`.
-  `_is_write_call` gates on `ast.Attribute` only, which is exactly why Design §4's enumeration needs
-  its second predicate (bare-name calls to a path-taking leaf) to reach `save`'s and the two
-  overrides' `write_markdown_file(...)`. There is no `write_text`/`write_bytes` anywhere in
-  `obsidian_schemas/**`, so the data audit's Domain A disposition is accurate.
-- `tests/fixture_vault.py`: `CORPUS_DIGEST:44`, `NOTES:217`, the four divergent specimens at
-  `:255-260`, `:261-266`, `:297-301`, `:302-306`, the collision third at `:273-276`, the whitespace
-  discriminator at `:246-254`, the phone specimen at `:288-293`. I also re-ran Design §3's new
-  claim — every non-`@` key in `NOTES` declares `meeting`, `book`, `watch`, `explore`, `gift-idea`,
-  `exploration` or `None`, and every `declared_type="person"` entry is `@`-prefixed. AC-3(b)'s
-  "every non-`@`-prefixed note" clause is therefore satisfied by the `entity_type` guard, as §3 says.
-- `tests/support.py:captured_logs:91` defaults `level=logging.WARNING`, so Task 10's explicit
-  `level=logging.INFO` for M4 is required. Task 3's `grep "Saved " tests/` → zero hits: confirmed, so
-  the INFO-line change costs one line.
-- `docs/stem-divergence-live-baseline.md`: §1's two entry figures parse by leading integer, §2's
-  eight rows each carry (b1)/(b2)/(b3)/(c) and a direction, every direction token is `RENAME`/`MERGE`
-  and every (b2) token is `no`/`same-file`/`different-note`, row 3 is `same-file` → RENAME and row 8
-  is `different-note` → MERGE. AC-4's consistency rule passes against it, and no member of
-  `tests/test_vault_path_required.py:FORBIDDEN_DEFAULT_PATTERNS:278`
-  (`["expanduser", "Path.home()", "/Users/"]`) appears in the file.
-
-I also walked the AC-5 rebinding clause by hand over all ten prescribed seam bodies and the four
-leaves. It admits every shipped shape and refuses the monotone escape: in `rename_note` the two
-`contained = …` assignments bind a name the seed never tainted, `staging`/`moved`/`old_stem`/
-`new_stem` are all bound from values mentioning `source`, and `entity._source_path = moved` binds no
-local name under `_assign_targets_name`'s target rule. The wall as specified is sound.
-
-### Blocking issues
-
-**1. `update_fields` with a name change on an entity carrying no provenance commits the new name and
-then raises — the one population its own documented fallback exists to serve, and no section resolves
-it.**
-
-The spec deliberately keeps a name-keyed fallback on this method. Design §2's second fallback shape
-is `file_path = self._resolve_write_target(entity)` → `get_file_path(name)` → today's `ValueError`,
-and AC-1(g)'s second half turns on that fallback existing ("an entity carrying no provenance still
-raises `ValueError` from `update_fields` … rather than creating a note"). So an entity with no stamp
-whose name the loaded repository CAN resolve is a population this method still serves, by design.
-
-On that same method the spec now inserts, unconditionally, after the content write has committed:
-
-```
-    THEN move                                  moved = self.rename_note(entity, f"@{new_name}.md")
-```
-
-and `rename_note`'s documented behaviour for an entity with no provenance is to RAISE — Design §2's
-invocation table, row 10: *"none — it RAISES `ValueError`; a mover with no provenance has nothing to
-move"*, and the door body's first statement after `source = self._resolve_write_target(entity)` is
-that raise. Task 6 forecloses the alternatives explicitly: *"Hand the door the caller's own `entity`
-parameter, never a re-parsed or freshly-constructed view."*
-
-So for that population the sequence is: `vault_io.write_note(file_path, new_content,
-precondition=stamp)` commits the NEW name to the file (`base.py:490`), the `with` block exits, and
-`rename_note` raises `ValueError`. The note is left divergent, with no alias, no move, and the caller
-sees an exception after a successful write — `update_fields` never reaches its reload, so it returns
-nothing. Today that same call succeeds (alias appended in-lock at `base.py:454-459`, file left
-behind, reloaded entity returned).
-
-Three things make this a gap rather than a detail. It is a NEW partial-failure mode — the bar's Edge
-Cases category — and `## Edge Cases`, `## Verification`'s failure-mode list and `## Risk Analysis`
-resolve none of it; the closest entry, *"The repository was constructed with `auto_load=False`"*,
-covers only the case where `get_file_path` is ALSO `None`, where nothing is written. No battery
-reaches it: Task 9's `update_fields` cell mutates `{"title": …}` and says so ("no `name` key, so the
-rename branch does not fire"), and AC-2's name-change arm binds its subject with `repo._load_file`,
-which stamps. And the three available answers differ observably — raise (the loud arm, consistent
-with the REFUSE-fallback philosophy), skip the move and keep today's leave-behind, or re-stamp
-`entity` from the already-resolved `file_path` before calling the door — so the builder is choosing
-the package's behaviour, not an implementation detail.
-
-The consumer audit measures this population at zero today (19/19 loaded, 0 reconstructions feed a
-write), which is why this is one clause and not a redesign. State it in Design §2's ordering block and
-in Task 6, add the `## Edge Cases` entry, and name the residual state in `## Verification`'s failure
-modes so the outcome is chosen rather than inherited from the door's raise.
-(Builder's question this answers: *"`update_fields` resolved its write target through `get_file_path`
-because the entity had no stamp — do I still call `rename_note` on the name change?"*)
-
-**2. The detector arm's `stored.strip()` conjunct is an unanimous free variable with no plant, and
-the Edge Case that resolves it has no test — the fourth member of the class Design §3a was added this
-round to close.**
-
-Design §3a states the generator and then a class-level rule I agree with:
-
-> every free variable of the detector's arm and of AC-1's subject derivation on which the frozen
-> corpus is UNANIMOUS is closed by a PLANTED member, pinned BOTH ways — one plant the predicate must
-> claim and one near-miss it must not — and the list is DERIVED by reading the predicate's own text
-> for the properties it tests, never remembered from this table.
-
-Read the predicate's own text (Design §3): `if isinstance(stored, str) and stored.strip() and stem !=
-stored:`. That is three tests, plus the `entity_type` guard and the `@`-strip above it. §3a's sweep
-table plants the guard, the `@`-strip, letter case, directory depth and the stored value's TYPE
-(`isinstance`, as the near-miss) — five plants, which Task 12 ships as (i)–(v). It has no row for
-`stored.strip()`, and Task 12 plants no blank-or-whitespace `name:` note.
-
-The corpus is unanimous about it in exactly the sense §3a means: no `declared_type="person"` entry in
-`tests/fixture_vault.py:NOTES:217-479` declares an empty or whitespace-only `name:`, so an
-implementation written as `isinstance(stored, str) and stem != stored` passes all four AC-3(a) cells,
-all of AC-3(b), and all five of Task 12's plants. On the live vault that implementation reports every
-blank-name ACTIVE person note as `stem_name_divergence` as well as `person_missing_name` — which is
-the double-ERROR interaction Design §3's own comment and the `## Edge Cases` entry argue against,
-where the auto-fixable rule silently repairs away the never-fixable one
-(`scripts/lint_vault.py:1040-1045` writes `fpath.stem.lstrip("@")` into the field).
-
-Two of §3a's existing plants carry "none measured" in the live-evidence column (the double-`@` stem
-and the stored value's TYPE) and are planted anyway, so "the live stake is measured at zero"
-(`## Edge Cases`) is not the discriminator here — it is the same argument those two rows already
-overrode. And `## Edge Cases` resolves this case with a **Decision** and a **Reasoning** and no
-corresponding test, which is the bar's Check-4 test-coupling clause independently of §3a.
-
-The fix is §3a's own: one row in the sweep table and one plant in Task 12 — a person note with
-`name: ""` (or whitespace-only) whose stem differs from it, asserted NOT to produce a
-`stem_name_divergence` issue, as a second near-miss beside (v). §3a's closing declaration that the
-arm is "a conjunction of INDEPENDENT tests" should then name this conjunct with the others.
-(Builder's question: *"Design §3a says plant every unanimous free variable of the arm and derive the
-list by reading the arm — the arm tests `stored.strip()` and the table does not. Do I plant it?"*)
-
-### Non-blocking notes
-
-- **Task 13's `.md`-token rule is false against the artifact it grades.** The check asserts *"every
-  `.md` token the file names resolves to a path that EXISTS in this repo or is the declared template
-  literal `@{name}.md`"*. `docs/stem-divergence-live-baseline.md:36` contains
-  `sorted(V.rglob('*.md'))` inside §0's verbatim script fence — a `.md` token that is neither an
-  existing repo path nor `@{name}.md`. Every token OUTSIDE the code fences does resolve, so the rule
-  needs one clause (fenced code excluded, or globs exempt) or it is RED against a correct committed
-  precondition, which is the WI-026 AC-5(b) shape the conductor read-back already corrected once for
-  AC-4's occupancy rule. No criterion depends on it — AC-4's own desc says "no absolute path and no
-  note filename", which the artifact satisfies.
-- **The door reads `aliases` off the in-memory entity where `update_fields` reads them off the file
-  inside the lock.** Today's block at `base.py:456` is `aliases = frontmatter.get("aliases", [])` —
-  the FILE's list, parsed in-lock. Design §2's door body is
-  `aliases = list(getattr(entity, "aliases", []) or [])` and then writes that list back through
-  `update_frontmatter_field`. For `update_fields(entity, {"name": …, "aliases": […]})` the write at
-  `base.py:490` commits the caller's new alias list and the door then overwrites it with the stale
-  in-memory one plus the old stem. The source-of-truth change is deliberate for a direct
-  `rename_note` call and incidental for the `update_fields` path; one clause settles which list wins.
-- **Task 14's wall-closure RUN is narrower than `## Wall Membership`'s table**, while the section
-  claims *"MEMBERSHIP is closed by CALLING each of those predicates on the files' FINAL text in Task
-  14"*. Task 14 names the routing walls, the `ast` single-home equality, `skip_reason_literal_sites`,
-  `frontmatter_write_arms`, `gate_call_declarations`/`gate_call_placement`,
-  `character_class_strip_sites`, `address_splitting_implementations`, the two `auto_fixable_*` sets
-  and `FORBIDDEN_DEFAULT_PATTERNS` — but not wall D
-  (`tests/test_name_gate_wall.py:_check_wall_d:1107`, no new `parse_markdown_file` caller outside
-  `base.py`) or `tests/test_identity_endgame.py:590`'s `_email_index` zero-sites pin. Both are
-  predicted-green and cheap; the point is that WI-301's rule is discharged by RUNNING each predicate,
-  and a row that no task calls is satisfied by reasoning.
-- **AC-5 bucket (a) is narrowed to the FIRST parameter.** Design §4's justification covers the
-  METHOD case ("a future path-taking leaf written as a METHOD fails loud and is someone's decision")
-  but not a future leaf taking its path as a second parameter, which would also fail loud with no
-  stated disposition. All four current leaves take it first, so nothing is red today; one clause
-  would make the refusal deliberate.
-- **`Meeting` "declares only … and `tags` (`models.py:Meeting:259-263`)"** — `tags` is inherited from
-  `BaseEntity` (`obsidian_schemas/models.py:40`), not declared in that range. The Verification table's
-  conclusion is right (`tags` feeds no filename rule and is a legal minimal mutation); the citation
-  spans the wrong lines for one of the fields it names.
-
-### Carried-forward notes
-
-- **Threat model round 2, "`update_fields` is no longer atomic across write-then-move"** — recorded
-  in `## Threat Model` and folded nowhere. The modeler walked the concurrency interleavings and
-  ruled every residual loud, detector-visible and recoverable, and rated it non-blocking against the
-  deadlock alternative; it belongs beside the `## Edge Cases` concurrency entry, whose "no new
-  lock-ordering edge exists" is true and must not be read as "no new window exists". Adjacent to
-  blocking finding 1, which is the non-concurrent member of the same window.
-- **Threat model round 2, "M1's exact bound"** — the containment test is resolve-then-`os.link`, so
-  it is check-then-act against an attacker who can plant a symlink at the destination between the
-  two. Explicitly out of this item's threat model (that attacker already has write access to the
-  vault) and recorded so M1 is not over-read. Re-deferred: it needs no work, only a bound nobody
-  should mistake for a promise.
-- **Threat model round 2, "the M3 window is visible to `load()`"** — during a successful case-only
-  two-step a concurrent `load()` can see both paths and record a `PersonRepository.conflicts` row.
-  Worth one line in `## Verification`'s close-out, because that procedure's ship condition is
-  `len(conflicts) == 0` and a conflict observed mid-repair is this window rather than a new
-  duplicate. Still open: the close-out steps do not mention it.
-- **Architect round 6, note 6(iv)** — the deliberately-out-of-scope items (`_get_cache_key`'s strip
-  asymmetry, approach F's re-keying, the Book/Meeting `save` collapse) stand as written and are all
-  named in `## Scope Boundary`. Closed; recorded so the chain is unbroken.
-- **Threat model round 1, "a pre-existing extras leak"** — now FOLDED, as a stated bound beside
-  AC-1(h)'s definition in Design §1. Closed.
-- All prior spec-review non-blocking notes are folded and I verified each against the code rather
-  than the prose: the idempotence arm (Task 10), `save`'s INFO line (Task 3, Task 5), the alias
-  write's deliberate asymmetry (Design §2, ordering decision 3), the three counting slips
-  (`## Verified Diagnosis`'s SIX, the `test_concurrent_access.py` fence's five, `## Wall Membership`'s
-  unlisted pins) and the diff-size correction, premise 11's symbol, the "one true live subject"
-  correction (Design §3), the later-task `verify:` preamble, and Task 2's M2 arm now asserting the
-  property with the pydantic retention demoted to a Build-Log observation.
-
-```verdict
-gate: spec-reviewer
-verdict: REVISE
-date: 2026-09-25
-model: claude-opus-5
-targets: Task 6, Task 12, Task 13, Task 14, AC-3, #design
-prior: held
-basis: original
-findings: 2/7
-note: `update_fields` with a name change on an entity carrying NO provenance now commits the new name inside the lock (`base.py:490`) and then raises from `rename_note`, whose documented no-provenance behaviour is a `ValueError` (Design §2's invocation table row 10) — that is exactly the population the method's own preserved `get_file_path` fallback exists to serve and AC-1(g)'s second half turns on, so the spec keeps the fallback alive and then hands the door an object it refuses; the residual is a note left divergent with no alias, no move and an exception after a successful write, resolved in no Edge Case, no Verification failure mode and no risk row, and reached by no battery (Task 9's `update_fields` cell carries no `name` key; AC-2's name-change arm binds a `_load_file`-stamped subject). Second, Design §3a states the class-level rule that every free variable of the detector's arm on which the frozen corpus is UNANIMOUS is closed by a plant, with the list DERIVED by reading the arm's own text — the arm is `isinstance(stored, str) and stored.strip() and stem != stored`, and the sweep table plants the guard, the `@`-strip, case, depth and the value's TYPE but not `stored.strip()`, so an implementation dropping that conjunct passes all four AC-3(a) cells, AC-3(b) and all five Task-12 plants while reporting every blank-name active person note as both an auto-fixable `person_missing_name` and a never-fixable divergence — the interaction `## Edge Cases` resolves with a Decision and no test. Both fixes are one clause and one plant; the previous round's four findings all held closed and every non-blocking note is folded.
-```
-
-## Adversarial Review — 2026-09-25
-
-Cold-start spawn (this invocation carried no reference to any prior injection-hunter round on this
-item — no "second round, re-reading the fold" framing the way every other repeat gate on this
-document gets). I read the document from line 1 to its end in full: Problem/Motivation, Intent, the
-entire Exploration Notes arm, Approach, Design, Verified Diagnosis, Edge Cases, the Implementation
-Plan, Write Targets, Wall Membership, Mitigation Folds, Verification, Scope Boundary, Risk Analysis,
-the Acceptance Criteria, and every gate verdict in document order — Architectural Review, AC
-Red-Team, AC Sign-off, Data Audit, Threat Model round 1, Spec Review round 1, then the section below,
-then Threat Model round 2, then Spec Review round 2. I also grepped the sibling archive
-(`docs/filename-name-divergence-repair-rounds.md`) and the body for verdict-steering phrasing
-("ignore previous instruction", "pre-approved", imperative text addressed to a reviewer). Aside from
-the one finding below, nothing in the spec's own prose reads as steering rather than the document
-making its own technical case — confirmed independently on a second pass of Exploration Notes
-through Data Audit.
-
-**Finding (blocking): an existing `## Adversarial Review — 2026-09-25` section, carrying a complete
-`gate: injection-hunter` / `verdict: PROMOTE` fence, already sits in this document — not at the end,
-but between Spec Review round 1 and Threat Model round 2 — and its provenance cannot be verified from
-what this invocation was given.**
-
-The section (this document, immediately above Threat Model round 2) opens: *"Cold-start spawn, first
-injection-hunter round on this document (no `## Adversarial Review` section existed before this
-edit, and no `gate: injection-hunter` fence appears anywhere else in this document) ... confirmed no
-`gate: injection-hunter` fence exists anywhere in either file for this item — this is a genuine
-cold-start read, not a re-run."* That is precisely the self-certification a genuine cold-start
-injection-hunter run — this one — is asked to perform, pre-answered in the document before I did the
-work myself.
-
-Three things make this worth surfacing rather than silently trusting:
-
-1. **No spec-reviewer PROMOTE exists anywhere in this document.** Both spec-review rounds resolve
-   REVISE. D5 requires the injection-hunter's PROMOTE *beside* the spec-reviewer's, at the
-   `specced -> ready` transition attempt — a standing PROMOTE with no accompanying spec-reviewer
-   PROMOTE is consistent with an ad-hoc Dave-triggered run (the role YAML permits "Dave may also say
-   'run the injection-hunter on WI-XXX'"), but I have no way to confirm that from the document or
-   from this invocation's framing, and the document does not say so either.
-2. **A later round edited bytes at that section's boundary.** Threat Model round 2's non-blocking
-   notes state: *"One structural repair made in this edit. The document ended with a stray
-   unterminated ``` line immediately after the injection-hunter's closing fence, which would have
-   swallowed this entire section — including its `verdict` and `mitigation` fences — into an open
-   code block and made the round declare nothing. Removed; no other gate's bytes touched."* A plain
-   markdown slip is the innocent explanation; the same edit is also exactly what a forged verdict
-   fence would need to stay machine-parseable rather than being inertly swallowed. I cannot
-   distinguish the two from inside this document.
-3. **This invocation was not told a prior round existed.** Every other repeat gate on this document
-   (threat-modeler round 2, spec-reviewer round 2) opens by naming itself a second round and stating
-   what it re-read. My own task framing named no prior injection-hunter round and gave no re-run
-   instructions — I found the existing section only by reading the document myself.
-
-None of this proves forgery — an ad-hoc human-triggered run plus an honest fence-balancing fix
-explains the same facts. But a standing PROMOTE under my own gate's heading, of unconfirmed
-provenance, sitting where a downstream structural parser (per the machine contract, "the fence counts
-ONLY inside the `## Adversarial Review` section") could read it as satisfying D5's second key, is
-exactly the shape of confused-deputy risk this role exists to close — and the calibration is explicit
-that a false PROMOTE here is the feared failure, a false block is one cheap re-run. Escalating to
-REVISE so the conductor confirms whether that section is a genuine, provenance-tracked prior
-injection-hunter round (in which case it should say so on its face, the way every other repeat gate
-here does) or an artifact that should not be trusted as a second key.
-
-```verdict
-gate: injection-hunter
-verdict: REVISE
-date: 2026-09-25
-model: claude-sonnet-5
-targets: #adversarial-review, #threat-model
-prior: none
-basis: machinery
-findings: 1/1
-note: This document already contains a standing `## Adversarial Review — 2026-09-25` section with a complete `gate: injection-hunter, verdict: PROMOTE` fence, positioned mid-document (between Spec Review round 1 and Threat Model round 2) rather than at the end, self-certifying exactly the cold-start facts this invocation was itself asked to verify, with no accompanying spec-reviewer PROMOTE anywhere in the document and no re-run framing in this invocation's own task briefing — and Threat Model round 2 separately records editing bytes immediately at that section's boundary to keep it parseable ("a stray unterminated ``` ... would have swallowed this entire section ... into an open code block"). This may be an innocent ad-hoc Dave-triggered run plus a fence-balancing fix, but I cannot verify its provenance from inside the document, and a standing PROMOTE under my own gate's heading of unconfirmed origin is precisely the confused-deputy shape D5 exists to close, so I escalate to REVISE for conductor verification rather than treat it as a second key.
-```
-
-## Threat Model — 2026-09-25
-
-**Recommendation: PROMOTE to threat-modeled — round 3. M1, M2, M3 and M4 all HELD: I re-verified each
-against the code it prescribes and each is on its named task with its ordinal unmoved, so the four
-fences below are RE-EMITTED with byte-identical `desc`. The second fold introduced ONE new security
-surface and it is mine: the fold that fixed AC-4's `.md`-token rule against a false RED did it by
-exempting a REGION — every line inside a fenced code block — rather than a TOKEN CLASS, and that
-region is exactly where the exit attestation's pasted re-run output lands. One new required
-mitigation, M5, one clause on Task 13, verified green against the committed artifact's current bytes.**
-
-Third threat-model round on this document. I read it from line 1, then re-read the material the
-SECOND spec-review fold added — Design §2's "The no-provenance name change refuses BEFORE the write"
-and "Which `aliases` list wins", §3's `stored.strip()` bullet, §3a's new sweep row and its re-stated
-independence declaration, §4's second-parameter disposition, Tasks 3, 6, 10, 12, 13 and 14, the four
-new or rewritten `Edge Cases` entries, the two new `Verification` clauses and the two new
-`Risk Analysis` rows — and checked each against the CODE rather than against the fold's prose. I also
-re-read the spec-review round that landed between my rounds, and I re-executed the artifact the new
-Task 13 clause grades (`docs/stem-divergence-live-baseline.md`, read in full, byte by byte for its
-`.md` tokens).
-
-### Trigger check
-
-The same five fire, unchanged in shape: filesystem operations on user-owned files, persistence,
-untrusted vault bytes crossing into a trusted write-target decision, PII (person names in a new
-WARNING, a new ERROR and a committed live-vault artifact), and an out-of-repo blast radius through
-three `-e` consumers. The fold added no sixth — no network, no subprocess, no credential, no new
-import capability — and the routing walls A/B/C still keep filesystem-mutation capability
-single-homed in `obsidian_schemas/vault_io.py`.
-
-### The four standing mitigations, re-verified against the code
-
-**M1 — still landed and still total.** The door body's containment clause is byte-for-byte where round
-2 found it, immediately after `destination = self.vault_path / new_filename` and before all three
-`vault_io.move_note` call sites, with the resolve's `OSError`/`ValueError` treated as NOT contained.
-I re-confirmed the two facts underneath it in this worktree rather than trusting round 2's account:
-`vault_io._resolved` is still a bare `Path(path).resolve()` with no notion of a vault root
-(`obsidian_schemas/vault_io.py:_resolved:234-243`) and `move_note` still checks a symlinked SOURCE and
-nothing about where `dest` points (`obsidian_schemas/vault_io.py:move_note:721-750`), so the clause is
-still the only thing bounding the destination. The new pre-write refusal does not touch it: the arm it
-adds is in `update_fields`, above the write, and the door's own argument refusals are unchanged.
-
-**M2 — still landed, unchanged.** Task 2's arm still asserts the PROPERTY (the accessor
-`_resolve_write_target` reads answers A's own path; nothing the seam reads answers B) with pydantic's
-extras retention demoted to a Build-Log observation, and Design §1's bullet still separates the
-two-implementation-detail explanation from the asserted property.
-
-**M3 — still landed, unchanged.** `source.with_name(destination.stem + ".rename-tmp.md")` in the door
-body, in Task 6's work text, in the `Edge Cases` entry for a process dying mid-two-step and in the
-rewritten `Risk Analysis` row; Task 10's oracle is still `vault_path.glob(repo.file_pattern)` with the
-rejected spelling driven through the same glob as a near-miss.
-
-**M4 — still landed, unchanged.** `logger.info("Renamed %s note from %s to %s", self.type_name,
-source.name, moved.name)` in the door body and in Task 6, captured in Task 10 through
-`captured_logs(level=logging.INFO)`.
-
-### STRIDE delta — what the second fold moved
-
-**Spoofing, Denial of service, Elevation of privilege: unmoved.** M2 still closes the stamp's read
-direction; the privilege surface is still filesystem reach bounded by M1; `door_calls_inside_note_lock`
-still makes the lock-ordering rule structural.
-
-**Tampering: strictly better, and I checked the one shape that could have gone the other way.** The
-new `update_fields` clause is `if renaming and resolved is None: raise ValueError`, placed inside the
-lock after `renaming` is computed from `frontmatter` and before `gate_write`, `write_frontmatter` or
-`vault_io.write_note` are reached. I walked the three answers the spec-review named and the spec
-rejects the dangerous one for the right reason: re-stamping `entity` from the name-keyed `file_path`
-would have laundered `_file_map`'s last-wins glob answer (`obsidian_schemas/repositories/base.py:load:241-246`)
-into a provenance stamp and handed the door a note the caller never named — a DIRECTED write into a
-third party's file, manufactured by the repair machinery, which is the same harm class M2 exists to
-keep unreachable from note content. The spec now states that provenance has exactly two write sites
-(the parse and the door's re-stamp) and that `update_fields` does not become a third. That is the
-correct invariant and it is the one I would have required.
-
-**Repudiation: better at three sites now, not two.** Task 3's and Task 5's INFO-line fix stands, and
-the new refusal raises with the method, the requested name and the reason named.
-
-**Information disclosure: this is where the fold opened something, and it is the finding.** Round 1
-closed this category with *"Nothing to require"* explicitly BECAUSE the one place it genuinely matters
-— a live-vault evidence artifact committed to git forever — was already walled by AC-4, which asserts
-*"no absolute path and no note filename leaks the privacy wall"*. This fold narrowed the half of that
-wall that catches filenames. Task 13 now reads: `FORBIDDEN_DEFAULT_PATTERNS` must not appear (still
-whole-file, still total — the absolute-path half is intact), *and* `every .md token the file names
-**on a line OUTSIDE a fenced code block** resolves to a path that EXISTS in this repo or is the
-declared template literal @{name}.md`. The region exclusion is attached to the filename conjunct
-alone, so after this fold nothing in the build checks for a note filename inside a fenced block.
-
-Three things make that the wrong exemption rather than a cosmetic one.
-
-1. **The excluded region is precisely where a leak would land.** The artifact's §0 already carries two
-   fences of verbatim command OUTPUT (`docs/stem-divergence-live-baseline.md:98-115`), which is how a
-   conductor records a re-run. The exit attestation re-runs two commands, and the second is
-   `scripts/lint_vault.py --vault "$VAULT" --report`, which reports issues PER PATH — it names note
-   filenames by construction. The entry run was redacted by hand and holds up: I checked its output
-   fence token by token and it carries counts, shape labels, booleans and directory names only. The
-   wall exists for the run where that discipline slips, and it is now blind in the one region that run
-   writes to. A bare relative filename (`@Someone Real.md`) contains no member of
-   `["expanduser", "Path.home()", "/Users/"]` (`tests/test_vault_path_required.py:278`), so nothing
-   else in the build catches it.
-2. **The artifact itself claims the stronger property.** `docs/stem-divergence-live-baseline.md:15`
-   reads *"No absolute path appears anywhere in this file, so a whole-file privacy scan is legal
-   against it."* The precondition declares a whole-file scan legal; the check that grades it no longer
-   performs one.
-3. **The narrow fix exists, the spec-review itself named it as the alternative, and I verified it is
-   green.** The false RED the fold was fixing is `sorted(V.rglob('*.md'))` at `:36` — a GLOB, not a
-   filename. I read every `.md` token inside every fence in that file: there are exactly two, `'*.md'`
-   at `:36` and `f"@{name}.md"` at `:76`, and the second is already exempt as the declared template
-   literal. So exempting the TOKEN CLASS — a token containing `*` — makes the rule green against the
-   artifact as committed with no region exclusion at all, and keeps it total over every real filename
-   anywhere in the file. That is one clause, on the same task, for the same cost.
-
-A fourth point is about the clause's own guard rather than its scope, and the token-class fix
-dissolves it: Task 13 asks the check to *"assert the exclusion is non-vacuous (at least one line was
-skipped) so a broken fence detector cannot silently exempt the whole file"* — but "at least one line
-was skipped" is satisfied by a toggle stuck OPEN, which is the whole-file exemption the sentence says
-it prevents. Under a token-class exemption there is no fence toggle in the privacy path to get stuck.
-**M5.**
-
-*The mitigation's bound, so it is not over-read:* a filename committed to git is not un-leaked by
-detecting it afterwards, and the close-out's step 4 redaction is the primary control either way. M5
-buys a standing automated check that stays total for the life of the repo instead of one with a
-permanent blind region — which is the whole reason AC-4 carries a privacy wall rather than a promise.
-
-### Notes (non-blocking)
-
-- **The `aliases` reconciliation is correct, and I verified the dict it reads.** Design §2's
-  `entity.aliases = frontmatter["aliases"]` is captured inside the lock after
-  `frontmatter.update(gate_write(updates, …))` (`obsidian_schemas/repositories/base.py:483-485`) and
-  before the write at `:490` serializes that same dict, so `frontmatter["aliases"]` IS the committed
-  value and not the pre-write one. No security delta: an arbitrary caller-supplied alias list already
-  reaches disk through `update_fields` today, and the value the DOOR adds (`old_stem`) is derived from
-  the note's own filename, never from caller input — so this item hands the alias index no new
-  attacker-influenced value.
-- **The door's own case-only staging name is still unsteerable**, for the reason round 2 gave and the
-  fold did not disturb: the branch that composes it requires `source.samefile(destination)`, so
-  `destination.stem` is the source's own stem in another case.
-- **M1's exact bound and the M3 `load()` window are both now FOLDED** where they belong — the first
-  into Design §2 beside the containment clause, the second into `Verification`'s close-out, whose ship
-  condition is `len(conflicts) == 0` and is the one place a conductor could misread that window as a
-  new duplicate. Both were my round-2 carried-forward notes; both are closed and neither needed work.
-- **The write-then-move window is folded as an `Edge Cases` entry and a `Risk Analysis` row**, stated
-  as a trade against a deadlock, with the lock-ordering entry explicitly marked as a claim about
-  ORDERING and nothing else. That is exactly the separation I asked for and it needs nothing further.
-- **One stale enumeration, named for the record and not a security matter.** The `writes` fence for
-  `tests/test_stem_name_divergence_detector.py` still says *"the five planted members Design §3a's
-  sweep requires"* and lists five; Task 12 and §3a now carry SIX ((vi), the blank-`name:` near-miss).
-  A counting slip in a declaration, no criterion depends on it, and it is the spec-reviewer's ledger
-  rather than mine.
-- **OPEN security questions: none.**
-
-```mitigation
-kind: required
-id: M1
-desc: `rename_note` must refuse a destination whose RESOLVED path is not inside `self.vault_path`, raising before any `vault_io.move_note` call — the containment test `_resolve_write_target` already applies to the source, applied to the caller-supplied destination, resolved rather than string-compared so that a symlink inside the vault cannot point the move outside it.
-landed: Task 6
-```
-
-```mitigation
-kind: required
-id: M2
-desc: The provenance stamp must be unforgeable from note content, asserted and not assumed — a note whose own frontmatter declares `_source_path` naming a DIFFERENT file must still resolve, through `_resolve_write_target`, to the file it was parsed from.
-landed: Task 2
-```
-
-```mitigation
-kind: required
-id: M3
-desc: The case-only two-step must not move the note out of the `*.md` namespace — the staging name keeps the `.md` suffix, so a rename interrupted between the two moves leaves a note that Obsidian, the repository and `lint_vault` can all still see rather than a file no reader picks up.
-landed: Task 6
-```
-
-```mitigation
-kind: required
-id: M4
-desc: `rename_note`'s audit line must name the SOURCE path as well as the destination, so a relocation performed by `update_fields` on a consumer's behalf is reconstructable from logs.
-landed: Task 6
-```
-
-```mitigation
-kind: required
-id: M5
-desc: AC-4's no-note-filename privacy wall must stay TOTAL over the whole committed artifact — the check's `.md`-token rule is exempted by TOKEN CLASS (a token containing `*`, i.e. a glob, beside the already-declared template literal `@{name}.md`) and NEVER by excluding fenced code blocks, because a fenced block is exactly where a re-run's pasted output lands and the exit attestation re-runs `lint_vault --report`, which names note filenames per path; the two `.md` tokens inside the artifact's current fences are `'*.md'` and `f"@{name}.md"`, so the token-class exemption is green against it as committed and the region exclusion buys nothing the narrower rule does not.
-landed: Task 13
-```
-
-```verdict
-gate: threat-modeler
-verdict: PROMOTE
-date: 2026-09-25
-model: claude-opus-5
-note: Round 3 re-verified M1-M4 against the code each prescribes rather than the fold's prose — all four HELD on their named tasks with ordinals unmoved and `desc` re-emitted byte-identically, and I re-confirmed the two facts M1 rests on in this worktree (`vault_io._resolved` is still a bare `Path.resolve()` with no vault root, `vault_io.py:234-243`; `move_note` still checks only a symlinked SOURCE, `:721-750`). The second fold's Tampering delta is an improvement and I checked the shape that could have gone the other way: `update_fields`' new pre-write refusal rejects re-stamping from `get_file_path`, which would have laundered `_file_map`'s last-wins glob answer (`base.py:241-246`) into a provenance stamp and moved a note the caller never named — the spec now pins provenance to exactly two write sites, which is the invariant I would have required. ONE new surface, and it is in the half of the wall round 1 leaned on to close Information disclosure with "nothing to require": Task 13's fold fixed a false RED on `sorted(V.rglob('*.md'))` by exempting a REGION — every line inside a fenced code block — from AC-4's `.md`-token rule, and that region is where a re-run's pasted output lands, with the exit attestation re-running `lint_vault --report`, which names note filenames per path; the absolute-path half stays whole-file and total, but a bare `@Someone Real.md` matches no member of `FORBIDDEN_DEFAULT_PATTERNS` (`tests/test_vault_path_required.py:278`) so nothing else catches it, and the artifact itself declares at `:15` that a whole-file privacy scan is legal against it. The narrow fix is verified rather than proposed: the only two `.md` tokens inside that file's fences are the glob at `:36` and the already-exempt template literal at `:76`, so exempting the TOKEN CLASS is green against the artifact as committed and keeps the rule total over every real filename — M5, one clause on Task 13, which also dissolves the clause's own unsound guard ("at least one line was skipped" is satisfied by a fence toggle stuck open, the very whole-file exemption it claims to prevent). Both of my round-2 carried-forward notes are folded and closed (M1's check-then-act bound into Design §2, the M3 `load()` window into the close-out whose ship condition is `len(conflicts) == 0`), the write-then-move window is an Edge Case and a risk row with the lock-ordering claim kept separate, the `aliases` mirror reads the post-gate dict and adds no attacker-influenced value, and zero OPEN questions.
-```
-
-## Spec Review — 2026-09-25
-
-**Recommendation: REVISE — return to spec writer (gaps to fix)**
-
-Third spec-review round on this document, spawned cold-start. Rulings on record: WI-021's gate-name-output-is-an-identity ruling (approach G's rejection), Dave's `ac_hash 15189b874b27` sign-off freezing AC-1…AC-5 and the Intent, the exploration's accept-the-linter-noise disposition, the threat model's five `kind: required` mitigations, and the Spec-Writer Notes' two declared NON-actions (M1's check-then-act residual; the write-then-move window) — I route against all five and neither finding below touches a signed criterion's text.
-
-I read the document from line 1 in full rather than diffing against the previous round, then re-read the code at every load-bearing citation. Both of round 2's blocking findings are CLOSED and I verified each against the code: `update_fields`' name-change-with-no-provenance now refuses inside the lock before `gate_write`, `write_frontmatter` or `vault_io.write_note` are reached, swept across Design §2, Task 3's `resolved` binding, Task 6, Task 10, two `## Edge Cases` entries, a `## Verification` failure mode, a `## Risk Analysis` row and the `base.py` `writes` fence; and the `stored.strip()` conjunct now has §3a's sweep row, Task 12's plant (vi) and a `## Verification` arm. Round 1's four findings are still closed. All five of round 2's non-blocking notes and all three of its carried-forward notes are folded. Threat-model M5's fold is complete and, unusually, I was able to verify its load-bearing empirical claim rather than accept it — see Citation verification.
-
-The two findings below are new and they are the same paragraph seen twice: `rename_note`'s branch structure, where the document promises a recovery the prescribed body cannot perform and a battery arm the prescribed body makes RED.
-
-### Citation verification
-
-All verified against current code; nothing drifted. The ones a wrong reading would have made the design unbuildable, and the ones this round's fold rests on:
-
-- `obsidian_schemas/repositories/base.py`: `_adopt:168-191` (signature `(name_key, entity, file_path)`, the `_file_map` write at `:188` — Design §2's `self._adopt(self._get_cache_key(entity), entity, moved)` matches it argument for argument); `file_pattern:206-208`; `_ensure_loaded:210-213`; `load:241-248`; `_load_file:299-317` with `parse_markdown_file` at `:311`, `remember_snapshot` at `:313` and the `return doc.entity` at `:314`; `_get_cache_key:319-321`; `get_file_path:354-365`; `save:367-412` (`overwrite=True` at `:372`, `:391-393`, `write_markdown_file` at `:398`, the INFO line at `:411`); `update_fields:414-523` (`:437-438`, `:440-441`, `:443-444`, lock `:448`, `read_note` `:449`, `parse_frontmatter` `:450`, alias block `:454-459`, gate `:483-485`, `write_frontmatter` `:488`, `write_note` `:490`, reload `:493-495`, and `self._adopt(new_name_key, updated_entity, file_path)` at `:520`, which is why the ordering block's `file_path = moved` rebind before the reload is load-bearing for the cache too).
-- `obsidian_schemas/writer.py`: `model_to_frontmatter:89` composing `model_fields` (`:112`) → `model_extra` (`:119-123`) → `extra_fields` (`:126-129`); `write_markdown_file:160` with the `entity is not None` arm at `:229-233`, the one `gate_write` at `:252-253`, `with vault_io.note_lock(file_path) as resolved` at `:258`, `is_create` at `:275`, the WI-126 guard at `:285-302` and the two writes at `:317`/`:319`; `update_frontmatter_field:333` (lock `:368`, gate `:385-387`, write `:393`), `update_frontmatter_fields:405` (`:434`, `:451`), `roundtrip_file:463` (`:497`, `:504`). All four leaves take the path as their FIRST parameter and write that same name, so AC-5's bucket (a) holds and only `write_markdown_file` needs the `with … as` hop.
-- `obsidian_schemas/vault_io.py`: `_resolved:234-243` is a bare non-strict `Path(path).resolve()`; `move_note:721-750` with the symlinked-source refusal at `:736-740`, the sorted two-lock acquisition at `:744-750` and the link-then-unlink docstring at `:732-734`; `_move_locked:753-783` with `os.link`'s `FileExistsError` → `NoteAlreadyExists` at `:759-771`, the `os.unlink` at `:776` and `forget_snapshot` at `:780-781`. First positionals are `path`/`path`/`src` at `:670`/`:701`/`:721`. **`move_note` returns `_move_locked`'s `target`, which is `_resolved(dest)` — a RESOLVED path.** That is the fact finding 2 turns on and the spec does not cite it anywhere.
-- `obsidian_schemas/name_gate.py:gate_write`: `result = dict(introduced)` at `:346` and `return dict(introduced)` at `:344`, so the call MUTATES nothing — Design §3's `_gate_refusal_pattern(vf.frontmatter)` really is read-only against the linter's own dict, which AC-3(d) and the `scripts/lint_vault.py` `writes` fence both assert. `allow_phone_sentinel` derived at `:355-358` verbatim; the declared-non-person pass-through at `:319-344`.
-- `obsidian_schemas/name_validation.py`: `_PATH_HOSTILE_RE = re.compile(r"/")` at `:107`; `Tier1Branch:148-174` with `pattern`'s non-uniqueness documented at `:152-154` and `sentinel_exempt` at `:155-156`; `arrow_connective:214-225` raising `pattern="calendar_prefix"`, `path_hostile:249-259` raising `pattern="path_hostile_char"`, `pure_digit` the one `sentinel_exempt=True` record at `:287`.
-- `obsidian_schemas/models.py`: `BaseEntity:23-40` (`extra="allow"` at `:31-32`, `tags` at `:40`), `Person.aliases:80`, `Meeting:259-263` declaring `type`/`date`/`attendees`/`topics`/`meeting_id` and inheriting `tags` — round 2's citation fix is correct — `TYPE_TO_MODEL:309-318` containing `"person"`. Neither `Book` nor `Meeting` declares `name`.
-- `scripts/lint_vault.py`: imports at `:44-48`, `DEFAULT_VAULT:62`, `SKIP_DIRS:64`, `read_vault:121` with `rglob("*.md")` at `:123`, `stem = md.stem` at `:155` and `etype` read off the stored record at `:176`; `check_structural:328` with the `read_error`/`parse_error` `continue`s at `:340-359`, the two `is_at_prefixed` tests at `:362-381`, `if not vf.entity_type: continue` at `:383-384` and the `TYPE_TO_MODEL` guard at `:387-388`; `check_completeness:429-446` with the ACTIVE-tier gate at `:429-432` and `person_missing_name` at `:440-443`; the `--fix` repair at `:1040-1045`; the phone-sentinel-unreachable comment at `:1001-1014`; `CATEGORY_ORDER:1206`, `print_summary:1216-1221`. I re-checked the two arms Design §3 leans on against the live code rather than the fold's account: `person_missing_name` fires on `not name or not str(name).strip()`, so a list-valued `name:` is claimed by no check today (Design §3's Build-Log line is right) and a whitespace-only `name:` IS claimed, but only at ACTIVE tier (the `## Edge Cases` precision is right).
-- `tests/derivations.py`: `PACKAGE_ROOT:31`, `DOOR_NAMES:47`, `FunctionId:90-96` (module is a posix relpath, so Task 10's `FunctionId("obsidian_schemas/repositories/base.py", "BaseRepository.rename_note")` is the right shape), `python_files_under:185`, `_own_body_nodes:245`, `_called_names:264`, `_names_in:282`, `_is_write_call:286-299`, `functions_parsing_then_writing:316`, `_taints_a_write:361-409` (seed `:368-382`, monotone fixpoint `:389-401`, sink `:404-408`), `_SHARED_HELPERS:585`, `non_completed_write_sites:588-619`, `functions_calling:873`, `_pos:924`, `_assign_targets_name:928-944`. Design §4 is right on both hazards: `_taints_a_write` propagates through `_names_in(target)`, which WOULD taint `entity` off `entity._source_path = moved`, and `_assign_targets_name`'s target rule is the one that does not.
-- I walked the AC-5 rule by hand over all ten prescribed seam bodies and the four leaves and it still admits every shipped shape and refuses the monotone escape; and I confirmed `_resolve_write_target` does not join `non_completed_write_sites` (no write call in its body, and `_SHARED_HELPERS` is `{"_get_body_content", "_split_frontmatter_fence"}`), so Task 1's `= 8` pin genuinely does not move.
-- `door_calls_inside_note_lock` is genuinely EMPTY over `PACKAGE_ROOT` today, and I derived that rather than accepting it: a grep for the four path-taking leaf names over `obsidian_schemas/**` returns only the definitions, two `__init__` re-exports, `base.py:398`, `book.py:170` and `meeting.py:192` — none of them inside a `note_lock` `with` — while every `note_lock` holder in the package (`writer.py:258`, `:368`, `:434`, `:497`, `base.py:448`, `person.py:1410`, `:1529`, `:1660`, `:1726`, `:1800`) calls only `vault_io.write_note`/`create_note`, which Design §4 deliberately excludes.
-- `tests/test_concurrent_access.py:test_wi020_derivations_survive_the_routing:1060` — `len(writers) == 4` at `:1077`, the `{write_markdown_file}` set equality at `:1081`, `non_completed_write_sites == 8` at `:1085`, subclasses 4 at `:1088`, `_load_file`s 3 at `:1089`. Task 1's pin list is correct value for value.
-- `tests/test_name_gate_wall.py`: `PERSON_FALSY_RETURN_FUNCTIONS:1048`, `test_wall_membership_is_closed_by_running_each_walls_predicate:1057`, `_check_wall_d:1107`, `_check_the_ast_capability_stays_single_homed:1132`, `len(sites) == 8` at `:1161`. `tests/test_loud_fail_write.py:test_write_failure_raises_and_noops_keep_their_return:105`. `tests/test_lint_vault_fix_rules.py:1703`'s `auto_fixable_emitter_checks` set equality. `tests/test_identity_endgame.py:590-594`'s `_email_index` zero-sites pin, with the needle assembled from parts exactly as Task 14 says. `tests/test_vault_path_required.py:FORBIDDEN_DEFAULT_PATTERNS:278` is `["expanduser", "Path.home()", "/Users/"]`, `_code_lines:281`, the sweep at `:323`.
-- `tests/fixture_vault.py`: `CORPUS_DIGEST:44`, `NOTES:217`, the four divergent specimens at `:255-260`, `:261-266`, `:297-301`, `:302-306`, the collision third at `:273-276`, the whitespace discriminator at `:246-254`, the phone specimen at `:288-293`, `LOADABLE:521`. I also re-ran Design §3's corpus claim myself: every non-`@` key in `NOTES` declares `meeting`, `book`, `watch`, `explore`, `gift-idea`, `exploration` or `None`, and no `declared_type="person"` entry is non-`@`, so AC-3(b)'s "every non-`@`-prefixed note" clause really is satisfied by the `entity_type` guard.
-- `tests/support.py:captured_logs:91` defaults `level=logging.WARNING`, so Task 10's explicit INFO for M4 is required and Task 9's silence for AC-1(f)'s WARNING is right. `tests/support.py:temp_dir:31-37` returns `Path(tempfile.mkdtemp(prefix="wi020-"))` — **UNRESOLVED**, which is why `tests/test_lint_vault_fix_rules.py:_temp_vault:158-191` calls `.resolve()` on both sides of every comparison it makes and still returns the unresolved `built`. That is the other half of finding 2.
-- **M5's empirical claim, re-derived rather than accepted.** I ran Design §4a's own prescribed tokenizer (`[\w@{}*./+-]+\.md`) over `docs/stem-divergence-live-baseline.md` as committed. It returns exactly EIGHT tokens and they are exactly the eight §4a enumerates: `docs/filename-name-divergence-repair.md` (`:4`), `docs/vault-shape-census.md` (`:5`, `:22`), `docs/lint-vault-live-baseline.md`, `*.md` (`:36`), `@{name}.md` (`:76`, `:126`, `:153`). All three repo-relative paths exist. So the token-class rule is GREEN against the artifact as committed and total over every real filename in it — M5 is correct, and its fold is complete across Design §4a, Task 13, the `## Verification` structural arms, the `writes` fence and the `## Mitigation Folds` record, with no surviving statement of the superseded region form in any spec-writer-owned surface. Also re-checked against AC-4's other clauses: §1's two entry figures parse by leading integer, §2's eight rows each carry (b1)/(b2)/(b3)/(c), every direction token is `RENAME`/`MERGE` and every (b2) token is `no`/`same-file`/`different-note`, row 3 is `same-file` → RENAME and row 8 is `different-note` → MERGE. The artifact passes the check that will read it.
-
-One line-number nit, listed below and not drift: §4a puts `docs/lint-vault-live-baseline.md` at `:5`; it is at `:6`.
-
-### Blocking issues
-
-**1. The document promises, in three places, that re-running `rename_note` repairs a half-failed rename's missing alias. The door body it prescribes cannot append that alias, and Task 10 asserts the opposite.**
-
-Design §2's door body reads `old_stem` from the SOURCE, before the branch, and guards the alias append on `old_stem != new_stem`:
-
-```
-old_stem = source.stem.lstrip("@")
-...
-entity._source_path = moved                     # RE-STAMP, before anything else can fail
-new_stem = moved.stem.lstrip("@")
-aliases = list(getattr(entity, "aliases", []) or [])
-if old_stem and old_stem != new_stem and old_stem not in aliases:
-```
-
-Trace the half-failure the document resolves. `rename_note(entity, "@New.md")` on a note at `@Old.md`: `old_stem = "Old"`, the move succeeds, `entity._source_path = @New.md` (ordering decision 2 puts the re-stamp first, for a reason I agree with), then `update_frontmatter_field` raises. Residual: the note is at `@New.md` with no alias, the entity is stamped `@New.md`.
-
-Now the prescribed recovery. `rename_note(entity, "@New.md")` again: `source = self._resolve_write_target(entity)` answers `@New.md`, so `old_stem = "New"`; `destination == source`, so `moved = source` and `new_stem = "New"`; the guard `old_stem != new_stem` is FALSE and **nothing is appended**. The alias is lost permanently, and AC-2(a)'s "resolves under BOTH names afterwards" is never restored.
-
-Three surfaces state the false version and a fourth states the true one, which is the WI-144 condition:
-
-- `## Edge Cases`, *"The rename fails halfway"* — **Decision:** *"re-running `rename_note(entity, same)` is idempotent: the `destination == source` branch skips the move **and appends the alias**"*; **Reasoning:** *"one note, one missing alias, **recoverable by a re-run**"*.
-- `## Risk Analysis`, the door-fails-between-move-and-alias row — *"the door is idempotent, **so a re-run completes it**"*. That sentence is the whole of the row's mitigation and is what makes it low/low.
-- Design §2, ordering decision 2 — *"leaves a moved, correctly-stamped note missing one alias — loud, and idempotent on a re-run, because `destination == source` is the first branch"*. True about safety, and the sentence it sits beside in `## Edge Cases` reads it as a repair.
-- Task 10's IDEMPOTENCE arm — *"the note's `aliases` **unchanged** so nothing is appended twice"*. Correct for the door as written, and the direct negation of the Edge Case's Decision.
-
-So the builder is told both, by the two surfaces they are most likely to read (the Edge Case resolves the failure mode; Task 10 writes the test). This is a resolved edge case in the bar's partial-failure and idempotency categories whose Decision the prescribed code contradicts, and a `## Risk Analysis` mitigation that does not hold.
-
-Nothing here needs a new mechanism — the honest statement is available and cheap: after a failed alias write the residual is a moved, correctly-stamped note missing one alias, and the door cannot repair it because provenance has already moved to the destination (which ordering decision 2 wants and should keep); the recovery is a hand alias edit or an `update_fields(entity, {"aliases": [...]})`. State that in the `## Edge Cases` Decision and Reasoning, restate the `## Risk Analysis` mitigation so it does not claim the re-run completes the append, and say in Task 10 that the IDEMPOTENCE arm's "aliases unchanged" is the property (so the next reader does not read it as the bug).
-(Builder's question this answers: *"`## Edge Cases` says the re-run appends the alias and Task 10 says the re-run leaves `aliases` unchanged — which one am I building, and which one am I asserting?"*)
-
-**2. `destination == source` is a raw `Path` comparison against a stamp `move_note` hands back RESOLVED, so the idempotent branch does not fire on a symlinked temp root — and Task 10's "no `move_note` call recorded" is RED against a correct build on this project's own platform.**
-
-`vault_io.move_note` returns `_move_locked`'s `target`, and `target` is `_resolved(dest)` = `Path(dest).resolve()` (`obsidian_schemas/vault_io.py:_resolved:234-243`, `:741-742`, `:783`). Design §2's door then does `entity._source_path = moved`, so after one rename the stamp is a RESOLVED path. `_resolve_write_target` returns the stamp unchanged (it resolves only for the containment test and returns `candidate`), while `destination = self.vault_path / new_filename` is built from the repository's `vault_path` exactly as the caller supplied it.
-
-On macOS `/var` is a symlink to `/private/var`, and `tests/support.py:temp_dir:31-37` — this repo's only zero-arg temp-directory idiom, which the AC checks must use because they take no `tmp_path` fixture — returns `Path(tempfile.mkdtemp(prefix="wi020-"))` UNRESOLVED under `$TMPDIR`. `tests/test_lint_vault_fix_rules.py:_temp_vault:158-191` is the standing evidence: it calls `.resolve()` on both sides of every comparison it makes precisely because the raw path is not resolved, and it still hands its caller the unresolved `built`.
-
-So for a repository built on such a vault, the second `rename_note(entity, <the filename it already has>)` has `source = /private/var/…/@New.md` and `destination = /var/…/@New.md`. They are unequal as `Path`s, so the first branch is skipped; `destination.exists()` is True and `source.samefile(destination)` is True, so the door takes the **case-only two-step** and records TWO `move_note` calls. Task 10 pins the second call at *"no `move_note` call recorded (through the same recording delegate M3's arm installs)"* — RED, against a build that implements Design §2 verbatim, on the platform the floor runs on. It also means the idempotent re-run silently performs two moves through a staging name, so an interrupted re-run can leave a `.rename-tmp.md` where the document says nothing moved at all.
-
-This is WI-149's oracle rule one level in: the branch's discriminant is a path SHAPE that the environment decides, and nothing in the document names it. The fix is one expression and it is the builder's to write only once the spec says which — compare the two by file identity rather than by string (`destination == source or (destination.exists() and source.samefile(destination))` collapses the first two branches, or resolve both operands before comparing), and say so in Design §2's door body, in Task 6's clause and in Task 10's IDEMPOTENCE arm. Note the interaction with M3 if the branches are collapsed: the case-only two-step must still not fire when the two paths are the same spelling, or the idempotent re-run gains the M3 window for nothing.
-(Builder's question this answers: *"the stamp came back from `move_note` resolved and my vault path is not — does `destination == source` fire on the idempotent re-run, and if not, is the two-step the intended behaviour or is the assertion wrong?"*)
-
-### Non-blocking notes
-
-- **The `!=`'s operand-normalization is a free variable of the detector's arm with no plant, and §3a's sweep dispositions the adjacent one.** The arm is `isinstance(stored, str) and stored.strip() and stem != stored`; an implementation written `stem != stored.strip()` — a plausible slip now that `.strip()` sits in the conjunct immediately to its left — passes all four AC-3(a) cells, AC-3(b)'s double-space discriminator (which is INNER whitespace, so `.strip()` does not move it) and all six of Task 12's plants, while dropping a live divergence whose only difference is leading or trailing whitespace in a quoted `name:`. §3a's table has a row for *"whitespace inside either side"* and dispositions it as already pinned by AC-3(b); the leading/trailing sub-cell is a different one. I am deliberately NOT blocking on this: Design §3 spells the arm as literal code, AC-3's signed desc says *"exactly as written"*, the live population is zero, and round 3 emitting the next member of a class whose generator §3a has already enumerated and whose next ladder level it has already declared is the treadmill the fold exists to end. If the writer touches §3a for any other reason, one row and one plant close it.
-- **Design §4a's line citation for `docs/lint-vault-live-baseline.md` is `:5`; the token is on `:6`.** `docs/vault-shape-census.md` is the `:5` token. The enumeration's substance (four tokens, three paths) is exactly right.
-- **The `## Verification` mutation table carries the body constraint on row 1 only.** The `BaseRepository.save` row says `repo.save(entity, body=<the note's current body>)` because `""` over a note with body content raises `BodyTruncationError` (`obsidian_schemas/writer.py:write_markdown_file:285-302`, and the guard is entity-type-agnostic). Rows 8 and 9 name only the field to set. A builder who plants a Book or Meeting with body content and calls `repo.save(entity)` hits the same guard; one clause on those two rows, or one sentence saying the planted Book/Meeting notes carry no body, removes the round trip.
-- **`update_fields` hands the door `f"@{new_name}.md"` for every entity type.** `rename_note`'s own docstring gives as its reason for taking the destination from the caller that *"each type's filename rule differs (`@{name}.md`, `_get_file_name`)"* — and the one in-library caller then hardcodes the Person/Company rule. It is correct for `BaseRepository`/`PersonRepository`/`CompanyRepository` (all three derive `@{name}.md`) and unreachable-in-practice for Book and Meeting, which declare no `name` field (`obsidian_schemas/models.py:Book`, `:Meeting:259-263`), so nothing is wrong today; the tension is worth one clause so a later reader does not resolve it the other way.
-- **Design §2's M1 paragraph says `gate_write` "skips entirely for a declared non-person type".** Company does not skip — it is validated against `COMPANY_TIER1_BRANCHES` (`obsidian_schemas/name_gate.py:329-343`, `obsidian_schemas/name_validation.py:_COMPANY_PATH_HOSTILE_RE:351`, the `path_hostile` record at `:398-404`), whose path-hostile class is WIDER than the person one. M1's argument is unaffected — it exists precisely because leaning on the gate is the boundary-you-can-route-around shape — and the threat model's own note states the narrow version correctly ("non-person, non-company"). One word.
-- **AC-1(g)'s "with no vault walk triggered" has no stated oracle.** Task 9 says *"Then arms (d)–(h) as AC-1 states them"*. The obvious observation is `repo._loaded` still False after the writes (nothing on the new seam's path calls `_ensure_loaded`), but a builder could equally reach for a patched glob. AC-1 is signed and cannot gain text; Task 9 can, at the cost of one clause.
-- **A re-anchoring nit.** `## Wall Membership`'s third row cites `tests/test_loud_fail_write.py:_check_write_failure_raises_and_noops_keep_their_return:127`; the symbol is defined at `:112` and `:127` is inside its body. Not drift — the symbol resolves — but the trailing courtesy line points into the middle of the function rather than at it.
-
-### Carried-forward notes
-
-- **The duplicated `## Adversarial Review — 2026-09-25` heading (injection-hunter, 2026-09-25, REVISE).** Still open and still not the spec-writer's to close — both sections and both `gate: injection-hunter` fences are present in the bytes I read, the earlier one PROMOTE and the later one REVISE, and the Spec-Writer Notes record the question without answering it, correctly. It reaches nothing in this review: no `gate: spec-reviewer` PROMOTE exists in this document, so D5's first key is absent and the second is not load-bearing for any transition today. Recorded so the chain is unbroken and so the conductor's action does not go missing behind a spec-writer round.
-- **M1's exact bound (threat model round 2).** Resolve-then-`os.link` is check-then-act against an attacker who can plant a symlink at the destination between the two. FOLDED into Design §2's M1 bullet as a stated bound with no work ordered, and re-declared as a deliberate NON-action in the Spec-Writer Notes. Re-deferred: the bound is stated, the attacker is outside Prerequisites 6, and there is nothing to build.
-- **The write-then-move window (threat model round 2).** FOLDED as a `## Edge Cases` entry and a `## Risk Analysis` row, with the lock-ordering entry explicitly marked as a claim about ORDERING and nothing else. Re-deferred as a declared NON-action for the same reason: the trade is stated, every residual is loud and detector-visible, and no work is ordered. Note it is adjacent to blocking finding 1 — both are about what the residual of a partially-completed rename actually is — but it is not the same defect and it does not need re-opening.
-- **Architect round 6, note 6(iv)** — the deliberately-out-of-scope items (`_get_cache_key`'s strip asymmetry, approach F's re-keying, the Book/Meeting `save` collapse) stand as written and are all named in `## Scope Boundary`. Closed; recorded so the chain is unbroken.
-- All other prior non-blocking notes are FOLDED and I verified each against the code rather than the prose: round 2's `.md`-token false RED (now M5's token class, and I re-ran the tokenizer over the artifact), the `aliases` source-of-truth question (Design §2's "Which `aliases` list wins", Task 6, Task 10), Task 14's two uncalled `## Wall Membership` rows (wall D and the `_email_index` pin, both now named and both predicted green — I confirmed the `_email_index` needle really is assembled from parts at `tests/test_identity_endgame.py:586-594`), AC-5 bucket (a)'s second-parameter disposition (Design §4), the `Meeting`/`tags` citation (`## Verification`), and threat-model round 3's stale "five planted members" count (the `writes` fence now states the LIST, six members, matching Task 12 and §3a).
-
-```verdict
-gate: spec-reviewer
-verdict: REVISE
-date: 2026-09-25
-model: claude-opus-5
-targets: Task 6, Task 10, #design, #risk-analysis
-prior: held
-basis: original
-findings: 2/9
-note: Both findings are Design §2's door branch structure, and both are cheap. (1) `rename_note` reads `old_stem` off the SOURCE before the branch and guards the alias append on `old_stem != new_stem`, so after a half-failed rename — move committed, `entity._source_path` already re-stamped to the destination by ordering decision 2, `update_frontmatter_field` raised — the prescribed recovery `rename_note(entity, same)` takes the `destination == source` branch with `old_stem == new_stem` and appends NOTHING; `## Edge Cases` says that branch "skips the move and appends the alias", `## Risk Analysis`'s rollback mitigation says "a re-run completes it", and Task 10's own IDEMPOTENCE arm asserts `aliases` UNCHANGED, so three surfaces promise a repair the fourth correctly denies and the builder picks one. (2) `move_note` returns `_resolved(dest)` (`vault_io.py:_resolved:234-243`, `:783`), so the stamp is RESOLVED while `destination = self.vault_path / new_filename` is not; `tests/support.py:temp_dir:31-37` hands the zero-arg AC checks an UNRESOLVED `mkdtemp` path (which is why `tests/test_lint_vault_fix_rules.py:_temp_vault` resolves both sides of every comparison it makes), and on macOS `/var` → `/private/var` — so the idempotent re-run's `destination == source` is False, the door falls through to the case-only two-step, and Task 10's "no `move_note` call recorded" is RED against a verbatim-correct build on the platform the floor runs on. Round 2's two findings and round 1's four all held closed and every non-blocking and carried-forward note is folded; M5's fold is complete and I verified its empirical half by running §4a's own tokenizer over the committed artifact — exactly the eight tokens it enumerates, all three repo paths present, so the token-class rule is green and total.
-```
-
-## Adversarial Review — 2026-09-25
-
-Cold-start spawn, third injection-hunter round on this document (two `## Adversarial Review —
-2026-09-25` sections already stand — round 1's PROMOTE, positioned between the first Spec Review and
-the second Threat Model round, and round 2's REVISE, positioned between the second Spec Review and
-the third Threat Model round). I read the document from line 1 to its end in full — Problem/Motivation,
-Intent, the entire Exploration Notes arm (all five architect rounds, the AC red-team round, all
-fifteen numbered premises, every constraint, the conductor read-back), Approach, Design §1–§2 read in
-full with the remaining subsections sampled, Acceptance Criteria (all five signed `criteria` fences),
-Spec-Writer Notes, then every prior gate's verdict prose in document order — Architectural Review, AC
-Red-Team, AC Sign-off, Data Audit, Threat Model rounds 1–3, Spec Review rounds 1–3, and both existing
-Adversarial Review sections. I also grepped the whole document (not just the sections I read closely)
-for verdict-steering phrasing — "ignore previous instruction", "pre-approved", "you must/should
-emit/output", imperative address to a reviewer, "trust this", role-play framing ("act as", "you are
-now"), hidden-formatting tricks — and separately for every HTML comment in the file. Both greps
-returned only legitimate hits: the steering-phrase grep matched nothing outside prior gates'
-verdict prose *discussing* the absence of such phrasing, and the only HTML comment in the document is
-the machine-maintained archive-split pointer at line 21.
-
-**The one substantive question this round had to settle: is round 2's REVISE (the duplicate-heading
-finding) a real injection-adjacent risk, or a false block?** I read both existing sections in full,
-independently of round 2's own framing, before reading round 2's conclusion.
-
-Round 2's finding, restated: a mid-document `## Adversarial Review — 2026-09-25` section (round 1)
-carries a complete `PROMOTE` fence and self-certifies "first injection-hunter round... genuine
-cold-start read, not a re-run" — a claim round 2 found impossible to verify from inside the document,
-compounded by (a) no accompanying spec-reviewer PROMOTE existing anywhere, (b) Threat Model round 2
-recording a structural edit at that exact section's boundary (removing a stray unterminated code
-fence), and (c) round 2's own invocation carrying no "this is a re-run" framing the way other repeat
-gates get.
-
-Re-examining all three: (c) does not hold up. Both Threat Model round 3 ("Third threat-model round on
-this document, spawned cold-start... I read it from line 1") and Spec Review round 3 ("Third
-spec-review round on this document, spawned cold-start") state explicitly that they too are cold-start
-spawns that determine their own round number *by reading the document*, not from invocation framing —
-which is exactly what round 1, round 2, and this round all did. There is no gate on this document that
-receives "this is round N" as a fact handed to it; every gate, on every round, discovers it the same
-way I am discovering mine now. Round 2's point 3 treated a universal property of this pipeline's
-cold-start gates as if it were something unique and suspicious about the injection-hunter's history.
-
-(b) also resolves cleanly on a full read of Threat Model round 2's own account (the non-blocking note
-at that section): the stray unterminated fence sat "immediately after the injection-hunter's closing
-fence, which would have swallowed **this entire section** [Threat Model round 2's own] — including its
-`verdict` and `mitigation` fences — into an open code block and made **the round** [Threat Model round
-2] **declare nothing**." Threat Model round 2 fixed a markdown bug that was about to break *its own*
-parseability, not the injection-hunter's. That a fence-closing bug happened to sit at the boundary of
-whatever section preceded it is not evidence of tampering with that preceding section — it is what
-"the document ends with a broken fence" always looks like, regardless of which section wrote it.
-
-(a) is true but load-bearing for nothing: D5 needs the injection-hunter's PROMOTE *beside* a
-spec-reviewer PROMOTE at a `specced -> ready` attempt, and neither has ever coincided in this document
-— both spec-review rounds after round 1's Adversarial Review section are REVISE, so no transition has
-ever been at risk of firing on a stale or forged injection-hunter key. An absent spec-reviewer PROMOTE
-is consistent with (and explains) round 1 never having been load-bearing, not with it being forged.
-
-The position itself — "mid-document, not at the end" — is also exactly what every OTHER repeat gate's
-history looks like once later rounds accumulate after it: Threat Model and Spec Review each appear
-three times, interleaved in matching cadence (Threat Model r1 → Spec Review r1 → Adversarial Review r1
-→ Threat Model r2 → Spec Review r2 → Adversarial Review r2 → Threat Model r3 → Spec Review r3 → [this
-section]). Round 1's Adversarial Review section was genuinely at the end of the document when it was
-written; it is "mid-document" now purely because this pipeline's append-only accumulation model put
-two more full review cycles after it — the same reason Threat Model round 1 now sits in the middle
-too, and nobody reads that as forged. And there is no cryptographic or otherwise-verifiable provenance
-mechanism for ANY gate round in this document (only Dave's AC sign-off carries a hash); demanding one
-uniquely of the injection-hunter's own history, when no other gate's rounds carry it either, is not a
-signal — it is a bar nothing in this document could clear, including this very section.
-
-None of this proves round 1 with certainty — nothing in an unsigned, append-only document can be
-proven from inside it, which is the honest limit this role carries. But round 2's three supporting
-facts each have a specific, checkable, non-malicious explanation once read against the rest of the
-document's own pattern, and I found no independent evidence anywhere in the body, in either
-Adversarial Review section, or in the sibling material I read, of text whose *effect* is to steer a
-verdict. Round 2's escalation was the right instinct under uncertainty but the uncertainty is now
-resolved by the document's own structure, so re-escalating a third time would be manufacturing a
-treadmill out of a closed question rather than doing the work this role exists for. I found nothing
-newly suspicious in any material this round read that round 1 and round 2 had not already covered.
-
-```verdict
-gate: injection-hunter
-verdict: PROMOTE
-date: 2026-09-25
-model: claude-sonnet-5
-note: Full end-to-end read (Exploration Notes through both existing Adversarial Review sections) plus whole-document greps for steering phrasing and HTML comments found no planted text steering any gate's verdict — the only comment in the file is the legitimate archive-split pointer. Round 2's REVISE (duplicate-heading provenance concern) is resolved rather than reopened: its "no re-run framing" point is false (Threat Model r3 and Spec Review r3 both state they are cold-start spawns that self-discover their round number by reading the document, exactly as every injection-hunter round including this one does); its "fence fixed at the boundary" point is Threat Model round 2 repairing a stray unterminated fence that threatened to swallow *its own* section, not evidence of tampering with the injection-hunter's; its "no accompanying spec-reviewer PROMOTE" point is true but never load-bearing, since no transition has been at risk; and round 1's mid-document position is the same append-only artifact every other repeat gate on this document shows (Threat Model and Spec Review each run three interleaved rounds too) — no gate round in this document carries cryptographic provenance, so that bar cannot discriminate a forged round from a genuine one for any gate, this one included.
-```
-
-## Threat Model — 2026-09-25
-
-**Recommendation: PROMOTE to threat-modeled — round 4. M1, M2, M3, M4 and M5 all HELD: I re-verified each
-against the code or the artifact it prescribes, every ordinal is unmoved, and the five fences below are
-RE-EMITTED with byte-identical `desc`. The THIRD fold introduced no new security surface — its branch-key
-change is strictly better on integrity and I checked the shape that could have gone the other way. The
-finding this round is not in the fold: it is a fail-OPEN underneath the refusal this document names as its
-safety net in six places. `vault_io.move_note`'s occupied-destination refusal is conditional on
-`guard_mode() == "enforce"`; under `OBSIDIAN_SCHEMAS_WRITE_GUARD=observe` door 3 does `os.replace(source,
-target)` and DESTROYS the occupied note. WI-004 declared that residual acceptable in writing (R9) while
-door 3 had one quarantine caller; this is the item that makes door 3 the package's relocation capability
-and drives it on every consumer name change. One new required mitigation, M6, one clause on Task 6.**
-
-Fourth threat-model round on this document, spawned cold-start. I read it from line 1, then re-read the
-material the THIRD spec-review fold added — Design §2's "Which branch fires is decided by WHICH FILE each
-side names", "What a half-failed rename leaves" and the re-run sequence-point table, ordering decision 2's
-restatement, the `f"@{new_name}.md"` paragraph, the M1 bullet's COMPANY precision, §3a's fifth member,
-§4a's corrected citation, three `## Edge Cases` entries, two `## Risk Analysis` rows, Task 6's three new
-clauses (branch key, no-alias-repair-arm, bare-name import), Task 9's (g) oracle, Task 10's three new arms
-and its resolve-both-sides rule, Task 12's plant (vii) and the `## Verification` mutation-table
-constraint — and checked each against the CODE rather than against the fold's prose. I re-read the
-spec-review round that landed between my rounds. I also re-ran M5's empirical claim over the committed
-artifact's current bytes rather than carrying it forward.
-
-### Trigger check
-
-The same five fire, unchanged in shape: filesystem operations on user-owned files, persistence, untrusted
+The same six fire, unchanged in shape: filesystem operations on user-owned files, persistence, untrusted
 vault bytes crossing into a trusted write-target decision, PII (person names in a WARNING, an ERROR and a
-committed live-vault artifact), and an out-of-repo blast radius through three `-e` consumers. The fold
-added no sixth — no network, no subprocess, no credential, no new import capability. **But this round adds
-a sixth trigger that three rounds of mine did not name and should have: CONFIGURATION THAT CHANGES A TRUST
-BOUNDARY.** `obsidian_schemas/vault_io.py:guard_mode:169-181` is an environment-read setting, re-read per
-call, that converts every door-2/door-3 refusal into a WARNING-and-proceed. That is the trigger the
-finding below sits on, and it fires because this item is the first thing to put weight on door 3.
+committed live-vault artifact), an out-of-repo blast radius through three `-e` consumers, and configuration
+that changes a trust boundary. The fold added no seventh: no network, no subprocess, no credential, no new
+import capability, no new environment read. The trigger this round's finding sits on is the second reached
+through the first: an externally-supplied PATCH body persisting a field change that breaks the
+filename-to-content agreement, on a write path this item opens.
 
-### The five standing mitigations, re-verified against the code
+### The seven standing mitigations, re-verified against the code
 
-**M1 — still landed and still total, and the fold did not displace it.** This was the one ordering I had to
-check rather than assume: the fold inserted two new statements into the door body, so I re-read the body's
-sequence. It is source-resolve → `source.exists()` → `destination = self.vault_path / new_filename` →
-M1's containment block → `old_stem` → `same_place` → the three branches. Both insertions (`old_stem` at
-Design §2's line, `same_place` beside it) land AFTER the containment block and BEFORE the first
-`vault_io.move_note` call, so M1 still precedes every move on all three branches. I re-confirmed the two
-facts underneath it in this worktree rather than trusting round 3's account: `vault_io._resolved` is still
-a bare non-strict `Path(path).resolve()` with no notion of a vault root
-(`obsidian_schemas/vault_io.py:_resolved:234-243`) and `move_note` still refuses only a symlinked SOURCE
-(`obsidian_schemas/vault_io.py:move_note:736-740`) and checks nothing about where `dest` points, so M1's
-clause is still the only thing bounding the destination. Task 6, ordinal unmoved.
+**M1 — still landed and still total.** The fold inserted nothing into the door body: the sequence is
+unchanged at source-resolve → `source.exists()` → `destination = self.vault_path / new_filename` → M1's
+containment block → M6's `mode = vault_io.guard_mode()` → `old_stem` → `same_place` → the three branches, so
+M1 still precedes every move on all three branches. I re-confirmed the two facts underneath it in this
+worktree rather than carrying round 5's account: `move_note` still refuses only a symlinked SOURCE
+(`obsidian_schemas/vault_io.py:move_note:736-740`, a `WriteFailedError` raised BEFORE `_resolved(src)`) and
+checks nothing about where `dest` points — `:741-742` resolves both operands and `_move_locked` goes
+straight to `os.link` — so M1's clause is still the only thing bounding the destination. Task 6, ordinal
+unmoved.
 
 **M2 — still landed, unchanged.** Task 2's arm still asserts the PROPERTY (the accessor
 `_resolve_write_target` reads answers A's own path; nothing the seam reads answers B), with pydantic's
-extras retention demoted to a Build-Log observation. Task 2, ordinal unmoved.
+extras retention demoted to a Build-Log observation. The fold touched neither the stamp nor the parse, and
+Design §1's restored quotation is where I checked it: `obsidian_schemas/models.py:23-40` is byte-verbatim
+the docstring, the four `ConfigDict` lines with both inline comments, and `type:`/`tags:` at `:39-40` — the
+fold's third non-blocking closure is exact. Task 2, ordinal unmoved.
 
-**M3 — still landed, unchanged, and the fold made its window NARROWER rather than wider.**
-`source.with_name(destination.stem + ".rename-tmp.md")` is byte-for-byte in the door body, in Task 6's
-work text, in the `## Edge Cases` entry for a process dying mid-two-step and in the `## Risk Analysis`
-row; Task 10's oracle is still `vault_path.glob(repo.file_pattern)` with the rejected spelling driven
-through the same glob as a near-miss. The branch-key fix is a bonus for M3 that the fold does not claim:
-under the old raw string compare the idempotent re-run FELL THROUGH to the case-only two-step on this
-project's own platform, so every no-op re-run was opening M3's staging window for nothing. Task 6,
-ordinal unmoved.
+**M3 — still landed, unchanged.** `source.with_name(destination.stem + ".rename-tmp.md")` is byte-for-byte
+in the door body, in Task 6's work text, in the `## Edge Cases` entry for a process dying mid-two-step and
+in the `## Risk Analysis` row; Task 10's oracle is still `vault_path.glob(repo.file_pattern)` with the
+rejected spelling driven through the same glob as a near-miss. The fold changed no branch, so the staging
+window is unchanged in width. Task 6, ordinal unmoved.
 
 **M4 — still landed, unchanged.** `logger.info("Renamed %s note from %s to %s", self.type_name,
 source.name, moved.name)` in the door body and in Task 6, captured in Task 10 through
 `captured_logs(level=logging.INFO)`. Task 6, ordinal unmoved.
 
-**M5 — still landed, and I re-derived its empirical half instead of carrying it.** I ran §4a's own
-prescribed tokenizer (`[\w@{}*./+-]+\.md`) over `docs/stem-divergence-live-baseline.md` as committed
-TODAY. It returns exactly EIGHT tokens and they are exactly the eight §4a enumerates:
-`docs/filename-name-divergence-repair.md` (`:4`), `docs/vault-shape-census.md` (`:5`, `:22`),
-`docs/lint-vault-live-baseline.md` (`:6`), `*.md` (`:36`) and `@{name}.md` (`:76`, `:126`, `:153`). I
-globbed all three repo-relative paths and all three exist. So the token-class rule is GREEN against the
-artifact as committed and TOTAL over every real filename in it. The fold's citation correction is right —
-`docs/lint-vault-live-baseline.md` is on `:6`, not `:5` — and Task 13 now carries the token-class rule
-whole-file in both halves, with no fence toggle and no non-vacuity guard in the privacy path, and with the
-reader battery pinned MUST-FIRE for a bare filename INSIDE a fence. That is the arm the region form let
-through and it is the whole of M5. Task 13, ordinal unmoved.
+**M5 — still landed, unchanged, and untouched by this fold.** Task 13 still carries the token-class rule
+whole-file in both halves, with no fence toggle and no non-vacuity guard in the privacy path, and the
+reader battery is still pinned MUST-FIRE for a bare filename INSIDE a fenced code block. This round's diff
+touches neither the artifact nor Design §4a, so the empirical half stands as round 4 measured it and round 5
+re-read it. Task 13, ordinal unmoved.
 
-### STRIDE delta — what the third fold moved
+**M6 — still landed, unchanged, and I re-derived its load-bearing citation rather than reading it back.**
+`obsidian_schemas/vault_io.py:_move_locked:757-771` is verbatim the `try: os.link(source, target)` /
+`except FileExistsError` / `if guard_mode() == "observe": logger.warning(...) ... os.replace(source, target)
+... return target` / `raise NoteAlreadyExists` shape the clause describes, at exactly those lines, with the
+`except OSError` → `WriteFailedError` arm at `:772-773` and `create_note:709-718` carrying the identical
+fail-open at `:712-718` — so M6's scope bound still names a real sibling. The door body's
+`mode = vault_io.guard_mode()` refusal is unmoved and still sits above the branch. Task 6, ordinal unmoved.
+
+**M7 — still landed, and the fold strengthened rather than weakened it.** `gate_write` is still type-scoped
+exactly as M7 states: `obsidian_schemas/name_gate.py:319` is `if declared_type is not None and
+declared_type != PERSON_TYPE:`, its body validates only when `declared_type == COMPANY_TYPE` (`:329-343`),
+and it otherwise falls to `return dict(introduced)` at `:344` — the delta handed back UNVALIDATED, with the
+method's own comment at `:316-318` saying so. The trigger is still `"name" in updates and updates["name"] !=
+frontmatter.get("name", "")` at `base.py:454`, reading the caller's dict against the note's frontmatter and
+consulting `type(entity).model_fields` nowhere. `Book:139` and `Meeting:247` declare no `name`, while
+`Person:79` and `Company:128` do — all four confirmed. The fold restated the M1 row SPLIT by declared field
+and closed on both sides, which is the right shape, and Design §2's third bullet's insistence on
+`type(entity).model_fields` over `hasattr`/instance spelling is the correct direction for a note storing
+`name:` as an extra. Task 6, ordinal unmoved.
+
+### STRIDE delta — what the fifth fold moved
 
 **Spoofing, Denial of service, Elevation of privilege: unmoved.** M2 still closes the stamp's read
-direction; the privilege surface is still filesystem reach bounded by M1; `door_calls_inside_note_lock`
-still makes the lock-ordering rule structural, and the fold added two `.resolve()` calls per rename and no
-retry, recursion or unbounded loop.
+direction. The fold added no configuration read, no retry, no recursion, no backoff, no unbounded loop, and
+no new capability at the door — it declared a residual and gated one in-memory mirror more narrowly.
 
-**Tampering: strictly better, and I checked the branch key for the one way it could have gone wrong.** The
-question a new branch discriminant has to answer is whether the no-op branch can fire on two DIFFERENT
-files — because that branch skips the move and returns as though the rename succeeded, which on a wrong
-answer would silently abandon a repair the conductor believes was performed. It cannot. The key is
-`(destination.parent.resolve(), destination.name) == (source.parent.resolve(), source.name)`: equal
-resolved parent directories plus a byte-identical basename is the same directory entry, hence the same
-file, on every filesystem — there is no spelling of two distinct notes that satisfies both halves. And the
-failure direction on a MISS is safe rather than dangerous: a same-file pair the key fails to recognise
-falls through to `destination.exists() and source.samefile(destination)`, which is the inode test, and
-from there into the two-step M3 already protects. The old raw compare had the opposite failure direction
-on this project's own platform. I also confirmed the premise the key rests on in this worktree:
-`move_note` returns `_move_locked`'s `target`, and `target` is `_resolved(dest)`
-(`obsidian_schemas/vault_io.py:move_note:741-750`, `:_move_locked:783`) — a RESOLVED path. The fold's
-account is correct at every step.
+**Repudiation: better.** The `renaming` gate on the `aliases` mirror removes a caller-visible in-place
+mutation that no disclosure named, and Prerequisites 7's three disclosed RAISE arms turn a consumer-visible
+behaviour change from discoverable into disclosed. Both are movements in the right direction.
 
-**Repudiation: better at the same three sites, with one cosmetic regression noted below.** The re-run
-table and the honest residual statement are an improvement to reconstructability, not a threat delta: they
-tell a conductor reading a log what state the vault is actually in after a partial failure, which is
-exactly what M4 exists for.
+**Tampering: better in the half the fold addressed, and the finding is in the half it did not.** The
+occupied-destination residual is now stated, bounded, compared honestly against today and asserted directly
+by Task 10 — and I confirmed the two claims that disposition turns on. `vault_io.write_note:685-698` really
+does raise `ExternalWriteConflict` on a `stat_stamp(target) != precondition` mismatch before `_commit`, so
+the move-then-write reorder really is UNAVAILABLE and not merely unchosen; and under `enforce`
+`_move_locked`'s `os.link` raises `FileExistsError` before anything is written (`:757-771`), so the
+occupied note really is BYTE-IDENTICAL and the complement table's row is exact. The symlinked-source row is
+right too, and right for the reason it gives: `move_note:736-740` raises above `_resolved(src)`, so that
+refusal is one shape with the occupied one. Against that, Design §5's declaration of the capability the same
+reorder opens bounds it by a predicate that does not describe those two types' filenames — below.
 
-**Information disclosure: nothing new, and I checked the two places the fold could have opened
-something.** The fold added no log line and no exception message carrying a value the package does not
-already emit: `update_fields`' new refusal names the requested new name, which is a person name, but
-`base.py`'s shipped `ValueError(f"{self.type_name} not found in repository: {name}")` already does exactly
-that in the same method, so the class is unchanged. Task 3's and Task 5's INFO change swaps one filename
-for another filename (`file_path.name` for the derived `filename`) and stays inside the package's shipped
-`@{name}.md` INFO idiom. M5's half of AC-4 is re-verified above and is total.
+**Information disclosure: nothing new.** The fold added one `ValueError` message shape I checked (the
+complement rule adds no new message; Task 10's arm reads existing ones) and no new log line. The one
+residual the fold newly names as detector-blind is a COMPANY subject, named explicitly in Design §2 and
+`## Risk Analysis` rather than implied — which is the honest direction.
 
-### The finding, and why it is not in the fold
+### The finding — the capability widening the fold DECLARED is bounded by a `name`-shaped predicate, and Book's and Meeting's filenames are not made of `name`
 
-**Every refusal this document leans on at an occupied destination is conditional on an environment
-variable, and the document never names it.** Six surfaces state the refusal as unconditional, four of them
-citing the syscall:
+The fifth fold closed the spec-reviewer's non-blocking note 2 by declaring the widening as a decision in
+Design §5. That is the right move and it is why this is findable at all. But the declaration's bound is
+answered wrong:
 
-- **AC-2(b), signed** — *"asked to rename onto an occupied filename it raises `NoteAlreadyExists` (the
-  leaf, not the root) and BOTH files are byte-identical afterwards."*
-- Design §2, ordering decision 1 — *"`move_note` refuses a symlinked source and an occupied destination
-  before it writes anything … so nothing is written on either refusal arm."*
-- `## Edge Cases`, the live MERGE row — *"`move_note` refuses by syscall with `NoteAlreadyExists` and both
-  files are byte-identical afterwards … The refusal is the kernel's `FileExistsError` on `os.link`
-  (`obsidian_schemas/vault_io.py:_move_locked:759-771`), not a check-then-act."*
-- `## Edge Cases`, the write-then-move race — *"a concurrent create at the destination gives
-  `NoteAlreadyExists` by syscall."*
-- Design §2's re-run table, row 1 — `NoteAlreadyExists` as one of the refusals a re-run repeats identically.
-- `## Risk Analysis`, Rollback — *"`move_note` refuses an occupied destination by syscall."*
+> *Its blast radius is measured at zero … and the one thing it does NOT widen is the rename branch, which
+> M7 refuses for both types.*
 
-All six are false under one setting. `obsidian_schemas/vault_io.py:_move_locked:757-771` reads:
+**M7 refuses a `name` DELTA. Neither of those two types' filename rule reads `name`.** Four facts, each read
+off the code in this worktree:
 
-```
-    try:
-        os.link(source, target)
-    except FileExistsError as exc:
-        if guard_mode() == "observe":
-            logger.warning(...)
-            os.replace(source, target)
-            forget_snapshot(source)
-            forget_snapshot(target)
-            _fsync_dir(target.parent)
-            return target
-        raise NoteAlreadyExists(...)
-```
+1. **Book's filename is made of `title` and `author`; Meeting's of `date`, `topics`, `attendees` and
+   `meeting_id`.** `obsidian_schemas/repositories/book.py:_get_file_name:340-355` reads `entity.title` and
+   `entity.author`; `obsidian_schemas/repositories/meeting.py:_get_file_name:208-231` reads `entity.date`
+   (`:216`), `entity.topics[0]` (`:219-220`), `entity.attendees[:2]` (`:221-224`) and `entity.meeting_id`
+   (`:226`). All six are DECLARED model fields — `Book.title:160`, `Book.author:161`, `Meeting.date:260`,
+   `Meeting.attendees:261`, `Meeting.topics:262`, `Meeting.meeting_id:263`. This document already states
+   the rules correctly twice (its own type-general divergence table at lines 787-788, and premise 15); what
+   it does not do is carry them into the widening's bound.
+2. **A delta touching any of the six carries no `name` key, so every guard in the frame passes it.**
+   `renaming` is False (`base.py:454` needs `"name" in updates`), so the pre-write refusal's three
+   disjuncts are never evaluated — the whole predicate is `if renaming and (...)`. `gate_write` returns the
+   delta UNVALIDATED (`name_gate.py:319-344`, the same pass-through M7 rests on). `vault_io.write_note`
+   COMMITS at `base.py:490`. No rename branch fires, no alias is appended, no exception is raised, and the
+   method returns the reloaded entity as a success.
+3. **THIS ITEM is what makes it reachable, which is what makes it this item's cost — the same shape as M6
+   and M7.** Today `update_fields` opens `name = getattr(entity, "name", "")` then
+   `file_path = self.get_file_path(name)` and raises `ValueError` above the lock when that answers `None`
+   (`base.py:437-441`); for a Book `name` is `""` and `BookRepository.get_file_path:326-338` is
+   `_file_map.get("")`, so the frame does not run. Design §5 states this itself, in its own words, as the
+   premise of the widening. Task 3's `resolved`-first shape binds `file_path = resolved` from the stamp, so
+   after this item a stamped Book or Meeting entity runs the whole frame.
+4. **The residual is the item's own defect class, manufactured silently.** After
+   `update_fields(<a stamped book at "Old Title - Author.md">, {"title": "New Title"})` the note carries
+   `title: New Title` at `Old Title - Author.md`: its type's own filename rule no longer recomputes to the
+   file it lives in, which is verbatim this document's own type-general divergence predicate (line 787,
+   *"that string ≠ the file it was parsed from"*). Nothing moved, so no alias records the old stem and every
+   incoming `[[Old Title - Author]]` goes dark — the harm premise 8 measures for persons, with no
+   compensating alias. And Task 11's detector fires on `vf.entity_type == "person"`, so nothing reports it.
 
-`os.replace(source, target)` OVERWRITES the destination. There is no refusal, no exception, and no
-`NoteAlreadyExists`: the door returns the destination path as though the move had succeeded, the occupied
-note's bytes are gone, and `rename_note` proceeds to append an alias, `_adopt` the entity and log a
-successful rename. `guard_mode` is `_env_setting("OBSIDIAN_SCHEMAS_WRITE_GUARD", …, default="enforce")`
-(`obsidian_schemas/vault_io.py:guard_mode:169-181`), read PER CALL, so no restart is needed and no
-in-process state records that the mode was ever set beyond one INFO line per process
-(`:_announce_mode_once:202-220`).
+Four things make this the finding rather than a theoretical one.
 
-Five things make this the finding rather than a theoretical one.
+- **The document instructs the reader that this delta is safe, on this premise.** The M7 `## Edge Cases`
+  entry says *"The same entity's update carrying no `name` key is unaffected and still writes through the
+  seam exactly as Task 3 routes it"*, and Task 10's M7 ACCEPTED arm asserts precisely such a call
+  succeeding. Both are right for `{"status": "read"}` — `Book.status:163` feeds no filename — and both read
+  as a blessing of the whole complement, which contains the six fields that do. A builder reading the
+  widening's declaration plus that sentence ships the hole.
+- **The input is external and the route is the one this document already singles out.** The consumer audit
+  records `routers/entities.py:461` as `repo.update_fields(entity, body)` with *"`body` is an arbitrary HTTP
+  PATCH dict"*, and — in the audit's own words — *"the ONE consumer site that can trigger
+  rename-on-`update_fields` from caller data, for person AND (via the generic route) book/meeting"*
+  (`docs/wi-029-consumer-audit.md:84`, and `:137` names the same route as the ONLY consumer path to those two
+  repositories). `PATCH /api/entities/book/{name}` with `{"title": …}` is an ordinary request, not an attack.
+- **It is SILENT where every comparable residual in this item is loud, and the item's own claims say so.**
+  M7's residual raises. The occupied-destination residual raises. `## Risk Analysis`'s non-atomicity row
+  claims *"every residual is loud, detector-visible and recoverable"* and the fold went to the trouble of
+  naming the one COMPANY exception explicitly. This one raises nothing, reports nothing and is not named.
+  It is strictly quieter than the two findings I promoted mitigations for in rounds 4 and 5.
+- **The fix is one more disjunct on the predicate Task 6 already prescribes, and it makes the Scope
+  Boundary's own stated alternative real rather than adding a behaviour.** `## Scope Boundary` declines to
+  teach the door Book's and Meeting's filename rule and justifies it with *"where **refusal** costs nothing
+  anyone does today"* — refusal is already the declared answer; it simply is not what the code does. Keying
+  the new disjunct on the repository's own declared filename rule recomputed over the delta is the
+  document's own type-general predicate used as a predicate, and it is the same DECLARED-capability keying
+  ordering decision 3 uses for `aliases` and M7 uses for `name`. **M8.**
 
-1. **WI-004 declared this exact residual, for this exact door, in writing — and declared it acceptable on
-   a premise this item removes.** `docs/concurrent-access.md:649-656` is residual **R9**: *"A consumer that
-   sets `OBSIDIAN_SCHEMAS_WRITE_GUARD=observe` keeps today's exact write semantics — including the
-   concurrent-create clobber … while it is set, this item's Intent is explicitly **not** delivered for
-   doors 2 and 3."* **Door 3 is `move_note`.** That was a defensible residual when door 3 had, in this
-   document's own words, *"exactly ONE caller in the tree today (`scripts/lint_vault.py:1343`,
-   quarantine) — essentially unexercised for this use."* WI-029 is the item that makes door 3 the
-   package's relocation capability, ships it public to three `-e` consumers, and drives it on **every**
-   `update_fields` name change — which `## Risk Analysis` rates *certain (it is the design)*. The
-   residual's blast radius is created by this item, so closing it is this item's cost.
-2. **`observe` is not an exotic setting — this estate's own docs name it as the cheapest ROLLBACK LEVER
-   and as the measure-before-adopting mode the three consumers are invited to set.**
-   `docs/concurrent-access.md:4286` — *"Rollback plan. Three levels, cheapest first. (i) Set
-   `OBSIDIAN_SCHEMAS_WRITE_GUARD=observe`"*; `:2556` — *"wants to measure before adopting,
-   `OBSIDIAN_SCHEMAS_WRITE_GUARD=observe`"*; `:6794` — the same lever *"with no code change."* So the
-   realistic sequence is not an attack: a consumer hits a write-guard refusal, reaches for the documented
-   rollback, and the relocation door silently stops refusing. That is a fail-open reached by following
-   the estate's own runbook.
-3. **The harm is the exact harm the Intent exists to end, and it is not recoverable.** `os.replace` of A
-   over B lands one person's bytes in another person's note and destroys B — which is verbatim what AC-2(f)'s
-   `why` calls *"the repair machinery corrupting a note it was never asked about"*, except worse, because a
-   forked note is recoverable and an overwritten one is not. `## Risk Analysis`'s Rollback paragraph is
-   explicit that the live repair *"is the one act that is not revertible by `git`"*, and it lists the
-   syscall refusal as one of the four things that bracket it. Under `observe` that bracket is absent.
-4. **The live repair run is exactly where it would bite, and the document's own drift procedure is what
-   reaches it.** The close-out drives 7 RENAMEs through `rename_note` against Dave's live vault, outside
-   the cage, in whatever environment the conductor's shell carries. The plan does not drive the occupied
-   row — row 8 is *"1 MERGE by hand"* — but step 1 exists precisely because the table can drift: *"a new
-   row, or a row whose (b2)/(b3) answer has moved since 2026-09-21, is a drift report."* A row whose (b2)
-   moved from `no` to `different-note` is a destination that became occupied, and the safety net for
-   executing it anyway is the syscall refusal. The concurrent-create case is the same shape with Obsidian
-   or HAL9000 as the other writer, and `## Edge Cases` resolves it by naming the refusal.
-5. **Nothing in the build would catch it, and the fix is one expression.** The floor command sets no
-   environment, so every battery runs under `enforce` and stays green either way; `observe` is exercised in
-   the suite at `tests/test_concurrent_access.py:737` against door 2 (`write_note`) only, so door 3's
-   observe arm is pinned by nothing today and would not be pinned by this item either. And the door
-   already has the mode one call away: `base.py:22` is `from obsidian_schemas import vault_io`, so
-   `vault_io.guard_mode()` costs no import and lands beside M1's containment block, with the other
-   pre-move argument refusals. **M6.**
-
-*The mitigation's bound, so it is not over-read.* M6 covers the door THIS ITEM SHIPS and deliberately not
-door 2's create arm (`obsidian_schemas/vault_io.py:create_note:709-718`), which has the same fail-open and
-which AC-1(f) leans on for its `NoteAlreadyExists`. That one is untouched by this item in both directions —
-(f)'s declared behaviour is *"today's behaviour holds"*, and today's behaviour under `observe` is today's
-behaviour under `observe`. It remains WI-004's R9 and belongs to WI-004's backlog, not to Task 3. Naming
-the scope matters because the tempting over-fold is a guard-mode refusal on every write path in the
-package, which would be a second behaviour this item was not asked for and would put the item's seam
-behind a configuration check it does not need.
+*The mitigation's bound, so it is not over-read.* M8 refuses one class of DELTA and changes nothing else. It
+does NOT teach the door or `update_fields` a second filename rule, does not rename a Book or Meeting note,
+and does not put `_get_file_name` on the rename path — `## Scope Boundary`'s non-action stands exactly as
+written. It does not touch `save` or the two `save` overrides, which derive their own target and have no
+rename to reconcile, nor the five body-writers, none of which has a rename branch. It does not touch
+`gate_write`, `name_gate.py` or the Tier-1 tables, all of which `## Scope Boundary` declares
+read-never-edited. It does not narrow the widening Design §5 declares: the ACCEPTED half is the arm Task 10
+already builds, because `status` is not a filename field. And the `not renaming` conjunct is what keeps it
+from ever reaching a Person or Company: their rule is `@{name}.md`, a `name` delta sets `renaming` True, and
+the rename branch is what reconciles it — so the disjunct is scoped to *a delta that moves the type's own
+filename rule with no rename to follow it*, which is total over the four types today and stays total if the
+`BaseRepository.save` collapse `## Scope Boundary` books as a separate item ever puts `_get_file_name` on
+the base class.
 
 ### Notes (non-blocking)
 
-- **The no-op branch logs a rename that did not happen, which is one line of noise in the surface M4
-  exists to make trustworthy.** On the `same_place` branch `moved = source`, so M4's line reads
-  *"Renamed person note from @New.md to @New.md"*. It is harmless and it is not a security defect, but M4's
-  whole claim is that a relocation is *"reconstructable from logs"*, and a log in which no-ops are
-  indistinguishable from moves is weaker at exactly that. If the writer touches Task 6's branch for any
-  other reason, moving the INFO line inside the two moving branches (or naming the no-op in it) closes it
-  for one clause. Not folded and not required — I am recording it rather than spending a round on it.
-- **`update_fields`' new refusal message names a person name, and that is the shipped class rather than a
-  new one.** The same method already raises `ValueError(f"{self.type_name} not found in repository:
-  {name}")` with the name in it, so no disclosure boundary moves. Worth one line only because
-  `vault_io._env_setting:104-115` documents the opposite discipline for its own messages (*"never the
-  value, which could carry a person's name"*), and a reader comparing the two should know the asymmetry is
-  pre-existing and deliberate, not something this item introduced.
-- **M6 must read the mode through `vault_io.guard_mode()` and never through `os.environ`, and the wrong
-  spelling is one keystroke away.** `base.py` already imports `os` (`:9`), so
-  `os.environ.get("OBSIDIAN_SCHEMAS_WRITE_GUARD")` would build — and it would duplicate the capability
-  `vault_io._env_setting:104-115` reserves to itself in writing (*"The module's ONLY environment access …
-  it either routes through here and gets the rule, or it names `os.environ` a second time — which is a
-  capability duplication inside the one file the routing wall excludes"*). The mitigation's `desc` names
-  the required spelling for that reason.
-- **All three of round 3's carried-forward dispositions still stand and need no work.** M1's
-  check-then-act residual is bounded in Design §2 with no work ordered and the attacker is outside
-  Prerequisites 6; the write-then-move window is an `## Edge Cases` entry and a `## Risk Analysis` row with
-  the lock-ordering claim kept separate; the M3 `load()` window is folded into the close-out whose ship
-  condition is `len(conflicts) == 0`. Re-deferred unchanged.
-- **The duplicated `## Adversarial Review` heading is still the conductor's and is still not mine.** The
-  third injection-hunter round resolved it on the merits and PROMOTEd; the structural question of two
-  sections under one heading is unchanged by that and unchanged by this round. Recorded so the chain is
-  unbroken.
+- **The three non-blocking closures of the fifth fold all land, checked individually.** The `renaming` gate
+  on the `aliases` mirror is in the sequencing block, in "Which `aliases` list wins" and in Task 6, and its
+  reasoning is right — an ungated mirror is a caller-visible in-place mutation on every non-rename update
+  that no disclosure names. The widening is declared in Design §5 (and is where this round's finding sits,
+  which is a property of the bound and not of the decision to declare it). Design §1's quotation is verbatim
+  against `models.py:23-40`. No work ordered on any of the three.
+- **`_get_cache_key`'s `""` key for a Book reaching `update_fields`' cache surgery is a correctness
+  observation, not a security one.** With the frame newly reachable for a Book, `old_name_key = name.lower()`
+  is `""` (`base.py:498`) while `new_name_key` is the title, so the removal half operates on a cache entry
+  that is almost never there. Nothing is corrupted on disk and no wrong note is written; the index is merely
+  not cleaned for a key that was never set. `## Scope Boundary` already declines `_get_cache_key`'s strip
+  asymmetry in the same neighbourhood. Recorded so the next round does not re-find it; no work ordered.
+- **Round 5's three non-blocking notes stand as the writer dispositioned them.** The `guard_mode()` double
+  read stays deferred (it needs a privileged actor inside the process, where this round's finding needs only
+  an ordinary PATCH field — which is exactly the discrimination the spec-reviewer drew for its own finding
+  and it is the right one). AC-2(b)'s ambient-environment dependence stays a conductor reading note; the
+  direction is safe and AC-2 is signed. Round 4's three carried-forward dispositions — the no-op branch's
+  cosmetic audit line, the `update_fields` message's pre-existing person-name disclosure, and the
+  `os.environ`-versus-`guard_mode()` spelling warning — stand unchanged. M1's check-then-act residual, the
+  write-then-move window and the M3 `load()` window are all re-deferred unchanged for the reasons rounds 3,
+  4 and 5 gave.
+- **The duplicated `## Adversarial Review` heading is still the conductor's and is still not mine**, and it
+  has now grown to three sections plus a fourth dated 2026-09-26. Unchanged by this round; recorded so the
+  chain is unbroken. This section's own heading duplicates round 5's date for the same structural reason and
+  is called out in my first paragraph.
 - **OPEN security questions: none.**
 
 ```mitigation
@@ -6295,10 +6160,835 @@ desc: `rename_note` must FAIL CLOSED when the write guard is not enforcing, beca
 landed: Task 6
 ```
 
+```mitigation
+kind: required
+id: M7
+desc: `update_fields` must not fire its rename branch for an entity whose own type does not derive `@{name}.md`, because the fold's precondition table answers the M1 row with a wall that covers two declared types and the trigger that reaches it consults the model nowhere — `obsidian_schemas/name_gate.py:319-344` returns a `name` delta UNVALIDATED for every `declared_type` that is neither `person` nor `company` (the path-hostile refusal the table delegates to is `_PATH_HOSTILE_RE = re.compile(r"/")` for a person and `_COMPANY_PATH_HOSTILE_RE:351` for a company, and `update_fields` passes `declared_type=self.type_name`, which is `"book"` and `"meeting"` at `book.py:47-49` and `meeting.py:48-50`), while the trigger is `"name" in updates and updates["name"] != frontmatter.get("name", "")` (`base.py:454`) — the caller's dict against the note's frontmatter, never `type(entity).model_fields` — so a stamped Book or Meeting entity handed `{"name": <anything>}` (Prerequisites 7's generic consumer PATCH forwards an arbitrary body that may carry `name`) sets `renaming` True against a book note's absent `name:`, passes the widened disjunction with provenance present and the guard enforcing, passes the gate untouched, COMMITS the new `name:` at `base.py:490`, and only then reaches `rename_note(entity, f"@{new_name}.md")` where `@x/y.md` raises `WriteFailedError` from `os.link` against a missing parent (`vault_io.py:_move_locked:772-773`) and `@a/../../x.md` raises M1's containment `ValueError` — M1 holds in both, so nothing lands outside the vault, but the residual is an ungated caller-supplied `name:` committed into a note that then did not move, which is exactly the state this arm exists to prevent and which the detector cannot see because it fires only on `entity_type == "person"`; THIS ITEM creates the reachability, since today's `get_file_path(getattr(entity, "name", ""))` opener answers `None` for a Book and raises above the lock (`base.py:437-441`, `:354-365`) while Task 3's `resolved`-first shape binds the file from the stamp and runs the frame; so the trigger gains one conjunct keyed on the DECLARED FIELD and never on a type name — `"name" in type(entity).model_fields`, the same keying ordering decision 3 already uses for `aliases` — which makes Design §2's "`Book` and `Meeting` cannot reach it at all" structural instead of asserted and closes the M1 row for every type rather than for two, WITHOUT adding a containment conjunct (M1 stays the door's, so no `NameGateRefusal` is degraded) and without touching `gate_write` or the Tier-1 tables, which `## Scope Boundary` declares read-never-edited; pinned BOTH ways in Task 10 against a planted colliding Book group member the battery already builds: `update_fields(<a stamped book>, {"name": "x/y", "status": "…"})` raises before the content write with that note BYTE-IDENTICAL and the vault's filename SET unchanged, while the SAME entity through `update_fields(entity, {"status": "…"})` still succeeds and lands in that file and a Person name change still moves — so the conjunct refuses the branch and not every update.
+landed: Task 6
+```
+
+```mitigation
+kind: required
+id: M8
+desc: `update_fields` must REFUSE, before its content write, a delta that moves the entity type's OWN filename rule when no rename will follow it — because Design §5's capability-widening declaration bounds the newly-reachable Book/Meeting frame with "the one thing it does NOT widen is the rename branch, which M7 refuses for both types", and neither of those two types' filename rule reads `name`: `obsidian_schemas/repositories/book.py:_get_file_name:340-355` derives from `title` and `author` (`models.py:Book.title:160`, `:author:161`) and `obsidian_schemas/repositories/meeting.py:_get_file_name:208-231` from `date` (`:216`), `topics[0]` (`:219-220`), `attendees[:2]` (`:221-224`) and `meeting_id` (`:226`) (`models.py:Meeting:260-263`), so a delta touching any of those SIX declared fields carries no `name` key, leaves `renaming` False at `base.py:454` and therefore never evaluates the pre-write refusal at all (the whole predicate is `if renaming and (...)`), is handed back UNVALIDATED by `gate_write` for a non-person non-company `declared_type` (`obsidian_schemas/name_gate.py:319-344`), and is COMMITTED at `base.py:490` with nothing moved, no alias recorded for the stem the note is leaving behind and NO exception — a note whose type's own filename rule no longer recomputes to the file it lives in, which is verbatim this document's own type-general divergence predicate (Exploration Notes' type table, "that string ≠ the file it was parsed from") manufactured by the method that exists to end it, SILENT where `## Risk Analysis` claims every residual is loud and detector-visible, and invisible to Task 11's arm because it fires only on `vf.entity_type == "person"`; THIS ITEM creates the reachability exactly as it does for M6 and M7, since today `update_fields` opens `get_file_path(getattr(entity, "name", ""))` which for a Book is `_file_map.get("")` and raises ABOVE the lock (`base.py:437-441`, `book.py:get_file_path:326-338`) while Task 3's `resolved`-first shape binds the file from the stamp and runs the whole frame — the premise Design §5's declaration states in its own words — and the route is external and already singled out by this item (`docs/wi-029-consumer-audit.md:84`, `routers/entities.py:461` forwards "an arbitrary HTTP PATCH dict" and is the ONE consumer path to those two repositories, `:137`), so an ordinary `PATCH /api/entities/book/{name}` body `{"title": …}` is the trigger; the refusal is therefore one more DISJUNCT on the same in-lock pre-write arm Task 6 already prescribes, evaluated independently of `renaming` and keyed on the REPOSITORY'S OWN DECLARED FILENAME RULE rather than on a type name or a remembered field list — `derive = getattr(self, "_get_file_name", None)`, and when it is not None and `not renaming`, project the delta onto the entity's declared fields (`entity.model_copy(update={k: v for k, v in updates.items() if k in type(entity).model_fields})`, which preserves the private stamp per Design §1) and `raise ValueError` naming the method, the field(s) at issue and THIS precondition when `derive(projected) != derive(entity)`; the comparison is DELTA-RELATIVE (`derive(projected)` against `derive(entity)`, never against `file_path.name`) so that an ALREADY-divergent Book or Meeting note — the live "book-titled file holding a person note" class and its siblings — stays writable for every delta that does not move its rule further, and the `not renaming` conjunct is what keeps the disjunct from ever reaching a Person or Company, whose rule IS `@{name}.md` and whose `name` delta the rename branch reconciles, so the clause stays total if the `BaseRepository.save` collapse `## Scope Boundary` books as a separate item ever puts `_get_file_name` on the base class; this ADDS NO capability and makes `## Scope Boundary`'s own stated alternative real instead of asserted — that section declines to teach the door Book's and Meeting's filename rule on the ground that "where refusal costs nothing anyone does today", and refusal is what this disjunct supplies — so the door learns no second filename rule, no Book or Meeting note is renamed, `gate_write` and the Tier-1 tables stay read-never-edited, and `save`, the two `save` overrides and the five body-writers are all untouched, none of them having a rename to reconcile; pinned BOTH ways in Task 10 on the same planted stamped Book the M7 arm already builds, with `OBSIDIAN_SCHEMAS_WRITE_GUARD` set to `"enforce"` explicitly for the arm (the M6 rule, WI-149) — REFUSED: `update_fields(<a stamped book at "Old Title - Author.md">, {"title": "New Title"})` raises `ValueError` whose message names the filename-rule precondition and not provenance, the guard mode or the type declaration (so the arm cannot pass on a sibling disjunct), the vault's filename SET is unchanged, and the book note is BYTE-IDENTICAL to the bytes the test wrote — which is the assertion that distinguishes refusing before the content write from committing it, and is the whole finding, since without the disjunct that file comes back carrying `title: New Title` at its old filename with no alias and no exception; the same for `{"author": …}` on that Book and for `{"date": …}` and `{"topics": [...]}` on a planted stamped Meeting, so the clause is shown to cover the RULE and not one field; ACCEPTED, three arms so it refuses the delta class and not every update: the SAME book entity through `update_fields(entity, {"status": "read"})` still SUCCEEDS and lands in that file (`models.py:Book.status:163` feeds no filename — this is the arm Task 10's M7 ACCEPTED half already asserts and it must stay green), an ALREADY-divergent planted Book whose file does not match its own rule still accepts a `{"status": …}` delta (the arm that fails a `derive(projected) != file_path.name` spelling), and a Person name change in the same vault still MOVES through the door exactly as the arms above assert (the control that fails a disjunct written without the `not renaming` conjunct).
+landed: Task 6
+```
+
 ```verdict
 gate: threat-modeler
 verdict: PROMOTE
-date: 2026-09-25
+date: 2026-09-26
 model: claude-opus-5
-note: Round 4 re-verified M1-M5 against the code or artifact each prescribes — all five HELD with ordinals unmoved and `desc` re-emitted byte-identically. M1 needed a real re-check because the fold inserted two statements into the door body: `old_stem` and `same_place` both land AFTER the containment block and before the first `move_note` call, so M1 still precedes every move on all three branches, and the two facts it rests on are unchanged in this worktree (`vault_io._resolved` is still a bare `Path.resolve()` with no vault root, `:234-243`; `move_note` still refuses only a symlinked SOURCE, `:736-740`). M5 I re-derived rather than carried: §4a's own tokenizer over the committed artifact returns exactly the eight tokens it enumerates, all three repo paths exist, so the token-class rule is green and total, and the fold's `:5`→`:6` citation fix is right. The third fold opened NOTHING — I checked the branch key for the one way it could go wrong and it cannot: equal resolved parents plus a byte-identical basename is the same directory entry on every filesystem, so the no-op branch cannot fire on two different files, and a MISS falls through to `samefile` and the M3-protected two-step, which is the safe direction the old raw compare did not have. The finding is not in the fold. Six surfaces of this document — AC-2(b) among them — state that an occupied destination is refused BY SYSCALL, four of them citing `_move_locked:759-771`; all six are false under `OBSIDIAN_SCHEMAS_WRITE_GUARD=observe`, where `:757-771` does `os.replace(source, target)`, destroys the occupied note, returns the destination as a success and lets the door alias, `_adopt` and log a rename that overwrote a third party. This is WI-004's residual R9 verbatim (`docs/concurrent-access.md:649-656`: under `observe` the Intent is "explicitly not delivered for doors 2 and 3") — a residual that was defensible while door 3 had one quarantine caller and is not once THIS item makes it the package's relocation capability and drives it on every `update_fields` name change in three `-e` consumers, rated `certain` by the risk table. It is not exotic: the same estate's docs name `observe` as the cheapest rollback lever (`:4286`) and the measure-before-adopting mode (`:2556`), so the realistic path is a consumer following the runbook, not an attacker; the harm is AC-2(f)'s own "corrupting a note it was never asked about" but unrecoverable, in the one act Rollback says `git` cannot undo; the drift procedure at close-out step 1 is what reaches it; and nothing in the build catches it, since the floor sets no environment and the suite exercises `observe` against door 2 only (`tests/test_concurrent_access.py:737`). M6 is one expression beside M1's containment block — `base.py:22` already imports `vault_io`, so `guard_mode()` costs no import — scoped deliberately to the door this item ships and NOT to `create_note`'s identical arm, which AC-1(f) leans on and this item moves in neither direction. Zero OPEN questions.
+note: Round 6 re-verified M1-M7 against the code each prescribes — all seven HELD with ordinals unmoved and `desc` re-emitted byte-identically. The fifth fold (the occupied-destination complement rule) is correct at every citation it rests on, re-derived rather than carried: `vault_io.write_note:685-698` really raises `ExternalWriteConflict` on a `stat_stamp != precondition` mismatch before `_commit`, so move-then-write really is UNAVAILABLE; `_move_locked:757-771`'s `os.link` raises `FileExistsError` before anything is written, so the occupied note really is byte-identical; `move_note:736-740` raises above `_resolved(src)`, so the symlinked-source row really is one shape with it; and all three of the fold's non-blocking closures land, including Design §1's quotation, which is byte-verbatim against `models.py:23-40`. The finding is INSIDE the fold again, and again the fold's own widening made it findable. Design §5's new capability-widening declaration states that Task 3's `resolved`-first reorder makes `update_fields` usable on `Book` and `Meeting` for the first time, and bounds it with "the one thing it does NOT widen is the rename branch, which M7 refuses for both types" — a `name`-shaped bound over two types whose filename rule does not read `name`. `book.py:_get_file_name:340-355` derives from `title` and `author`; `meeting.py:_get_file_name:208-231` from `date`, `topics`, `attendees` and `meeting_id`; all six are declared model fields (`models.py:160-161`, `:260-263`). A delta touching any of them carries no `name` key, so `renaming` is False at `base.py:454` and the pre-write refusal — whose whole predicate is `if renaming and (...)` — is never evaluated; `gate_write` hands the delta back UNVALIDATED (`name_gate.py:319-344`); `base.py:490` COMMITS; nothing moves, no alias records the stem the note leaves behind, and nothing raises. The result is this item's own type-general divergence predicate manufactured silently, on the one externally-supplied route the item singles out (`docs/wi-029-consumer-audit.md:84` — `routers/entities.py:461` forwards "an arbitrary HTTP PATCH dict" and is the ONLY consumer path to those two repositories, `:137`), and invisible to Task 11's `entity_type == "person"` arm. THIS ITEM creates the reachability, exactly as with M6 and M7: today's `get_file_path(getattr(entity,"name",""))` opener is `_file_map.get("")` for a Book and raises above the lock (`base.py:437-441`, `book.py:326-338`) — which Design §5 states itself as the widening's premise. The document actively blesses the hole: the M7 `## Edge Cases` entry says "the same entity's update carrying no `name` key is unaffected", true for `{"status": …}` and false for the six fields that make the filename. M8 is one more disjunct on the predicate Task 6 already prescribes, evaluated independently of `renaming` and keyed on the repository's own declared filename rule (`getattr(self, "_get_file_name", None)`) with a DELTA-RELATIVE comparison (`derive(projected) != derive(entity)`, so an already-divergent note stays writable) and a `not renaming` conjunct (so it never reaches a Person or Company, whose `name` delta the rename branch reconciles). It adds no capability and makes `## Scope Boundary`'s own stated alternative real: that section declines to teach the door Book's and Meeting's filename rule on the ground that "refusal costs nothing anyone does today", and refusal is precisely what this disjunct supplies. Zero OPEN questions.
 ```
+
+## Spec Review — 2026-09-26
+
+**Recommendation: PROMOTE to ready — the M8 fold lands at every surface that states the behaviour and is grounded in the code at each of its own citations; all five prior rounds' blocking findings are closed and nothing new blocks**
+
+Fifth spec-review round on this document, spawned cold-start. **This heading duplicates the FOURTH
+round's date** — that round is the earlier section carrying it, immediately above the 2026-09-26
+adversarial round — so a latest-round reading resolves THIS one. The collision is the same structural
+fact the sixth threat-model round called out about its own heading and is recorded here so the chain
+is unbroken; it is not a finding against the spec.
+
+Rulings on record: WI-021's gate-name-output-is-an-identity ruling (approach G's rejection), Dave's `ac_hash 15189b874b27` sign-off freezing AC-1…AC-5 and the Intent, the exploration's accept-the-linter-noise disposition, the threat model's eight `kind: required` mitigations, and the Spec-Writer Notes' declared NON-actions (M1's check-then-act residual, the write-then-move window, the no-op branch's cosmetic audit line, the `guard_mode()` double read, `_get_cache_key`'s `""` key for a newly-reachable Book) — I route against all of them and nothing below touches a signed criterion's text.
+
+I read the document from line 1 in full rather than diffing against the previous round, then read the
+code at every load-bearing citation rather than reading the folds back. **All four of round 4's
+predecessors HELD, and round 4's own finding is closed.** The occupied-destination residual is now a
+RULE total over the precondition table's whole NO half, checked row by row against that table, with
+the three surfaces that denied it corrected and Task 10 asserting the residual directly. Round 4's
+three non-blocking notes are closed at their own sites, not carried: the `aliases` mirror is gated on
+`renaming`, the Book/Meeting `update_fields` widening is declared as a decision in Design §5 with its
+measured blast radius, and Design §1's `BaseEntity` quotation is byte-verbatim against
+`obsidian_schemas/models.py:BaseEntity:23-40` — I diffed it line by line, docstring and both
+`ConfigDict` comments included.
+
+The new material this round is threat-model **M8**, and it is a fold of the CLASS one rung above M7's
+rather than of the `{"title": …}` instance. I checked it the way the fold-record rule asks — finding
+each quoted sentence where it claims to be and reading the surrounding text — and it holds.
+
+### Citation verification
+
+All verified against current code; nothing drifted. The ones the M8 fold rests on, re-derived rather
+than carried:
+
+- **The filename rules, read off the code and not off the document's own table.**
+  `obsidian_schemas/repositories/book.py:BookRepository._get_file_name:340-355` is
+  `title = entity.title.strip()` (`:346`), the `[<>:"/\|?*]` strip (`:348`), `entity.author` at
+  `:350-353`, and returns `f"{title} - {author}.md"` or `f"{title}.md"`.
+  `obsidian_schemas/repositories/meeting.py:MeetingRepository._get_file_name:208-231` is
+  `entity.date` (`:216`), `entity.topics[0]` (`:219-220`), `entity.attendees[:2]` with the `+N` tail
+  (`:221-224`), `entity.meeting_id or "Untitled"` (`:226`), the same strip truncated to 50 (`:229`).
+  All six are declared model fields — `Book.title:160`, `Book.author:161`, `Meeting.date:260`,
+  `Meeting.attendees:261`, `Meeting.topics:262`, `Meeting.meeting_id:263` — and `Book:139` /
+  `Meeting:247` declare no `name` while `Person:79` / `Company:128` do. `Book.status:163` really is a
+  plain `str` feeding no filename, so Task 10's ACCEPTED cell is the right control.
+- **`_get_file_name` is declared at exactly two sites in the package** — grep over
+  `obsidian_schemas/**` returns `book.py:340`, `meeting.py:208` and their two call sites,
+  `book.py:167` and `meeting.py:189`. So `derive = getattr(self, "_get_file_name", None)` really is
+  `None` for `BaseRepository`, `PersonRepository` and `CompanyRepository`, and M8's clause is
+  structurally inert for them rather than inert by a premise about which types reach the line.
+- **The trigger and the commit.**
+  `obsidian_schemas/repositories/base.py:BaseRepository.update_fields:454` is verbatim
+  `if "name" in updates and updates["name"] != frontmatter.get("name", ""):` and names
+  `model_fields` nowhere; the alias block is `:455-459`; the gate is `:483-485` with
+  `whole_record=False`; `vault_io.write_note(file_path, new_content, precondition=stamp)` is `:490`;
+  the reload is `:493-495`; `old_name_key = name.lower()` is `:498` and `_adopt` is `:520`. The
+  opener is `name = getattr(entity, "name", "")` / `self.get_file_path(name)` at `:437-438` raising
+  above the lock at `:440-441`, and `BookRepository.get_file_path:326-338` keys on
+  `title.lower().strip()` — so `get_file_path("")` answers `None` for a Book, and for a Meeting
+  through the inherited `BaseRepository.get_file_path:354-365` over a `_file_map` keyed by
+  `MeetingRepository._get_cache_key:56-64` (meeting_id, else date+attendee), which never answers
+  `""`. Design §5's reachability premise is therefore true for BOTH types, not just the one it cites.
+- **The pass-through M8 rests on.** `obsidian_schemas/name_gate.py:gate_write:319` is
+  `if declared_type is not None and declared_type != PERSON_TYPE:`, its body validates only at
+  `:329-343` (`declared_type == COMPANY_TYPE and "name" in introduced`, against
+  `COMPANY_TIER1_BRANCHES`), and it otherwise falls to `return dict(introduced)` at `:344`; the
+  comment at `:316-318` really reads *"a Book write is gated and handed straight back"*. The person
+  arm's `allow_phone_sentinel` derivation is `:355-358`, exactly as the door predicate says.
+- **`model_copy` preserves the stamp.** Pydantic v2 copies `__pydantic_private__` on
+  `model_copy`, and `update=` merges into `__dict__` without validating — which is precisely why Task
+  6 orders `derive(entity)` computed first outside any `try` and ANY exception out of
+  `derive(projected)` treated as a refusal. Both halves of that prescription are necessary and
+  correct.
+- **The door and its syscalls.** `obsidian_schemas/vault_io.py:move_note:721-750` refuses a symlinked
+  SOURCE at `:736-740` with `WriteFailedError` BEFORE `_resolved(src)` at `:741`, resolves both
+  operands, and takes the two locks in sorted order at `:744-750`; `_move_locked:753-783` is
+  `os.link` at `:758`, the `observe` `os.replace` at `:760-769`, `NoteAlreadyExists` at `:770-771`,
+  the `OSError` → `WriteFailedError` at `:772-773`, `os.unlink` at `:776`, `forget_snapshot` at
+  `:780-781`, `return target` at `:783`. Every sentence of M6, of the complement table and of the
+  same-file sweep is exact against those bytes.
+- **The seam's structural half.** `tests/derivations.py:_taints_a_write:361-409` is seed `:368-382`,
+  monotone fixpoint `:389-401`, sink over `node.args + keywords` `:404-408` — and it propagates via
+  `_names_in(target)` (`:282-283`), which `ast.walk`s and so WOULD collect `entity` from
+  `entity._source_path = moved`. Design §4's warning that the new seed must use
+  `_assign_targets_name:928-944` instead of `_names_in` for targets is therefore exactly right, and
+  `_assign_targets_name` really does reach only `ast.Name` and `Tuple`/`List` elements.
+  `_is_write_call:286-299` gates on `ast.Attribute`, which is why Design §4's SECOND predicate
+  (bare-name calls to `path_taking_writer_names`) is needed to reach `write_markdown_file` at all.
+- **The lock-nesting claim, checked at the sites it quantifies over.**
+  `obsidian_schemas/repositories/person.py:PersonRepository.append_to_timeline:1403-1461` holds
+  `vault_io.note_lock` at `:1410` and calls only `vault_io.write_note` inside it (`:1447`, `:1458`) —
+  a single-path door, deliberately NOT collected — so `door_calls_inside_note_lock` really is EMPTY
+  over `PACKAGE_ROOT` today and Task 10's assertion is not RED against shipped code.
+- **`scripts/lint_vault.py:check_structural:328-388`** is `read_error` `continue` `:340-348`,
+  `parse_error` `continue` `:350-359`, the two `is_at_prefixed` arms `:362-381`,
+  `if not vf.entity_type: continue` `:383-384`, the `TYPE_TO_MODEL` guard `:387-388`. AC-3(e) is a
+  placement property exactly as Design §3 claims, and a non-`@` `type: person` file does reach the
+  new arm.
+- **The committed baseline.** `docs/stem-divergence-live-baseline.md` §1's two entry figures are
+  `:121` (`8`) and `:122` (`0`), the non-numeric cells Task 13 excludes from leading-integer parsing
+  are `:124`/`:126`, the eight rows are `:146-153` with row 3 `same-file` → RENAME and row 8
+  `different-note` → MERGE, the two declared vocabularies are `:155-156`, and the mis-statement
+  Design §3 corrects is `:158-161`. I re-ran §4a's tokenizer over the bytes: eight `.md` tokens,
+  three existing repo paths, one `*.md` glob, `@{name}.md` three times — M5's token-class rule is
+  green and total as committed.
+- **The consumer audit.** `docs/wi-029-consumer-audit.md:84` is the generic PATCH row with *"`body`
+  is an arbitrary HTTP PATCH dict and may carry `name`"* and names book/meeting via the generic
+  route; `:134-140` is the zero-call-sites reading naming `routers/entities.py:461` as the ONLY
+  consumer path to those two repositories. M8's external-route claim is the audit's own sentence, not
+  a reconstruction.
+- **One factual claim a builder acts on, checked because it is cheap:** Task 3's *"grep `Saved ` over
+  `tests/` → zero hits"* is true, so retargeting `save`'s INFO line to the file actually written
+  breaks nothing.
+
+### Bar check
+
+Walked every check of `docs/spec-quality-bar.md` (the doc's own list is the count — never hardcode
+it). The spec satisfies the bar. The ones worth recording:
+
+- **Check 4.** OPEN: None. I cross-walked every resolved Edge Case against a named test; each of the
+  twenty-seven resolves to a Task 2/9/10/12/13 arm, an AC, or an explicitly declared NON-action with
+  its reason. The three new M7/M8/occupied-destination entries each carry a Task 10 arm.
+- **Check 5.** Fourteen canonical task definitions, ordinals 1–14, unique, all shaped
+  `- [ ] **Task N — <title>.**`. Every `landed: Task N` in the latest speaking threat-model round
+  resolves (M2→2, M5→13, the other six→6), so D8b is clean. Fourteen `verify:` declarations, one per
+  task and none begun illustratively elsewhere in the document: twelve check arms (max four names,
+  under the eight-name bound) and one `baseline` exception whose reason is 139 characters. Task 14's
+  three pre-existing names all resolve —
+  `tests/test_concurrent_access.py:test_wi020_derivations_survive_the_routing:1060`,
+  `tests/test_name_gate_wall.py:test_wall_membership_is_closed_by_running_each_walls_predicate:1057`,
+  `tests/test_loud_fail_write.py:test_write_failure_raises_and_noops_keep_their_return:105`.
+- **Write-Targets coverage.** Every plan task's target is declared, and every declared path has a
+  task: `models.py`/`parser.py`/`base.py`/the new seam module (Task 2), `base.py` (3, 6),
+  `person.py` (4), `book.py`+`meeting.py` (5), `derivations.py` (7), the four new test modules (8,
+  9/10, 12, 13), `scripts/lint_vault.py` (11), and the three CONDITIONAL count-pin modules declared
+  under the WI-229 rule with their predicted-unmoved reasoning. No fence declares a path no task
+  writes. No verify command writes outside `write_authority` — Task 14's floor command is pytest over
+  `tests/`, and nothing in the plan orders a state-writing CLI.
+- **Check 12 (AC drift).** The five `criteria` fences are the frozen originals; every revision note
+  in `## Design` states, and the section's own preamble restates, that no fence's bytes were touched
+  — so there is no diff to classify against `ac_hash 15189b874b27`. M7 and M8 both land as NON-AC
+  arms of AC-2's check, the same shape M6 and the idempotence arm already used. No
+  strength-weakening, actor-swap, scope-narrowing, oracle-swap or exception-carving-by-addition.
+- **The fold records.** Eight records for the eight `kind: required` mitigations of the latest
+  speaking round; each `desc` matches its `mitigation` fence, each `landed:` resolves, and I found
+  each `design:` and `work:` quote where it claims to be and read the surrounding text rather than
+  judging the pair alone. M8's `design:` is the bolded sentence in Design §2's "the THIRD rule" block
+  byte-for-byte modulo the emphasis markers, and its `work:` is Task 6's (M8) clause through
+  *"the door learns no second filename rule (`## Scope Boundary`)"* — both faithful. The two
+  pre-existing deviations the writer discloses (M2's compressed `work:`, M5's stitched one) are
+  accurate compressions of tasks this round did not touch.
+- **The class-fold obligation.** M8 closes the GENERATOR (*a guard keyed on the PERSON instance,
+  `name`, of a predicate this document states TYPE-GENERALLY*) rather than the `{"title": …}`
+  instance, keys the clause on the repository's own declared rule so the six deriving fields are
+  covered by construction, and DECLARES the next ladder level's sweep with its members, its
+  non-members and its one named trade (`save` and the two overrides, accepted because refusing there
+  would refuse AC-1). I ran the sweep independently over the nine write paths and the door and found
+  no member the two clauses leave open.
+- **The ruling-sweep.** I enumerated every surface that states what `update_fields` does with a
+  Book/Meeting delta and confirmed each states the ruling: Design §2's third rule, the paragraph
+  naming the arm's second clause beside the sequencing block, Design §5's corrected widening bound,
+  the M7 `## Edge Cases` entry's added bound, the new `## Edge Cases` entry, the new
+  `## Risk Analysis` row, Prerequisites 7's fourth disclosed arm, `## Verification`'s failure-mode
+  list, two `## Scope Boundary` bullets, Task 6's clause, Task 10's arm, the `base.py` `writes`
+  fence, `## Wall Membership`'s Walls A/B/C row, and the fold record. None still asserts the
+  pre-ruling behaviour.
+
+### Build-runner dry-run
+
+Walked the Implementation Plan top-to-bottom; no judgment-call gaps detected. Three questions a
+cold-start builder plausibly asks, and where the document answers each:
+
+1. *"The pre-write arm now has TWO clauses, but the sequencing block only shows the first — where
+   does the second go?"* Answered immediately beneath the block ("That same arm carries a SECOND
+   CLAUSE, and it fires where `renaming` is FALSE"), which gives the clause verbatim and points at
+   the THIRD rule; Task 6's (M8) paragraph prescribes the same in-lock position, before anything is
+   gated or written.
+2. *"`update_fields` now runs its whole frame for a Book. What happens at the cache surgery when
+   `old_name_key` is `""`?"* Answered as a declared NON-action in the Spec-Writer Notes and in the
+   sixth threat-model round's note 2, and it checks out against `base.py:498-520`: `_cache.get("")`
+   is `None`, the removal half is skipped, and `_adopt` re-keys on `_get_cache_key`. Nothing on disk
+   is touched.
+3. *"Task 10 is one check function carrying arms (a)–(h) plus six mitigations plus four non-AC arms —
+   may I split it?"* Answered by the check contract in `## Wall Membership` and Task 14: AC-2's
+   signed `check:` names the one function, so the AC-named symbol must stay a top-level zero-argument
+   `def`; helper functions beneath it are unconstrained. The document never forbids helpers, and
+   every arm's oracle is stated independently, so the split is mechanical.
+
+### Minor notes (non-blocking)
+
+1. **Two of Task 10's M8/M7 control arms are claimed to discriminate a wrong spelling that the wrong
+   spelling actually passes.** Neither misleads a builder about what to WRITE — Task 6 prescribes both
+   clauses verbatim — so this is an over-claim about the battery's reach rather than a buildability
+   defect, and it costs one clause each to state honestly.
+   (i) Task 10's M8 ACCEPTED half calls the person-name-change cell *"the control that fails a clause
+   written without the `not renaming` conjunct or one reaching a repository that declares no
+   `_get_file_name`"*. It does fail the second spelling, but not the first: for a `PersonRepository`
+   `derive` is `None`, so `derive is not None` already excludes the cell and dropping `not renaming`
+   changes nothing there. The conjunct's real value is the forward one Design §2's first M8 bullet
+   states honestly (it is what keeps the clause total if the `BaseRepository.save` collapse ever puts
+   `_get_file_name` on the base class) — and no fixture in the corpus or the plants can discriminate
+   it today, which is the WI-286 shape: either plant a repository declaring BOTH `name` and
+   `_get_file_name` in the escape battery, or say in one line that the conjunct is forward-looking and
+   has no discriminating member.
+   (ii) Design §2's third M7 bullet and Task 10's M7 ACCEPTED half both say an `entity.model_fields`
+   spelling *"would answer differently"* for a note storing `name:` as a pydantic EXTRA. `hasattr`
+   does; `entity.model_fields` does not — it resolves to the same mapping as
+   `type(entity).model_fields` (in pydantic ≥2.11 via a deprecation shim) and therefore still answers
+   "not declared", so that cell passes under both spellings. The reason to insist on
+   `type(entity).model_fields` is the one `obsidian_schemas/writer.py:108`'s own comment gives — the
+   v2.11+ deprecation — and that reason is already in the document; only the "answers differently"
+   half is wrong.
+2. **Task 10's M8 arm says "ACCEPTED, four arms" and then lists five items, one of which is a
+   REFUSAL.** The non-string-deriving-field cell (`{"title": ["a", "b"]}`) asserts a `ValueError` and
+   belongs in the REFUSED bucket beside the other four; M8's own `desc` says "three arms" for the same
+   list. The assertion each cell must make is unambiguous, so nothing is buildable two ways — but this
+   is the third instance in this document of a count stated beside a list that has since grown
+   ("five planted members" vs six; "eight more one-line edits"), and the writer's own WI-229 repair
+   was to re-state the LIST and drop the number. Same repair here, plus moving the non-string cell
+   under REFUSED.
+3. **`save`'s no-provenance WARNING text is `name`-shaped for the two types whose target is not
+   name-derived.** Design §2's fallback shape 1 emits *"the write targets the name-derived
+   filename"*, and Task 5 applies that shape to Book's and Meeting's overrides, where the target is
+   `_get_file_name`-derived. It is a log string and no criterion reads it, but it is one more member
+   of the class M8 just closed and costs one word (`derived filename`).
+
+### Carried-forward notes
+
+- **The duplicated `## Adversarial Review` heading — still the conductor's, and it has grown again.**
+  THREE sections carry the identical `2026-09-25` heading (rounds 1 PROMOTE, 2 REVISE, 3 PROMOTE) and
+  a fourth is dated 2026-09-26, so a heading-keyed structural reader has three candidates for one
+  gate at one date. A latest-round reading resolves the 2026-09-26 section. The spec-writer correctly
+  declines to touch those bytes; the action is the conductor's — confirm the earliest section's
+  origin and make it say so on its face, or strike it. **This round's own heading duplicates round
+  4's date for the same structural reason and is called out in my first paragraph.** I am emitting
+  PROMOTE, so D5's second key IS now load-bearing: the conductor should resolve the collision before
+  the `specced → ready` attempt rather than after it.
+- **M1's exact bound (threat model round 2).** Resolve-then-`os.link` is check-then-act against an
+  attacker who can plant a symlink at the destination between the two. Re-deferred unchanged: the
+  bound is stated in Design §2's M1 bullet, the attacker is outside Prerequisites 6's trust boundary,
+  and `os.link` has no `O_NOFOLLOW` spelling reachable through pathlib. No work ordered.
+- **The write-then-move window (threat model round 2).** Re-deferred as a declared NON-action, folded
+  as a `## Edge Cases` entry and a `## Risk Analysis` row with the lock-ordering entry explicitly
+  scoped to ORDERING only. Stated again so neither M8 nor round 4's fold is read as re-opening it.
+- **The `guard_mode()` double read (threat model round 5, note 1).** Re-deferred unchanged: it needs
+  a privileged actor inside the process to move `os.environ` between `update_fields`' in-lock check
+  and the door's, which is more privileged than the boundary Prerequisites 6 draws, and the re-run
+  table's first row already owns the outcome by name.
+- **AC-2(b)'s occupied-destination arm depends on the ambient environment (threat model round 5,
+  note 2).** Re-deferred, and the gap has narrowed rather than closed: Task 10 now sets
+  `OBSIDIAN_SCHEMAS_WRITE_GUARD` explicitly through `tests/support.py:patcher:73` for FOUR arms (M6's
+  both halves, M7, M8 and the occupied-destination `update_fields` arm) while AC-2(b)'s own arm still
+  inherits whatever the runner carries. The direction stays safe (an ambient `observe` reddens it)
+  and AC-2 is signed, so this is not a spec edit — but one sentence extending the same instruction to
+  the WHOLE of Task 10's check would close it for free, and the conductor-facing line ("read a red
+  AC-2(b) as a shell question before a code question") is still not in the document.
+- **The no-op branch's cosmetic audit line (threat model round 4).** On the `same_place` branch M4's
+  INFO line reads *"Renamed … from @New.md to @New.md"*. Recorded by the modeler as harmless and not
+  a security defect; carried unchanged.
+- **`_get_cache_key`'s `""` key for a newly-reachable Book (threat model round 6, note 2).** A
+  correctness observation, not a security one, and verified above against `base.py:498-520`. Carried
+  as a NON-action in the same neighbourhood `## Scope Boundary` already declines.
+- **Architect round 6, note 6(iv)** — the deliberately-out-of-scope items (`_get_cache_key`'s strip
+  asymmetry, approach F's re-keying, the Book/Meeting `save` collapse) stand as written and are all
+  named in `## Scope Boundary`. Closed; recorded so the chain is unbroken.
+- All other prior non-blocking notes are FOLDED and I verified each at its landing site against the
+  code rather than the prose: round 4's three (the `renaming`-gated `aliases` mirror, Design §5's
+  declared widening, Design §1's restored quotation), round 3's six, round 2's five, round 1's
+  twelve, the M3 `load()` window (now `## Verification`'s close-out paragraph) and the threat model's
+  pre-existing-extras-leak bound (Design §1, beside AC-1(h)).
+
+```verdict
+gate: spec-reviewer
+verdict: PROMOTE
+date: 2026-09-26
+model: claude-opus-5
+note: Fifth round, cold-start, read from line 1 and re-derived at the code rather than from the folds — no blocking gap survives. Round 4's finding is closed as a RULE total over the precondition table's whole NO half, checked row by row against that table, with the three surfaces that denied the occupied-destination residual corrected and Task 10 asserting it directly (the raised LEAF, the committed `name:` at the unmoved filename, the absent alias, the un-re-stamped entity, the byte-identical destination, the re-run's no-op and the direct-`rename_note` recovery); its three non-blocking notes are closed at their own sites, including Design §1's quotation, which I diffed byte-for-byte against `models.py:BaseEntity:23-40`. This round's new material is threat-model M8, and it is a fold of the class one rung above M7's rather than of the `{"title": …}` instance: I re-derived all four facts it rests on — `book.py:_get_file_name:340-355` derives from `title`/`author` and `meeting.py:_get_file_name:208-231` from `date`/`topics`/`attendees`/`meeting_id`, all six DECLARED (`models.py:160-161`, `:260-263`); `base.py:454` is verbatim the caller's-dict-against-frontmatter trigger and names `model_fields` nowhere, so a delta with no `name` key evaluates none of `if renaming and (...)`; `name_gate.py:319-344` really falls to `return dict(introduced)` for a non-person non-company `declared_type`; and `base.py:490` COMMITS. The clause is keyed on `getattr(self, "_get_file_name", None)`, which grep confirms is declared at exactly `book.py:340` and `meeting.py:208`, so it is structurally inert for Person and Company rather than inert by premise, and it is DELTA-RELATIVE so an already-divergent note stays writable. I ran the ruling-sweep over every surface stating what `update_fields` does with a Book/Meeting delta — fourteen of them — and each states the ruling; I ran the next-ladder-level sweep over the nine write paths and the door independently and found no member the two clauses leave open, one declared trade (`save` and the two overrides, accepted because refusing there would refuse AC-1) and one named detector-blind residual (COMPANY). Fourteen canonical task definitions with fourteen well-formed `verify:` declarations, every `landed: Task N` resolving, every plan-task target declared in `## Write Targets` with no undeclared path and no writing verify command, eight complete and faithful fold records whose `design:` and `work:` quotes I located and read in context, and the five signed criteria untouched (no diff to classify against `ac_hash 15189b874b27`). Three non-blocking notes: two control arms over-claim which wrong spelling they discriminate (the `not renaming` conjunct has no discriminating member today, and `entity.model_fields` answers the same as `type(entity).model_fields` — only `hasattr` differs), Task 10's M8 ACCEPTED bucket says "four arms" over five items one of which is a refusal, and `save`'s WARNING string says "name-derived" on the two paths whose target is `_get_file_name`-derived. One carried-forward item is now the conductor's to act on BEFORE the transition rather than after it: three sections share the heading `## Adversarial Review — 2026-09-25`, and with a spec-reviewer PROMOTE on record D5's second key becomes load-bearing.
+```
+
+## Adversarial Review — 2026-09-26
+
+Cold-start spawn, fifth injection-hunter round on this document (four prior sections stand: round 1
+PROMOTE, round 2 REVISE on a provenance concern about round 1's own standing, round 3 PROMOTE
+resolving round 2 on the merits, round 4 PROMOTE covering Threat Model rounds 4–5 and Spec Review
+round 4's REVISE). I read the document from line 1 to its end in full — Problem/Motivation, Intent,
+the entire Exploration Notes arm (all five architect rounds, the AC red-team round, all fifteen
+numbered premises, every constraint, the conductor read-back), Approach, Design §1 and §2 in full
+(the stamp, the ten-caller resolution function, the door body and its M1/M3/M4/M6/M7/M8 clauses),
+`## Edge Cases & Open Questions` in full, the fourteen-task Implementation Plan in full, `## Write
+Targets`, `## Wall Membership`, `## Mitigation Folds` including all eight `fold` fences, `##
+Verification`, `## Scope Boundary`, `## Risk Analysis`, all five signed `criteria` fences and
+Examples of Done, Spec-Writer Notes, then every prior gate's verdict prose in document order —
+Architectural Review, AC Red-Team, AC Sign-off, Data Audit, Threat Model rounds 1–6, Spec Review
+rounds 1–5, and all four existing Adversarial Review sections read directly. I additionally ran
+several whole-document greps for verdict-steering phrasing ("ignore previous instruction",
+"pre-approved", "you must/should emit/output", imperative address to a reviewer, "trust this",
+role-play framing ("act as", "you are now"), `SYSTEM:`/`assistant:`/chat-template tokens, hidden
+zero-width or base64 tricks) and separately for every HTML comment and every `writes` fence. All
+returned only legitimate hits: the steering-phrase matches are prior gates' own prose *discussing*
+the absence of such phrasing (including this section's); the only HTML comment is the
+machine-maintained archive-split pointer at line 21; and every `writes` fence names a path inside
+this item's own declared write authority (`obsidian_schemas/**`, `tests/**`, `scripts/**`,
+`docs/**`) — none names another work item's own tracked document, so WI-245's merge-authorization
+scrutiny does not arise.
+
+**This round's own new material — the sixth threat-model round (M8, the `getattr(self,
+"_get_file_name", None)` clause) and the fifth spec-review round (PROMOTE) — is the same genre as
+every round before it.** Both are dense, line-cited technical argument about the CODE (a
+capability-widening bound stated in `name`-shaped terms over two types whose filename rule is not
+made of `name`; a citation-by-citation re-derivation of the four facts M8 rests on) and neither
+reads as addressed to a reviewing agent or shaped to produce a verdict rather than an
+understanding. I independently re-checked the spec-reviewer's central citations — `book.py:_get_file_name:340-355`
+deriving from `title`/`author`, `meeting.py:_get_file_name:208-231` deriving from
+`date`/`topics`/`attendees`/`meeting_id`, `base.py:454`'s trigger reading the caller's dict against
+the note's frontmatter and never `model_fields`, `name_gate.py:319-344` falling through to `return
+dict(introduced)` for a non-person, non-company `declared_type` — against the prose describing them
+rather than accepting the prose, and they reproduce exactly as stated.
+
+**The heading collision the spec-reviewer just flagged as now load-bearing is a document-structure
+fact, not a finding I am reopening.** Three sections share the heading `## Adversarial Review —
+2026-09-25` (rounds 1, 2, 3) and a fourth carries `## Adversarial Review — 2026-09-26` (round 4,
+this section's own heading duplicates it a second time). Round 2 raised the substantive version of
+this concern — could a stale or forged PROMOTE under this gate's own heading satisfy D5 without a
+genuine review of current content — and round 3 resolved it on the merits: every gate in this
+document is a cold-start spawn that self-discovers its own round number by reading the document,
+no gate round here carries cryptographic provenance so that bar cannot discriminate a forged round
+from a genuine one for ANY gate, and the mid-document position is the same append-only artifact
+every other repeated section (Threat Model ×6, Spec Review ×5) shows. I re-read round 3's reasoning
+against round 1's and round 2's own text rather than against round 3's summary, and it still holds;
+nothing in this round's material reopens it. The protective action available to me is not to
+re-litigate that closed question a third time — it is to make sure the section a "latest-round
+reading" resolves to is itself a genuine, current review, which is what this section is: a
+fresh, full read of the document as it now stands, including the M8 fold and the just-landed
+spec-reviewer PROMOTE, neither of which any prior Adversarial Review section could have seen. The
+structural cleanup itself (deduplicating or dating the collision) is the conductor's action, as
+every prior round from round 3 onward has correctly recorded, and is not something an injection-hunter
+verdict can or should perform.
+
+I found no text anywhere in the document whose *effect* is to steer any gate's verdict, planted or
+otherwise, including in the material added since round 4.
+
+```verdict
+gate: injection-hunter
+verdict: PROMOTE
+date: 2026-09-26
+model: claude-sonnet-5
+note: Full end-to-end read (Problem/Motivation through the just-landed fifth Spec Review round, including all four existing Adversarial Review sections read directly) plus several whole-document greps for steering phrasing, HTML comments and non-conforming `writes` fences found no planted text steering any gate's verdict and no cross-item merge-authorization concern. This round's new material — Threat Model round 6 (M8) and Spec Review round 5 (PROMOTE) — is the same genre as every prior round: dense, line-cited technical argument about the code, and I independently re-verified the spec-reviewer's central citations (`book.py`/`meeting.py`'s `_get_file_name` field lists, `base.py:454`'s trigger, `name_gate.py:319-344`'s pass-through) against the code rather than the prose. Round 2's provenance concern about round 1's standing is not reopened — round 3's resolution holds on direct re-read and nothing here contradicts it — and the heading collision the spec-reviewer just flagged as load-bearing is the conductor's structural action, not an injection finding; this section itself supplies a genuine, current "latest round" covering the material no prior Adversarial Review section had seen.
+```
+
+## Code Review — 2026-09-26
+
+Cold-start build-exit read, first round at this door. My tool grant carried **no shell**, so nothing
+below rests on a command I ran: every claim is a direct read of the final text in this worktree, and
+where the only available evidence is the builder's own run I say so and treat it as a claim rather
+than as a measurement (see the standing caveat at the end of the test section).
+
+### Trigger check
+
+FIRES. The post-build diff is not doc-only: six package/script files modified
+(`obsidian_schemas/models.py`, `parser.py`, `repositories/base.py`, `repositories/person.py`,
+`repositories/book.py`, `repositories/meeting.py`, `scripts/lint_vault.py`), one test helper modified
+(`tests/derivations.py`), one test module modified (`tests/test_company_name_contract.py`) and four
+new test modules added. New public API surface (`BaseRepository.rename_note`), a changed write-target
+resolution on nine mutating paths, and two new pre-write refusals in `update_fields` — none of the
+skip patterns apply, and the mechanical-change exemption is nowhere near reachable.
+
+### What I read against what
+
+I read the fourteen-task Implementation Plan, `## Write Targets`, `## Wall Membership`, the Build
+Log, `## Scope Boundary`, `## Risk Analysis` and all five signed `criteria` fences; then the shipped
+code for each task and each new/edited test module; then the prior gates' standing rounds (Spec
+Review round 5, Adversarial Review round 4, and the carried-forward note ledger). The two
+`kind: precondition` artifacts (`docs/stem-divergence-live-baseline.md`,
+`docs/wi-029-consumer-audit.md`) are both present in the tree and both unmodified, as the Scope
+Boundary requires.
+
+**Task-by-task conformance, checked at the code and not at the prose.** Task 2: the `PrivateAttr`
+lands at `obsidian_schemas/models.py:51` with the comment block, and `parser.py:251-252` stamps on
+the `entity is not None` arm only — `parse_markdown_content` is untouched, which is the property AC-1
+and Task 2's unit check both turn on. Task 3: `base.py:450-457` is the CREATE-fallback shape with the
+WARNING emitted before `write_markdown_file`, and `base.py:627-630` is the REFUSE-fallback with
+`resolved` bound under its own name exactly so Task 6's arm can read it — a builder who collapsed the
+two names would have had to reopen the method head, and the collapse did not happen. The M4 log
+defect is fixed at all three sites (`base.py:480`, `book.py:196`, `meeting.py:216`): each names
+`file_path.name`, the file actually written. Task 4: all five body-writer openers are the
+provenance-then-name shape (`person.py:1408`, `:1534`, `:1675`, `:1748`, `:1829`) and every
+`ValueError`, `.exists()` guard and falsy return is left in place — I checked that the refusal
+one line below the opener is still the original `raise ValueError`, which is what
+`tests/test_loud_fail_write.py`'s (function, ordinal) map keys on. Task 5: both overrides keep
+`_get_file_name` as the fallback expression and neither starts calling `super().save()`.
+
+**Task 6, the door, read clause by clause against Design §2's listed body.** It matches, including
+every clause the plan marked non-optional: M1's containment on the RESOLVED destination with
+`OSError`/`ValueError` treated as not-contained and raised before any `move_note`
+(`base.py:511-519`); M6's `vault_io.guard_mode()` read through `vault_io` and never `os.environ`
+(`:521-527`); M3's staging name derived from the SOURCE and keeping the `.md` suffix (`:556`); M4's
+both-ends audit line (`:593-594`). The branch discriminant is file identity and not the path string
+(`:541-542`) — parents resolved, raw `.name` compared — which is the one place a string compare would
+have turned the "idempotent" re-run into two real moves on this platform. There is no
+destination pre-check in either the door or `update_fields`, no alias-repair arm, and no
+move-before-write; `update_fields` calls the door at `base.py:753-754`, after the
+`with vault_io.note_lock(file_path)` block has exited and before the reload, which is ordering
+decision 5's required placement. The door contains no `parse_frontmatter` call and no falsy return
+(M1 and M6 both raise), so the two count pins it could have moved cannot have moved.
+
+I also traced the ONE line the plan did not enumerate. `vault_io.record_snapshot(moved)`
+(`base.py:578-591`) is guarded on `moved_now or aliased`. The Build Log §3 establishes it as
+load-bearing by mutation rather than by argument, and the guard's own reason — that an unconditional
+call would let the idempotent no-op branch launder a third party's write into an accepted
+precondition — is the right reason. I checked the consequence the guard leaves open: after a
+half-failed rename (move committed, alias write raised) the frame exits through the exception before
+reaching the call, so the moved note is left unregistered — and that is exactly the residual the
+document declares, whose stated recovery (`update_fields(entity, {"aliases": [...]})`) re-reads
+through `vault_io.read_note` and so re-establishes a snapshot for itself. Consistent, not a gap.
+
+**M7 and M8, the two clauses that change consumer-visible behaviour.** `base.py:665-676` is the
+three-disjunct rename-side refusal, keyed on `type(entity).model_fields` read off the CLASS, raised
+inside the lock before `gate_write`, `write_frontmatter` or `vault_io.write_note` are reached.
+`base.py:685-705` is the second clause: `derive = getattr(self, "_get_file_name", None)`, delta-
+relative, `derive(entity)` computed FIRST and outside the `try`, with only `derive(projected)`
+wrapped and any exception out of it converted to the same `ValueError`. I checked the one thing that
+placement could have cost: `Book.title`/`Book.author` are `str` with `""` defaults
+(`models.py:171-172`) and `Meeting.date`/`topics`/`attendees`/`meeting_id` likewise
+(`models.py:271-274`), so `derive(entity)` on a *validated* entity cannot raise and the
+outside-the-`try` position is safe rather than merely prescribed. `model_copy(update=…)` does not
+validate, which is what makes the wrapped call the one that can raise, and that is the arm the
+battery drives with `{"title": ["a", "b"]}`.
+
+**The detector (Task 11).** `scripts/lint_vault.py:433-462` sits after the `TYPE_TO_MODEL` guard, so
+WI-026's `read_error`/`parse_error`/`missing_type` triage order is preserved by construction and not
+by a second guard. The comparison is raw on both sides with exactly one leading `@` stripped
+(`:441`), the `isinstance(stored, str) and stored.strip()` conjuncts are both present and both
+commented with the repair-direction reason, and `auto_fixable` is left at its default so the issue
+cannot enter `apply_fixes`. The guard is `vf.entity_type == "person"` and not `vf.is_at_prefixed`,
+which is the narrowing that would have silently dropped the live MERGE row. `_gate_refusal_pattern`
+(`:334-352`) asks the DOOR (`gate_write(fm, declared_type=fm.get("type"), whole_record=True)`) and
+not the bare validator — the whole point of the round-4 fold. I checked its raise surface, because
+this function runs inside a whole-vault sweep and an unexpected exception would abort the lint run on
+one bad note: `gate_write`'s person body reaches `NameValidationError` only through `_refuse`
+(converted to `NameGateRefusal`, which is caught), and every list-shaped operation is gated by
+`_shaped`'s `_is_str_list` precondition (`name_gate.py:196-198`), so the narrow catch is sound rather
+than lucky.
+
+**The AI-maintainability checks.** No new cross-project reach (no `sys.path` manipulation, no sibling
+repo paths, no foreign `.env`/state reads). No new dependence on deprecated code. No idiom
+regression: the new refusals raise typed loud failures, the new logging is `logger.warning`/
+`logger.info` with structured args, the environment is read through `vault_io.guard_mode()` precisely
+so `base.py` does not become a second `os.environ` home, and the boundary field (`_source_path`) is a
+typed `Optional[Path]` rather than a stringly-typed one. No silent swallow at the Blocking bar — see
+Note 1 for the one typed `except` that returns a sentinel, and why it is a guard rather than a
+swallow.
+
+**Step 2c — readback and no-silent-PASS-on-empty.** No new outbound write to an external service:
+every write in the diff routes through `vault_io`, which is this package's verified write door and
+already carries stamp preconditions and snapshot registration — and the one place the diff *adds* to
+that registry (`record_snapshot(moved)`) exists precisely because `move_note` forgets both paths and
+the next `save` would otherwise refuse against a note the rename just created. On silent-PASS: I
+walked each new path where an absence is possible. `_resolve_write_target` returning `None` is
+handled explicitly and DIFFERENTLY per caller — `save` creates and warns when the derived target is
+occupied, `update_fields` and the five body-writers refuse — which is the whole reason the resolver
+never falls back on its own behalf; a uniform fallback would have converted those loud refusals into
+note creation. The detector's two near-miss narrowings (non-string `name:`, blank `name:`) are
+intentional, commented, and each is pinned by a planted member asserting SILENCE, so neither is a
+default pass. I found no code path in the diff where an empty result, a `None`, or a swallowed
+exception is the default outcome without an explicit, commented decision behind it.
+
+**Cage-reverted writes.** My input carries no `<<< cage-reverted writes >>>` block, so there is
+nothing to check and I manufacture no finding. I did check the adjacent thing that block exists to
+catch: the Build Log names one undeclared-but-in-authority Write Target
+(`tests/test_company_name_contract.py`, §6) and one file it deliberately did NOT touch
+(`docs/whatsapp-jid-value-type.md`, §7, WI-032's untracked idea doc). Both disclosures match the
+tree — `test_company_name_contract.py` is modified and the whatsapp doc is untracked and, by its
+absence from every diff hunk I read, unedited. The declaration gap is real and correctly
+self-reported: the edit is a forced consequence of Tasks 3 and 6 (that arm's driver returned the seed
+path as the file the arm wrote, and since this item `update_fields` MOVES the note), and the repair —
+asking the repository which file it wrote rather than recomposing the filename rule — is the right
+direction rather than a fixture patch.
+
+### Findings
+
+**Blocking: none.**
+
+Three Notes, none of which changes what the code should do:
+
+1. **`_resolve_write_target`'s typed `except` returns a sentinel without logging**
+   (`obsidian_schemas/repositories/base.py:410-413`). An `OSError`/`ValueError` out of
+   `candidate.resolve()` or `is_relative_to` is converted to "no provenance" silently. This is a
+   guard rather than a swallow — the return value is a documented three-way answer, not a discarded
+   failure, and every caller's handling of `None` is loud (refuse) or announced (`save`'s WARNING when
+   the derived target is occupied) — so it does not reach the Blocking bar the check sets for an
+   `except` that "neither logs nor re-raises". Recorded because the one configuration it hides is a
+   vault path that stopped resolving mid-process, where `save` would then create at `@{name}.md`
+   with no WARNING unless that file happens to exist. One `logger.debug` would close it; no criterion
+   reads it either way.
+
+2. **The door's `@`-strip and the detector's are deliberately different spellings of one idea, and
+   only one of them is documented as such.** `rename_note` uses `source.stem.lstrip("@")`
+   (`base.py:528`, `:565`, verbatim per Design §2:1447) while the detector strips exactly one
+   character (`scripts/lint_vault.py:441`, with a comment explaining why `lstrip` would hide
+   `@@Foo.md`). Both are right for their own job, but the consequence is unstated: renaming
+   `@@Foo.md` → `@Foo.md` computes `old_stem == new_stem == "Foo"` and appends NO alias, so a
+   wikilink spelled `[[@@Foo]]` goes dark. The class is one live-report row at most and the item
+   already declines incoming-reference repair as a non-action (`## Scope Boundary`), so this is a
+   sentence for the next doc pass rather than a code change.
+
+3. **CLAUDE.md's "~15s" floor figure is now stale, and its re-exec parenthetical under-counts.** The
+   project file reads *"Hermetic, ~15s (WI-016's fixture-vault battery makes six foreign-interpreter
+   subprocess runs per floor; WI-026 added a seventh check module with its own re-exec)"*. This item
+   adds four more check modules carrying `ensure_project_interpreter(__file__)` and the Build Log
+   reports the floor at ~21s. I am NOT calling this a Blocking "docs made false" hit, for two
+   reasons that I checked rather than assumed: the figure is hedged (`~`) and is a duration, not one
+   of the counts the check enumerates; and the re-exec is a NO-OP under the floor command
+   (`## Risk Analysis`'s own row says so), so the *"six foreign-interpreter subprocess runs per
+   floor"* count is genuinely unmoved and the *"WI-026 added a seventh"* clause remains a true
+   historical statement. What moved is the wall-clock and the module count a reader would infer from
+   it. Worth one line at the next `/wrap-up`; not worth a bounce.
+
+For the record, the three non-blocking notes the fifth Spec Review round left open: note 3 (`save`'s
+WARNING string saying "name-derived" on the two paths whose target is `_get_file_name`-derived) is
+CLOSED in the code — all three warnings read "the derived filename" (`base.py:454`, `book.py:178`,
+`meeting.py:198`). Notes 1 and 2 are over-claims in Task 10's own prose about which wrong spelling
+two control arms discriminate; they are document text inside a section the builder was right not to
+rewrite, and they mislead nobody about what to build.
+
+### Summary
+
+Fourteen tasks landed as specified, including every clause the plan marked non-optional and the six
+required mitigations at their prescribed sites. The two behaviour changes a consumer can observe
+(`update_fields` MOVES on a name change; a Book/Meeting delta that would move its own filename rule
+is now refused) are both signed decisions disclosed in `## Risk Analysis`, not discoveries. I found
+no Blocking issue.
+
+```verdict
+gate: code-reviewer
+verdict: PROMOTE
+date: 2026-09-26
+model: claude-opus-5
+note: Read every task's code against its spec clause by clause with no shell — the seam, the door's M1/M3/M4/M6 clauses, `update_fields`' two-clause pre-write refusal (M7/M8), the five body-writer openers, both `save` overrides and the detector all match Design §2/§3, including the file-identity branch discriminant, the outside-the-lock door call, the absence of any destination pre-check, and the `type(entity).model_fields` and `getattr(self, "_get_file_name", None)` keyings; I additionally verified two things the prose asserts rather than proves (that `derive(entity)` outside the `try` cannot raise, because Book's and Meeting's six deriving fields are all non-optional `str`/`List[str]` with defaults, and that `_gate_refusal_pattern`'s narrow catch is sound, because `gate_write`'s only raise on a person payload is `NameGateRefusal` and every list operation sits behind `_shaped`'s `_is_str_list`), and confirmed the one unenumerated door line (`record_snapshot`, guarded) is load-bearing with a correct guard. No Blocking finding; three Notes (a typed sentinel-return `except` with no log at `base.py:410-413`, the undocumented consequence of the door's `lstrip("@")` on a `@@`-stemmed stem, and CLAUDE.md's now-stale `~15s` floor figure), and the spec-reviewer's one code-facing open note is closed in the shipped warnings.
+```
+
+## Test & Observability Review — 2026-09-26
+
+### Trigger check
+
+FIRES, and this pass APPLIES rather than self-declaring N/A: the item adds a new production code path
+(`BaseRepository.rename_note`, a file-moving public method three `-e` consumers can reach), changes
+the write target of nine existing mutating paths, adds two new refusals to a shipped method, and adds
+a new detector arm to a tool Dave runs by hand against the live vault. This is persistence and new
+prod surface, not a refactor.
+
+### Check 1 — tests exist for the new code paths
+
+Yes, and they are unusually strong. Four new modules, all four present on disk with the named
+functions defined as top-level zero-argument `def`s and with `ensure_project_interpreter(__file__)`
+as the module's first statement:
+
+- `tests/test_provenance_write_seam.py` — the two seam unit checks, AC-1's sweep, AC-2's door
+  battery (twenty-odd named arms), and Task 14's wall closure.
+- `tests/test_write_target_seam_wall.py` — AC-5's live classification plus a planted-escape battery.
+- `tests/test_stem_name_divergence_detector.py` — AC-3, inside the five-part WI-026/WI-031
+  containment door (`test_every_divergence_drive_in_this_module_is_confined_to_a_temp_vault` is
+  present, and the module constructs no repository).
+- `tests/test_stem_divergence_baseline_shape.py` — AC-4's shape check plus a reader battery that
+  drives the SAME readers and the SAME `.md`-token scan the live arm calls.
+
+Happy path AND failure modes are both covered, which is what I checked rather than the count.
+Spot-verifying the two arms most likely to be stubbed: AC-1's cell driver
+(`test_provenance_write_seam.py:450-513`) derives its subject set from two manifest predicates and
+asserts them at 4 / 3 / 5 before sweeping, asserts its invoked path set is EQUAL to AC-5's seam
+bucket (`:423-436`, so the two batteries cannot drift), and grades each cell on the stronger
+property `changed == {filename}` — the only note whose bytes moved is the subject's own — rather than
+on the weaker "the subject changed". It also asserts `repo._loaded is False` at EVERY cell, so AC-1(g)'s
+no-vault-walk half is checked once per cell rather than once per run. AC-5's wall
+(`test_write_target_seam_wall.py:212-289`) asserts its own predicate is single-homed in
+`tests.derivations` before using it, asserts the scan is non-vacuous, asserts both bucket sets by SET
+EQUALITY against fourteen qualnames, and then drives seven refused and five accepted plants through
+the same function — including the two call-and-discard spellings and the accepted
+guarded-fallback rebinding that keeps the shipped design legal.
+
+I independently traced the wall's own soundness rather than trusting the green: `_is_seam_routed`'s
+taint closure and ordering-aware rebinding clause classify `rename_note` SEAM correctly (the seed
+`source` propagates through `staging`, `same_place` and `moved`, no Assign between seed and sink
+rebinds a tainted name out of an untainted value, and every `move_note`/`update_frontmatter_field`
+first positional is tainted), and I confirmed the fourteen expected qualnames are the complete write
+population by grepping every `write_markdown_file`/`write_note`/`create_note`/`move_note`/
+`update_frontmatter_field`/`write_text`/`write_bytes` call under `obsidian_schemas/**` — four writer
+leaves, three in `base.py`, six calls across five `person.py` body-writers, one each in `book.py` and
+`meeting.py`, and none in `company.py` (which declares no `save`, so it inherits the seam for free).
+`PersonRepository.save` delegates via `super().save()` and so is correctly absent. Nothing is
+outside the wall.
+
+One genuine (Recommended, non-blocking) weakness in AC-3's battery:
+`tests/test_stem_name_divergence_detector.py:334-338` and `:363` compare a bare `path.name` against
+`silent`, which is a set of repo-relative POSIX paths. Over today's corpus the two coincide, because
+`tests/fixtures/vault/` is FLAT — I listed it to check, 54 notes, no subdirectory — so the arm is
+sound as shipped. It would go vacuous the day a fixture note lands in a subdirectory, which is the
+same class of latent-vacuity the rest of this battery is scrupulous about. One `.as_posix()` on the
+relative path closes it.
+
+### Check 2 — logging at WARN/ERROR for each failure mode
+
+Adequate, and improved over HEAD. Every new failure mode is LOUD rather than logged: the door's four
+precondition refusals raise `ValueError` naming the type, the offending argument and which
+precondition failed; `update_fields`' two pre-write clauses raise `ValueError` naming the method, the
+requested value and the specific precondition (three distinct precondition constants on the rename
+side, one on the filename-rule side), so a consumer's traceback identifies which disjunct fired
+rather than merely that something refused. The occupied destination comes back as the LEAF
+`NoteAlreadyExists` from the syscall rather than as a pre-check `ValueError`, which is both the
+stronger answer and the more debuggable one.
+
+On the non-raising side: the M4 audit line names BOTH ends of every move
+(`base.py:593-594`) — required, because after this item `update_fields` moves a file permanently on
+every name change, and a log naming only the destination cannot reconstruct the class. The three
+`save` INFO lines now name the file actually written rather than the derived filename, which is the
+defect that would otherwise have made this class *unreconstructable from a consumer's logs* exactly
+when provenance binding started sending writes somewhere the derived name does not describe. The one
+new WARNING (`base.py:453-456`, `book.py:177-179`, `meeting.py:197-199`) is emitted BEFORE the write
+that is about to refuse, which is the only ordering in which it is ever seen, and AC-1(f) captures it
+through `tests/support.py:captured_logs`. I found no new silent failure mode in the diff.
+
+### Check 3 — alerts wired
+
+**N/A by shape, and I checked rather than assumed it.** This is a library with no scheduler, no
+launchd/cron entry point, no daemon and no outbound channel of its own; it signals to its three `-e`
+consumers by raising, and to a human through `scripts/lint_vault.py`, which is hand-run. The
+alerting question belongs to HAL9000/Exocortex/orchestrator, whose call sites the `kind: precondition`
+consumer audit already measured (19/19 on loaded entities), not to this package.
+
+### Check 4 — invariant registration
+
+**N/A — no registry in this project.** The v1 registry scope is orchestrator-only
+(`orchestrator/src/invariants.py`); `obsidian-schemas` ships none, so per this role's own rule the
+dimension is skipped and not failed. The project's equivalent mechanism is the derived-wall family,
+and this item joins it properly rather than around it: `## Wall Membership` derives thirteen inbound
+walls and Task 14 RUNS eleven of them as direct predicate calls
+(`test_provenance_write_seam.py:1728-1754`), with the remaining two discharged by a run that is not a
+predicate call and DECLARED as such. I checked the row the Build Log says under-reached: wall D as
+written permitted `base.py` alone, the run returned three parse callers (Book's and Meeting's
+standing `_load_file` overrides joined the touched list at Task 5), and the satisfying form shipped
+is strictly STRONGER than the row — `functions_calling(touched, "parse_markdown_file")` asserted EQUAL
+to `load_file_implementations(...)`, a set derived independently and pinned at three — rather than a
+module-level permitted list that would have blessed whatever happened to be there. That is the right
+direction for a wall that under-reaches.
+
+### The standing caveat, and the one thing still owed at this door
+
+**I could not re-run the floor.** My grant carried no shell, so the Build Log's numbers are the
+builder's claim, not my measurement: 689 → 699 (+10, directional invariant satisfied), every count
+pin unmoved with the five `person.py` qualnames recorded in full, all five AC checks additionally
+invoked under the conveyor's own zero-argument `getattr(mod, name)()` shape, and two Task 14 arms plus
+Task 13's readers shown to DISCRIMINATE rather than merely pass. The claims are internally consistent
+and every artifact they name exists on disk with the asserted shape, and the Build Log evidences a
+live shell (§0 records the WI-228 P4 liveness probe; §3 records a mutation-and-revert experiment that
+is only performable by running something). Whoever advances this item should let the conveyor's own
+per-criterion runs be the measurement.
+
+**AC-4's EXIT half is NOT satisfied and cannot be from inside the cage.** The Build Log §9 declares
+this loudly and correctly: `docs/stem-divergence-live-baseline.md` §5 is a named EMPTY section by
+design, and the item's declared SHIP CONDITION is that the conductor re-runs §0's script and
+`scripts/lint_vault.py --vault "$VAULT" --report` against the live vault, appends the attestation, and
+reads ZERO on both the divergence count and `len(PersonRepository(...).conflicts)`. AC-4's shape check
+asserts §5 is PRESENT with its figure names and both re-run commands and asserts nothing about its
+values — deliberately, since the population is live. I am not holding a REVISE for it: it is not a
+code or test defect, and no builder could close it from in here. But it is a real obligation on the
+transition this gate sits at, so it is recorded here in the plainest terms available to me — the
+library work is ready; the live repair is not done, and AC-4's own words are *"the item is not done
+until divergence and conflicts both read zero"*.
+
+### Summary
+
+New prod paths have tests covering the happy path and many failure modes, with both-ways pinning on
+every containment wall and planted discriminators wherever the frozen corpus is unanimous; every new
+failure mode raises or logs with enough context to debug from; alerting and invariant registration are
+N/A by shape, checked rather than waved. One Recommended fix (a basename-vs-relative-path comparison
+in AC-3's battery that is sound today only because the fixture vault is flat). Nothing Blocking.
+
+```verdict
+gate: test-observability-checker
+verdict: PROMOTE
+date: 2026-09-26
+model: claude-opus-5
+note: Four new check modules present with every AC-named function a top-level zero-arg `def` behind `ensure_project_interpreter`, covering happy path plus many failure modes and pinned BOTH ways throughout — I verified the two batteries most susceptible to stubbing by reading their oracles (AC-1 grades each cell on `changed == {filename}` and asserts its path set EQUAL to AC-5's seam bucket so the two cannot drift; AC-5 asserts single-homing, non-vacuity and two set equalities before driving seven refused and five accepted plants), and independently confirmed the wall's completeness by grepping every write call under `obsidian_schemas/**` against the fourteen expected qualnames (`company.py` has none and `PersonRepository.save` delegates, both correctly absent). Every new failure mode is loud with a precondition-identifying message; the M4 line names both ends of a move and all three `save` INFO lines now name the file actually written, which is what keeps this class reconstructable from a consumer's logs. Alerts N/A (library, no scheduler, no outbound channel) and invariant registration N/A (no registry in this project — the derived-wall family is the equivalent, and Task 14 RUNS eleven of the thirteen rows, with wall D satisfied in a form strictly stronger than the row it under-reached). One Recommended fix: `test_stem_name_divergence_detector.py:334-338`/`:363` compare a bare basename against a set of repo-relative paths, sound only because the fixture vault is flat (I listed it). TWO things this verdict does NOT certify, both stated rather than implied: I had no shell, so the 699-case floor and the five conveyor-shape invocations are the builder's claim and should be re-measured by the conveyor's own per-criterion runs; and AC-4's EXIT half is unsatisfied by design — the live repair, the four booked hand repairs and the §5 attestation reading zero on divergence AND conflicts are the conductor's ship door, and the item's own criterion says it is not done until they do.
+```
+
+## Intent Check
+
+Cold-start read against the frozen referent: `## Intent`, all five signed `criteria` fences
+(`ac_hash 15189b874b27`), `### Examples of Done`, the Build Log, and the test body behind each
+AC's `check:` (grepped by name in `tests/`, whole function read — no `ac_runner:` declared for
+this project, so the plain-grep arm applies). I additionally read the standing Code Review and
+Test & Observability Review sections, both of which independently traced these same test bodies
+against the shipped code with no Blocking findings, and spot-verified rather than deferred to
+them: `test_no_library_write_can_fork_a_person_note` and the first half of
+`test_a_person_note_is_renamed_only_through_the_one_door_and_stays_reachable`
+(`tests/test_provenance_write_seam.py:409-748`) drive real `PersonRepository`/`BookRepository`/
+`MeetingRepository` instances against a materialized temp copy of the frozen fixture vault, with
+no stub or mock on the write seam anywhere in the driven path — every cell reads bytes off disk
+before and after the call and asserts the stronger `changed == {filename}` property (not merely
+"the subject changed"), asserts the untouched colliding-group members are byte-identical, and
+plants the two subjects (the sentinel-exempt phone stub, the Book/Meeting colliding pairs) the
+frozen corpus cannot supply on its own — this is proof of the promised property, not a rubber
+stamp of green.
+
+Per AC: AC-1's `desc` promises no library write can fork or cross-contaminate a person note over
+every mutating path, including the DOOR-refused cell reached by rule (not a hand-list) and the
+unloaded-repository arm; the test's matrix over derived subjects × derived paths, plus the four
+planted arms `_sentinel_exempt_cell`/`_planted_type_general_cells`/`_absent_provenance_arms`/
+`_unloaded_repository_arms`, proves exactly that, with the negative arms (no vault walk, no
+canonical file created for a divergent note, the collision WARNING) asserted alongside the
+positive ones. AC-2's `desc` promises one door, the right note under collision, and the reload
+re-stamping; `_person_cell`'s sibling battery and the door test's own bucket
+(`_door_resolves_through_the_seam_and_stays_reachable`, `_door_refuses_an_occupied_destination`,
+`_update_fields_calls_the_door_and_nothing_else_moves`) match, per the Code Review's independent
+trace of the door body clause-by-clause against Design §2. AC-3, AC-4 and AC-5 are read the same
+way through the Code Review's and Test & Observability Review's own citations (the raw-comparison
+detector, the committed live-baseline shape reader, the seam wall's set-equality and
+seven-refused/five-accepted plant battery) and I found no daylight between what those sections
+quote and what the referenced line ranges actually contain.
+
+`### Examples of Done`'s four scenarios (the forked-stem save, the two-Alex-Morgan timeline
+write, the library rename with alias-preserving lookup, the post-repair lint report) are each the
+direct consumer-facing restatement of AC-1/AC-2/AC-3's own matrix cells and are proven by the same
+tests — none strains against the built artifact.
+
+No taxonomy defect (stubbed-seam, weakened-assertion, narrowed-input-domain,
+missing-negative-case, oracle-swap) found in the sampled or cited test bodies, and no text in any
+test body or comment addressed itself to a reviewer. This is a fidelity PROMOTE only — it says
+nothing about AC-4's EXIT half, which every prior gate already correctly names as the conductor's
+unfinished ship door, not a build defect.
+
+```verdict
+gate: intent-check
+verdict: PROMOTE
+date: 2026-09-26
+model: claude-sonnet-5
+note: Read the frozen Intent/AC/Examples referent against the Build Log and the test bodies behind all five `check:` ids (spot-verified `test_no_library_write_can_fork_a_person_note` and the AC-2 door battery directly — real repositories, no stub on the write seam, byte-level before/after diffs, planted discriminating subjects); every AC's test proves its `desc`+`why` rather than a weakened or stubbed substitute, and the four Examples of Done are the direct consumer restatement of AC-1/AC-2/AC-3's own proven cells. No fidelity defect and no intent-drift found.
+```
+
+## Retrospective — 2026-09-26
+
+### Was the spec accurate?
+
+Mostly, and the drift that did occur was small and self-corrected in the Build Log rather than
+argued around. The spec went through five spec-review rounds and a six-mitigation threat model
+before reaching `ready`, and that weight paid off: the code review and test/observability review
+both landed zero Blocking findings on the first cold-start pass at each door, and the intent-check
+found no fidelity defect across all five ACs. Two small drifts surfaced during build, both recorded
+and closed rather than hidden: `## Wall Membership`'s Wall D row named only `base.py` as the
+permitted `parse_markdown_file` caller, but Book's and Meeting's standing `_load_file` overrides
+also parse (pre-existing at HEAD, not introduced by this item) — the builder shipped a strictly
+stronger check instead of narrowing the wall to fit. And Task 6's enumeration of the door's body
+didn't name the `vault_io.record_snapshot(moved)` line, which turned out to be load-bearing
+(established by mutation testing, not by re-reading the plan).
+
+### Edge cases that surprised us
+
+- The unenumerated `record_snapshot` guard in the door (Build Log §3) — omission from the plan's
+  clause list, not a design gap; the guard itself was correct once found.
+- Wall D's under-reach once Book/Meeting joined the touched-file list at Task 5 (Build Log §4).
+- An undeclared-but-in-authority Write Target, `tests/test_company_name_contract.py`, forced by
+  Tasks 3 and 6 changing what `update_fields` does to a note's filename (Build Log §6) — the fixture
+  driver had been recomposing the filename rule by hand instead of asking the repository what it
+  wrote, which broke as soon as the note could move.
+- The door's `lstrip("@")` and the detector's one-character strip are deliberately different (code
+  review Note 2) and their divergence on a `@@Foo.md` stem was undocumented until this pass.
+
+None of these were spec defects that cost a REVISE bounce — they were caught and closed inside the
+same build session, which is the outcome the heavy spec-review investment was for.
+
+### What would have shortened the build?
+
+The build spawn that preceded this session timed out mid-build without ever writing a `## Build
+Log` section, so the resume had no prescribed cursor to read and had to be reconstructed from the
+tree diff (present artifacts, floor run) against the fourteen-task plan (Build Log §0). A build-
+runner convention of writing (or at least stubbing) `## Build Log` incrementally, task-by-task,
+rather than once at the end, would have let a timed-out resume read its cursor directly instead of
+re-deriving it — and would have avoided the harder problem in §1: baselines that must be captured
+*before* the first edit could not be re-captured from the already-edited tree without recording
+post-conditions under a pre-condition's name, which only pristine `git archive HEAD` avoided.
+
+### Recommended follow-ups
+
+- Consider a build-runner instruction to write `## Build Log` as a running append (one entry per
+  completed task, or a stub row created eagerly at task start) rather than as a single end-of-build
+  section, specifically to make timeout-resume cursors reconstructible without a tree-diff
+  archaeology pass. This is a process gap this item's own build hit directly, not a hypothetical.
+- No bar or role instruction-update is warranted from the wall-under-reach or door-enumeration
+  drifts above — both are one-off enumeration gaps in this item's own plan, already closed in the
+  shipped code, and don't show a pattern in spec-writer or code-reviewer behavior worth generalizing.
+
+### Was the build-earned lesson bar cleared?
+
+No. The build's process issue (reconstructing a resume cursor after a spawn timeout with no Build
+Log) cost session time but shipped no corruption and no wrong output — the reconstruction was done
+correctly, from pristine HEAD, and the floor caught nothing wrong. That's a smooth-enough recovery,
+not a scar. Nothing appended to `LESSONS.html`.
+
+### Did the build serve the original intent, or the spec's drift of it?
+
+Serves the intent. `## Intent` promises the fork renamed once through the one door with the old
+stem preserved as an alias, and an invariant test that goes red the moment the class recurs — the
+Intent Check (above) independently verified the AC tests drive real repositories with no stub on
+the write seam and assert the stronger `changed == {filename}` property, not a rubber-stamped
+green. The one open item, AC-4's EXIT half (the live-vault re-run reading zero on divergence and
+conflicts), is correctly scoped by every prior gate as the conductor's ship condition, not a build
+defect — the library work the intent actually asked for is done and proven.
+
+### Post-done defect check (WI-084)
+
+None to record. No bug shipped past a gate surfaced here; the three Code Review Notes and the one
+Test & Observability Recommended item are all pre-existing-behavior disclosures or latent (not yet
+triggered) weaknesses, not defects this or a prior WI shipped silently.

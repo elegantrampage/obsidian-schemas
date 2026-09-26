@@ -516,9 +516,12 @@ ARM_LEGS = {
     ArmId("obsidian_schemas/writer.py", "write_markdown_file", 1): "both",
     ArmId("obsidian_schemas/writer.py", "write_markdown_file", 2): "both",
     ArmId("obsidian_schemas/writer.py", "write_markdown_file", 3): "both",
-    # update-shaped: derive no filename, so on an update the stem is whatever it
-    # already was and a literal "both legs, every arm" is unsatisfiable by a
-    # correct build
+    # update-shaped: the arm itself derives no filename from the name it writes,
+    # so a literal "both legs, every arm" is unsatisfiable by a correct build.
+    # (Since WI-029 `update_fields` does MOVE the note on a name change, through
+    # `rename_note` and to a destination its CALLER composes; the arm's own
+    # write is still name-free, so the leg is unchanged and its driver reads the
+    # note's new home back off the repository.)
     ArmId("obsidian_schemas/repositories/base.py",
           "BaseRepository.update_fields", 1): "stored",
     ArmId("obsidian_schemas/writer.py", "update_frontmatter_field", 1): "stored",
@@ -553,10 +556,19 @@ def _drive_write_markdown_file_extra_fields(work: Path, member: str) -> Path:
 
 
 def _drive_update_fields(work: Path, member: str) -> Path:
-    path = _plant_company_note(work / "@Seed Co.md", "Seed Co")
+    _plant_company_note(work / "@Seed Co.md", "Seed Co")
     repo = CompanyRepository(work)
     repo.update_fields(repo.get("Seed Co"), {"name": member})
-    return path
+    # WI-029: a name change MOVES the note through `rename_note` rather than
+    # leaving the old stem behind, so the path this arm wrote is the note's new
+    # home and not the seed filename. Read it back off the repository's own map
+    # rather than recomposing the filename rule here — the arm's oracle is the
+    # STORED name, and asking the repository which file it wrote keeps this
+    # driver true whatever the rule is.
+    moved = repo.get_file_path(member)
+    assert moved is not None and moved.exists(), (
+        f"update_fields left no readable note for {member!r}")
+    return moved
 
 
 def _drive_update_frontmatter_field(work: Path, member: str) -> Path:

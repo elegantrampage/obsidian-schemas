@@ -186,8 +186,18 @@ class MeetingRepository(BaseRepository[Meeting]):
         Returns:
             Path to the saved file
         """
-        filename = self._get_file_name(entity)
-        file_path = self.vault_path / filename
+        # PROVENANCE first, the derived filename as the CREATE fallback
+        # (WI-029) — the same shape as Book's override, for the same reason:
+        # `_get_file_name` recomputes from `date`/`topics`/`attendees`/
+        # `meeting_id`, so a meeting whose deriving fields moved would otherwise
+        # be written on top of whatever note sits at the recomputed filename.
+        resolved = self._resolve_write_target(entity)
+        derived = self.vault_path / self._get_file_name(entity)
+        if resolved is None and derived.exists():
+            logger.warning(
+                "no provenance on this meeting: the write targets the derived "
+                "filename and a note already exists there, path=%s", derived)
+        file_path = resolved or derived
 
         write_markdown_file(
             file_path,
@@ -202,7 +212,8 @@ class MeetingRepository(BaseRepository[Meeting]):
         # Update cache — through the one adoption door (WI-004 AC-18).
         self._adopt(self._get_cache_key(entity), entity, file_path)
 
-        logger.info(f"Saved meeting: {filename}")
+        # The file ACTUALLY written, never the derived filename (WI-029).
+        logger.info(f"Saved meeting: {file_path.name}")
         return file_path
 
     def _get_file_name(self, entity: Meeting) -> str:
