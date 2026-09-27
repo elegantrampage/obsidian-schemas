@@ -1,8 +1,8 @@
 {
   "project": "obsidian-schemas",
   "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
-  "last_scanned": "2026-09-27T07:32:39Z",
-  "next_id": 34,
+  "last_scanned": "2026-09-27T07:49:05Z",
+  "next_id": 35,
   "items": [
     {
       "id": "WI-022",
@@ -3334,6 +3334,28 @@
         }
       ],
       "summary": "`Person.whatsapp` is a bare `str`, so every writer lets any string through: HAL9000's"
+    },
+    {
+      "id": "WI-034",
+      "title": "WI-033 slug handoff: the accessor reads intro-by / intro-to (+ counterparty slot), not [intro]",
+      "stage": "idea",
+      "file": "docs/wi033-slug-handoff-intro-by-intro-to.md",
+      "created": "2026-09-27",
+      "last_touched": "2026-09-27",
+      "stage_changed": "2026-09-27",
+      "tags": [],
+      "involvement": null,
+      "round_budget": null,
+      "spawn_budget": null,
+      "parent": null,
+      "children": [],
+      "depends_on": [],
+      "blocked": false,
+      "transitions": [],
+      "latest_verdicts": {},
+      "verdicts": [],
+      "acceptance_criteria": [],
+      "summary": "HAL9000 WI-077 (shipped 2026-09-27) writes a third-party introduction as TWO kinds through the WI-058 renderer: `intro-by` on the introducee's note (\"Introduced by [[@Stem|Name]] via <channel-id> (thr"
     },
     {
       "id": "WI-021",
