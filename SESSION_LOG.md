@@ -1,14 +1,73 @@
 # Session Log
 
-## 2026-09-26 (evening) — WI-032 hand-launched from `idea` on factory-v14
+## 2026-09-26 (evening) → 09-27 — WI-032 SHIPPED idea→done and the live vault migrated; WI-034 minted
 
-- Cold start verified against the handoff: floor 699 passed (~20s), tree clean and in sync at `349e711`,
-  linter `--enforce` 0 errors / 257 warnings (frozen citation drift), no pending escalation, no live
-  drive on this project, channel blessed at factory-v14 (10:34). A workshop-project gate (WI-383) was
-  running under the other token — not a bless window, not this project.
-- Dave: "launch wi-032". Hand launch from `idea` under the dave@davewascha token, headless, with the
-  floor command as `--test-command` and `--ac-python` = this repo's `.venv` interpreter. Consumer-visible
-  → full factory. The porter takes it from the first answered record onward.
+### WI-032 (typed WhatsApp identifier lists + storable write door + migration) — ~19 hours wall-clock
+
+- **09-26 ~18:10 UTC:** hand-launched from `idea` on factory-v14 (cold start verified: floor 699, linter
+  `--enforce` 0, no live drive). **Eight architect + eight ac-red-team rounds at `idea`** before the first
+  advance. Five revise-cap forks and one round-budget fork:
+  - Cap 1 (18:38): the conductor answered with the driver's *class-closure* recommendation — which is a
+    RESOLVE-BY-HAND class (porter notify+wait; a fresh launch forks resume-blocked). Recovered by the
+    WI-029 precedent: persisted worktree hand-landed onto live byte-identical (`cmp`), the class-closure
+    instruction placed in the doc as a Conductor Note, spent record dismissed via conductor, re-drive from
+    live (`8b9b95e`). **Lesson (memory scar 10): only the exact string "Authorize one more fix round,
+    resuming in the persisted worktree" resumes; put the class content in the NOTE.** The fork also sat
+    unanswered for three hours because no standing watcher was armed — Dave: "why the long pause?" A
+    30-minute re-armed Monitor on `ESCALATION|drive-end|WI-370` ran for the rest of the arc.
+  - Caps 2–5 (21:15 → 23:16 UTC), each under the 2026-08-11 standing grant, each converged by both gates,
+    each fold HELD next round: the census belongs in this item's own artifact not WI-016's digest-frozen
+    one + AC-5's two-JID plant gets its own unclaimed digits; F9's "linter report surface comes free" was
+    false (one call site in the stem-divergence arm WI-029 emptied) → Build A, a new report-only
+    `whatsapp_not_storable` detector; the write-back disclosure lands APPEND-ONLY below `save`'s
+    WI-024-frozen docstring + a touch-points × estate-walls matrix; the exit numbers become a TERMINAL-STATE
+    PARTITION (zero scalar OUTSIDE the residual; residual reported + byte-identical; membership per Ruling
+    B's arm). The conductor declared cap 5 the last bought on its own judgment.
+  - Round-budget fork (23:23): 8/8 architect, 8/8 ideation-partner. Dave (07:10 BST): "proceed with
+    option 2" (one more round window). Partition fold placed in the persisted worktree as a second
+    Conductor Note; hand-launch (round-budget is outside the porter's choreography). Architect r9 + red-team
+    r8 PROMOTE → `exploring` (`b8f3766`).
+- **Grounding door (07:20–07:50 BST):** two conductor artifacts. `docs/wi-032-whatsapp-corpus-census.md`
+  — six cells off the note BYTES over 1174 live person notes: Ø 1031 / A 35 / B 26 / **C 82** / D 0 / E 0;
+  all 82 class-C values bare numbers, 81 already in their own `phones[]`; residual 0; the bridge store
+  reproduces the 51 dual-JID names; lid→phone false-positive population 0.
+  `docs/wi-032-consumer-audit.md` — three Explore agents over HAL9000/exocortex/orchestrator, 20 production
+  sites on three axes: seven scalar-assuming reads (two hard breaks), one destructive raw-file write, one
+  LLM-prompt clobber, ZERO element-type assumptions, ZERO whole-record person re-serializations. Rulings
+  landed in Dave's words: **B "repair"**, **C "whatsapp only"** (07:15), **A "proceed with A"** = the
+  STORABLE arm (10:20). Data-premise PROMOTE. **D4a** conversational with the WI-268 witness captured
+  before the ACs were shown; ac_hash `dd772c1183de` (`c7d074f`).
+- **`exploring → specced → ready → building → done` in one porter drive (07:36 → 11:17 UTC):**
+  spec-writer 36 min; threat-modeler PROMOTE ×2; spec-reviewer REVISE (two plan-task additions: the
+  computable form of the append-only conjunct; an idempotent re-run oracle) → PROMOTE; injection-hunter
+  PROMOTE ×2; build-runner two attempts (2401s ceiling + 1377s); code-reviewer + test-observability +
+  intent-check PROMOTE; AC battery 5/5. Floor 699 → **716**. Retrospective written by the pipeline
+  (`docs/whatsapp-jid-value-type.md` → `## Retrospective — 2026-09-27`).
+- **Consumer follow-through, verified by re-running each suite against the committed library (not
+  reports):** HAL9000 `b24d6f1` (650 green), orchestrator WI-195 `2506a78` (1502 green), exocortex fix on
+  disk (660 green, two pre-existing failures), **and a fourth reader the audit missed** — mainspring's
+  dispatch cockpit (scalar `.endswith` + overwrite write, via HAL9000's doors) — fixed on disk by the
+  mainspring session; the `new-person` skill's scalar PATCH noted (works; overwrites). Addendum in the
+  audit (`143859a`). **Lesson: an audit's declared population is a guess; sweep `Workspaces/*` +
+  `~/.claude/skills` + `~/.claude/agents` before calling the gate clear.**
+- **Ship commit** `2e20c81` on Dave's word ("commit now. Do not migrate yet."), then **the live migration
+  on Dave's go (15:41 UTC)**: 1168 notes to the list shape, 82 repairs, residual 0 by both witnesses
+  (readback + detector), dry-run == write == readback, nothing cleared; census re-run scalar 0 / list 1168 /
+  loads 1174 / skip 0. HAL9000 kickstarted onto the new library (its process held the pre-build model);
+  the one uncorroborated number appended to its `phones[]` through `update_fields`; incident replay through
+  HAL9000's PATCH door → HTTP 400, value absent from the body, bytes unchanged (attempt 1 got no HTTP
+  response — recorded as unexplained; HAL9000 log clean); two disposable notes quarantined via
+  `vault_io.move_note`. Bracket exit half filled; **ship condition MET** (`6544d6b`). Pushed.
+- **WI-034 minted** at `idea` on the hal9000 session's relay of Dave's word: WI-033's derived
+  `introduced_by` accessor must read the `intro-by` / `intro-to` slugs (+ counterparty slot) HAL9000 WI-077
+  now writes, not the legacy `[intro]` kind (`841ea45`).
+
+### Open threads → carried in HANDOFF
+
+- exocortex, mainspring and orchestrator fixes await Dave's commits in their own sessions.
+- `new-person` skill: PATCH a JSON array and append (low priority).
+- Parser fence weakness, WI-029 consumer findings, ledger redaction, emoji-only name — unchanged from
+  the previous entry.
 
 ## 2026-09-25 → 09-26 — WI-029 SHIPPED and the live vault repaired; WI-032/WI-033 to the top of the queue
 
