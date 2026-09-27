@@ -262,3 +262,29 @@ not overwrite) at the same time.
 **Not this repo's to fix, relayed for the next cross-project review:** orchestrator's raw-file
 `merge-duplicate-persons.py` (already on the WI-029 list); the two bridge-store readers disagreeing on file
 and column; exocortex's `"@"`-substring JID heuristic; HAL9000's `resolve_by_whatsapp`.
+
+---
+
+## Addendum — 2026-09-27, after `done`: a fourth reader, and the follow-through readback
+
+The three-repo sweep above was the declared population. A wider grep at exit (every `Workspaces/*` repo plus
+`~/.claude/skills` and `~/.claude/agents`) found ONE more reader: **mainspring's dispatch cockpit**
+(`prototype/dispatch/server.py:306-307`, `:826-833`; `prototype/dispatch/workset.py:148`, `:188`) — a
+scalar-assuming READ (`.endswith` on the value, string equality against a new JID) and a scalar WRITE
+(`fields["whatsapp"] = c`, overwrite rather than append). It reaches the field ONLY through HAL9000's
+doors (`hal_resolve`, `hal_person_get`, `hal_person_patch`), so it inherits whatever shape HAL9000 serves.
+Also noted: `~/.claude/skills/new-person/SKILL.md:75-82` PATCHes a scalar JID — accepted by the door (a
+storable scalar coerces) but an overwrite, not an append; low priority.
+
+**Readback of the consumer follow-through, verified by re-running each suite against the committed
+library (2e20c81), not taken from reports:**
+
+| repo | fix | state at readback |
+|---|---|---|
+| HAL9000 | `ContactInfo.whatsapp` + `ContactInfoResponse.whatsapp` → `List[str]`; `get_whatsapp_jid` picks an element | committed on HAL9000 main (`b24d6f1`); 650 passed |
+| orchestrator | WI-195: all five sites — the field-shape invariant accepts list AND pre-migration scalar; dedupe/merge/review/enricher list-aware | committed on orchestrator main (`2506a78`); 1502 passed, 1 skipped |
+| exocortex | `ContactInfo.whatsapp` → `List[str]`; `get_whatsapp_jid` returns the first storable element; substring heuristic and both hardcoded constructors removed | working tree, awaiting Dave's commit; 660 passed (only the two pre-existing `test_wi054_key_table` failures) |
+| mainspring dispatch | `whatsapp_jids()`/`whatsapp_jid()` accept list or str; routing read and both row sites use them; pin-time write appends on the list door | working tree, awaiting Dave's commit; cockpit restarted on the patched code |
+
+The migration gate (`## 4`'s break list, items 1–7) is CLEAR. orchestrator prunes its 82 baselined
+`whatsapp` entries after the migration write.
