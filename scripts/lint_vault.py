@@ -46,6 +46,10 @@ from obsidian_schemas.parser import parse_frontmatter
 from obsidian_schemas.writer import update_frontmatter_fields
 from obsidian_schemas.errors import NameGateRefusal, NoteAlreadyExists
 from obsidian_schemas.name_gate import gate_write
+# WI-032: the report-only `whatsapp_not_storable` arm calls the ONE classifier and
+# catches the ONE refusal it can raise. `identifier.py` is a leaf, so this closes
+# no cycle and adds no vault reach.
+from obsidian_schemas.identifier import IdentifierError, WhatsAppJID
 # WI-026 (M1): the skip vocabulary is WI-020's and is IMPORTED, never spelled.
 # `tests/derivations.py:skip_reason_literal_sites` reports a file iff one of its
 # parsed `ast.Constant` nodes equals a vocabulary member, and WI-026 widens that
@@ -70,6 +74,13 @@ WIKILINK_PATTERN = re.compile(r"\[\[([^\]|]+?)(?:\|[^\]]+?)?\]\]")
 #: file, which is the shape the repair most needs to see rather than the one to
 #: suppress. Declared once so a consumer reads it instead of re-spelling it.
 NOT_RENAMEABLE_MARKER = "not-renameable"
+
+#: WI-032. The report-only check name. Its OWN name, never `stem_name_divergence`:
+#: that arm's marker says "this divergence is not repaired by renaming the file to
+#: the stored name; repair the field", which is a false statement about a defect
+#: that is a FILENAME, and widening it would move live rows against WI-029's
+#: committed "divergent rows the WRITE DOOR refuses (b3): 0 of 8".
+WHATSAPP_CHECK = "whatsapp_not_storable"
 
 # ---------------------------------------------------------------------------
 # Data structures
@@ -457,6 +468,36 @@ def check_structural(files: list[VaultFile], idx: dict) -> list[LintIssue]:
                         vf.path, "stem_name_divergence", Severity.ERROR,
                         f"Filename stem '{stem}' does not match stored name "
                         f"'{stored}'{marker}",
+                        "structural",
+                    )
+                )
+
+        # whatsapp_not_storable (WI-032) — the stored `whatsapp` carries a
+        # NON-EMPTY value the write door refuses. REPORT-ONLY: ERROR,
+        # `structural`, `auto_fixable` left at its `False` default, so the note
+        # never enters `apply_fixes` and `--fix`'s four-bucket delta contract is
+        # untouched while it still repairs that note's OTHER issues. A door that
+        # refuses a value says nothing about the values already on disk, and the
+        # whole design rests on the residual being reported AND left.
+        if vf.entity_type == "person":
+            try:
+                classes = [c for c in
+                           WhatsAppJID.classify_field(vf.frontmatter.get("whatsapp"))
+                           if c not in ("A", "B")]
+            except IdentifierError:
+                # A frontmatter shape the classifier refuses (a nested container
+                # under `whatsapp:`). REPORTED under the SAME check rather than a
+                # second one, because the repair is identical — this tool's
+                # contract is that no note crashes the run.
+                classes = ["unclassifiable"]
+            if classes:
+                issues.append(
+                    LintIssue(
+                        vf.path, WHATSAPP_CHECK, Severity.ERROR,
+                        f"stored `whatsapp` carries {len(classes)} value(s) the "
+                        f"write door refuses (class "
+                        f"{', '.join(sorted(set(classes)))}); repair to a JID or "
+                        f"clear the field",
                         "structural",
                     )
                 )

@@ -142,7 +142,12 @@ def _split_trailing_paren(name: str) -> Tuple[str, Optional[str]]:
 # step 2); `resolve` has always answered alias first. WI-023 Cut 3 preserves
 # `resolve`'s answer without touching `resolve_all`'s ordering. This is a
 # TIE-BREAK over `matched_via`, never a trial order — nothing is tried in it.
-_RESOLVE_CASCADE_ORDER = ("exact-name", "alias", "email", "phone")
+# WI-032 inserts "whatsapp-jid" immediately BEFORE "phone", so every existing
+# relative order is byte-identical and the new label still outranks `phone`.
+# Without the label an unknown `matched_via` sorts LAST (`select_resolution`'s
+# `rank` below), which is the wrong answer when an exact `jid:` hit ties a fuzzy
+# phone hit.
+_RESOLVE_CASCADE_ORDER = ("exact-name", "alias", "email", "whatsapp-jid", "phone")
 
 
 def select_resolution(query: Optional[str],
@@ -263,11 +268,15 @@ class PersonRepository(BaseRepository[Person]):
             if norm:
                 self._phone_index[norm] = cache_key
 
-        # Index WhatsApp number
-        if entity.whatsapp:
-            norm = normalize_phone(entity.whatsapp)
-            if norm:
-                self._phone_index[norm] = cache_key
+        # WI-032. The block that read `normalize_phone(entity.whatsapp)` is GONE.
+        # A JID's digits enter `_phone_index` IFF its parsed form carries a
+        # non-empty `phone_digits`, DERIVED from the projection rather than
+        # re-parsed beside it — one call, one rule, and the inverse in
+        # `_remove_entity_from_indexes` derives from the same projection.
+        identifiers = self._project_identifiers(entity)
+        for ident in identifiers:
+            if isinstance(ident, WhatsAppJID) and ident.phone_digits:
+                self._phone_index[ident.phone_digits] = cache_key
 
         # Index aliases
         for alias in entity.aliases:
@@ -281,7 +290,7 @@ class PersonRepository(BaseRepository[Person]):
             self._slack_index[slack_id] = cache_key
 
         # WI-125 Phase 2 — also project into the unified identifier index.
-        self._index_identifiers(entity, cache_key)
+        self._index_identifiers(entity, cache_key, identifiers=identifiers)
 
     # ──────────────────────────────────────────────────────────────────
     # WI-125 Phase 2 — unified identifier index + reconciliation
@@ -327,13 +336,21 @@ class PersonRepository(BaseRepository[Person]):
             add(Email.parse, email)
         for phone in (entity.phones or []):
             add(Phone.parse, phone)
-        if entity.whatsapp:
-            add(WhatsAppJID.parse, entity.whatsapp)
+        # WI-032. ITERATES, exactly like the `emails`/`phones` loops above. This
+        # is the one frame where handing the LIST itself to `parse` turns a loud
+        # failure into a silent wrong answer: `add`'s blank guard tests
+        # `isinstance(raw, str)` (a list passes it) and `parse` does
+        # `str(raw).strip().lower()`, so `parse(["447700900321@s.whatsapp.net"])`
+        # SUCCEEDS with the right phone digits, recovered out of the list's repr
+        # by `normalize_phone`'s first-`@` split.
+        for jid in (entity.whatsapp or []):
+            add(WhatsAppJID.parse, jid)
         if entity.linkedin:
             add(LinkedInSlug.parse, entity.linkedin)
         return ids
 
-    def _index_identifiers(self, entity: Person, cache_key: str) -> None:
+    def _index_identifiers(self, entity: Person, cache_key: str,
+                           identifiers: Optional[List[Identifier]] = None) -> None:
         """Insert a person's identifiers into the unified index, detecting
         cross-entity collisions (the reconciliation check, model §2).
 
@@ -351,7 +368,12 @@ class PersonRepository(BaseRepository[Person]):
         `_conflict_sets` record — so naming all participants surfaces it.
         """
         ref = EntityRef(entity_type=self.type_name, canonical_key=cache_key)
-        for ident in self._project_identifiers(entity):
+        # WI-032. `identifiers` is the projection the caller already took, so the
+        # phone pivot and this insert read ONE projection instead of two. Projects
+        # for itself when absent, so every other caller is unchanged.
+        if identifiers is None:
+            identifiers = self._project_identifiers(entity)
+        for ident in identifiers:
             key = ident.key
             existing = self._identifier_index.get(key)
             if existing is not None and existing != ref:
@@ -409,11 +431,16 @@ class PersonRepository(BaseRepository[Person]):
             if norm and self._phone_index.get(norm) == cache_key:
                 del self._phone_index[norm]
 
-        # Remove WhatsApp from index
-        if entity.whatsapp:
-            norm = normalize_phone(entity.whatsapp)
-            if norm and self._phone_index.get(norm) == cache_key:
-                del self._phone_index[norm]
+        # WI-032. The EXACT INVERSE of `_index_entity`'s pivot, derived from the
+        # SAME projection rather than re-parsed, so the two cannot drift and a
+        # refresh leaves no orphan key. Written as a LOOKUP and not as a loop
+        # over `self._phone_index`: every phone-index iteration site in the
+        # package is asserted `materialized`, so a loop here would owe one of
+        # `MATERIALIZING_WRAPPERS`.
+        for ident in self._project_identifiers(entity):
+            if isinstance(ident, WhatsAppJID) and ident.phone_digits:
+                if self._phone_index.get(ident.phone_digits) == cache_key:
+                    del self._phone_index[ident.phone_digits]
 
         # Remove aliases from index
         for alias in entity.aliases:
@@ -496,6 +523,22 @@ class PersonRepository(BaseRepository[Person]):
                 return self._cache.get(cache_key)
 
         return None
+
+    def get_by_identifier(self, identifier: Identifier) -> Optional[Person]:
+        """The public reader of the WI-125 identifier index (WI-032).
+
+        The index was already right and nothing public read it — a lid was
+        reachable only from `resolve_or_create` by a caller already holding a
+        typed identifier. Delegates to `_resolve_identifier`, so a phone-bearing
+        JID still pivots to `get_by_phone` and a `@lid` still reads its `jid:`
+        key: one authority, no second index (rejected item 2).
+
+        Its OWN method, and its lookup is NOT inside `resolve`, because
+        `PersonRepository.resolve` is asserted to read none of `_cache`,
+        `_alias_index`, the email index or `_phone_index` directly.
+        """
+        self._ensure_loaded()
+        return self._hydrate(self._resolve_identifier(identifier))
 
     def get_by_alias(self, alias: str) -> Optional[Person]:
         """
@@ -649,6 +692,20 @@ class PersonRepository(BaseRepository[Person]):
             person = self.get_by_phone(query)
             if person:
                 record(person, 1.0, "phone")
+
+        # 4b. WhatsApp JID match (WI-032) — the `jid:` keys the identifier index
+        # already holds and nothing public read. GUARDED on the absence of phone
+        # digits: a phone-bearing JID is already answered by step 4 above, which
+        # is the right door for it and is what keeps `README.md:238`'s documented
+        # `get_by_phone("<digits>@s.whatsapp.net")` route true.
+        try:
+            candidate_jid = WhatsAppJID.parse(query)
+        except IdentifierError:
+            candidate_jid = None
+        if candidate_jid is not None and not candidate_jid.phone_digits:
+            person = self.get_by_identifier(candidate_jid)
+            if person:
+                record(person, 1.0, "whatsapp-jid")
 
         # 5. Token-subset / token-overlap matching
         # For each cached name, compute token overlap with the query.
@@ -1171,6 +1228,21 @@ class PersonRepository(BaseRepository[Person]):
         before — an address found in an `aliases[]` entry moves to `emails[]`,
         and a display half found in an `emails[]` entry moves to `aliases[]`.
 
+        WI-032 — AND THAT PROJECTION MAKES THIS A REFUSAL SURFACE. Because
+        `model_to_frontmatter` emits every declared field unconditionally, a
+        value the note ALREADY stores is RE-INTRODUCED by the projection and is
+        therefore judged by the gate's `whatsapp` arm. So re-serializing a whole
+        stored person record whose `whatsapp` value the STORABLE predicate
+        refuses RAISES `NameGateRefusal` with `pattern == "whatsapp_not_a_jid"`,
+        and nothing is written and nothing is erased. The handle is "any arm
+        whose payload is a whole-record projection" and NOT the `whole_record`
+        flag — the exported `write_markdown_file(entity=…)` is the other such arm
+        — so the honest statement is "re-serializing a whole stored person record
+        refuses", not "`save` refuses". The three DELTA arms stay open: a note
+        whose stored value is unstorable remains writable for every write that
+        does not re-introduce the field, which is what keeps the value FIXABLE by
+        hand. That asymmetry is the `name` precedent and it is deliberate.
+
         The write-back is the IDENTIFIER fields ONLY and never `name`: under the
         name-identity rule the gate returns the name it was handed byte-for-byte,
         so there is nothing on that field to write back — and the filename is
@@ -1183,6 +1255,14 @@ class PersonRepository(BaseRepository[Person]):
         wants. Stated because it is one field wider than the consumer audit's
         grep list was written against.
 
+        WI-032 adds `whatsapp` to that write-back, and it is one field wider
+        again: a caller holding a `Person` observes the field in ONE WRITTEN SHAPE
+        after a save — a list, with a scalar the caller handed us emitted as a
+        one-member list and absence as `[]` — because the gate's `whatsapp` arm
+        normalizes the SHAPE while passing every accepted member through
+        verbatim. No member is ever rewritten here and none is ever dropped; the
+        migration's repair is the only rewriter and it rewrites before the write.
+
         The gate runs TWICE on one save — here, then at the entity arm on the
         projection of the entity this rider just normalized — which is why
         idempotence is required of it rather than incidental.
@@ -1192,6 +1272,7 @@ class PersonRepository(BaseRepository[Person]):
         entity.emails = gated["emails"]
         entity.phones = gated["phones"]
         entity.aliases = gated["aliases"]
+        entity.whatsapp = gated["whatsapp"]      # WI-032
         # Delegates and adopts nothing of its own, so it calls _adopt nowhere —
         # a consequence of the door rather than a per-file exemption.
         return super().save(entity, body=body, extra_fields=extra_fields,

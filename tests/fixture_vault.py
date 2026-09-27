@@ -41,7 +41,7 @@ CORPUS_ROOT = Path(__file__).resolve().parent / "fixtures" / "vault"
 #: `sha256` over the sorted sequence of (corpus-relative POSIX path, file bytes),
 #: each field NUL-framed. Editing, adding or deleting any fixture note without
 #: regenerating this constant is RED (AC-1(a)).
-CORPUS_DIGEST = "05e732ebce5a64678000c4af00f7cdfced906546de356c861bd3042940d44d17"
+CORPUS_DIGEST = "c1c762b6fef148fe45936eac1c335851effa5cb0bd8bcb5092a1e2faf524d64c"
 
 #: The ONE ISBN placeholder the corpus uses (Design §6.4). An ISBN-13 is a
 #: 13-digit run the phone predicate matches and an ISBN has no reserved range to
@@ -91,7 +91,10 @@ def _person(name, **overrides):
         "aliases": [],
         "emails": [],
         "phones": [],
-        "whatsapp": "",
+        # WI-032: the annotation is a list of `str` with a list default, so the
+        # declared default travels with it. The tolerant reader is what makes a
+        # scalar-spelled corpus note and a list declaration agree.
+        "whatsapp": [],
         "company": "",
         "title": "",
         "linkedin": "",
@@ -222,7 +225,17 @@ NOTES: dict = {
             "Thrandell Ibberly",
             emails=["thrandell@example.com"],
             phones=["+44 7700 900123"],
-            whatsapp="447700900789@example.com",
+            # WI-032. The DECLARED shape moves with the value: the note keeps its
+            # scalar spelling and this declaration is the list. The value here
+            # must be one the write door accepts — two tests write this note's
+            # whole field set through the gated whole-record arm asserting NO
+            # refusal — and a phone-bearing one is structurally unavailable,
+            # because the door's accepted domains are `s.whatsapp.net` and `lid`
+            # and the first is reserved by no standard, so the reserved-range leg
+            # above makes any `s.whatsapp.net` literal RED anywhere in this
+            # corpus's reach. A lid instead, whose digits match the reserved
+            # five-five-five-oh-one pattern that leg declares.
+            whatsapp=["15555550142@lid"],
             company="Voxleaf Ltd",
             title="director",
             slack="@thrandell",
@@ -337,8 +350,18 @@ NOTES: dict = {
         declared_type="person", fields=_person("Wexlund Tarnquil")),
     "@Kelmarra Marrowyn.md": NoteSpec(
         declared_type="person", fields=_person("Kelmarra Marrowyn")),
+    # WI-032: this corpus's one value that parses, is phone-bearing and the write
+    # door still refuses. The receiver is constrained rather than chosen: it must
+    # load (never a declared skip specimen), declare NO `shape_classes` and no
+    # `verdict` (never a census specimen, whose whole field set is written through
+    # the gated door with its refusal `pattern` asserted), and its stem and stored
+    # name must agree. There are eight such notes; this is the one. The phone key
+    # the value derives collides with no phone already here.
     "@Fennwick Drostane.md": NoteSpec(
-        declared_type="person", fields=_person("Fennwick Drostane")),
+        declared_type="person", fields=_person(
+            "Fennwick Drostane",
+            whatsapp=["447700900789@example.com"],
+        )),
 
     # ---- company ----------------------------------------------------------
     "@Voxleaf Ltd.md": NoteSpec(

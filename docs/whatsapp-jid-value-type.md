@@ -2,14 +2,14 @@
 id: WI-032
 title: Validate the WhatsApp JID shape at the person boundary
 project: obsidian-schemas
-stage: exploring
+stage: done
 created: 2026-09-21
 last_touched: 2026-09-27
 stage_changed: 2026-09-27
 touched_by: session
 tags: []
 depends_on: []
-transitions: ["idea>exploring@2026-09-27@session"]
+transitions: ["idea>exploring@2026-09-27@session", "exploring>specced@2026-09-27@porter", "specced>ready@2026-09-27@porter", "ready>building@2026-09-27@porter", "building>done@2026-09-27@porter"]
 ---
 
 # Validate the WhatsApp JID shape at the person boundary
@@ -21,29 +21,6 @@ Settled gate rounds for this item live in `docs/whatsapp-jid-value-type-rounds.m
 this item has already advanced past, byte-for-byte, append-only, never rewritten. READ ON DEMAND
 ONLY: each gate's latest standing round is still in this document, so nothing needed to advance this
 item is in the drawer. Open it only to read a settled round's full reasoning.
-
-
-**Premise re-anchored and scope RULED — 2026-09-26 (Dave, threaded review; premise doc
-`/Users/davewascha/Workspaces/mainspring/docs/identity-and-identifiers-recommendation-2026-09-26.md`,
-step 2; conductor note).** Read this paragraph as the premise; the original below is the 2026-09-21
-mint. (1) The library ALREADY ships the JID type: `obsidian_schemas/identifier.py:WhatsAppJID.parse`
-(WI-125/WI-035) accepts `<digits>@s.whatsapp.net` (pivots to `.phone`, keys `phone:<digits>`) AND
-`<digits>@lid` (no phone, keys `jid:<lid>`) — the mint's "`<digits>@s.whatsapp.net`, or empty" is
-NARROWER than the package's own definition. Ruling: the field's type IS `WhatsAppJID`, both forms; no
-second spelling of "well-formed" anywhere. (2) SHAPE, ruled: `whatsapp: list[WhatsAppJID]`, and the other
-identifier fields (`emails`, `phones`, `slack`, `linkedin`) become typed lists — the bridge store shows 51
-people carrying both a phone-JID and a newer `@lid`, which a scalar cannot hold. Provenance
-(`source`/`observed_at`/`corroboration`) stays OFF the note (writer's ledger, keyed by value). (3)
-RESOLUTION, in scope: `resolve_all` has no `whatsapp_jid` step — a lid is indexed correctly under
-`jid:<lid>` by `_project_identifiers` (`person.py:330-331`) but nothing in the cascade reads that kind, and
-`_index_entity` (`person.py:267-270`) feeds a lid's DIGITS into the legacy `_phone_index` as if a phone.
-Add a public `get_by_identifier(Identifier)` / a cascade step over the identifier index for the
-`whatsapp_jid` kind, and stop feeding lids into `_phone_index` (only phone-bearing JIDs pivot). (4)
-MIGRATION, ruled: scalar→list across ~1,170 live person notes plus the HAL9000/exocortex ContactInfo
-mirrors goes through THIS repo's migration discipline — a DRY RUN that reports counts, the write through
-`vault_io`, then a READBACK count — never a one-off script; this is WI-010's first real migration and
-its un-park criterion. (5) QUEUE: top of `queue_order` behind the in-flight WI-029 (Dave, 2026-09-26);
-HAL9000 WI-075 depends on it and gates orchestrator WI-192/193.
 
 ## Problem / Motivation
 
@@ -383,6 +360,16 @@ unswept absolute is not mistaken for a clean one:
 | `### Examples of done` "nothing erases it" / "every time the linter runs" | every note in R, every linter invocation | none — total, and the detector's `auto_fixable is False` is what keeps it true under `--fix` | unchanged |
 | `### Examples of done` "every person reachable by exactly the same identities" | parseable values | class D, never reachable before or after | scoping clause added |
 | `### Examples of done` "succeeds through any of the package's doors" | the door judges the value the WRITE carries, so a repaired payload lands everywhere | a re-save that re-introduces the UNREPAIRED value still refuses — that is AC-3's `save` arm, not an exception to the repair | scoping clause added |
+| AC-1 "`_remove_entity_from_indexes` is the exact inverse over the same table, so a refresh leaves no orphan key" | every cell of the six-cell table | none — total, and `## Design` §5 makes it total by DERIVING both directions from one projection | row added (spec-writer, 2026-09-27) |
+| AC-1 "the corpus must hold NO class-A and NO class-C member on `@Thrandell Ibberly.md`" | the one person `roundtrip_representative` | none — total over a one-member population asserted unique at `tests/test_fixture_vault.py:689-695` | row added (spec-writer, 2026-09-27) |
+| AC-4 (a) "all present the empty collection" | the three class-Ø READ spellings (empty value, absent key, bare valueless key) | none — total; `[]` is the fourth spelling and is already the empty collection | row added (spec-writer, 2026-09-27) |
+| AC-5 (d) "ONLY values whose `phone_digits` is non-empty are ever rewritten" | every value the repair pass considers | none — total, and it is what keeps class E out of the repair | row added (spec-writer, 2026-09-27) |
+
+**The four rows above were added by the spec-writer** (architect round-9 note 5): the sweep's 27 original
+rows covered every absolute that carries a residual, which is where the defect class lives, and these four
+sit inside AC descs and were read against the partition and found TOTAL over their stated population. They
+are stated so an unswept absolute is not mistaken for a clean one — nothing about any build changes, and no
+criterion text moved.
 
 Whether the STORABLE predicate exists at all is **Ruling A** below. It is Dave's call, not the
 spec-writer's, because it touches his ruling (1).
@@ -954,14 +941,23 @@ phone-key uniqueness F17 leg 3 measured. Two more conditions, both read this rou
   (`@Halvorne Sennaby.md`, `@Isolde Varnholt.md`, `@Ferrigan Ostrakine.md`, `tests/fixture_vault.py:490-494`)
   — on any of those the value would be planted onto a note nothing can load and the leg would be
   vacuous rather than red.
-- **It must declare NO `shape_classes`/`verdict`.** The census verdict loop writes EVERY shape-class
-  specimen's whole declared field set through the gated door and asserts `exc.pattern ==
-  verdict.pattern` (`tests/test_fixture_vault.py:856-878`). A non-storable `whatsapp` on such a note
-  makes the refusal that fires depend on where the new gate arm is placed relative to the name arm —
-  today the name refusal is step 3 of `gate_write` and precedes every address arm
-  (`name_gate.py:348-368`), so the assertion would still pass, but "passes because the new arm was
-  placed second" is not a property to leave resting on a builder's choice of insertion point.
-  A receiver with no verdict makes the question unaskable.
+- **It must declare NO `shape_classes`/`verdict`.** The census verdict loop reaches the gated door on ONE
+  of its three arms — corrected 2026-09-27, one word narrower than this leg first stated it: the loop
+  iterates every shape-class specimen (`tests/test_fixture_vault.py:856-861`) but only the
+  `verdict.kind == "refusal"` arm writes the whole declared field set through `write_markdown_file` and
+  asserts `exc.pattern == verdict.pattern` (`:866-878`), while the `cleaned` arm calls
+  `clean_person_name` and touches no note and the `loads` arm re-parses the corpus note without writing
+  (`:879-887`). A non-storable `whatsapp` on a REFUSAL specimen makes the refusal that fires depend on
+  where the new gate arm is placed relative to the name arm — today the name refusal is step 3 of
+  `gate_write` and precedes every address arm (`name_gate.py:348-368`), so the assertion would still
+  pass, but "passes because the new arm was placed second" is not a property to leave resting on a
+  builder's choice of insertion point. **The constraint stays scoped to EVERY shape-class specimen
+  rather than being narrowed to the refusal arm, and the narrowing is declined deliberately:**
+  `spec.verdict` is asserted non-None for every shape-class specimen (`:859-861`) and which arm a
+  specimen takes is ANOTHER item's declaration — a `loads` specimen re-declared as a `refusal` would put
+  the insertion-point question straight back without touching this document. So the conservative
+  reading is the one the WHERE clause carries, and AC-1's frozen desc states it un-narrowed for the same
+  reason; a receiver with no verdict at all makes the question unaskable under either reading.
 
 Both are satisfied with room to spare: `@Isolde Quenlaw.md`, `@Tessamund Ferrigan.md`,
 `@Ravensby Ostrivane.md`, `@Skarnell Dalquest.md`, `@Pellworth Brenvik.md`, `@Wexlund Tarnquil.md`,
@@ -1613,6 +1609,26 @@ whatever typed accessors that item adds, absence stays absence and is never a re
 
 ### Effort, dependencies, blast radius
 
+> **SUPERSEDED AS A TOUCH LIST — read `## Write Targets` for the binding one (spec-writer, 2026-09-27).**
+> Everything below stands as effort, dependency and constraint reasoning, and the constraints it carries
+> (the prose freeze, the three walls the new modules join, the `_project_identifiers` iteration trap, the
+> one-frame phone-pivot rule, the itemized fixture work) are folded into `## Design` and the
+> Implementation Plan. What is NOT binding is its "expected touch list", which the spec resolved FOUR ways
+> it did not anticipate, each for a reason stated where it lands: **`README.md` is off the list entirely** —
+> the project root is outside this project's `write_authority` (`pipeline-runners.yaml:32-33`), it is
+> conductor-owned session-end work, and nothing in the build depends on it, because `:52` is a field-NAME
+> list the type change does not touch and `:238`'s documented `get_by_phone` route still works
+> (Prerequisite 5); **`tests/test_identity_index.py`, `tests/test_repositories.py` and
+> `tests/test_parser.py` are PREDICTED GREEN and run rather than edited** — the tolerant reader accepts
+> their scalar `whatsapp` fixtures and both stored class-C values are phone-bearing, so they still pivot
+> (`## Verification`, Integration); and **the "migration entry point" is a named file with a declared
+> home**, `scripts/migrate_whatsapp_to_list.py`, chosen for two measured wall reasons rather than by
+> convention (`## Design` §7). And the list names no `tests/derivations.py`, which IS a write target: the
+> containment wall AC-5 requires is VACUOUS over a new module until `MUTATING_DRIVE_VAULT_POSITIONS` names
+> its mutating entry point (`## Design` §8). Do not reconstruct the touch list from this bullet — count
+> nothing here and read the `writes` fences, which are what the driver probes and the review-level selector
+> reads.
+
 - **Effort:** one build plus a conductor-run live migration bracketed entry/exit, the shape WI-029 used
   (`docs/stem-divergence-live-baseline.md`). The library change is small; the migration is the item. That
   bracketed run is stated as the item's SHIP CONDITION in `## Approach` step (4), not merely as effort
@@ -1827,6 +1843,28 @@ of Dave at the signature. `docs/wi-032-consumer-audit.md` is what turns "whateve
 The class-Ø rule above is what keeps the break to that population instead of extending it to every
 producer that clears the field.
 
+**And the WIDER disclosure, which is the CARDINALITY break rather than the refusal break** (data-audit note
+(ii), folded by the spec-writer into the ship condition where it belongs — the audit measured and sequenced
+it, and this paragraph disclosed only the refusal half). The consumer audit's ordered break list is SEVEN
+sites (`docs/wi-032-consumer-audit.md:227-239`), all of them tripped by the VALUE becoming a list and none of
+them by the door refusing anything; the first THREE are the ones the bracket's entry row names individually:
+`orchestrator/src/invariants.py:663-665` goes red vault-wide, `HAL9000/.../contacts.py:41,50` starts 500ing,
+and `orchestrator/bin/merge-duplicate-persons.py:380-384` regex-reads the `whatsapp` LINE, merges scalars and
+re-emits `whatsapp: "<v>"` through `Path.write_text` — bypassing `PersonRepository` and therefore the gate
+entirely, which is the one site that can collapse a migrated list back to a single scalar or clear it to `""`
+when its single-line regex misses a block list. That site is a NAMED EXCLUSION from `## Intent`'s "Every
+writer refuses it at the boundary" (the absolutes sweep scopes that universal to the package's own arms) and
+it is already on the WI-029 divergence-generator list, so it is not this repo's to fix. It IS a sequencing
+fact the live run has to carry: the breaks land the moment notes change shape, so they belong in
+`docs/wi-032-whatsapp-live-baseline.md`'s ENTRY row, in front of Dave, BEFORE the write — named, with the
+consumer audit's pinned HEADs beside them, so the go/no-go is taken with the blast radius on paper. **And the
+third of them is stated as its OWN `DATA-LOSS HOLD` row rather than as the third item of one list**
+(threat-model M3, folded by the spec-writer into `## Design` §10(c)): the other two announce themselves the
+instant they break and are self-limiting, while this one is silent and destroys exactly the value this item
+exists to protect, so a flat list of three makes it read as the third annoyance. Items 4–7 of the audit's list
+are carried as a one-line pointer to the audit rather than re-listed. Zero
+criteria move and the AC frame stays frozen; this is a disclosure, not an assertion.
+
 **(3) One resolution door.** A public `get_by_identifier(Identifier)` plus a `whatsapp_jid` step in the
 cascade reads the `jid:<lid>` keys the index already holds, with the new label added to
 `_RESOLVE_CASCADE_ORDER` (`person.py:145`) so it does not rank last by accident (F15). And
@@ -1835,7 +1873,12 @@ non-empty pivots to a phone — with `_remove_entity_from_indexes` moving in loc
 defect in `## Problem / Motivation` item 3).
 
 **(4) The migration, which is the item.** A dry run that reports per-cell counts over the six-cell class
-table and writes nothing; the write through `vault_io` and through the gate; a readback whose oracle is
+table — and, for the class-C repair alone, the per-note `(stored value → proposed JID)` pair with every
+member whose digits are not corroborated by its own `phones[]` printed FIRST, every field of every pair
+ESCAPED so one record is one physical line whatever the note holds (threat-model M1 and M4, folded into
+`## Design` §10(a) and §10(d): the counts are the right exit figure and the wrong go/no-go figure for 82
+irreversible re-spellings, and a disclosure the disclosed data can reflow or forge a header inside is not a
+go/no-go artifact) — and writes nothing; the write through `vault_io` and through the gate; a readback whose oracle is
 the set of `.key` values per note — unchanged, and the identifier COUNT per note unchanged, so a run
 that dropped a person's second JID fails while a key-preserving spelling repair passes. The readback is a
 RE-READ from the note bytes by a load that did not exist before the write (round-3 note 3): the repository
@@ -1871,12 +1914,49 @@ numbers in the same doc's §5 (`docs/stem-divergence-live-baseline.md` is the pr
 bracket's exit row exactly as `## Exploration Notes` states them** (F21 — the earlier wording promised "zero
 notes left in the scalar shape" alongside "the residual reported and byte-identical", which no run can
 produce once the residual is non-empty, so a conductor performing the bracket against a non-zero census row
-was left adjudicating the figure in prose): (1) notes left in the scalar shape OUTSIDE the residual R —
-ZERO; (2) `|R|` — the notes whose value the STORABLE predicate refuses, each reported and byte-identical,
-equal to the census's class-D plus class-E rows, plus its class-C row if Dave declines the repair (Ruling B's
-alternative arm); (3) the class-C repair count equal to the census's class-C row under the recommended arm,
-and zero under the alternative arm with those notes counted in `|R|` instead. Plus the identifier-key
-multiset unchanged corpus-wide, and no value cleared by the run. **One of those numbers is now readable off a tool rather than off the migration's
+was left adjudicating the figure in prose). **The exit row carries the partition's OWN three parts, in the
+same order `## Exploration Notes` and AC-5 leg (e) state them, with the repair count as a NAMED SUB-COUNT of
+part (2) rather than as part (2) itself** (architect round-9 note 1, folded by the spec-writer: the earlier
+list substituted the class-C repair count for MIGRATED and so dropped the count of notes the run actually
+converted, under a sentence asserting the two triples were the same triple): (1) notes left in the scalar
+shape OUTSIDE the residual R — ZERO; (2) MIGRATED — the notes now carrying the LIST form, with two named
+sub-counts, the SHAPE-ONLY conversions (class Ø) and the class-C REPAIRS (equal to the census's class-C row
+under the recommended arm, zero under the alternative with those notes counted in `|R|` instead); (3) `|R|` —
+the notes whose value the STORABLE predicate refuses, each reported and byte-identical, equal to the census's
+class-D plus class-E rows, plus its class-C row if Dave declines the repair (Ruling B's alternative arm).
+Plus the identifier-key multiset unchanged corpus-wide, and no value cleared by the run.
+
+**The SHAPE-ONLY sub-count is 1025 and not 1031, and that is a distinction the census already measures**
+(architect round-9 note 2, folded by the spec-writer — and the fold is smaller than the note expected,
+because the artifact landed with the split already in it). Class Ø has two live spellings and only ONE of
+them is a write: `docs/wi-032-whatsapp-corpus-census.md:184` reports class Ø as 1031 = **absent key 6 +
+`""` 1025 + YAML null 0** (its `(c')` splits line, `:172`), and the migration converts the key-PRESENT
+spelling only — `""` → `[]`. A note with the key ABSENT needs no write at all and is outside the partition's
+own domain, which opens on "every `whatsapp`-carrying note". So the `whatsapp`-carrying population the
+partition ranges over is 1168 (1174 person notes less the 6 absent-key notes), MIGRATED is 1168 − `|R|`, and
+the shape-only sub-count is 1025.
+
+**And that sub-count is ~88% of the run's writes with no semantic effect, which is a cost worth posing
+before the write rather than after** (architect round-9 note 4, folded as a sentence rather than as a fourth
+ruling because the decision point already exists). The tolerant reader ALREADY presents `whatsapp: ""` as the
+empty collection, so converting those 1025 notes changes no resolution, no key, no model value and no
+consumer-visible behaviour — it buys cosmetic uniformity and it costs turning the riskiest step in the item
+from ~143 notes into ~1168, with the same multiple on the reverse if the back-out is ever taken. The
+partition as it stands REQUIRES them (part 1's zero ranges over the scalar shape and `""` is a scalar), so
+no build has latitude here. What the dry run puts in front of Dave is that number, named as the shape-only
+population, so he can say "leave those alone" with it in hand; if he does, part 1's zero becomes "zero
+outside R and outside class Ø" and the tolerant reader is what makes that safe — a one-line consequence in
+the bracket's exit row, not a redesign, and not a change to any criterion.
+
+**One sentence for the bracket's ENTRY row that the census's own §2 is slightly over-broad about**
+(data-audit note (i), folded by the spec-writer). The census measures ZERO live collisions of the HARMFUL
+shape — a query for a REAL stored number returning a lid's owner — so "the resolution fix changes no live
+lookup result" is true of that row. It is over-broad for the OTHER shape `## Problem / Motivation` item 3
+describes: 26 vault notes store a lid whose digits sit in `_phone_index` today (`person.py:266-270`), so a
+query for a number NOBODY holds can still return one of those 26 people, and AC-1's change retires exactly
+that. No consumer synthesizes such a query (orchestrator strips the JID first; HAL9000's
+`resolve_by_whatsapp` has no production caller), so the live blast radius is nil — but the entry row says
+"26 notes leave `_phone_index`, 0 live answers move" rather than "no lookup result changes". **One of those numbers is now readable off a tool rather than off the migration's
 own stdout**, which is what the report arm buys the bracket: after the run, `scripts/lint_vault.py`'s new
 detector reports exactly the members of R over the live vault — the detector fires on classes C, D and E, so
 its issue set IS R under either arm of Ruling B — and the exit figure for part (2) is that check's issue count
@@ -1888,12 +1968,1816 @@ must agree.
 
 **Back-out (F14).** Reverting the library is NOT a back-out: a list-shaped note against pre-WI-032 code
 fails `model_validate` and `parse_to_model` raises `SchemaDriftError`, making the note invisible rather
-than oddly shaped. The back-out is a REVERSE migration through the same door, and it is exact only while
+than oddly shaped. The back-out is a REVERSE migration through the same door, and it is exact **up to the
+class-C repair** and then only while no note carries a second JID. **TWO qualifiers, not one** (architect
+round-9 note 3, folded by the spec-writer — the earlier text named only the second). The first is present on
+day ONE under Ruling B's recommended arm: the repair rewrites the stored spelling
+(`"+44 7739 341679"` → `"447739341679@s.whatsapp.net"`) for all 82 census class-C notes, so a list→scalar
+reverse returns the CANONICAL form and not the pre-migration bytes for every one of them. The harm is
+semantically null — AC-5 leg (d) asserts the repair key-preserving, so nothing resolves differently and the
+reverse arguably lands on the better spelling — but the conductor performing the bracket is entitled to hear
+"exact up to 82 canonical re-spellings" rather than "exact", and under Ruling B's alternative arm (repair
+declined) this qualifier disappears entirely while `|R|` grows by those same 82. The second qualifier is the
+one F14 already named: the reverse is exact only while
 no note carries a second JID — which is true on the day this ships, because this item makes the shape
 available and does not itself populate second JIDs (that is HAL9000 WI-075 / orchestrator WI-192-193).
 Once a second JID exists anywhere, list→scalar loses one by definition and the position is forward-only
 with the tolerant reader kept. The live run is bracketed entry/exit the way
 `docs/stem-divergence-live-baseline.md` brackets WI-029's, and the exit entry records the window closing.
+
+## Verified Diagnosis
+
+Four load-bearing claims about how the system behaves incorrectly TODAY. Each is grounded in code read in
+this worktree (git HEAD `c7d074f` plus the seeded delta) or in a committed artifact; if any were false the
+work would be invalid. Currency and predicates are re-stated here rather than inherited, because this
+section is the one a reviewer falsifies first.
+
+**VD-1 — `Person.whatsapp` is a bare `str`, so the field cannot hold the two identifiers a person now has,
+and the one surface every writer shares has no rule about it.** `obsidian_schemas/models.py:Person` declares
+`whatsapp: str = ""` (`models.py:94`, read this round). `obsidian_schemas/name_gate.py:_CONTAINER_KEYS` is
+`("emails", "phones", "aliases")` (`name_gate.py:84`) and `gate_write` (`name_gate.py:gate_write`) evaluates
+`_shaped` for exactly those three keys (`:374-376`) — `whatsapp` appears in no branch of the function.
+Falsifier: `rg -n 'whatsapp' obsidian_schemas/name_gate.py` → 0 matches.
+
+**VD-2 — the parser a writer would reach for ACCEPTS the value that caused this item.**
+`obsidian_schemas/identifier.py:WhatsAppJID.parse` (`:269-281`, read this round) tests for the `@lid`
+SUBSTRING (`:276`), then for `normalize_phone(s)` yielding at least `Phone.MIN_DIGITS == 7` digits
+(`:278-280`), and tests for a JID domain NOWHERE. So `WhatsAppJID.parse("+44 7739 341679")` returns
+`WhatsAppJID(jid="+44 7739 341679", phone_digits="447739341679")` with `key == "phone:447739341679"` — the
+Kim Faura value, and the bare-phone bypass recorded at `docs/write-door-bypasses.md:3994`, parses clean. A
+door wired to `parse` alone refuses only digit-less junk. Falsifier: `docs/wi-032-whatsapp-corpus-census.md`
+measures **82 live person notes** whose stored `whatsapp` is a bare number with no `@` at all — 7.0% of
+1174, one every ~14 notes — every one of which `parse` accepts.
+
+**VD-3 — a stored `@lid` is indexed as a telephone number, and the correct key nothing reads.**
+`obsidian_schemas/repositories/person.py:_index_entity` calls `normalize_phone(entity.whatsapp)`
+unconditionally and writes the result into `_phone_index` (`person.py:266-270`, read this round);
+`normalize_phone` splits at the first `@` and keeps the digits (`phone_normalization.py:52`), so a lid's
+opaque internal digits become a phone key. `get_by_phone`'s fuzzy arm is PERMANENT and iterates
+`_phone_index` through `phones_match` (`person.py:481-496`), so a query for a number nobody holds can return
+a lid's owner. Meanwhile `_project_identifiers` indexes the same lid correctly under `jid:<lid>`
+(`person.py:330-331`) and the only frame reading that key is `_resolve_identifier` (`person.py:886-909`),
+reachable only from `resolve_or_create` by a caller already holding a typed `Identifier` — `resolve_all`'s
+cascade (`person.py:606-690`) has no `whatsapp_jid` step at all. Falsifier: the census measures **26 vault
+notes** storing a lid today, so 26 phone-index entries exist that no telephone number legitimately owns; the
+HARMFUL collision shape (a query for a REAL stored number answering with a lid's owner) measures **zero**,
+which is why AC-1 PLANTS the falsifying member rather than hoping for one.
+
+**VD-4 — the report surface this design's "reported and left" half names does not exist.**
+`scripts/lint_vault.py:_gate_refusal_pattern` (`:334-352`, read this round) has exactly ONE call site,
+`:450`, inside `check_structural`'s `stem_name_divergence` arm and behind
+`isinstance(stored, str) and stored.strip() and stem != stored` (`:449`); its return value is spliced into
+THAT issue's message as a marker (`:451-462`) and it emits no `LintIssue` of its own. Falsifiers:
+`rg -n '_gate_refusal_pattern' scripts/lint_vault.py` → 2 lines (the `def` and the one call);
+`rg -n 'whatsapp' scripts/lint_vault.py` → 0 matches; and
+`docs/stem-divergence-live-baseline.md:191` records WI-029 closing that arm's live population **8 → 0** on
+2026-09-26, so the one route is taken zero times on today's vault.
+
+**Not claimed, and deliberately.** That the scalar→list flip breaks a named consumer is NOT diagnosed here —
+it is MEASURED in `docs/wi-032-consumer-audit.md` (20 production sites across three pinned repo HEADs, zero
+element-type assumptions, zero whole-record projections) and the data-premise gate verified it. This section
+claims only the four in-tree behaviours above.
+
+## Design
+
+The delta, and nothing that already works. Ten parts, each citing the frame it changes and quoting what is
+there now. **Two invariants run through all ten and are what the parts are ordered around:** the STORABLE
+question has exactly ONE implementation, on the type; and the "does this stored field carry something the
+door refuses" question has exactly ONE implementation, `WhatsAppJID.classify_field`, which the gate arm, the
+lint detector, the migration and every test call rather than re-derive.
+
+**What the SPEC REVIEW's round 1 changed (2026-09-27), and where each fold landed — no `criteria` fence moved
+and no signed span was touched.** Both blocking findings were the same shape one artifact apart: a clause an
+earlier fold ADDED whose ORACLE that fold never derived, so the clause reads as already-guaranteed while two
+of the three builds satisfying it do nothing. (1) AC-3's APPEND-ONLY conjunct (2) asks for a pre-build byte
+comparison no post-build hermetic check has a referent for; **§6** now fixes the COMPUTABLE FORM it is
+satisfied by — the 29-record count read off the artifact plus the thirteen-member equality, both at test time
+— and **Task 8** orders exactly that, with the frozen criterion text left verbatim. (2) The migration's
+re-run no-op was resolved in `## Edge Cases` and asserted nowhere, while the same section promises it to a
+conductor mid-migration as the only retry remedy; **§7** now states the property with its discriminating
+oracle (a ZERO call count on the write door, because a digest cannot tell "no write" from "re-write the same
+bytes" and AC-5's two-JID plant is list-shaped from the start), **Task 10** orders it inside the check that
+already drives `apply_migration`, and `## Edge Cases`' first-run, idempotency and retry entries point at it.
+Five non-blocking notes landed in the same edit: a blank member inside a list is REFUSED, decided and reasoned
+in **§3** and mirrored in `## Edge Cases` (the `emails[]` precedent is declined, with the two reasons); the
+three imports the code blocks need are named in **§1**, **§2** and **§4**; §1's tail comment now names the
+DECIDER instead of promising class D for a value that is class C; **Task 12**'s `docs/wi-032-*` count is
+corrected to the one file this item writes and that run declared VOLUNTARY, since `docs/**` is outside that
+scan's domain; and **F18 leg 2** is narrowed to the census verdict loop's `refusal` arm with the conservative
+scoping kept and its reason stated. The review's one OBSERVATION — that Task 10 is the plan's longest
+unresumable stretch and cannot be split without breaking `landed: Task 10` — is recorded rather than actioned,
+and this round adds to that task, which is worth stating plainly: the re-run leg is three assertions inside a
+check that task already writes, not a new artifact, and the `## Design` §6 fold adds nothing to it at all. The
+preamble's part count is corrected from six to ten in the same pass (§7–§10 arrived in later folds).
+
+### §1 Two predicates and one classifier, all on `WhatsAppJID` (`obsidian_schemas/identifier.py`)
+
+`parse` is UNCHANGED — it is the REACH predicate and every resolution and indexing caller keeps it exactly as
+it is (F12; rejected item 7 prices the alternative). Four additions to the same frozen dataclass, in the
+same twelve lines, so "one authority" is literal:
+
+```python
+@dataclass(frozen=True)
+class WhatsAppJID(Identifier):
+    kind: ClassVar[str] = "whatsapp_jid"
+    resolves: ClassVar[FrozenSet[str]] = frozenset({"person"})
+
+    #: WI-032. The closed set of JID domains a STORABLE value may carry. Read by
+    #: the WRITE DOOR and by nothing else — `parse` stays liberal for LOOKUP.
+    #: Widening this set later joins every sweep automatically, because every
+    #: criterion CALLS the predicate instead of restating its membership.
+    STORABLE_DOMAINS: ClassVar[FrozenSet[str]] = frozenset({"s.whatsapp.net", "lid"})
+
+    #: The six-cell storage classes, and the ONE spelling of the absent cell.
+    CLASS_ABSENT: ClassVar[str] = "Ø"
+    CLASSES: ClassVar[Tuple[str, ...]] = ("Ø", "A", "B", "C", "D", "E")
+
+    jid: str           # normalized raw JID, lowercased   (UNCHANGED)
+    phone_digits: str  # "" for @lid JIDs                 (UNCHANGED)
+
+    @property
+    def jid_domain(self) -> str:
+        """The text after the LAST `@`; `""` when there is none.
+
+        Computed off `self.jid` because there is nowhere else to read it from:
+        this dataclass is frozen and holds no raw value — `parse` stores
+        `str(raw).strip().lower()` (`identifier.py:273`, `:277`, `:281`). That is
+        not a limitation, it is what makes the predicate case-insensitive for
+        free, so `447700900321@S.WHATSAPP.NET` is storable with no second rule.
+        """
+        return self.jid.rpartition("@")[2] if "@" in self.jid else ""
+
+    @property
+    def is_storable(self) -> bool:
+        """MEMBERSHIP of the closed set, never a suffix test. Under a bare
+        "has a non-empty suffix" reading `447700900789@example.com` becomes
+        storable, class C empties and class E ceases to exist — the reading
+        changes the class table's MEMBERSHIP, so it is not a latitude."""
+        return self.jid_domain in self.STORABLE_DOMAINS
+
+    @classmethod
+    def classify(cls, raw) -> str:
+        """The storage class of ONE raw `whatsapp:` value. TOTAL, and loud on
+        the one shape whose `str()` repr smuggles digits past `normalize_phone`.
+
+        ORDER IS THE CONTRACT. The emptiness test precedes BOTH predicate calls,
+        because `parse` raises on `""` and `None` through the same two lines it
+        raises on `"n/a"` with (`identifier.py:271-275`, no blank branch) — so a
+        classifier that asks the predicates first files the live corpus's 1025
+        default-valued notes as a defect class.
+        """
+        if isinstance(raw, (list, tuple, set, dict)):
+            # `parse(["447700900321@s.whatsapp.net"])` SUCCEEDS with the right
+            # phone digits, recovered out of the list's repr by
+            # `normalize_phone`'s first-`@` split. A container reaching a
+            # per-value classifier is a CALLER bug, and it is refused rather
+            # than answered.
+            raise IdentifierError("whatsapp_jid", raw,
+                                  "a container reached the per-value classifier")
+        if raw is None:
+            return cls.CLASS_ABSENT
+        if isinstance(raw, str) and not raw.strip():
+            return cls.CLASS_ABSENT
+        try:
+            parsed = cls.parse(raw)
+        except IdentifierError:
+            return "D"
+        if parsed.is_storable and parsed.phone_digits:
+            return "A"
+        if parsed.is_storable and not parsed.phone_digits:
+            return "B"
+        if not parsed.is_storable and parsed.phone_digits:
+            return "C"
+        if not parsed.is_storable and not parsed.phone_digits:
+            return "E"
+        raise IdentifierError("whatsapp_jid", raw, "matches no declared class")
+
+    @classmethod
+    def classify_field(cls, stored) -> List[str]:
+        """The stored `whatsapp:` FIELD's per-value classes, in stored order.
+
+        THE one authority the gate arm, the lint detector, the migration and
+        every test call. Accepts BOTH stored shapes, because both exist on disk
+        for the whole migration window and an arm that inspects only lists is
+        silent for exactly the population this item exists for (F2).
+
+        Class Ø at the FIELD level is the EMPTY RESULT — an absent key (`None`),
+        `""`, whitespace, and `[]` all introduce no identifier, so there is no
+        member for any arm to judge and no arm can refuse them.
+        """
+        if stored is None:
+            return []
+        if isinstance(stored, str):
+            return [] if not stored.strip() else [cls.classify(stored)]
+        if isinstance(stored, (list, tuple)):
+            return [cls.classify(member) for member in stored]
+        return [cls.classify(stored)]   # a non-str scalar: `parse` decides the class
+```
+
+**That last line's comment names the DECIDER and not a class, because the class depends on the value and the
+live shape it matters for is not D.** An unquoted `whatsapp: 447700900123` loads as a YAML `int`, falls to
+this line, and `parse` does `str(raw).strip().lower()` (`identifier.py:parse`, `:273`) — so `normalize_phone`
+recovers twelve digits, there is no `@` at all, and the value is class **C**: phone-bearing, not storable,
+refused by the door, repaired by the migration and reported by the detector. That is threat-model note 4's new
+discovery channel and it would be lost by a comment that promised D. What DOES land in D is a non-`str` scalar
+whose `str()` carries fewer than `Phone.MIN_DIGITS` digits — `True` → `"true"` → none, `42` → two — and a
+`date` is worth naming as the near-miss it is: `2026-09-27` normalizes to the eight-digit `20260927` and files
+as **C**, not D, because `normalize_phone` keeps only digits (`phone_normalization.py:54-55`). Neither class
+needs a branch — the point of routing a non-`str` scalar through `parse` is that the six-cell partition
+already covers every one of them.
+
+`classify`'s tail `raise` is unreachable against today's four-way partition, and that is the point: AC-1
+requires a TOTAL function with NO fall-through bucket, so a seventh shape RAISES instead of being filed. The
+container refusal is the round-8 note's trap closed at the leaf — `_project_identifiers` guards with
+`if entity.whatsapp:` and its `add()` blank guard tests `isinstance(raw, str)` (`person.py:319`, a list
+passes it), so a build that forgot to iterate would have produced the CORRECT `phone:` key for a single
+phone-bearing value and passed AC-1's and AC-2's class-A legs.
+
+**Nothing on `WhatsAppJID` is added to `model_fields`** — see §2. The type stays a pure value object with no
+vault I/O, so `identifier.py` remains a leaf importing only `phone_normalization`.
+
+**The one import this part adds, named so the builder is not the one to find it.** `identifier.py:36` binds
+`from typing import ClassVar, FrozenSet, Optional, Tuple` and NOT `List`, which `classify_field`'s return
+annotation needs. Under `from __future__ import annotations` (`:31`) the omission is invisible at runtime and
+wrong for a type checker, which is the failure mode worth one line here rather than one round later. Nothing
+else moves: `ClassVar`, `FrozenSet` and `Tuple` are all already bound, so the four new class attributes need
+no import at all.
+
+### §2 The model: `List[str]` stored, tolerant read, typed access DERIVED (`obsidian_schemas/models.py`)
+
+```python
+    whatsapp: List[str] = Field(default_factory=list)   # was: whatsapp: str = ""
+
+    @field_validator("whatsapp", mode="before")
+    @classmethod
+    def _tolerate_scalar_whatsapp(cls, value):
+        """EXPAND phase. The reader accepts BOTH shapes indefinitely, because the
+        VAULT is shared mutable state: any consumer running older code against a
+        migrated note breaks however the package is installed, so a version pin
+        creates no private window (F14 correcting F7). And a refusing reader does
+        not degrade gracefully — `parse_to_model` raises `SchemaDriftError` on an
+        owned note that fails validation (`parser.py:203-208`), which the load
+        path records as a SKIP, making the note INVISIBLE rather than oddly
+        shaped.
+
+        Three spellings collapse to the empty collection and none of them is a
+        refusal: `None` (an absent key, and a BARE valueless `whatsapp:` key,
+        which YAML loads as null and `_normalize_frontmatter` passes through
+        untouched, `parser.py:118-132`), `""`, and whitespace.
+        """
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [] if not value.strip() else [value]
+        return value
+
+    @property
+    def whatsapp_jids(self) -> List[WhatsAppJID]:
+        """The typed view — the PARSEABLE stored values, in stored order.
+
+        Filtered on PARSEABILITY and never on storability: classes C and E parse
+        and appear here (they are merely unstorable); class D does not parse and
+        appears only in the raw field. A build that filtered on storability is
+        RED on AC-4 leg (b).
+
+        A `@property` and NOT a field, which is what closes F8 by construction:
+        `model_to_frontmatter` iterates `model_class.model_fields`
+        (`writer.py:112-117`), so nothing dataclass-shaped is ever handed to
+        `yaml.dump`'s default `Dumper` (`writer.py:152`) while the reader is
+        `yaml.safe_load` (`parser.py:101`). There is no projection step to
+        remember, and rejected item 9 is why there is none to write.
+        """
+        out = []
+        for raw in self.whatsapp:
+            try:
+                out.append(WhatsAppJID.parse(raw))
+            except IdentifierError:
+                continue
+        return out
+```
+
+**Why the coercion lives on the model and not in `parser.py:_normalize_frontmatter`.** That function is
+field-name-AGNOSTIC — it converts dates and recurses into lists and knows no field names at all
+(`parser.py:111-133`). A `whatsapp` branch there would be a second spelling of this field's shape rule,
+outside the annotation it belongs to, reached by only one of the two load paths. The validator travels with
+the field.
+
+**The import edges this adds — two, not one.** `models.py` gains `from .identifier import IdentifierError,
+WhatsAppJID`; `identifier.py` imports only `phone_normalization`, so `models -> identifier ->
+phone_normalization` closes no cycle, and `name_gate.py` still imports no `models` and must not
+(`name_gate.py:14-20`). And **`field_validator` joins the pydantic import**: `models.py:21` binds
+`BaseModel, ConfigDict, Field, PrivateAttr` and the module names no validator of any kind today
+(`rg 'field_validator|validator' obsidian_schemas/models.py` is 0 matches), so §2's decorator is an import as
+well as a method and this is the FIRST validator in the module.
+
+### §3 The write door: one arm on the surface every writer shares (`obsidian_schemas/name_gate.py`)
+
+Two module constants and one arm. **The refusal's `pattern` is a GATE-LOCAL LITERAL** — `_refuse` takes a
+plain `pattern_key: str` (`name_gate.py:_refuse`, `:142-174`), so no record is needed anywhere, and
+declaring it as a `NameValidator` Tier-1 branch record instead would join WI-016's AC-3 class floor, which
+is DERIVED by equality from `{record.branch_id for record in TIER1_BRANCHES + COMPANY_TIER1_BRANCHES}` and
+asserted in both directions (`tests/test_fixture_vault.py:830-838`) — a conductor pass, for a refusal that
+is not a name judgement (F18 leg 4).
+
+```python
+#: WI-032. The whatsapp refusal's pattern. The gate's OWN literal, like
+#: `UNDECLARED_PATTERN` above it — never a NameValidator branch record.
+WHATSAPP_PATTERN: str = "whatsapp_not_a_jid"
+
+#: The one identifier key this gate judges by VALUE rather than by container shape.
+WHATSAPP_KEY: str = "whatsapp"
+```
+
+`_refuse` gains ONE keyword and keeps being the ONE construction site. **Its docstring gains a THIRD numbered
+clause — appended beside rules 1 and 2, never an edit to either** (threat-model note 2, folded): the keyword
+exists for the whatsapp arm, which is the one arm whose refused value is not a name, and the NAME arms
+deliberately pass nothing through it — because the name a name-arm would pass IS an email address at
+`contains_email_chars` and `rfc2822_leak`, which is the whole reason rule 2 exists. The channel now exists on
+the site whose rule 2 keeps note bytes off it, so the note goes where the next reader looks:
+
+```python
+def _refuse(pattern_key: str, *, cause: Optional[BaseException] = None,
+            refused_value=None) -> NoReturn:
+    exc = NameGateRefusal(_REFUSAL_REASON)
+    exc.pattern = pattern_key
+    # WI-032. The Intent's "loudly and NAMING THE VALUE" — as an ATTRIBUTE, set
+    # AFTER construction exactly as `pattern` is, so it reaches no message and no
+    # traceback renders a note's bytes. Rule 2 above forbids a note-derived value
+    # in the CONSTRUCTOR and this is not one. Set unconditionally (None where
+    # there is none) so every refusal carries the attribute and no consumer has
+    # to guess whether to use getattr.
+    exc.refused_value = refused_value
+    raise exc from (chainable_cause(cause) if cause is not None else None)
+```
+
+The arm, placed **between step 3 (name) and step 4 (addresses)**:
+
+```python
+    # ---- 3b. WhatsApp (WI-032) — a VALUE judgement, not a container shape ----
+    #
+    # PLACED AFTER THE NAME ARM, and the position is prescribed rather than left
+    # free: several corpus notes declare a `Verdict(kind="refusal", pattern=<a
+    # NAME pattern>)` whose whole declared field set is written through the gated
+    # door with `exc.pattern` asserted equal to it
+    # (`tests/test_fixture_vault.py:856-878`). Keeping the name refusal first
+    # makes every one of those declarations true by CONSTRUCTION rather than by
+    # an insertion point nobody wrote down.
+    #
+    # Unlike `emails`/`phones`/`aliases` this arm does NOT use `_shaped`. That
+    # predicate is POSITIVE, so a bare `str` falls to pass-through untouched
+    # (`_is_str_list`) — and every `whatsapp` value on disk today IS a bare str,
+    # so an arm copied from the containers would be structurally silent for
+    # exactly the population this item exists for.
+    if WHATSAPP_KEY in introduced:
+        members = introduced[WHATSAPP_KEY]
+        for position, member_class in enumerate(
+                WhatsAppJID.classify_field(members)):
+            if member_class not in ("A", "B"):
+                _refuse(WHATSAPP_PATTERN,
+                        refused_value=_member_at(members, position))
+        # ONE WRITTEN SHAPE: a scalar the caller handed us is emitted as a
+        # one-member list, absence as `[]`, and every accepted member passes
+        # through VERBATIM — the migration's repair is the only rewriter, and it
+        # rewrites before the write. The key set is unchanged, so THE OUTPUT
+        # NEVER GROWS still holds by construction.
+        result[WHATSAPP_KEY] = _as_stored_list(members)
+```
+
+`_member_at` and `_as_stored_list` are two three-line module helpers beside `_shaped`; both read
+`classify_field`'s own shape rules and neither re-derives a class.
+
+**What the arm refuses, exactly.** The NON-EMPTY values whose class is C, D or E. Class Ø — an absent key,
+`""`, whitespace, `None`, `[]` — yields no members, so the loop body never runs and the write is ACCEPTED.
+That is not leniency bolted on: it is the rule `_project_identifiers`'s `add()` already follows
+(`person.py:318-320`, returning on a `None` or blank raw BEFORE any parser) and the rule the gate's own
+`emails[]` arm follows by falsiness (`name_gate.py:399`). It is also what keeps CLEARING the field legal —
+the only repair a class-D value has, since the writer has no delete affordance at all
+(`writer.py:update_frontmatter_field` SETS a value, `:333-337`).
+
+**A BLANK MEMBER INSIDE A LIST — `{"whatsapp": [""]}` — is REFUSED, and the decision is stated here rather
+than left to be discovered.** The code above already determines it: `classify_field`'s list branch maps
+`classify` over the members with no falsiness filter, `classify("")` returns `CLASS_ABSENT`, and the arm
+refuses every class `not in ("A", "B")` — so `[""]` is refused with the whatsapp pattern while the scalar
+`""` is accepted. Nothing ships two ways and no criterion is strained: AC-3's CLASS-Ø leg enumerates the
+five spellings of class Ø at the FIELD level (absent key, `""`, `None`, whitespace-only, `[]`), and `[""]`
+is not one of them — it is a field with a MEMBER that carries no identifier, which is a caller defect and
+not a spelling of absence. **That leg's "in both shapes" names the scalar `""` and the list `[]`, which are
+the two shapes the five enumerated spellings already cover — NOT a cross product of the five with the two.**
+`[""]`, `[None]` and `["   "]` are each a populated field and each is refused, and the distinction is written
+down here because the test author implementing "every spelling in both shapes" is the one reader who would
+otherwise reach for them and read the refusal as a defect. **And the shape is unreachable from every arm this
+design owns:** the model coerces `""` to `[]` (§2), the migration writes `[]` for the whole class-Ø cell and
+passes accepted members through verbatim (§7), and no corpus note or live note is list-shaped at all — so
+refusing it costs nothing real and buys a closed door. The `emails[]` precedent this
+document cites for the class-Ø rule takes the other arm — `name_gate.py:399`'s `elif entry and …` neither
+parses nor keeps a blank member, it DROPS it — and this arm deliberately does not follow it there, for two
+reasons that are this item's own. A drop is a SILENT DROP, which is the one thing AC-4 leg (b) and this
+arm's "every accepted member passes through VERBATIM" comment both forbid. And filtering blanks out of
+`classify_field`'s list branch would break the POSITIONAL correspondence the refusal depends on: the arm
+recovers the offending raw value with `_member_at(members, position)` over `enumerate(classify_field(...))`,
+which is only correct while the classifier returns exactly one class per stored member, so the cheap-looking
+filter would cost the refusal its ability to name the value. Refusing fails CLOSED, loudly, naming the
+value. The detector (§4) reports the same shape under the same rule, which is the one-authority invariant
+holding rather than a second decision.
+
+### §4 The report arm: `lint_vault` gains a DETECTOR, not a routing tweak (`scripts/lint_vault.py`)
+
+VD-4 is why this is new code rather than a consequence. ONE report-only arm in `check_structural`, copying
+WI-029's own detector shape literally (`scripts/lint_vault.py:417-462` — ERROR, `structural`, `auto_fixable`
+left at its `False` default, `:96`), placed after the `stem_name_divergence` arm and before
+`field_type_mismatch`:
+
+```python
+#: WI-032. The report-only check name. Its OWN name, never
+#: `stem_name_divergence`: that arm's marker says "this divergence is not
+#: repaired by renaming the file to the stored name; repair the field" (:451-454),
+#: which is a false statement about a defect that is a FILENAME, and widening it
+#: would move live rows against WI-029's committed "divergent rows the WRITE DOOR
+#: refuses (b3): 0 of 8" (`docs/stem-divergence-live-baseline.md:124`).
+WHATSAPP_CHECK = "whatsapp_not_storable"
+
+        if vf.entity_type == "person":
+            try:
+                classes = [c for c in
+                           WhatsAppJID.classify_field(vf.frontmatter.get("whatsapp"))
+                           if c not in ("A", "B")]
+            except IdentifierError:
+                # A frontmatter shape the classifier refuses (a nested container
+                # under `whatsapp:`). REPORTED under the SAME check rather than a
+                # second one, because the repair is identical — this tool's
+                # contract is that no note crashes the run.
+                classes = ["unclassifiable"]
+            if classes:
+                issues.append(
+                    LintIssue(
+                        vf.path, WHATSAPP_CHECK, Severity.ERROR,
+                        f"stored `whatsapp` carries {len(classes)} value(s) the "
+                        f"write door refuses (class "
+                        f"{', '.join(sorted(set(classes)))}); repair to a JID or "
+                        f"clear the field",
+                        "structural",
+                    )
+                )
+```
+
+The message carries a COUNT and CLASS LETTERS and no note-derived value — the same discipline `_refuse`
+keeps, for the same reason.
+
+**The import this arm needs.** `scripts/lint_vault.py` imports `NameGateRefusal` and `gate_write` and
+`TYPE_TO_MODEL` (`:44-48`) and neither `WhatsAppJID` nor `IdentifierError`, both of which the arm above calls
+— so the module gains `from obsidian_schemas.identifier import IdentifierError, WhatsAppJID` beside those. It
+closes no cycle (`identifier.py` is a leaf) and adds no vault reach.
+
+Three properties, each measured rather than assumed:
+
+- **It owes NO repair oracle.** `tests/test_lint_vault_fix_rules.py:596-624`'s oracle-table equality is
+  scoped to `auto_fixable_emitter_checks([LINT_VAULT_PATH])` (`:599`, `:621-624`), so a report-only rule is
+  outside that derived set by construction and the WI-026 floor needs no fifth oracle.
+- **It disturbs no set equality in the divergence module.** `_divergence_issues` filters on
+  `issue.check == DIVERGENCE_CHECK` (`tests/test_stem_name_divergence_detector.py:283-289`), so a new check
+  name is invisible to that module's four assertions.
+- **`--fix` is untouched, for a reason the data-premise gate RAN rather than reasoned.** `apply_fixes` hands
+  the gate the DELTA (`gate_write(delta, declared_type=fm.get("type"), whole_record=False)`,
+  `scripts/lint_vault.py:1181-1182`), so a fix for an unrelated issue on a class-C-bearing note presents a
+  payload with no `whatsapp` key, the new gate arm is never consulted, and the write re-serializes the
+  stored value unchanged (`_wfm(fm)`, `:1194-1198`). The note's other issues still repair and the bad value
+  is neither refused nor dropped.
+
+### §5 Resolution: one phone-pivot rule, one public door, one cascade step (`repositories/person.py`)
+
+**(a) The phone pivot is DERIVED from the projection, in ONE frame.** Three frames decide today what a
+`whatsapp` value contributes to `_phone_index` and all three need the same rule. `_index_identifiers`
+already runs at the end of `_index_entity` over `_project_identifiers`' typed output (`person.py:283-284`),
+so the projection is the natural single source:
+
+```python
+    def _index_entity(self, entity: Person, cache_key: str) -> None:
+        for phone in entity.phones:                       # UNCHANGED
+            ...
+        # WI-032. The whatsapp block that read `normalize_phone(entity.whatsapp)`
+        # is GONE. A JID's digits enter `_phone_index` IFF its parsed form carries
+        # non-empty `phone_digits`, DERIVED from the projection rather than
+        # re-parsed beside it — one call, one rule, and the inverse below derives
+        # from the same projection.
+        identifiers = self._project_identifiers(entity)
+        for ident in identifiers:
+            if isinstance(ident, WhatsAppJID) and ident.phone_digits:
+                self._phone_index[ident.phone_digits] = cache_key
+        ...                                               # aliases, slack UNCHANGED
+        self._index_identifiers(entity, cache_key, identifiers=identifiers)
+```
+
+`_index_identifiers` gains `identifiers: Optional[List[Identifier]] = None`, projecting for itself when it
+is absent so every other caller is unchanged. **The two comment lines this deletes and edits —
+`# Index WhatsApp number` and `# Remove WhatsApp from index` — belong to `_index_entity` and
+`_remove_entity_from_indexes`, both of which ARE in WI-024's `AUTHORIZED_PROSE_OWNERS`
+(`tests/test_identity_endgame.py:359-373`), so editing them is free.** §6 is where that stops being true.
+
+**(b) The inverse, over the same projection**, so AC-1's exact-inverse assertion is true by construction:
+
+```python
+        for ident in self._project_identifiers(entity):
+            if isinstance(ident, WhatsAppJID) and ident.phone_digits:
+                if self._phone_index.get(ident.phone_digits) == cache_key:
+                    del self._phone_index[ident.phone_digits]
+```
+
+Written as a lookup and NOT as a loop over `self._phone_index`. If a build ever writes it as a loop, the
+iterable must be wrapped in one of `MATERIALIZING_WRAPPERS = {"list", "tuple", "sorted", "frozenset",
+"dict"}` (`tests/derivations.py:1620`), because `tests/test_identity_endgame.py:642-644` asserts every
+phone-index iteration site in the package is classified `materialized`.
+
+**(c) `_project_identifiers` ITERATES.** `if entity.whatsapp: add(WhatsAppJID.parse, entity.whatsapp)`
+becomes `for jid in (entity.whatsapp or []): add(WhatsAppJID.parse, jid)` — the same shape the `emails` and
+`phones` loops two lines above already have. This is the frame where forgetting the loop turns a LOUD
+failure into a SILENT wrong answer (§1's container refusal is the leaf-level guard; this is the caller-level
+fix).
+
+**(d) The public door.** One new method, delegating to the existing resolver so the WI-035 pivot is not
+re-implemented:
+
+```python
+    def get_by_identifier(self, identifier: Identifier) -> Optional[Person]:
+        """The public reader of the WI-125 identifier index (WI-032).
+
+        The index was already right and nothing public read it — a lid was
+        reachable only from `resolve_or_create` by a caller already holding a
+        typed identifier. Delegates to `_resolve_identifier`, so a phone-bearing
+        JID still pivots to `get_by_phone` and a `@lid` still reads its `jid:`
+        key: one authority, no second index (rejected item 2).
+        """
+        self._ensure_loaded()
+        return self._hydrate(self._resolve_identifier(identifier))
+```
+
+It is its OWN method and its lookup is NOT inside `resolve`, because
+`tests/test_identity_endgame.py:692-698` asserts `PersonRepository.resolve` reads none of `_cache`,
+`_alias_index`, the email index or `_phone_index` directly.
+
+**(e) The cascade step and its rank.** `_RESOLVE_CASCADE_ORDER` (`person.py:145`) becomes
+`("exact-name", "alias", "email", "whatsapp-jid", "phone")` — the new label inserted immediately BEFORE
+`phone` so every existing relative order is byte-identical and the new one still outranks `phone`. Without
+the label an unknown `matched_via` sorts LAST (`select_resolution`'s `rank`, `person.py:190-197`), which is
+the wrong answer when an exact `jid:` hit ties a fuzzy phone hit. The step goes in `resolve_all`
+immediately after step 4, which is BELOW the blank-query bail-out (`person.py:608-609`) — that ordering is
+the one thing inserting a step can break, and AC-2 pins it:
+
+```python
+        # 4b. WhatsApp JID match (WI-032) — the `jid:` keys the identifier index
+        # already holds and nothing public read. GUARDED on the absence of phone
+        # digits: a phone-bearing JID is already answered by step 4 above, which
+        # is the right door for it and is what keeps `README.md:238`'s documented
+        # `get_by_phone("<digits>@s.whatsapp.net")` route true.
+        try:
+            candidate_jid = WhatsAppJID.parse(query)
+        except IdentifierError:
+            candidate_jid = None
+        if candidate_jid is not None and not candidate_jid.phone_digits:
+            person = self.get_by_identifier(candidate_jid)
+            if person:
+                record(person, 1.0, "whatsapp-jid")
+```
+
+`resolve_all`'s docstring may be edited — `resolve_all` IS an authorized prose owner.
+
+**(f) `_IDENTIFIER_PRIORITY` is NOT touched.** `{"email": 0, "phone": 1, "whatsapp_jid": 1}`
+(`person.py:778`) ranks the Branch-A best hit among typed identifiers a caller already holds, where a
+phone-bearing JID and a phone are the SAME key and a tie is correct. Two reasons to leave it: it is right
+for its frame (F15's amendment), and the class-body comment justifying it is owned by the bare qualname
+`PersonRepository`, which is NOT an authorized prose owner
+(`tests/fixtures/identity_endgame/prose_surface_cut0.json:1680-1683`).
+
+### §6 `save`: a refusal surface, and two disclosures that must land APPEND-ONLY
+
+`PersonRepository.save`'s rider gains one line beside the three it already has:
+
+```python
+        entity.emails = gated["emails"]
+        entity.phones = gated["phones"]
+        entity.aliases = gated["aliases"]
+        entity.whatsapp = gated["whatsapp"]      # WI-032
+```
+
+Two facts make this more than a rider. `save` gates `model_to_frontmatter(entity)`
+(`person.py:1190-1191`), and `model_to_frontmatter` emits EVERY declared field unconditionally
+(`writer.py:112-117`) — so a value the note ALREADY stores is RE-INTRODUCED by the projection and therefore
+judged. `save` is a REFUSAL surface. And it is not the only one: `write_markdown_file`'s entity arm passes
+`gate_whole_record = True` over the same projection (`writer.py:229-233`) and is the arm `BaseRepository.save`
+delegates into (`base.py:462-465`). **The handle is "any arm whose payload is a whole-record projection",
+not the `whole_record` flag** — that flag only enables the two cross-field migrations
+(`name_gate.py:289-294`, `:385`).
+
+**The delta arms stay open, and that asymmetry is the design rather than a gap.**
+`update_frontmatter_field`, `update_frontmatter_fields` and `update_fields` each gate the caller's dict with
+`whole_record=False` and merge the result into the RAW parsed frontmatter
+(`writer.py:385-390`, `base.py:728-735`). Two consequences fall out for free and neither needs new code:
+a note whose stored value is unstorable stays writable for every write that does not re-introduce the field
+(`name_gate.py:31-36`); and a scalar-carrying note written for an unrelated reason is NOT silently
+rewritten, because the merge is over the raw parsed dict where `whatsapp` is still the stored scalar. AC-4
+leg (c)'s "one written shape" is therefore satisfied by the existing architecture, and asserting it both
+ways over a planted class-D note is what keeps it that way.
+
+**Both disclosures are APPEND-ONLY, and that is a property of the FRAME, not of what they say.**
+`prose_lines` (`tests/derivations.py:1773`) records every comment and docstring line with its owning
+qualname; `tests/fixtures/identity_endgame/prose_surface_cut0.json` is that surface over `person.py` at Cut
+0; clause **(e1)** of `test_strangler_prose_class_is_closed_in_the_package`
+(`tests/test_identity_endgame.py:1008-1019`) asserts every Cut-0 `(owner, text)` pair whose owner is outside
+`AUTHORIZED_PROSE_OWNERS` (`:359-373`) is still PRESENT in the final text — compared on `(owner, text)` and
+never on line numbers, so an APPEND is free and an edit or a deletion is not. `PersonRepository.save` is
+such an owner, with 29 recorded lines (`prose_surface_cut0.json:2400-2544` ≙ `person.py:1158-1189` plus
+`:1195-1196`). So:
+
+- The write-back disclosure is a NEW PARAGRAPH beside `person.py:1174-1184`, never an extension of the
+  paragraph that enumerates `entity.emails`/`phones`/`aliases` and never an extension of the `phones[]`
+  in-place-mutation paragraph F11 cited as its model.
+- The refusal disclosure is a NEW PARAGRAPH beside `person.py:1169-1172`, never an extension of the
+  `whole_record=True` sentence that says "both cross-field migrations run here exactly as they ran before".
+- `AUTHORIZED_PROSE_OWNERS` and `prose_surface_cut0.json` are UNTOUCHED. Authorizing `save` is worse than
+  widening another item's wall, because clause **(e2)** (`:1021-1030`) requires every authorized owner to
+  have at least one Cut-0 line MISSING — so authorizing it is RED until one of the 29 is DELETED (rejected
+  item 15). Reverting the disclosure is green on every check and silently withdraws
+  `### Examples of done`'s "and it says so" (rejected item 16).
+
+**THE COMPUTABLE FORM of AC-3's APPEND-ONLY conjunct (2), stated here because the frozen criterion names an
+oracle a post-build hermetic check cannot take — and it is the one conjunct that criterion's own `why:` says
+does work WI-024's wall cannot.** Conjunct (2) reads "`AUTHORIZED_PROSE_OWNERS` still has exactly its
+thirteen declared members and `prose_surface_cut0.json` is byte-identical to its pre-build bytes". The first
+half is computable: import the tuple and compare it to its members. The second half is not, twice over.
+`prose_lines` (`tests/derivations.py:prose_lines`, `:1773`) reads SOURCE comments and docstrings and never
+that JSON, so "computed through `prose_lines`" cannot reach it; and a check that runs AFTER the build has no
+referent for "pre-build bytes" at all — the file is not a `## Write Targets` path, there is no shell in the
+check, and a digest literal the build itself takes is the self-certifying constant WI-016's own AC-3(iv)
+`why:` exists to refuse. Left as written it is satisfiable by SILENCE, and two of the three self-consistent
+builds available to a builder do nothing: hardcode a build-taken digest (which certifies nothing), or re-read
+it as a restatement of conjunct (1) (which adds no force at all, since conjunct (1) computes its expected
+pairs FROM that same JSON). So the criterion's frozen text stands VERBATIM and the computable form it is
+satisfied by is fixed here, in the form the document's own literals already support:
+
+- **Read the artifact at test time, through the same reader clause (1) uses.** `_golden`
+  (`tests/test_identity_endgame.py:_golden`, `:395-397`) is the reader
+  `test_strangler_prose_class_is_closed_in_the_package` itself takes at `:996`; the check imports it and
+  `AUTHORIZED_PROSE_OWNERS` from that module rather than re-spelling either (the cross-test-module import
+  idiom already exists at `tests/test_name_gate_delta_rule.py:54-55`).
+- **Assert the FROZEN POPULATION's count: the number of entries in `["lines"]` whose `owner` is
+  `PersonRepository.save` is exactly 29** (`tests/fixtures/identity_endgame/prose_surface_cut0.json:2400-2544`
+  ≙ `person.py:1158-1189` plus `:1195-1196`, the figure four sections of this document already print).
+  Counted as a LIST LENGTH and never as the size of an `(owner, text)` SET — two identical texts collapse in
+  a set and would hide exactly the deletion this conjunct exists to catch.
+- **Assert `AUTHORIZED_PROSE_OWNERS` equals its thirteen declared members**, with neither
+  `PersonRepository.save` nor the bare class among them (`tests/test_identity_endgame.py:359-373`).
+
+**Why 29 may be pinned by EQUALITY, which is the WI-295 question and is answered rather than assumed.** The
+figure is FROZEN, not live: `prose_surface_cut0.json` is a Cut-0 golden "recorded ONCE, against unchanged
+code; never re-recorded" (`tests/test_identity_endgame.py:test_identity_goldens_are_frozen_pre_cut_data`,
+`:400-402`), this item declares it as no write target and edits nothing under
+`tests/fixtures/identity_endgame/`, so the item's own arc cannot append to the population the pin froze. It
+is the same move F18 leg 1 prescribes for the census — assert the count of a frozen population, read from the
+artifact, against a literal this document states — and it is the reason that move is available here and the
+byte-identity one is not.
+
+**What the two legs make RED, and why neither (e1) nor (e2) nor conjunct (1) can do it.** All three of those
+read the tuple and the golden; none of them can witness a change TO the tuple or the golden, which is exactly
+the gap AC-3's `why:` means by "the conjunct (e1) and (e2) cannot supply". Leg 1 catches the AUTHORIZATION
+itself: adding `PersonRepository.save` to `AUTHORIZED_PROSE_OWNERS` is the move that makes (e1) stop
+protecting its 29 lines at all, and it is RED the moment it is made rather than after the build has chosen
+which line to sacrifice to (e2) (rejected item 15). Leg 2 catches the GOLDEN EDIT: removing a record from
+`prose_surface_cut0.json` silently shrinks the domain that (e1) AND this criterion's own conjunct (1) both
+compute their expectations from, so a build that deletes a docstring line and its record together is green on
+conjunct (1) BY CONSTRUCTION — conjunct (1) is only ever as strong as the artifact it reads, and leg 2 is what
+pins that artifact so conjunct (1) cannot be neutered instead of satisfied. Neither leg is inferable from the
+other. The correct build — append two paragraphs, touch neither the tuple nor the golden — is green on both at
+no cost.
+
+### §7 The migration: `scripts/migrate_whatsapp_to_list.py`
+
+**Home.** `scripts/`, beside `lint_vault.py`, and inside this project's declared `write_authority`
+(`pipeline-runners.yaml:34-38`). Two reasons rather than convention: `scripts/` is swept by
+`tests/test_name_gate_wall.py`'s arm wall (`python_files_under(PACKAGE_ROOT, SCRIPTS_ROOT)`,
+`test_name_gate_wall.py:131`), so any frontmatter write arm the module carries must route through
+`gate_write` with a resolved declaration — which is AC-5 leg (b)'s structural assertion, for free and from
+a wall that was already standing; and it is OUTSIDE `tests/test_write_target_seam_wall.py`'s universe
+(`python_files_under(PACKAGE_ROOT)`, `:227`), so a one-off vault walker does not have to satisfy WI-029's
+loaded-entity provenance seam, which is a contract about repositories and not about a migration reading
+bytes.
+
+**Four entry points, and their NAMES are load-bearing** (see §8):
+
+```python
+def plan_migration(vault_path) -> MigrationPlan:      # READ-ONLY. The dry run.
+def apply_migration(vault_path, plan, *, repair=True) -> MigrationResult
+def readback_migration(vault_path, plan) -> ReadbackResult
+def _cli(argv=None) -> int                             # argparse; --vault REQUIRED
+```
+
+Four ENTRY POINTS, and one further read-only formatter the M1 fold adds beside them —
+`format_repair_disclosure(plan) -> str`, specified in §10(a), with its one private render helper
+`_escape_for_one_line(raw) -> str` from §10(d). Neither drives anything and neither is a member of
+`MUTATING_DRIVE_VAULT_POSITIONS` for the same reason `plan_migration` and `readback_migration` are not, so §8's
+census and its six clauses are unchanged by both.
+
+**No `DEFAULT_VAULT` and no env fallback.** `--vault` is `required=True` and the module names
+`OBSIDIAN_VAULT_PATH` nowhere. That is not caution: `tests/test_vault_path_required.py:312-331` scans every
+`.py` under `obsidian_schemas/` and `scripts/` for `FORBIDDEN_DEFAULT_PATTERNS = ["expanduser",
+"Path.home()", "/Users/"]` and asserts zero live matches, and WI-031 closed the library's own env-fallback
+route. A migration that can be pointed at the live vault by OMISSION is the one shape this repo has already
+decided against twice.
+
+**The per-note action, from `classify_field` and nothing else.** For each `type: person` note the run reads
+RAW frontmatter (never a model — `parse_to_model` would coerce the field before the run could see its stored
+shape) and takes exactly one arm:
+
+| stored `whatsapp` | classes | action | part of the partition |
+|---|---|---|---|
+| key ABSENT | `[]` | **no write** — nothing to convert | outside the partition's domain |
+| `""`, whitespace, YAML null, or already `[]` | `[]` | SHAPE-ONLY: write `[]` (skip if already a list) | MIGRATED (the 1025 sub-count) |
+| already a list, every member in `{A,B}` | A/B | **no write** — already migrated | MIGRATED |
+| scalar, member in `{A,B}` | A or B | CONVERT: write `[<member verbatim>]` | MIGRATED |
+| any member class C, repair ENABLED | C | REPAIR then convert: `f"{parse(v).phone_digits}@s.whatsapp.net"` | MIGRATED (the repair sub-count) |
+| any member class C, repair DISABLED | C | **no write**, reported | RESIDUAL R (Ruling B's alternative arm) |
+| any member class D or E | D/E | **no write**, reported, byte-identical | RESIDUAL R |
+
+**The repair is GUARDED on `phone_digits` being non-empty, and the guard is not decoration.** Applying it to
+a phone-less unstorable value (class E) would write `"@s.whatsapp.net"`, which `parse` then REFUSES —
+turning a note the run was supposed to leave alone into one nothing can read back. Every class-C value is
+phone-bearing by construction once class E is carved out of it, and the census confirms all 82 live members
+are bare numbers with no `@` at all, so the guard never fires negatively on a live note.
+
+**The run NEVER CLEARS a value to make a note convert.** Emptying a class-D value would move it out of R
+into MIGRATED and reach zero-outside-R trivially, by deleting the population this item exists to preserve.
+Clearing is a repair somebody ASKS for through a delta arm, never something the run decides.
+
+**The write is ONE call: `writer.update_frontmatter_field(path, "whatsapp", new_list)`.** It already takes
+`vault_io.note_lock`, reads inside the lock, gates the delta with the note's own parsed `type:` and writes
+under a stamp precondition (`writer.py:359-393`). So the migration introduces NO new frontmatter write arm,
+adds no direct `write_text`, and AC-5 leg (b) is a STRUCTURAL claim about the module's call graph rather
+than an observation about its results. A `NameGateRefusal` out of that call on a note the plan classified as
+convertible is a LOUD failure that aborts the run — never caught and counted.
+
+**The readback is a RE-READ.** `readback_migration` opens a FRESH `PersonRepository` over the vault path
+itself, so the oracle is the note BYTES parsed by a load that did not exist before the write. A readback
+computed through the migrating process's own repository compares a private replica with itself and is green
+by construction whatever the bytes say — the repository holds a process-local cache and re-indexes the
+entity it just wrote (`person.py:257-284` plus the save rider). Constructing the repository INSIDE this
+module rather than in its test is also what lets the test module satisfy §8's zero-construction clause.
+
+**The reconciliation identity is over the TRIPLE.** `plan_migration`, `apply_migration` and
+`readback_migration` each report `(scalar_outside_residual, migrated, residual)`; `_cli` compares them PART
+FOR PART and exits non-zero on any disagreement, naming the part that disagreed. One number agreeing is not
+the check.
+
+**THE RE-RUN IS A NO-OP, and it is ASSERTED rather than argued from the action table's shape.** A second pass
+over an already-migrated vault — `plan_migration` again, then `apply_migration` with THAT fresh plan, which is
+the same two steps `## Edge Cases`' retry remedy tells a conductor to take and never the first pass's stale
+plan — takes the table's `already a list, every member in {A,B}` row for every converted note and the same
+row's empty case for every shape-only note, so it writes NOTHING, converts nothing, repairs nothing and
+reports the same residual R. That property is not decoration: it is what
+`## Edge Cases`' retry remedy rests on — "a partial run leaves a vault in which the same command computes the
+correct remaining work" — and it is the only remedy this design offers a conductor whose live run aborted
+mid-vault, so leaving it in prose would leave the promise unpinned. Three things make the assertion honest
+rather than nominal:
+
+- **The discriminating oracle is a CALL COUNT, not a digest.** A tree digest cannot tell "no write" from
+  "re-write the same bytes" — identical bytes give an identical digest — and AC-5's two-JID plant cannot
+  either, since it is list-shaped from the start and so discriminates only "does not ABORT on a list". So the
+  second pass is asserted to make **zero calls to `writer.update_frontmatter_field`**, counted by a wrapper
+  installed with `tests/support.py`'s `patcher` for the duration of that pass, beside the digest (which still
+  catches a re-write that REFORMATS) and beside the run's own reported numbers: the count of notes the write
+  COMMITS is zero and the repair count is zero, while **the TRIPLE is unchanged rather than zeroed** — an
+  already-list-shaped note is MIGRATED by the action table, so part (2) stays at its first-pass value and part
+  (3) is the same R. "Nothing was written" and "nothing is migrated" are different claims and only the first
+  one is true of a re-run.
+- **The module must import the writer MODULE for that oracle to be reachable**: `from obsidian_schemas import
+  writer` and a `writer.update_frontmatter_field(...)` call resolved at call time, never
+  `from obsidian_schemas.writer import update_frontmatter_field`, which binds the function into the
+  migration's own namespace and makes the counter blind. The ONE-CALL sentence above already spells it that
+  way; this states WHY the spelling is prescribed rather than incidental.
+- **The second drive is bound by §8's SPELLING clause exactly like the first.** BOTH `apply_migration(...)`
+  call sites in the check pass the identifier `vault`, bound from the one `_temp_vault` door — a second drive
+  spelled with any other expression is COLLECTED by the containment scan and raises there, which is the wall
+  working and a confusing place to discover it.
+- **A build that aborts on a list-shaped note is RED by intent** rather than by luck, because the second pass
+  runs over the FIRST pass's output — every note it meets is list-shaped, and the run must complete and report
+  rather than refuse.
+
+### §8 The containment wall this item's migration joins, and the one clause it cannot take
+
+AC-5 requires the migration driven "under the containment wall that proves the module drives only a temp
+vault (`tests/derivations.py:mutating_drive_vault_args`)". That derivation collects a call only when its
+callee is a member of `MUTATING_DRIVE_VAULT_POSITIONS` (`tests/derivations.py:2012-2017`, `:2230-2232`) —
+today four names, all `lint_vault`'s. So the wall is VACUOUS over a new module until the dict names its
+mutating entry point. One member is added:
+
+```python
+MUTATING_DRIVE_VAULT_POSITIONS = {
+    "apply_fixes": 1,
+    "quarantine_garbage": 1,
+    "run_lint": 0,
+    "main": None,
+    # WI-032. `scripts/migrate_whatsapp_to_list.py`'s ONE mutating entry point.
+    # `plan_migration` and `readback_migration` are read-only and are not
+    # members: the census's subject is MUTATING drives. The CLI entry is named
+    # `_cli` and not `main` deliberately — `main` is already a member with NO
+    # vault-argument position, so a collected `main()` call RAISES, and reusing
+    # the name would make this module's own CLI undrivable from a test.
+    "apply_migration": 0,
+}
+```
+
+The new test module then asserts, over its own source, every clause WI-029's own containment wall asserts
+except ONE sub-assertion named below (`tests/test_stem_name_divergence_detector.py:141-192` is the shape to
+copy literally). Six clauses plus the runtime door: SPELLING (every collected drive's vault argument is the
+identifier `vault`); NON-VACUITY (the module drives something, so the wall is not empty); PROVENANCE (every
+binding of that identifier is a call to the one `_temp_vault` door); SOURCE (the module names the live vault
+path nowhere outside that door's own body); LIBRARY (zero `*Repository(...)` constructions anywhere in the
+module — which §7's `readback_migration` design is what makes possible); IMPORT (no subprocess-capable
+module, so no child process escapes the in-process clauses); and the runtime door EXERCISED rather than left
+to whichever drive happens to run first.
+
+**The one sub-assertion NOT available is inside the SOURCE clause, and it is DECLARED rather than dropped.**
+WI-029's wall also asserts
+`{n[2] for n in scan.live_path_names} == LIVE_PATH_TOKENS` — all three token shapes exercised inside the
+door — and its door reads `lint_vault.DEFAULT_VAULT` to do it. This item's script HAS no `DEFAULT_VAULT`, by
+§7's own rule. So the new module's door names TWO of the three tokens (`os.environ` and the literal
+`"OBSIDIAN_VAULT_PATH"`, both inside `_temp_vault`'s body, asserting the built vault is not the live one),
+and the module asserts that set by EQUALITY plus `not hasattr(migrate, "DEFAULT_VAULT")` — so the third
+token's absence is a PROVEN consequence of the script's design rather than an unexplained gap in a wall.
+Nothing is narrowed: the clause it replaces is strictly stronger about this module than a silent omission.
+
+**The CLI is verified outside the hermetic suite.** `_cli` cannot be driven in-process from the graded module
+(its argv path constructs a vault path the `drives` census cannot reduce to a door-bound name) and cannot be
+driven as a child process (the IMPORT clause). It is exercised by the conductor in the live bracket, which is
+where a CLI's real audience is anyway.
+
+### §9 The frozen corpus: two EDITS, three plants elsewhere
+
+Not "the fixture plant" — five itemized lines, two of which edit the frozen corpus and were mispriced as
+free members for two rounds:
+
+1. **`tests/fixtures/vault/@Thrandell Ibberly.md:7`** — `whatsapp: "447700900789@example.com"` becomes
+   `whatsapp: "15555550142@lid"`. It is the corpus's SOLE person `roundtrip_representative`
+   (`tests/fixture_vault.py:219-233`, uniqueness asserted at `tests/test_fixture_vault.py:689-695`) and two
+   tests write it through the gated whole-record arm asserting NO refusal
+   (`tests/test_writer.py:421`, `tests/test_fixture_vault.py:753`). Keeping a class-C value there makes a
+   CORRECT build red and invites deleting the repo's only proof that a whole person field set survives the
+   write door. Class A is structurally unavailable to it — STORABLE is membership of
+   `{"s.whatsapp.net", "lid"}`, and `s.whatsapp.net` is reserved by no RFC, so WI-016's privacy wall
+   (`tests/test_fixture_vault.py:302-319`, reach at `:386-392`) makes any `@s.whatsapp.net` literal RED
+   anywhere in the corpus's reach. Class B it is, and `15555550142` matches the wall's third reserved phone
+   pattern `^1?\d{3}55501\d{2}$` (`:308-312`) with no 555-01xx member anywhere in the corpus today.
+2. **The DECLARED SHAPE moves with the value.** `tests/fixture_vault.py:225`'s override becomes
+   `whatsapp=["15555550142@lid"]` — the LIST — while the NOTE keeps the scalar spelling, because
+   `tests/test_fixture_vault.py:745-748` compares `getattr(doc.entity, attribute)` against the declared
+   literal and `:755-761` compares the RE-PARSED frontmatter MAPPING against the same literal. The tolerant
+   reader is what makes a scalar note and a list declaration agree. A builder who reads this as "change the
+   string" gets it half right and red. `_person`'s default (`tests/fixture_vault.py:94`) becomes `[]` in the
+   same move — machinery that travels with the field, easy to miss because it is not in `obsidian_schemas/`.
+3. **`tests/fixtures/vault/@Fennwick Drostane.md:7`** receives the class-C value
+   `whatsapp: "447700900789@example.com"`, with `whatsapp=["447700900789@example.com"]` added to its
+   `NoteSpec` (`tests/fixture_vault.py:340-341`). The receiver is CONSTRAINED, not chosen: it must LOAD (never
+   one of the three declared person skip specimens, `tests/fixture_vault.py:490-494`), declare NO
+   `shape_classes`/`verdict` (the census verdict loop writes a shape-class specimen's whole declared field set
+   through the gated door and asserts `exc.pattern` equals the DECLARED name pattern on its `kind == "refusal"`
+   arm, `tests/test_fixture_vault.py:866-878`; see F18 leg 2 for why the constraint is stated over EVERY
+   shape-class specimen and not only that arm), and NOT be stem-divergent
+   (`@Perrowin Tessamund Drostane.md` and `@Yolvenna Brindlecote Skarnell.md` satisfy the first two and are
+   the corpus's two MARKER-BEARING divergent notes, asserted by EQUALITY at
+   `tests/test_stem_name_divergence_detector.py:341-345`). Eight notes satisfy all three;
+   `@Fennwick Drostane.md` is the one, and the CONSTRAINT is what a builder reasons from when the named note
+   stops being available.
+4. **`CORPUS_DIGEST` (`tests/fixture_vault.py:44`) is regenerated** by the one-line command in that module's
+   own docstring (`:21-25`). **`docs/vault-shape-census.md` is NOT touched — no row, no digest, no edit.**
+   Its digest is asserted against a literal inside WI-016's SIGNED AC-3 `criteria` fence
+   (`tests/test_fixture_vault.py:217-254`, `docs/vault-fixtures.md:1418`), its row vocabulary is
+   name-corruption `branch_id`s with live-vault counts and NAME specimens, and its MEASURED rows are an
+   EQUALITY against the manifest's `shape_classes` with a per-note `Verdict` over `name` — so a `whatsapp`
+   value has no cell to occupy and the digest has no build-owned home. This item's per-cell counts live in
+   `docs/wi-032-whatsapp-corpus-census.md`.
+5. **Classes A, D and E and every boundary probe are literals of the NEW TEST MODULES' own temp vaults** and
+   never enter `tests/fixtures/vault/` or `tests/fixture_vault.py`. `447700900321@s.whatsapp.net` (A) and
+   `notaphone@s.whatsapp.net` (D) are wall-RED in the reach; `447700900654@lid.example` (E) is wall-clean
+   only because `.example` is a reserved TLD matched by SUFFIX while `lid.example.com` is a SUBDOMAIN of
+   `example.com`, which the frozenset matches by EQUALITY. `"+44 7739 341679"` — the one real identifier in
+   the set, already committed at `docs/write-door-bypasses.md:3994` — must NEVER be moved into the corpus or
+   its manifest. `tests/test_fixture_vault.py` is NOT a write target: no wall of it is widened, weakened or
+   exempted.
+
+### §10 The go/no-go disclosure surface: what the dry run PRINTS, and what the tracked bracket may never carry
+
+**The FOUR `kind: required` mitigations of the threat model's two rounds — M1, M2 and M3 from
+`## Threat Model — 2026-09-27` and M4 from `## Threat Model — 2026-09-27 (round 2)`, which re-emits the first
+three byte-identically — folded here in one section because they share one generator.** That generator is not
+a gap in the write path — the write path is `vault_io` and
+the gate, and the threat model verified it. It is that the IRREVERSIBLE half of this item is authorized by a
+HUMAN reading two artifacts, the migration's stdout and `docs/wi-032-whatsapp-live-baseline.md`, whose CONTENT
+no section of this document specified; so every description of both defaulted to per-cell counts. Counts are
+the right EXIT figure and the wrong GO/NO-GO figure, and an unspecified disclosure surface is also an
+unspecified privacy surface. (a), (b) and (c) specify WHAT each surface carries and WHERE it may travel; (d),
+added by round 2, specifies HOW the one surface that renders note-derived text renders it, which is the
+property that makes (a) trustworthy at the moment it is read rather than merely present. Nothing here changes
+what the migration writes, no `criteria` fence moves, and Rulings A, B and C are untouched.
+
+**(a) The dry run prints the class-C repair per note, uncorroborated members first (M1).**
+
+**`plan_migration` carries, per class-C note, a `RepairDisclosure(path, stored_value, proposed_jid, corroborated)` record whose `corroborated` is computed by `phones_match` over that note's OWN raw `phones[]`, and `format_repair_disclosure(plan)` returns one line per record with the UNCORROBORATED records FIRST under their own header, which `_cli` prints on every run BEFORE any write — so the 82 irreversible re-spellings are authorized with every stored-value → proposed-JID pair VISIBLE and the census's one uncorroborated member unmissable, never off aggregate per-cell counts.**
+
+Four things about that sentence, because each is a decision and not a detail:
+
+- **It is a PRINT, not a redesign.** `apply_migration(vault_path, plan)` already consumes a `MigrationPlan`
+  that must hold the per-note action, so the pair is data the plan holds by §7's own construction; the record
+  names it and the formatter renders it. `plan_migration` reads RAW frontmatter (§7), and `phones[]` is on the
+  same mapping it already reads, so the corroboration flag costs no second read and no repository.
+- **The flag, and not just the pairs, is what the census asked for.** AC-5 leg (d)'s key preservation is TRUE
+  BY CONSTRUCTION of the repair spelling — the pre-migration key is `phone:<normalize_phone(v)>`, the
+  post-migration key is `phone:<normalize_phone(f"{digits}@s.whatsapp.net")>`, and `normalize_phone` splits at
+  the first `@` (`phone_normalization.py:52-55`), so the two are equal for ANY digit run whatsoever. A value
+  carrying a number plus an extension (`"+44 20 7946 0958 x212"` → digits `442079460958212`) is class C, is
+  phone-bearing, passes the guard, is rewritten into a JID belonging to nobody, and satisfies leg (c)'s
+  multiset oracle and leg (d)'s key-preservation assertion identically. The readback cannot see it, by
+  construction. The note's own `phones[]` is the only independent witness the corpus offers, and the census
+  already computed it: `C:digits-already-in-own-phones[]` is **81** of **82**
+  (`docs/wi-032-whatsapp-corpus-census.md:172`, its script at `:96-101`), so exactly one live member is
+  uncorroborated and the census prescribes the remedy this fold delivers — "it is the one row worth eyeballing
+  in the dry run" (`:207-208`). The disclosure recomputes the flag the SAME way the census did, by calling
+  `phones_match(WhatsAppJID.parse(v).phone_digits, normalize_phone(p))` for each non-blank `p` in the note's
+  raw `phones[]` — never by re-deriving an equivalence of its own.
+- **The formatter RETURNS a string and does not print; `_cli` prints.** So the disclosure is asserted
+  in-process without capturing stdout, and `format_repair_disclosure` is read-only — not a member of
+  `MUTATING_DRIVE_VAULT_POSITIONS`, for exactly the reason `plan_migration` and `readback_migration` are not
+  (§8): the containment census's subject is MUTATING drives.
+- **Each rendered field is ESCAPED, and that is not a loss of fidelity — see (d).** The line carries the note
+  path, the stored value and the proposed JID, each passed through `_escape_for_one_line`, so ONE PHYSICAL LINE
+  PER RECORD is a property of the FORMATTER over any stored value rather than a property of the data. For the
+  82 live members, all bare digit runs, the escape is the identity and the rendered line is byte-identical to a
+  verbatim one — which is why nobody should later restore "verbatim" as a fidelity improvement: the escape is
+  verbatim wherever verbatim is safe, and the only values it changes are the ones that would have reflowed the
+  artifact or forged a header inside it.
+- **The population is class C ONLY, and both arms of Ruling B print it.** Classes A and B need no repair, D
+  and E are byte-identical and reach the conductor through the detector's count, and Ø is shape-only with no
+  pair to show. Under `--no-repair` the same records print under a header stating that no repair will be
+  attempted and that those notes join R — the conductor sees the same 82 pairs either way, which is what makes
+  Ruling B's alternative arm readable rather than hypothetical.
+
+**The three names a builder and a test have to agree on, so neither re-types a literal.** The records live on
+`plan.repairs: list[RepairDisclosure]` — the same `MigrationPlan` `apply_migration` already consumes — and the
+two section headers plus the alternative-arm banner are MODULE CONSTANTS the check IMPORTS rather than spells:
+
+```python
+#: WI-032 M1. The dry run's repair disclosure. Section order is the mitigation:
+#: the uncorroborated members are printed FIRST because there is exactly one of
+#: them on the live corpus and it is the row the census asked a human to read.
+UNCORROBORATED_HEADER = "UNCORROBORATED — digits not in this note's own phones[]:"
+CORROBORATED_HEADER = "CORROBORATED — digits already in this note's own phones[]:"
+NO_REPAIR_BANNER = "NO REPAIR (--no-repair): these notes are NOT rewritten and join the residual R:"
+```
+
+The record carries a vault note PATH and a real stored telephone number. That is the point of it, and it is
+why (b) exists in the same fold rather than after it.
+
+**(b) That detail lives on stdout and never in a tracked document, and this item ships the wall (M2).**
+
+**The repair pairs and the detector's per-note issue lines are STDOUT of the conductor's live run and are NEVER written into `docs/wi-032-whatsapp-live-baseline.md` or any other tracked document — which carries counts, classes and code paths only — and because `docs/**` is outside the repo-wide markdown scan's domain (`DOC_SCAN_EXCLUDED = {".git", ".venv", "docs", "state", "node_modules"}`, `tests/test_vault_path_required.py:387`, intersected against every path part at `:425`) nothing standing would catch a pasted live identifier, so this item ships that wall itself: a check over the bracket file's FINAL text asserting that no JID-shaped token and no run of nine or more digits survives outside a 40-hex commit token.**
+
+- **Why a wall and not the instruction we already have.** Task 13 says "counts, classes and code paths only:
+  no vault note name, no live identifier" and the close-out says "redact the transcript before it is recorded
+  in any tracked document". Both are prose, and (a) has just made the natural conductor move — paste the
+  detail you were shown into the document where you record what you decided — carry 82 real telephone numbers.
+  A transparency mitigation implemented naively is an information-disclosure defect; the wall is what keeps (a)
+  from becoming one.
+- **The predicate, stated exactly, because its false-positive mode is MEASURED rather than imagined.** Strip
+  every `\b[0-9a-f]{40}\b` token FIRST, then refuse any `\d{9,}` run, and refuse a digit immediately followed by
+  `@` and a domain label. The strip is not caution: every HEAD the entry row copies is a 40-hex token, and two
+  of the ones recorded in `docs/wi-032-consumer-audit.md` already carry nine-digit runs INSIDE them — `984664193`
+  in `:92`'s and `588953919` in `:144`'s, which are that artifact's ONLY two nine-digit runs — so an unstripped
+  scan fires on correct content, gets read as noise, and is narrowed back under pressure with nothing checking
+  that the narrowing kept the claimed shapes: the WI-235 failure, closed in advance. The BARE domain literals `@s.whatsapp.net` and `@lid` are deliberately NOT refused: §2 of
+  that document names them as the storable classes' domains and must keep being able to.
+- **It ships its claimed match-shapes as fixtures (WI-235), driven through the same predicate.** MUST match:
+  `"15555550142"`, `"123456789012@s.whatsapp.net"`, `"15555550142@lid"` — RESERVED-block and synthetic literals
+  only, per threat-model note 3, because a wall over live identifiers has no business introducing one and the
+  predicate cannot tell a reserved eleven-digit run from a real one. MUST NOT match:
+  `27cb78cc5a2099972dccea984664193e69414def` (the real pinned HEAD carrying `984664193`), the counts
+  `1168` / `1025` / `82`, the line range `663-665`, the date `2026-09-27`, and the bare `@s.whatsapp.net`. A
+  wall that passes by matching nothing and a wall that passes by matching everything are both closed by that
+  pair of lists.
+- **Scope: all THREE `docs/wi-032-*` artifacts, and deliberately NOT this document.** The sentence above names
+  the bracket because that is the file M2 names and the only one this item WRITES; the check runs the same
+  predicate over the two grounding artifacts as well, which closes the class this item's docs form instead of
+  the one instance. Both are clean under it today, measured in this worktree: the census carries no nine-digit
+  run and no digit-before-`@` at all, and the consumer audit's ONLY two nine-digit runs are the two inside the
+  pinned HEADs named in the bullet above. This document is excluded, and the exclusion is a ratified
+  decision rather than an oversight: `## Design` §9 line 5 and F18 leg 6 deliberately keep `"+44 7739 341679"`
+  in it, already committed twice in this tree, and threat-model note 3 re-examined that and declined to move it
+  because AC-3 is frozen. A predicate run over this file would be RED against a state two gates ratified.
+- **It keeps holding after the close-out.** The check asserts the §5 heading EXISTS and asserts NOTHING about
+  its content — the conductor writes the exit figures there after the build, and a check pinning §5 empty would
+  redden the floor at exactly the moment the item closes. The redaction predicate still holds over §5, because
+  what §5 carries is the partition's three parts as counts.
+- **One sentence of honesty about the detector.** Its `LintIssue` carries `vf.path` (§4), a vault note NAME —
+  so "the detector reports counts" is true of the COUNT that `## Approach` step (4) uses as the independent
+  second witness to `|R|`, and false of its per-issue lines. Those lines are stdout, like (a)'s pairs.
+
+**(c) The one silent destructive consumer break is stated as its own HOLD, not as item three of a list (M3).**
+
+**`docs/wi-032-whatsapp-live-baseline.md` §3 states the two LOUD breaks as its ordered list — `orchestrator/src/invariants.py:663-665`, a vault-wide red invariant, and `HAL9000/backend_fastapi/routers/contacts.py:41,50`, a 500ing endpoint — and states `orchestrator/bin/merge-duplicate-persons.py:380-384` in its OWN row under the heading `DATA-LOSS HOLD`, because that site regex-reads a single `whatsapp` line and re-emits a scalar through `Path.write_text` outside the package boundary, so against a migrated vault it can silently collapse a person's list to one value or blank the field — the exact harm this item exists to prevent, and the only one of the three that does not announce itself.**
+
+- **Why the separation IS the mitigation.** Three consequences in one list read as three annoyances to be
+  weighed together. Two of these announce themselves the instant they break — an invariant goes red vault-wide,
+  an endpoint 500s — and are therefore self-limiting and repairable at leisure. The third is silent, is
+  destructive, and destroys precisely the value this item exists to protect. A conductor reading a flat list
+  cannot see that difference; a conductor reading a HOLD row cannot miss it.
+- **What the HOLD row carries.** The pinned 40-hex HEAD from `docs/wi-032-consumer-audit.md`; the reaching
+  callers (`bin/apply-vault-review.py:152,158`); the clearing path measured by the audit — `:383-384` emits
+  `whatsapp: ""` when its single-line regex misses a block-YAML list (`docs/wi-032-consumer-audit.md:202-204`);
+  and ONE instruction for the conductor, which is what makes it a hold rather than a note: after the migration,
+  `merge-duplicate-persons.py` and `apply-vault-review.py` are not to be run against the vault until that
+  repository's own item fixes the writer. It is not this repo's to fix (`## Scope Boundary`) and it is already
+  on the WI-029 divergence-generator list; the hold is how the item declines to fix it without leaving the
+  hazard un-stated.
+- **The audit's list is SEVEN sites, and the entry row says so.** `docs/wi-032-consumer-audit.md:227-239`
+  enumerates seven, all of them tripped by the VALUE becoming a list and none by the door refusing anything.
+  The entry row names the first three individually — two loud, one held — and carries a one-line pointer to the
+  audit for items 4–7 (`find-duplicate-persons.py`, `generate-vault-review.py:450`, the enricher role's PATCH
+  body, and the two latent `ContactInfo` mirrors) rather than re-listing them, so the go/no-go is taken against
+  the whole measured blast radius with the destructive site separated out of it.
+
+**(d) Every field the disclosure renders goes through ONE escape, so "one line per record" is a property of the formatter and not of the data (M4).**
+
+**`format_repair_disclosure` renders EVERY field of every `RepairDisclosure` — `path`, `stored_value` and `proposed_jid` alike — through the single module-level helper `_escape_for_one_line`, which escapes the backslash first and then renders as a visible `\xNN`/`\uNNNN` escape every character `str.splitlines()` treats as a line break and every character whose `unicodedata.category` is `Cc`, `Cf`, `Zl` or `Zp` (so the newline, the carriage return, the tab, the ANSI `\x1b` and their whole class), which makes ONE PHYSICAL LINE PER RECORD a guarantee of the formatter over ANY stored value instead of an accident of the data — and Task 10's M1 check plants an UNCORROBORATED class-C note whose stored value carries an interior newline followed by the text of `CORROBORATED_HEADER` and asserts that the output's line count still equals the record count plus the headers the formatter itself emitted, and that no output line EQUALS a header constant the formatter did not emit.**
+
+- **Why a stored value can carry a control character at all — verified in the code, not supposed.**
+  `WhatsAppJID.parse` normalizes with `str(raw).strip().lower()`
+  (`obsidian_schemas/identifier.py:WhatsAppJID.parse:273`) and `.strip()` removes only LEADING and TRAILING
+  whitespace, so an interior newline, carriage return, tab or ESC survives into `.jid` intact; `normalize_phone`
+  then splits at the first `@` and deletes every non-digit
+  (`obsidian_schemas/phone_normalization.py:normalize_phone:52-55`), so
+  `"447700900321\n<any text carrying no @ and no digits>"` yields twelve digits, parses, is phone-bearing, has
+  an empty `jid_domain`, and is therefore **class C** — the exact population (a) prints, and the exact
+  population the repair rewrites. The doors that can produce it are the same three unvalidated ones that wrote
+  the Kim Faura value, which is this item's whole premise; the census measured the 82 as bare numbers with no
+  `@` and was never asked about interior control characters, so neither the census nor the corpus is evidence
+  that none is there.
+- **What breaks without it is not an ugly line.** Rendered raw, one record becomes two or more physical lines:
+  the conductor's line count no longer equals the repair count, the UNCORROBORATED-FIRST ordering that is the
+  whole point of (a) stops being visually reliable, and a stored value carrying a newline plus the text of
+  `CORROBORATED_HEADER` renders a FORGED section header into the one artifact an irreversible 82-note go/no-go
+  is read against — i.e. the disclosure can be steered by the very data it exists to disclose. The harm is
+  legibility and forgery, not corruption: the repair itself reads only `phone_digits`, so such a value still
+  repairs to a clean canonical JID and no note is damaged. That is why this is a formatter fold and not a
+  change to the action table.
+- **The rule is stated over the CLASS that generates the hazard, not over the four characters the finding
+  named.** Escaping `\n`, `\r`, `\t` and `\x1b` alone leaves U+000B, U+000C, U+001C–U+001E, U+0085 NEL,
+  U+2028 LINE SEPARATOR and U+2029 as the next round's finding — `str.splitlines()` breaks on every one of
+  them, so a four-character escape still reflows the artifact. So the check DERIVES the first set instead of
+  listing it: `BREAK_CODEPOINTS = frozenset(cp for cp in range(0x110000) if len(f"a{chr(cp)}b".splitlines()) > 1)`,
+  computed ONCE at test-module level (~1s, which is why it is computed once and why a builder must not
+  "optimize" it into a hand list — a hand list is the defect this bullet exists to prevent), and the second set
+  is read from `unicodedata.category`. The assertion is then total over both derived sets rather than over a
+  sample: for every codepoint in `BREAK_CODEPOINTS`, `_escape_for_one_line(f"a{chr(cp)}b").splitlines()` has
+  length 1; and for every one of them plus `\x1b`, the escaped rendering contains no such raw character. A
+  character in neither set is passed through unchanged — the escape narrows nothing else.
+- **The two sets are ONE rule, not a union a builder has to compose.** The category set CONTAINS the break set
+  — every character `str.splitlines()` breaks on is `Cc` (`\n`, `\r`, `\x0b`, `\x0c`, `\x1c`–`\x1e`, `\x85`),
+  `Zl` (U+2028) or `Zp` (U+2029) — so the implementation is the CATEGORY test alone, and the derived
+  `BREAK_CODEPOINTS` leg exists to prove that containment on the running interpreter rather than to add a
+  second rule. If a future Python breaks on a character outside those four categories, that leg goes RED and
+  says so, which is the whole point of deriving it. The rendering itself is pinned so the builder makes no
+  judgment call: the backslash first as `\\`, then `f"\\x{cp:02x}"` for a codepoint below `0x100` and
+  `f"\\u{cp:04x}"` for the rest.
+- **It escapes the fields that are clean BY CONSTRUCTION too, and asserts the escape is a no-op on them.**
+  `proposed_jid` is `f"{digits}@s.whatsapp.net"` built from `normalize_phone` output and so is digits-only
+  today; `path` is a filesystem name, which on POSIX may legally contain a newline. Routing all three fields
+  through one helper makes the guarantee total over the RECORD rather than over the one field the finding
+  named, and it survives a future change to the repair spelling that the finding's per-field fix would not. The
+  check asserts `_escape_for_one_line(x) == x` for every field of every CLEAN plant, which is simultaneously
+  the fidelity leg: escaping is the identity on every value that would not have broken the render, so the 82
+  live bare digit runs print exactly as a verbatim render would print them.
+- **The oracle becoming TOTAL is the second thing this buys, and the reason it belongs in (a)'s own check.**
+  Before the escape, "the line set is EXACTLY one line per class-C plant" held only over CLEAN plants — an
+  oracle that stays green while a whole cell of its input space is unclassified, which is the shape this
+  document rejects everywhere else and the stated reason class E is asserted rather than assumed. After it, the
+  same assertion holds over ANY stored value, and the adversarial plant is what makes the difference
+  falsifiable rather than asserted.
+- **The plant is asserted to BE the shape it claims, or the leg is vacuous.** It is planted as a YAML
+  double-quoted scalar carrying the `\n` escape, through the SAME `_temp_vault` door every other plant in that
+  module uses (so §8's PROVENANCE clause is unaffected), and three things about it are asserted before
+  anything is asserted with it: the value the migration reads back out of the note actually CONTAINS the
+  planted control character (a plant that silently became clean proves nothing); `classify_field` called on it
+  returns exactly `["C"]`; and `phones_match` called over that note's own `phones[]` returns False for it, so
+  it lands in the UNCORROBORATED section — the section where a forged `CORROBORATED_HEADER` would do the most
+  damage, by appearing to move the one row the census asked a human to read into the safe half. Its number is a
+  RESERVED-block literal (`447700900321`), per threat-model note 3: a fold about rendering live identifiers has
+  no business introducing one.
+- **The ladder, swept, and what the sweep FOUND — because closing this instance is not the fold.** The
+  generator M1, M2 and M4 share is an unspecified property of a disclosure surface. Round 1 closed WHAT and
+  WHERE; this closes HOW. **Members** (the record's fields): all three escaped, above. **Dimensions** (every
+  surface this item's own new code renders text into that could carry a note-derived value): the sweep returns
+  six besides the formatter — five already closed, one deliberately declined. `_cli`'s other output is per-cell
+  counts, class letters and the
+  reconciliation's part NAMES from a fixed set, none note-derived; the non-zero exit message names the part
+  that disagreed and no value; the detector's `LintIssue` message interpolates `len(classes)` and the sorted
+  class letters and nothing else (§4, and its own closing sentence says so); `NameGateRefusal` carries the
+  value on `.refused_value` and puts it in neither message nor traceback (§3, `## Edge Cases`' error
+  propagation); and the tracked bracket is walled by (b). The ONE surface the sweep returns that is NOT closed
+  here is `lint_vault`'s own per-issue rendering of `vf.path`, and this fold deliberately declines it: that is
+  pre-existing `lint_vault` behaviour on every check it has ever had, (b) already discloses it honestly as
+  stdout-only, and owning another tool's formatter is the widen-another-surface move rejected items 11, 14 and
+  15 decline three times. **Intersections:** a value that is both control-character-bearing and NOT class C
+  reaches no disclosure line at all (the population is class C only), and reaches the detector, whose message
+  carries no value — so the intersection is empty by the dimensions above rather than by luck. **Sub-cells**
+  (within class C): the cells are {corroborated, uncorroborated} × {clean, control-bearing}, and Task 10's M1
+  check plants all four, with corroboration computed by CALLING `phones_match` and class by CALLING
+  `classify_field` in every cell — never from a flag written beside the plant.
+- **Cost and blast radius.** One helper in `scripts/migrate_whatsapp_to_list.py` plus the one stdlib import it
+  needs (`unicodedata`, which is not subprocess-capable and so is outside §8's IMPORT clause), two more plants
+  and one derived codepoint set in `tests/test_whatsapp_migration.py`. The helper is read-only and is not a
+  member of `MUTATING_DRIVE_VAULT_POSITIONS`, for the same reason `format_repair_disclosure` is not (§8). No new
+  `## Write Targets` path, no
+  `criteria` fence moved, no signed span touched, no change to what the migration WRITES, and Rulings A, B
+  and C untouched — so no D4b re-sign is implied.
+
+**All four are asserted, and no assertion is an acceptance criterion.** (a) and (d) are Task 10's
+`test_whatsapp_dry_run_discloses_each_class_c_repair_pair`; (b) and (c) are Task 13's
+`test_wi032_live_baseline_row_shape_and_redaction_wall`. Both are plan-task `verify:` checks over this item's
+own new modules — the five frozen `criteria` fences are untouched, which is what makes this fold additive
+rather than a D4b re-sign.
+
+### Configuration
+
+No settings, no thresholds, no toggles in the library. Three flags, all on the migration CLI, all explicit:
+
+| flag | default | range | where |
+|---|---|---|---|
+| `--vault` | **none — required** | an existing directory | `scripts/migrate_whatsapp_to_list.py:_cli` |
+| `--apply` | absent (dry run) | present / absent | same |
+| `--no-repair` | absent (class C IS repaired) | present / absent | same |
+
+`--no-repair` exists because Ruling B's alternative arm must be EXECUTABLE, not hypothetical: AC-5 leg (d)
+asserts both arms, and under the alternative class C joins R and `|R|` grows by the census's 82.
+`STORABLE_DOMAINS` is a frozenset on the type, not configuration — widening it is a code change that joins
+every sweep automatically because every criterion calls the predicate.
+
+### Prerequisites & Assumptions
+
+Stated, not implied. Each is either a precondition already in HEAD, a floor fact, or a named limit.
+
+1. **Both grounding artifacts are in git HEAD before the AC frame** — `docs/wi-032-whatsapp-corpus-census.md`
+   and `docs/wi-032-consumer-audit.md`. Satisfied: both landed 2026-09-27 and the data-premise gate read
+   them. Their `writes` fences below are kept VERBATIM.
+2. **Rulings A, B and C are RULED** (2026-09-27, in-session) and the ACs are FROZEN by Dave's signature
+   (`ac_hash dd772c1183de`). The build implements the recommended arm of each. A change to any of them is a
+   D4b re-sign, not a build decision.
+3. **No service must be running for the build.** The hermetic suite needs no vault, no HAL9000, no
+   exocortex, no WhatsApp bridge. `OBSIDIAN_VAULT_PATH` is UNSET in the graded environment and every test
+   supplies its own temp vault.
+4. **The floor interpreter is the project's own `.venv`.** System python has no pytest, and this `.venv`'s
+   editable install is STALE by design — `import obsidian_schemas` fails under a bare interpreter and the
+   suite works because pytest prepends its rootdir to `sys.path`. That is load-bearing and must not be
+   "fixed" (`pipeline-runners.yaml:10-17`).
+5. **`README.md` is NOT builder-writable and nothing in the build depends on it.** The project root is
+   absent from `write_authority` on purpose (`pipeline-runners.yaml:32-33`) — `README.md` is conductor-owned
+   session-end work. Nothing breaks: `README.md:52` is a field-NAME list the type change does not touch, and
+   `README.md:238`'s `get_by_phone("447990558521@s.whatsapp.net")` still works because a phone-bearing JID
+   pivots to the phone door (AC-2's third guard asserts the BEHAVIOUR, which is what the criterion is about;
+   it does not ask for a README edit). The additive documentation of the list shape and of
+   `get_by_identifier` is `/wrap-up` work outside the cage.
+6. **Atomic landing is NOT required here, and the check was run rather than assumed.** No file this item
+   writes participates in a bijection or symmetry invariant the PRE-DRIVE floor enforces against a
+   consumer that lands separately. The three set-equality walls the new test modules join
+   (`tests/test_fixture_vault.py:1373-1395`, `:569-580`) are satisfied by each module's own text with no
+   cross-file registration; `CORPUS_DIGEST` and the two corpus notes are a bijection and they land in the
+   SAME commit as each other by being the same build; `MUTATING_DRIVE_VAULT_POSITIONS` and the migration
+   module likewise.
+7. **Trust boundaries.** Three. Two are UNTRUSTED → TRUSTED crossings the gate now owns: a caller's
+   untyped value arriving at any of the three dict-shaped write doors, and a note's own STORED value
+   arriving back through a whole-record projection. `lint_vault` reads untrusted vault bytes and must not
+   crash on any of them (§4's `try`). The third is UNTRUSTED → HUMAN and is added by M4's fold: a note's
+   stored value RENDERED into the repair disclosure a conductor authorizes 82 irreversible re-spellings
+   against, which crosses escaped so that the disclosed data cannot reflow the artifact or forge a section
+   header inside it (§10(d)) — an output boundary rather than an input one, which is why it was missing from
+   this list until the threat model's second round asked for it. No new outbound API, no new credential, no new
+   OAuth scope, no new persisted state outside the vault notes the migration writes.
+8. **The live run is a SHIP CONDITION performed by the conductor, not by the build.** The caged builder's
+   vault writes are reverted at the merge boundary, so a plan-task live run changes nothing and reports
+   success. `## Approach` step (4) owns it; `## Verification` prescribes it as a close-out step.
+9. **This item does not populate second JIDs.** It makes the shape available; HAL9000 WI-075 and
+   orchestrator WI-192/193 fill it. That is what keeps the back-out's second qualifier true on day one.
+
+## Edge Cases & Open Questions
+
+Each category walked. Every resolution is Case / Decision / Reasoning; the ones that do not apply say so.
+
+**Empty / null / malformed input.**
+- **Case:** a `whatsapp:` key that is absent, `""`, whitespace-only, a BARE valueless `whatsapp:` (YAML
+  null), or `[]`.
+- **Decision:** all five are class Ø. They introduce no identifier, neither predicate is ever called on them,
+  every write arm ACCEPTS them, the reader presents the empty collection, and the migration converts only the
+  key-PRESENT-but-empty spelling.
+- **Reasoning:** absence is not malformation, and refusing it bricks the only repair channel this design has —
+  the writer has no delete affordance, so clearing IS the repair for a class-D value. It is also the
+  package's own existing convention (`person.py:318-320`, `name_gate.py:399`) and the value on 1025 of 1174
+  live person notes. The bare-key spelling is the one that does NOT work today: it raises `SchemaDriftError`
+  and lands on the load skip surface, INVISIBLE rather than empty.
+- **Case:** `whatsapp:` holding a nested container, an int, a date, or a list with a non-`str` member.
+- **Decision:** a non-`str` scalar is classified through `parse` — an unquoted number or a date lands in C
+  (its `str()` carries enough digits), digit-poor junk in D; §1 states both. A CONTAINER handed to the
+  per-value classifier RAISES `IdentifierError`. `lint_vault` catches that one refusal and reports the note
+  under its own check; the gate does not catch it, so such a WRITE fails loudly.
+- **Reasoning:** `parse(["447700900321@s.whatsapp.net"])` SUCCEEDS with the right digits, recovered out of
+  the list's repr — the one shape that produces a plausible wrong answer rather than an error. A tool whose
+  job is finding malformed notes must not crash on one; a door whose job is refusing bad writes must not
+  silently accept a shape nobody designed.
+- **Case:** `whatsapp` holding a list with a BLANK member — `[""]`, `["   "]`, or a good member beside a
+  blank one.
+- **Decision:** REFUSED at every write arm and REPORTED by the detector. The blank member classifies Ø
+  per-VALUE, the arm accepts only A and B, and `## Design` §3 states the rule and its reasoning in full.
+- **Reasoning:** class Ø is a property of the FIELD (absent key, `""`, whitespace, `None`, `[]`), not a
+  licence for a blank member inside a populated field, and no arm of this design produces `[""]` — the model
+  coerces `""` to `[]` and the migration writes `[]` for the whole class-Ø cell. The `emails[]` arm drops such
+  a member instead (`name_gate.py:399`); this arm declines that because a drop is a silent drop and because
+  filtering it would break the positional correspondence the refusal uses to name the offending value.
+- **Case:** a stored `whatsapp` value carrying an INTERIOR control character — a newline, carriage return, tab,
+  vertical tab, ANSI `\x1b`, U+0085 NEL or U+2028 — next to enough digits to parse.
+- **Decision:** it is an ordinary member of its class and nothing special happens to it in the library: `parse`
+  strips only the ends (`identifier.py:WhatsAppJID.parse:273`), `normalize_phone` deletes every non-digit
+  (`phone_normalization.py:normalize_phone:52-55`), so such a value with no `@` is phone-bearing, domain-less
+  and **class C** — refused by the write door like any other class C, reported by the detector, and repaired by
+  the migration to a clean canonical JID off its digits. The ONE place it is handled specially is the migration's
+  repair DISCLOSURE, which renders every field through `_escape_for_one_line` (`## Design` §10(d)) so one record
+  is one physical line whatever it holds.
+- **Reasoning:** the value is not more dangerous to the vault than any other class C — the repair reads only
+  `phone_digits`, so no note is corrupted. It is dangerous to the ARTIFACT a human authorizes 82 irreversible
+  re-spellings against: raw, it reflows the disclosure so the line count stops equalling the repair count, and a
+  value carrying a newline plus the text of `CORROBORATED_HEADER` forges a section header into that artifact. So
+  the remedy is at the render and not at the parser — changing `parse` would move a surface AC-3, AC-5 and
+  Ruling A all rest on, for a hazard that is entirely one of presentation.
+
+**Race conditions / concurrent access.**
+- **Case:** two callers write the same note while the migration is walking the vault.
+- **Decision:** unchanged from today — every write goes through `vault_io.note_lock` with a stamp
+  precondition, taken INSIDE the door (`writer.py:368-393`). The migration adds no lock and holds none
+  across notes.
+- **Reasoning:** WI-004 owns this and the migration deliberately reuses the one door rather than composing a
+  batch transaction. A stamp mismatch surfaces as `WriteFailedError`, which the run does not catch — it
+  aborts, and the operator re-runs the dry run.
+- **Case:** a concurrent refresh clears `_phone_index` while `get_by_phone`'s fuzzy arm iterates it.
+- **Decision:** unchanged — that iterable is already a MATERIALIZED snapshot (`person.py:490-494`). §5(b)'s
+  inverse is a lookup, not an iteration, so it adds no new site.
+
+**External dependency failure.**
+- **Case:** the vault path does not exist, or is not readable.
+- **Decision:** `--vault` is required and the run fails at argument validation. The library's repositories
+  already raise `VaultPathNotConfiguredError` naming both routes.
+- **Case:** HAL9000 / exocortex / the WhatsApp bridge is down.
+- **Decision:** does not apply to the build. Nothing in the library or the migration calls any of them; the
+  consumer audit was taken read-only and is already committed.
+
+**First-run vs subsequent-run.**
+- **Case:** the migration runs twice.
+- **Decision:** the second run finds every convertible note already list-shaped, classifies it MIGRATED, and
+  writes nothing. The residual R is reported identically both times. **Asserted, not argued:** AC-5's check
+  drives a SECOND pass over the already-migrated copy — a fresh `plan_migration`, then `apply_migration` —
+  and pins zero calls to `writer.update_frontmatter_field`, a byte-identical tree digest and a triple
+  unchanged from the first pass's (Task 10; the oracle, and why the call count rather than the digest is the
+  discriminator, are in `## Design` §7).
+- **Reasoning:** the action table keys on the STORED shape, not on a marker, so idempotence is structural
+  rather than bookkept. This is also why no `schema_version` field is added — WI-010's un-park question. The
+  structure is the reason the property holds; the check is why the next reader can falsify it, and it is owed
+  because the retry remedy below is the only one this design offers.
+
+**Migration / backfill.** This item IS the migration; §7 is its whole design, and `## Approach` step (4) plus
+`## Exploration Notes`' TERMINAL-STATE PARTITION state the terminal state. One thing worth restating here
+because it is the counter-intuitive half: the notes in R are terminally SCALAR **by design**, because a shape
+conversion is a write that RE-INTRODUCES the field and the door refuses it in both shapes
+(`name_gate.py:31-36` keeps a stored-dirty note writable only for writes that do NOT re-introduce the field).
+On the live vault `|R| = 0` today, so the partition's part (3) is empty and the detector ships as a wall
+against the next bare number rather than as a backlog — but AC-5's mandated class-D and class-E plants make
+`|R|` non-empty on the hermetic suite, which is where the contradiction F21 removed used to live.
+
+**Idempotency.** Yes, at four levels, and each is asserted rather than claimed: the dry run leaves the tree
+byte-identical (a digest before and after); `gate_write` is idempotent on both values of `whole_record` and
+is required to be, because one `PersonRepository.save` invokes it twice (`name_gate.py:296-299`);
+load → save → load is a fixed point on the field for every member the door accepts, with the refusal plus
+unchanged bytes as the fixed point for every member it refuses; and — the fourth, which this round adds
+because it was the one resolved in prose and asserted nowhere — the MIGRATION'S OWN RE-RUN writes nothing
+over an already-migrated vault, pinned by a zero call count on the write door plus the digest plus the triple
+(`## Design` §7, Task 10).
+
+**Retry semantics.**
+- **Case:** the run aborts partway — a lock timeout, a stamp mismatch, a `NameGateRefusal` on a note the plan
+  said was convertible.
+- **Decision:** the run exits non-zero having written whatever it committed, and the REMEDY is to re-run the
+  dry run and read the new per-cell counts. No retry loop, no resume file.
+- **Reasoning:** every write is individually atomic and the action is a pure function of the stored shape, so
+  a partial run leaves a vault in which the same command computes the correct remaining work. A retry loop
+  would be machinery around a property the design already has — and the property is the RE-RUN NO-OP above,
+  which is asserted in Task 10 rather than inferred from the action table, because this remedy is the only
+  one this design offers a conductor whose live run aborted mid-vault. A `NameGateRefusal` on a supposedly
+  convertible note means the plan and the door disagree, which is a defect and not a transient — it must
+  abort loudly rather than be counted.
+
+**Partial failure.**
+- **Case:** note 400 of 1168 fails.
+- **Decision:** the 399 committed writes stand, the reconciliation over the triple DISAGREES, and the run
+  says so and exits non-zero naming the part that disagreed.
+- **Reasoning:** this is exactly what the triple is for. A run that reported one number could finish quietly
+  on a partial pass; three parts that must agree cannot.
+
+**Error propagation.**
+- **Case:** what does a caller see when a write is refused?
+- **Decision:** `NameGateRefusal` — a leaf of `LoudFailError` (a `ValueError`) — carrying `.pattern ==
+  "whatsapp_not_a_jid"` and `.refused_value` as ATTRIBUTES, with the note-derived value in NEITHER the
+  message nor the traceback (`chainable_cause` suppresses the context).
+- **Reasoning:** F4's contract. A handler that ABSORBS names the LEAF it means; a handler that RE-RAISES may
+  filter on `LoudFailError`. The distinct `pattern` is what stops a bad JID being reported and routed as a
+  bad name.
+- **Case:** what does a caller see when a stored value is unstorable?
+- **Decision:** the note still LOADS (the reader is tolerant and drops nothing), the raw string is still on
+  the model, the typed accessor omits only what does not PARSE, and re-serializing the whole record refuses
+  until the value is repaired — while every delta write still succeeds.
+- **Case:** what does a caller see when the payload's `whatsapp` value is a CONTAINER (a dict, or a nested
+  list) — the one shape `classify_field` refuses rather than classifies?
+- **Decision:** `IdentifierError`, not `NameGateRefusal`. The gate does not catch it (decided above), so ONE
+  write door raises two exception types across its arms and only one of them is reachable by the estate's
+  documented `except LoudFailError` idiom — `IdentifierError` is a plain `ValueError` (`identifier.py:67`) and
+  is NOT a member of the `LoudFailError` tree (`errors.py:37`, `:106`). Stated here rather than closed, per
+  threat-model note 1, because it fails CLOSED (nothing written), leaks nothing (the message is
+  `f"{kind}: {detail}"` with the raw value on `.raw` as an attribute, `identifier.py:76-80`), and can only
+  arrive from a caller's raw dict: a STORED container is rejected by `List[str]` validation and lands on the
+  load skip surface long before `save`. A consumer author wanting both arms catches `ValueError`.
+- **Reasoning:** widening the hierarchy or catching-and-re-raising inside the gate are both real changes to
+  another item's contract (WI-020's one-hierarchy rule) bought for a shape no writer in three repos produces
+  (`docs/wi-032-consumer-audit.md`). Writing the sentence down is the whole remedy the threat model asked for.
+
+**Trust boundary crossings.** Prerequisite 7 enumerates all three. Four properties hold across them: no
+note-derived value enters any exception message; the classifier is TOTAL and loud on the one shape that
+produces a plausible wrong answer; the refusal is evaluated on the value the WRITE CARRIES, never on the
+value the note used to hold, which is what makes a repair land through any door; and the one surface that does
+render a note-derived value for a human to read — the migration's repair disclosure, the third crossing —
+renders every field ESCAPED, so the stored value cannot reflow that artifact or forge a header inside it
+(`## Design` §10(d)).
+
+**"What if" from exploration, folded here so it is not re-asked.**
+- **Case:** someone wires the STORABLE predicate into the RESOLVER as well.
+- **Decision:** RED on AC-2 — classes C and E are asserted resolvable. Resolution stays liberal; only the
+  write door asks the storable question.
+- **Case:** someone puts `get_by_identifier`'s lookup inside `resolve`.
+- **Decision:** RED on `tests/test_identity_endgame.py:692-698`, which is the right outcome and is named in
+  advance so it is not debugged from scratch.
+- **Case:** a future item widens `STORABLE_DOMAINS`.
+- **Decision:** free, and it joins every sweep automatically — the criteria CALL the predicate rather than
+  restating its membership.
+
+OPEN: None.
+
+## Implementation Plan
+
+Fourteen tasks, dependency-ordered, top-to-bottom. Tasks 2–4 are independent of tasks 5–9 and could be
+parallelised; the serial reading is safe and is the one written. Every `verify:` check name below is a
+top-level `def <name>(` taking ZERO arguments and signalling failure by RAISING — the conveyor discovers a
+check by source-scanning the test roots and invokes it with no arguments, so a fixture parameter raises
+`TypeError` and a `return False` exits 0 and reads as PASS. **Every one of these names must also be globally
+unique across `tests/test_*.py`**, because `check_module` is a `def <name>(` SUBSTRING scan that raises on
+anything but exactly one match (`tests/test_ac_interpreter.py:95-106`).
+
+- [x] **Task 1 — Record the pre-build floor baseline.** Run the floor command
+      (`.venv/bin/python -m pytest tests -q` from the worktree root) BEFORE the first edit and write the
+      passing case count into the Build Log. No assertion anywhere pins the number; Task 14 compares against
+      it, and the invariant is DIRECTIONAL — a later drive landing fewer cases with no explanation has
+      silently lost a test file.
+      verify: baseline — the pre-edit floor case count, recorded in the Build Log; Task 14 reads it and no check asserts it
+
+- [x] **Task 2 — The two predicates and the classifier on `WhatsAppJID`.** Add `STORABLE_DOMAINS`,
+      `CLASS_ABSENT`, `CLASSES`, `jid_domain`, `is_storable`, `classify` and `classify_field` to
+      `obsidian_schemas/identifier.py:WhatsAppJID` exactly as `## Design` §1 states. `parse` is UNCHANGED —
+      not one line. Extend `tests/test_identifier.py`'s `WhatsAppJID` block (`:119-143`) with the storable
+      predicate and the classifier, and add `tests/test_whatsapp_jid_storage.py` with
+      `test_whatsapp_storable_predicate_and_classifier`, which asserts: `jid_domain` off the NORMALIZED
+      string (so `447700900321@S.WHATSAPP.NET` is storable), `""` for a value with no `@`, membership rather
+      than suffix (`447700900789@example.com` NOT storable, `123@lid.example.com` NOT storable), the
+      classification ORDER (`""` and `None` file as `Ø`, not `D`), the two predicates INDEPENDENT in both
+      directions (`notaphone@s.whatsapp.net` carries a JID domain and is `D`; `447700900654@lid.example`
+      parses and is not storable), the container refusal, and `classify_field` over both stored shapes with
+      `[]`/`""`/`None`/whitespace all yielding `[]`. Derive every oracle by CALLING the predicates.
+      verify: test_whatsapp_storable_predicate_and_classifier
+
+- [x] **Task 3 — The model: `List[str]`, the tolerant read, the derived accessor.** Edit
+      `obsidian_schemas/models.py:Person` per `## Design` §2 — `whatsapp: List[str] = Field(default_factory=list)`,
+      the `mode="before"` validator, the `whatsapp_jids` property, and the `identifier` import. Add the AC-4
+      check `test_whatsapp_read_write_shape_and_no_silent_drop` to
+      `tests/test_whatsapp_jid_storage.py`, covering all four legs over every cell: the TOLERANT READ
+      including the BARE valueless `whatsapp:` key (importing any skip reason from
+      `obsidian_schemas/repositories/base.py` and never typing the literal — the legal homes are pinned to
+      exactly two files by EQUALITY at `tests/test_fixture_vault.py:1392-1395`), NO SILENT DROP (the raw
+      string present on the model for classes C, D, E; the typed view filtered on PARSEABILITY so C and E
+      appear and D does not), ONE WRITTEN SHAPE (asserted both ways over a planted class-D note: an
+      unrelated delta write leaves its scalar bytes untouched; a write re-introducing the field is refused
+      with the bytes unchanged; no `!!python/object` tag anywhere in the written bytes), and ROUND TRIP as a
+      fixed point. Leg (a)'s class-Ø round trip goes THROUGH a gated delta write and back, so the read side
+      and the write side meet.
+      verify: test_whatsapp_read_write_shape_and_no_silent_drop
+
+- [x] **Task 4 — The gate arm, the refusal attribute, and the two helpers.** Add `WHATSAPP_PATTERN`,
+      `WHATSAPP_KEY`, `_member_at`, `_as_stored_list`, the `refused_value` keyword on `_refuse`, and the
+      arm between step 3 and step 4 of `gate_write`, all per `## Design` §3. Add
+      `tests/test_whatsapp_write_door.py` with `test_whatsapp_refused_at_every_write_arm_reported_by_lint_vault_and_disclosed_append_only`
+      — AC-3's check, named for all three surfaces it asserts. The arm set is DERIVED by
+      `frontmatter_write_arms` from `tests/derivations.py` and asserted in scope by EQUALITY, plus
+      `PersonRepository.save` and `write_markdown_file(entity=…)` named explicitly as the two
+      whole-record-projection arms the derivation excludes by design. Per arm, both shapes (a bare scalar and
+      a list with one bad member among good ones) and three conjuncts (refused with the distinct
+      gate-local `pattern` and the raw value on `.refused_value` and NOT in the message; the target note
+      byte-identical and an absent target not created; a storable value in the same payload accepted and
+      stored in the list shape). `"+44 7739 341679"` is a required class-C member at every arm and
+      `447700900654@lid.example` a required class-E member. Plus the CLEARING leg at every delta arm in both
+      of the package's spellings, the CLASS-Ø leg at every arm in every spelling, and the near-miss control
+      that a stored-dirty note stays writable for a write that does not re-introduce the field.
+      verify: test_whatsapp_refused_at_every_write_arm_reported_by_lint_vault_and_disclosed_append_only
+
+- [x] **Task 5 — The corpus edits and the digest.** Apply `## Design` §9 lines 1–4: Thrandell's note takes
+      `whatsapp: "15555550142@lid"`, `@Fennwick Drostane.md` takes `whatsapp: "447700900789@example.com"`,
+      `tests/fixture_vault.py:225` declares `["15555550142@lid"]`, Fennwick's `NoteSpec` gains
+      `whatsapp=["447700900789@example.com"]`, `_person`'s default (`:94`) becomes `[]`, and `CORPUS_DIGEST`
+      (`:44`) is regenerated by the one-line command in that module's docstring. `docs/vault-shape-census.md`
+      and `tests/test_fixture_vault.py` are NOT edited. Verify by running the three standing corpus checks —
+      the freeze/byte-copy check, the write-door round trip, and the declared-values parse — all of which
+      go red on a half-done edit and green on a complete one.
+      verify: test_fixture_vault_is_frozen_and_materialized_by_byte_copy test_corpus_note_round_trips_through_the_write_door test_corpus_person_note_parses_to_its_declared_values
+
+- [x] **Task 6 — One phone-pivot rule, derived from the projection, with its exact inverse.** Apply
+      `## Design` §5(a), (b) and (c) to `obsidian_schemas/repositories/person.py`: `_index_entity` projects
+      ONCE and pivots only on a non-empty `phone_digits`, `_index_identifiers` takes the optional
+      `identifiers`, `_remove_entity_from_indexes` derives its removal from the same projection as a lookup
+      (not a loop), and `_project_identifiers` ITERATES the list. Add the AC-1 check
+      `test_lid_digits_never_enter_the_phone_index` to `tests/test_whatsapp_jid_storage.py`: the six-cell
+      table classified BY CALLING the predicates, each cell asserted non-empty, the classification ORDER
+      asserted, the classifier asserted TOTAL with no fall-through over the table plus every corpus
+      `whatsapp` value plus the named boundary-probe list, classes A and C keyed on exactly `phone_digits`
+      with `get_by_phone` returning that person, classes B and E with NO phone key and
+      `get_by_phone("5555550142")` returning None, class D and class Ø on the narrowing arm with class Ø
+      additionally projecting NO identifier of any kind, the two predicates independent both ways, the WHERE
+      clause's three receiver constraints asserted as PROPERTIES of the manifest and not only as a filename,
+      the representative asserted storable-clean, and `_remove_entity_from_indexes` asserted the exact
+      inverse over the same table.
+      verify: test_lid_digits_never_enter_the_phone_index
+
+- [x] **Task 7 — The public resolution door and the cascade step.** Apply `## Design` §5(d) and (e):
+      `get_by_identifier`, the `whatsapp-jid` step in `resolve_all` below the blank-query bail-out, and the
+      label inserted into `_RESOLVE_CASCADE_ORDER` immediately before `phone`. `_IDENTIFIER_PRIORITY` is NOT
+      touched. Add the AC-2 check `test_whatsapp_jid_resolution_door_over_every_accepted_form` to
+      `tests/test_whatsapp_jid_storage.py`: over the same derived table, both doors answering, expected
+      entity computed from `WhatsAppJID.parse(v).key` plus the fixture's note-to-value map; classes A and C
+      through the `phone:` key with class C asserted RESOLVABLE though AC-3 refuses to store it; classes B
+      and E through the `jid:` key with E named alongside B; classes D and Ø on the narrowing arm, Ø stated
+      as a POSITION pin — the blank-query bail-out still precedes every cascade step including the new one;
+      and the three guards (the lid answer asserted to come from the identifier index and not from a phone
+      lookup, the new label asserted PRESENT and ranked ahead of `phone` proven by a tie resolving to the
+      lid's owner, and `README.md:238`'s documented `get_by_phone` route still holding).
+      verify: test_whatsapp_jid_resolution_door_over_every_accepted_form
+
+- [x] **Task 8 — The `save` rider and the two APPEND-ONLY disclosures.** Add
+      `entity.whatsapp = gated["whatsapp"]` to `PersonRepository.save`'s rider and write the write-back and
+      refusal disclosures as NEW PARAGRAPHS in its docstring, leaving all 29 Cut-0 `(owner, text)` pairs
+      byte-identical (`## Design` §6). Extend AC-3's check module with the `save` arm pinned in BOTH
+      directions over an entity loaded from a class-C/D/E note — refuses with the same pattern and the note
+      byte-identical, AND the value still present on the model and in the note afterwards — plus the
+      APPEND-ONLY clause's three conjuncts, conjuncts (1) and (3) computed through `prose_lines` (so the
+      module names no `ast` of its own): every Cut-0 pair owned by `PersonRepository.save` still present;
+      and at least one line for that owner that is NOT a Cut-0 member, i.e. the disclosure LANDED.
+      **Conjunct (2) is built to `## Design` §6's COMPUTABLE FORM and not to its frozen wording, which names
+      a pre-build byte comparison no post-build hermetic check has a referent for:** import `_golden` and
+      `AUTHORIZED_PROSE_OWNERS` from `tests/test_identity_endgame.py` (the same reader and the same tuple
+      WI-024's own clause (e1) uses at `:996` and `:1003`; the cross-test-module import idiom already exists
+      at `tests/test_name_gate_delta_rule.py:54-55`), then assert BOTH legs — the number of entries in
+      `_golden("prose_surface_cut0.json")["lines"]` whose `owner` is `PersonRepository.save` is exactly 29,
+      counted as a LIST LENGTH and never as the size of an `(owner, text)` set, and
+      `AUTHORIZED_PROSE_OWNERS` equals its thirteen declared members with neither `PersonRepository.save`
+      nor the bare class among them. Both values are READ at test time; 29 is a frozen-population equality
+      pin and §6 states why that is licensed here. Leg 1 reddens the AUTHORIZATION (rejected item 15) and
+      leg 2 reddens a GOLDEN EDIT, which is the one move that would let conjunct (1) be neutered rather than
+      satisfied — neither is visible to (e1), (e2) or conjunct (1), all three of which read that tuple and
+      that golden.
+      verify: test_whatsapp_refused_at_every_write_arm_reported_by_lint_vault_and_disclosed_append_only
+
+- [x] **Task 9 — The report-only detector arm.** Add `WHATSAPP_CHECK` and the arm to
+      `scripts/lint_vault.py:check_structural` per `## Design` §4. Add
+      `test_whatsapp_not_storable_detector_reports_and_never_repairs` to `tests/test_whatsapp_write_door.py`
+      with AC-3's REPORT LEG's five conjuncts: it FIRES on C, D and E — over a materialized copy of the
+      corpus its issue set is EXACTLY the one non-representative note carrying `447700900789@example.com`,
+      and over temp-vault plants it fires on a class-D value and on `447700900654@lid.example`; it is SILENT
+      on class Ø in every spelling and on every storable value, so the representative's `15555550142@lid`
+      and the corpus's 21 `whatsapp: ""` notes produce no issue of this check; it judges BOTH stored shapes;
+      `auto_fixable is False` asserted PER ISSUE and this check asserted NOT a member of
+      `auto_fixable_emitter_checks`; and the report NEVER travels as `NOT_RENAMEABLE_MARKER`, asserted by
+      the divergence module's own marked-set equality staying green and untouched. Add a nested-container
+      plant so the `except IdentifierError` arm is exercised rather than assumed.
+      verify: test_whatsapp_not_storable_detector_reports_and_never_repairs
+
+- [x] **Task 10 — The migration: plan, apply, readback, CLI.** Write
+      `scripts/migrate_whatsapp_to_list.py` per `## Design` §7 — the four entry points, the seven-arm action
+      table keyed on `classify_field`, the `phone_digits` guard on the repair, the single
+      `update_frontmatter_field` write, the fresh-repository readback, and the triple reconciliation with a
+      non-zero exit naming the part that disagreed. Add `tests/test_whatsapp_migration.py` with the AC-5
+      check `test_whatsapp_migration_dry_run_then_write_then_readback`: driven against a materialized COPY
+      planted with one note per non-Ø cell plus the two-JID note pinned to `447700900987@s.whatsapp.net` and
+      `15555550163@lid`; five legs — the dry run byte-identical by a digest over the tree before and after;
+      the write asserted STRUCTURALLY through `vault_io` and the gate with no direct `write_text`; the
+      readback oracle over `.key` multisets computed from the note BYTES by a load that did not exist before
+      the write, ranging over the PARSEABLE values only with the split computed by CALLING `parse` and
+      catching `IdentifierError`, plus the two per-note counts (parseable values, and TOTAL values including
+      unparseable ones); the class-C repair counted separately and asserted key-preserving and
+      phone-bearing-guarded, with a planted class-E note asserted byte-identical after a repair-ENABLED run;
+      and the counts reconciling part-for-part over the three-part partition, with the never-clears conjunct
+      asserted per plant and the residual's repair path EXERCISED — a class-D note cleared and a class-E
+      note rewritten through a delta arm, both succeeding. Assert BOTH arms of Ruling B: with repair
+      enabled R is the class-D and class-E plants; with `--no-repair` R is those plus the class-C note,
+      byte-identical.
+      **And the RE-RUN leg, per `## Design` §7 — the property `## Edge Cases`' retry remedy rests on and the
+      one nothing in the plan asserted:** the same check drives a SECOND pass over the already-migrated copy —
+      `plan_migration` again, then `apply_migration` with that FRESH plan, never the first pass's stale one —
+      and asserts three things about it: ZERO calls to
+      `writer.update_frontmatter_field`, counted by a wrapper installed with `tests/support.py`'s `patcher`
+      for the duration of the pass and asserted zero (the discriminator, because a digest cannot tell "no
+      write" from "re-write the same bytes" and the two-JID plant is list-shaped from the start so it
+      discriminates only "does not abort on a list"); the tree digest byte-identical across the pass, the same
+      digest leg (a) takes (which additionally catches a re-write that REFORMATS); and the triple UNCHANGED
+      part-for-part from the first pass's — not zeroed, since an already-list-shaped note is MIGRATED by the
+      action table — with the count of notes the write COMMITS and the repair count both zero. Two spellings are
+      prescribed rather than free: the migration imports the writer MODULE (`from obsidian_schemas import
+      writer`, the call resolved at call time) and never the bare function, or the counter is blind; and BOTH
+      `apply_migration(...)` call sites pass the identifier `vault` bound from the one `_temp_vault` door, or
+      Task 11's SPELLING clause collects the second one and raises.
+      **And the M1 RIDER — the repair disclosure, per `## Design` §10(a):** `plan_migration` carries a
+      `RepairDisclosure(path, stored_value, proposed_jid, corroborated)` record per class-C note on
+      `plan.repairs`, with the three header/banner literals as module constants the check IMPORTS, and with
+      `corroborated` computed by calling `phones_match(WhatsAppJID.parse(v).phone_digits, normalize_phone(p))`
+      over each non-blank `p` in that note's OWN raw `phones[]`; `format_repair_disclosure(plan)` RETURNS (never
+      prints) one line per record carrying the note path, the stored value and the proposed JID, each field
+      ESCAPED through `_escape_for_one_line` per the M4 rider below, with
+      the UNCORROBORATED records first under their own header; and `_cli` prints it on every run BEFORE any
+      write, including under `--apply` and under `--no-repair` (where the header states no repair will be
+      attempted and those notes join R). Add
+      `test_whatsapp_dry_run_discloses_each_class_c_repair_pair` to `tests/test_whatsapp_migration.py`, over a
+      temp vault planted with one CORROBORATED class-C note (its digits also in its own `phones[]`), one
+      UNCORROBORATED class-C note (digits in no `phones[]` entry, the live census's single such member), and one
+      note per other class: the line set is EXACTLY one line per class-C plant with the expected count DERIVED
+      by calling `classify_field` over the plants rather than written as a literal; each line's proposed JID is
+      computed in the test by CALLING the same repair spelling on the plant's own stored value; the
+      uncorroborated plant appears under the uncorroborated header and the corroborated one does not, with both
+      expectations computed by calling `phones_match` over the plants' own values and never from a hardcoded
+      flag; a class-A plant whose digits are absent from its `phones[]` yields NO line (the population is class C
+      only, so the disclosure is not a corroboration report); and the whole disclosure is READ-ONLY, asserted by
+      the same tree digest before and after that leg (a) uses. Every plant literal in this module is
+      RESERVED-block or synthetic, the same clause Task 13's sibling check carries: this module introduces no
+      live identifier, and the census carries none for a builder to reach for (threat-model note 3, round-2
+      note 1).
+      **And the M4 RIDER — the disclosure's render, per `## Design` §10(d):** add the module-level helper
+      `_escape_for_one_line(raw: str) -> str` to `scripts/migrate_whatsapp_to_list.py` and route EVERY field of
+      every `RepairDisclosure` through it in `format_repair_disclosure` — `path`, `stored_value` and
+      `proposed_jid` alike, so the guarantee is total over the RECORD and survives a later change to the repair
+      spelling. The helper escapes the backslash FIRST (so the rendering is unambiguous) and then renders as a
+      visible `\xNN`/`\uNNNN` escape every character `str.splitlines()` treats as a line break and every
+      character whose `unicodedata.category` is `Cc`, `Cf`, `Zl` or `Zp`; every other character passes through
+      unchanged. The implementation is the CATEGORY test ALONE — that set CONTAINS the break set, which leg (1)
+      proves rather than assumes — and the rendering is pinned so nothing is a judgment call: `\\` for the
+      backslash, then `f"\\x{cp:02x}"` for a codepoint below `0x100` and `f"\\u{cp:04x}"` for the rest.
+      Extend `test_whatsapp_dry_run_discloses_each_class_c_repair_pair` — not a new check, because
+      this is the property that makes that check's own oracle total — with five legs, each oracle DERIVED and
+      never listed. (1) TOTALITY: `BREAK_CODEPOINTS = frozenset(cp for cp in range(0x110000) if len(f"a{chr(cp)}b".splitlines()) > 1)`
+      computed ONCE at module level (~1s; compute it once, never replace it with a hand list of characters — the
+      hand list is the defect this leg exists to prevent), then for every `cp` in it
+      `_escape_for_one_line(f"a{chr(cp)}b").splitlines()` has length 1, and for every `cp` in it plus `0x1b` the
+      escaped rendering contains no such raw character. (2) NO-OP ON CLEAN: `_escape_for_one_line(x) == x` for
+      every field of every clean plant, so the escape is the identity wherever verbatim is safe and the 82 live
+      bare digit runs render exactly as a verbatim render would. (3) THE ADVERSARIAL PLANT: one more class-C
+      note, planted through the SAME `_temp_vault` door as every other plant (so §8's PROVENANCE clause is
+      unaffected), as a YAML double-quoted scalar carrying the `\n` escape followed by the text of
+      `CORROBORATED_HEADER` imported from the module, with the RESERVED-block number `447700900321` and its
+      `phones[]` holding no matching digits — asserted before it is used with: the value read back out of the
+      note CONTAINS the planted control character, `classify_field` called on it returns exactly `["C"]`, and
+      `phones_match` over that note's own `phones[]` returns False so it lands in the UNCORROBORATED section.
+      (4) LINE COUNT STILL EQUALS RECORD COUNT: `len(format_repair_disclosure(plan).splitlines())` equals the
+      record count plus the number of headers the formatter itself emitted, with BOTH terms derived — the record
+      count by calling `classify_field` over the plants, the header term by calling the formatter over the same
+      plan with the adversarial plant removed and counting the header lines it produced. (5) NO FORGED HEADER:
+      the set of output lines EQUAL to any of the three imported header/banner constants is exactly the set that
+      run produced, so a header appearing only because the data spelled one is RED. Then complete the 2×2 of
+      class-C sub-cells by planting the fourth cell — a CORROBORATED control-character-bearing note — with its
+      corroboration likewise computed by calling `phones_match` and never written beside the plant.
+      verify: test_whatsapp_migration_dry_run_then_write_then_readback test_whatsapp_dry_run_discloses_each_class_c_repair_pair
+
+- [x] **Task 11 — The containment wall, made non-vacuous.** Add `"apply_migration": 0` to
+      `MUTATING_DRIVE_VAULT_POSITIONS` (`tests/derivations.py:2012`) with the comment `## Design` §8 states,
+      and add `test_every_whatsapp_migration_drive_is_confined_to_a_temp_vault` to
+      `tests/test_whatsapp_migration.py` — the six clauses §8 enumerates over the module's own source
+      (SPELLING, NON-VACUITY, PROVENANCE through the one `_temp_vault` door, SOURCE outside that door, ZERO
+      repository constructions, and the IMPORT refusal), plus the two-token `live_path_names` equality with
+      `not hasattr(migrate, "DEFAULT_VAULT")` as the proof that the third token's absence is the script's own
+      design rather than a gap, plus the runtime door EXERCISED rather than left to whichever drive runs
+      first. Also plant the two match-shapes the scan must resolve — an `apply_migration(vault)` call it
+      COLLECTS and a call with an unreducible vault expression it must RAISE on — so the wall cannot pass by
+      matching nothing.
+      verify: test_every_whatsapp_migration_drive_is_confined_to_a_temp_vault
+
+- [x] **Task 12 — Close every wall membership by RUNNING the wall's own predicate.** Add
+      `test_whatsapp_wall_membership_is_closed_by_running_each_walls_predicate` to
+      `tests/test_whatsapp_migration.py`, driving each wall named in `## Verification`'s inbound census on
+      this item's FINAL text — never reasoning about which shapes match. At minimum: `modules_using_ast`
+      over `python_files_under(PACKAGE_ROOT, TESTS_ROOT, SCRIPTS_ROOT)` still single-homed to
+      `tests/derivations.py`; `skip_reason_literal_sites` over the same universe still exactly its two
+      declared homes; `check_module` resolving every top-level `def test_` this item's three new modules
+      define, READ from those modules' own source at test time and never from a list in this plan;
+      `frontmatter_write_arms` over `python_files_under(PACKAGE_ROOT, SCRIPTS_ROOT)` with every arm the new
+      files carry routed and declared and none `absent`; `EDITED_FUNCTION_ARM_COUNTS`'s six per-function
+      equalities unchanged; `phone_index_iteration_sites` over the package still all `materialized`;
+      `prose_lines`-derived clause (e1) over `person.py` green; and the repo-wide markdown scan's
+      `NO_ARG_CONSTRUCTION` predicate run over the ONE `docs/wi-032-*` file this item writes
+      (`docs/wi-032-whatsapp-live-baseline.md` — the other two `docs/wi-032-*` artifacts are conductor
+      preconditions this build does not author) plus this document. That last run is VOLUNTARY and is declared
+      as such so the next reader does not read it as a membership the wall imposes: `docs` is a member of
+      `DOC_SCAN_EXCLUDED` (`tests/test_vault_path_required.py:387`, intersected against every path part at
+      `:425`), so no file under `docs/**` joins that scan's population at all — the same fact M2 rests on.
+      Anything the RUN returns that this spec did not name is NAMED in the Build Log and
+      satisfied — never worked around and never satisfied by narrowing the wall.
+      verify: test_whatsapp_wall_membership_is_closed_by_running_each_walls_predicate
+
+- [x] **Task 13 — The live bracket's ENTRY half.** Write `docs/wi-032-whatsapp-live-baseline.md` copying
+      `docs/stem-divergence-live-baseline.md`'s section shape literally — §0 the measurement command, §1
+      entry figures, §2 the direction per class, §3 blast radius read against the linter, §4 the booked hand
+      repairs, §5 an EMPTY post-run attestation left for the conductor. §1's figures are the census's six
+      rows with class Ø split into its two spellings (absent key 6, `""` 1025) and the derived partition
+      figures (`whatsapp`-carrying 1168, MIGRATED 1168, shape-only 1025, repairs 82, `|R|` 0).
+      **§3 is built to `## Design` §10(c) — the M3 RIDER:** its ordered list is the TWO LOUD breaks and only
+      those two, `orchestrator/src/invariants.py:663-665` (red vault-wide) and
+      `HAL9000/backend_fastapi/routers/contacts.py:41,50` (500ing), each with its pinned 40-hex HEAD; the
+      raw-file writer at `orchestrator/bin/merge-duplicate-persons.py:380-384` stands OUTSIDE that list in its
+      own row headed `DATA-LOSS HOLD`, carrying its pinned HEAD, its reaching callers
+      (`bin/apply-vault-review.py:152,158`), the `whatsapp: ""` clearing path
+      (`docs/wi-032-consumer-audit.md:202-204`) and the conductor instruction that neither that script nor
+      `apply-vault-review.py` is run against the vault post-migration until the other repo fixes it; and a
+      one-line pointer to `docs/wi-032-consumer-audit.md:227-239` for items 4–7 of its seven-site list rather
+      than a re-listing. §3 also carries the 26-lid sentence `## Approach` now carries.
+      **And the M2 RIDER, per `## Design` §10(b):** counts, classes and code paths ONLY — no vault note name, no
+      live identifier, and specifically none of Task 10's repair pairs and none of the detector's per-note issue
+      lines, both of which are stdout of the conductor's live run. Add
+      `test_wi032_live_baseline_row_shape_and_redaction_wall` to `tests/test_whatsapp_migration.py`, reading the
+      bracket's FINAL text, with three duties. (i) REDACTION, run over all THREE `docs/wi-032-*` artifacts (this
+      bracket and both grounding artifacts) and deliberately NOT over `docs/whatsapp-jid-value-type.md`, which
+      `## Design` §9 line 5 and F18 leg 6 keep one real number in on purpose: after stripping every
+      `\b[0-9a-f]{40}\b` token, no `\d{9,}` run and no digit-immediately-before-`@`-and-a-domain-label survives —
+      with the claimed match-shapes driven through that same predicate as fixtures and every literal
+      RESERVED-block or synthetic (threat-model note 3: this module introduces no live identifier),
+      `"15555550142"`, `"123456789012@s.whatsapp.net"` and `"15555550142@lid"` asserted to MATCH and
+      `27cb78cc5a2099972dccea984664193e69414def` (the real pinned HEAD at `docs/wi-032-consumer-audit.md:92`,
+      which carries the nine-digit run `984664193`), `1168`, `1025`, `82`, `663-665`, `2026-09-27` and a bare
+      `@s.whatsapp.net` asserted NOT to. (ii) FIGURES: §1's six rows and five derived partition figures equal values DERIVED by
+      parsing the census's own verbatim stdout block (`docs/wi-032-whatsapp-corpus-census.md`, its `(a)`, `(c)`
+      and `(c')` lines) — never literals re-typed from this plan — so the bracket is proven to AGREE with the
+      artifact it copies from; the check does not re-measure the live vault and no hermetic check can, and its
+      coupling is declared in one line in the check itself: it pins that artifact's machine-output block and
+      consumes the property that those three lines are its census script's stdout. (iii) SHAPE: `DATA-LOSS HOLD`
+      is present, `merge-duplicate-persons.py:380-384` appears inside that row and NOT inside §3's ordered list,
+      and that list has exactly two items naming the invariant and the endpoint. The check asserts the §5 HEADING
+      exists and asserts NOTHING about §5's content — the conductor writes the exit figures there after the
+      build, and a check pinning §5 empty would redden the floor at close-out.
+      verify: test_wi032_live_baseline_row_shape_and_redaction_wall
+
+- [x] **Task 14 — Floor green, directionally.** Run the floor command from the worktree root and confirm
+      exit 0 with a case count at or above Task 1's Build Log baseline plus this item's new cases. Record
+      both numbers and the delta in the Build Log. A count BELOW the baseline with no explanation means a
+      test file was silently lost, not that a test was tidied.
+      verify: hand-run — the floor command is run from the worktree root and its case count compared against Task 1's recorded baseline; the invariant is directional, not a pinned number
+
+## Build Log — 2026-09-27 (build-runner, resumed after a spawn timeout)
+
+**The resume, stated first because it decides what this log is evidence OF.** A prior build-runner spawn
+timed out mid-build. It left the worktree carrying the code and tests for Tasks 2–9 and the migration
+script of Task 10, and it left NO `## Build Log` and NO ticked checkbox — so the resume cursor had to be
+read off the tree rather than off the document. This spawn therefore did two different things and they are
+kept apart below: it VERIFIED the retained work by running it (never by reading it), and it BUILT what was
+missing — Task 10's test module, Tasks 11–13's checks, Task 13's bracket document, and Tasks 1 and 14's
+figures.
+
+### The floor, both ends (Tasks 1 and 14)
+
+| figure | value | how |
+|---|---|---|
+| Task 1 — pre-build baseline | **699 passed** | the floor command run against a `git archive HEAD` export of `c7d074f` in a temp tree, because the worktree was ALREADY edited when this spawn started and a baseline read off it would have been the post-edit number wearing the pre-edit name |
+| the retained work alone (Tasks 2–9 + the script) | 711 passed | the floor command in the worktree, before this spawn's first edit |
+| Task 14 — final | **716 passed**, exit 0 | the floor command from the worktree root |
+| delta | **+17** | directional and above the baseline, which is the invariant |
+
+699 matches CLAUDE.md's own last hand-verified anchor (`699 (2026-09-26 post-WI-029)`), which is a
+corroboration of the archive-export method rather than a coincidence worth passing over.
+
+### What the retained work needed, and what it did not
+
+Tasks 2–9's code and tests were re-verified by RUNNING them, not by reading them: the floor at 711, then
+each of the five frozen `criteria` checks individually under the conveyor's OWN foreign interpreter
+(`tests/test_ac_interpreter.py:run_foreign`), which is the invocation shape that has bounced batteries
+before. All five PASS. Nothing in Tasks 2–9 was re-edited, and the `## Design` blocks they implement were
+compared against the tree rather than assumed.
+
+### Deviations, surprises and things the RUN returned that the spec did not name
+
+1. **Task 13's own FIGURES leg caught a defect in its first implementation, which is the leg working.** The
+   census artifact carries its census SCRIPT above its stdout, so every `(a)`, `(c)` and `(c')` marker
+   appears TWICE — once as an f-string in the source, once as the line it printed. A bare
+   `re.search(r"\(c'\) splits: \{([^}]*)\}", census)` reads the SOURCE (`{dict(sorted(sub.items()))}`) and
+   not the output. The fix isolates the verbatim stdout block FIRST and parses inside it, with a per-cell
+   presence assertion so a parse that misses a cell is RED rather than deriving a figure from a partial
+   read. Recorded because the wrong version was GREEN on the `(a)` marker by luck — `{person_notes}` is not
+   `(\d+)` — and would have gone green the day someone changed the script's print.
+2. **Task 5's three `verify:` names RESOLVE but cannot be RUN under the conveyor's foreign interpreter, and
+   that is a property of two pre-existing modules rather than of this build.**
+   `test_corpus_note_round_trips_through_the_write_door` lives in `tests/test_writer.py` and
+   `test_corpus_person_note_parses_to_its_declared_values` in `tests/test_parser.py`; both modules
+   `import pytest` at module scope, so `run_foreign` fails at the import before reaching the check. All
+   three names resolve UNIQUELY through `check_module`, and all three are GREEN on the floor (run
+   individually to confirm, not inferred from the aggregate). Satisfied, not worked around: `## Scope
+   Boundary` lists both modules as walls this item JOINS and never edits, and adding a `tests/support.py`
+   bridge to them would be an out-of-scope edit to another item's file to buy a green this item does not
+   need. `test_fixture_vault_is_frozen_and_materialized_by_byte_copy`, the third name, DOES run foreign and
+   passes.
+3. **Task 12's run returned nothing the spec did not name.** All eight predicates green over the FINAL
+   tree: the `ast` capability still single-homed to `tests/derivations.py` with three new test modules and a
+   new script in the universe; `skip_reason_literal_sites` still exactly its two declared homes;
+   `check_module` resolving every top-level `def test_` the three new modules define, read from their own
+   source; `frontmatter_write_arms` + `gate_call_declarations` with `absent == set()` and the migration
+   contributing ZERO arms; `EDITED_FUNCTION_ARM_COUNTS`'s six equalities unchanged;
+   `phone_index_iteration_sites` all `materialized` (which is what `## Design` §5(b)'s lookup-not-loop
+   instruction buys); clause (e1) over `person.py` green for every unauthorized owner, not only the `save`
+   half AC-3 asserts; and the VOLUNTARY `NO_ARG_CONSTRUCTION` run over the bracket and this document, clean.
+4. **The class-Ø `1031`-versus-`1025` distinction is REAL in the fixture corpus too, at 21 versus 20, and
+   that was measured rather than assumed.** `@Ferrigan Ostrakine.md` is the corpus's ONE absent-key note, so
+   the materialized corpus reports `class Ø: 21` while the run commits only 20 shape-only writes. The
+   architect's round-9 note 2 is therefore load-bearing at fixture scale as well as at live scale, and the
+   un-stubbed run below prints both numbers, which is what makes the distinction checkable rather than
+   asserted.
+5. **`CLAUDE.md` asserts two facts this build falsifies and this build does NOT write it.** The `Key Files`
+   row for `repositories/person.py` no longer describes everything that module owns (the derived phone
+   pivot, `get_by_identifier`, the `whatsapp-jid` cascade step), and the test-count archaeology anchors gain
+   a `716 (2026-09-27 post-WI-032)` row. The project root is outside `write_authority` by declaration
+   (`pipeline-runners.yaml`) and `## Design` Prerequisite 5 names `README.md`/`CLAUDE.md` as conductor-owned
+   session-end `/wrap-up` work. NAMED here rather than escalated as out-of-authority, deliberately: an
+   `out-of-authority` fence PAUSES the drive for an authorization, and nothing here is BLOCKED — the spec
+   already decided the ownership. `README.md`'s two touchpoints are likewise unchanged and unbroken
+   (Prerequisite 5 ran the reasoning; AC-2's third guard asserts the BEHAVIOUR instead).
+
+### The un-stubbed end-to-end run (WI-050), and why it is a TEMP vault
+
+`## Design` §8 states that `_cli` cannot be driven from the graded module — its argv path constructs a vault
+path the containment census cannot reduce to a door-bound name, and the IMPORT clause forbids driving it as
+a child process — so the CLI is verified OUTSIDE the hermetic suite. Prerequisite 8 is why that verification
+is against a TEMP vault here and not the live one: a caged builder's vault writes are reverted at the merge
+boundary, so a plan-task live run would change nothing and report success. Run against a materialized corpus
+planted with one note per cell plus the two-JID note:
+
+| act | exit | tree digest |
+|---|---|---|
+| `--vault` OMITTED | **2**, `argparse` refusing a required argument | untouched — it never reaches a filesystem |
+| `--vault <a directory that does not exist>` | **2** | untouched |
+| dry run | 0 | **UNCHANGED** — leg (a)'s whole point, observed at the CLI and not only in-process |
+| `--apply` | 0 | changed; `committed: 23 (shape-only 20, repairs 1)`; plan, write and readback triples all `{scalar_outside_residual: 0, migrated: 24, residual: 2}`; "reconciled part-for-part" |
+| `--apply` AGAIN | 0 | **UNCHANGED**; `committed: 0 (shape-only 0, repairs 0)`; the triple UNCHANGED rather than zeroed |
+
+Two further observations from that run, both of which are the design working rather than decoration. The
+re-run's per-cell counts move `A: 2 → 3` and `C: 1 → 0`, which is the class-C repair having landed and is
+visible nowhere else. And `scripts/lint_vault.py --report` over the post-migration vault emits exactly TWO
+`whatsapp_not_storable` issues against the run's own reported `residual: 2` — two counts taken by two
+different tools, agreeing. That is the independent-second-witness mechanism `## Approach` step (4) and
+AC-3's REPORT LEG exist to buy, exercised for real rather than described.
+
+### Mutate-and-observe, on the three legs whose green could have been vacuous
+
+WI-235's fixture rule is satisfied in the code (the containment scan's collected and unreducible shapes, the
+redaction predicate's MUST/MUST-NOT lists, and M4's adversarial plant are all driven through the walls' own
+predicates on every floor run). These three probes are the complementary half, run by hand and reverting
+nothing because none of them edits the tree:
+
+- **The re-run's CALL COUNTER is wired, not blind.** Installed around a pass that DOES write, it observed
+  **23** calls against a reported `committed: 23`. Had the migration bound the writer function into its own
+  namespace, the counter would have observed zero and the re-run leg would have been green for the wrong
+  reason — which is exactly why `## Design` §7 prescribes the module import and the call-time attribute
+  lookup.
+- **The readback oracle SEES a dropped second JID.** Truncating the two-JID note's list to one member made
+  the key multiset differ for that note and **only** that note, and the total-value count differ likewise.
+  The oracle discriminates the failure it exists for and does not smear it across the corpus.
+- **The never-clears conjunct SEES an erase.** Clearing the class-D plant's field drives
+  `classify_field` to `[]`, which is the assertion's failing side.
+
+### Two implementation notes a future reader needs
+
+- **The pre-migration half of AC-5 leg (c)'s oracle is computed in the CHECK and the post-migration half
+  comes out of `readback_migration`.** That asymmetry is the criterion, not an inconsistency: the BEFORE side
+  cannot come from the module (the module has not run yet) and the AFTER side must not come from the check's
+  own walk (the whole point is a re-READ through a load that did not exist before the write). Both sides
+  compute the parseable/unparseable split by CALLING `parse` and catching, so a class-D plant contributes no
+  key to either side instead of making the oracle raise on its own mandated fixture.
+- **`tests/test_whatsapp_migration.py` constructs NO repository, and that is load-bearing rather than
+  stylistic.** The containment wall's LIBRARY clause is zero constructions, because the library's own
+  environment fallback runs inside every repository constructor — so a construction reaches the live vault
+  without the module spelling any token. `readback_migration` constructing its repository INTERNALLY is what
+  makes the clause satisfiable at all, which is why `## Design` §7 puts it there and not in the test.
 
 ## Write Targets
 
@@ -1922,6 +3806,361 @@ path: docs/wi-032-consumer-audit.md
 grounds: Whether any consumer reads or writes `Person.whatsapp` as a scalar string, and so what the scalar-to-list flip breaks outside this repository the moment it lands
 why: The vault is shared mutable state, so any consumer running older code against a migrated note breaks however the package is installed (F14 corrects F7's `-e` framing, which invited the useless counter "then pin a version"); a scalar reader in HAL9000 or exocortex breaks when the notes change, not at a deploy. Wanted per repo - 40-hex HEAD, dirty count, the literal commands, verbatim matching lines for `.whatsapp`, `"whatsapp"`, `'whatsapp'` and the `ContactInfo` mirrors, and each site classified on THREE axes, not two - READ or WRITE; scalar-assuming or shape-agnostic; and whether it assumes the ELEMENT type, since a shape-agnostic site like `list(person.whatsapp)` survives the cardinality flip and would still break if elements stopped being `str`. Under Ruling B's recommendation the elements stay `str` and that third axis should come back empty, which is the point of asking - an audit that finds element-type assumptions is evidence FOR keeping the stored field `List[str]`. Also whether any consumer feeds a JID to `get_by_phone`, which `README.md:238` currently documents as the way to look one up, and whether any consumer writes a bare phone number into the field (the class-C producers, who will start being refused - the disclosed break in `## Approach` step (2)). Two more questions added with the class-Ø fold and the F11 correction, both cheap to ask and expensive to discover: does any consumer CLEAR the field (writing `""` or `None`, e.g. HAL9000's PATCH door emptying it or a template-shaped create), since class Ø must keep succeeding and a refusing build would break every one of those sites; and does any consumer write a Person entity through `save` or through the exported `write_markdown_file(entity=...)`, or otherwise re-serialize a whole stored person record, since those are the whole-record-projection arms where a STORED unstorable value is re-introduced and therefore refused, which is a wider surface than `save` alone. Precedent and shape - `docs/wi-029-consumer-audit.md`, `docs/wi-024-consumer-audit.md`; code paths only, no vault note name, no live identifier.
 ```
+
+**THE SPEC-WRITER'S EXTENSION (2026-09-27) — fifteen builder write targets, one per path the caged build
+touches, and nothing else.** The two `kind: precondition` fences above are kept VERBATIM and are not builder
+write targets. Three paths a reader will look for and NOT find, each for a stated reason: `README.md` and
+every other project-root file is OUTSIDE this project's `write_authority` (`pipeline-runners.yaml:32-33`) and
+is conductor-owned session-end work — nothing in the build depends on it (`## Design`, Prerequisite 5);
+`docs/vault-shape-census.md` is another item's digest-frozen artifact and is not touched at all
+(`## Design` §9 line 4); and `tests/test_fixture_vault.py` is a wall this item JOINS and never edits — no
+privacy exemption added, no pattern widened, no expected set padded.
+
+**One clause of the census fence above is CORRECTED downstream rather than edited in place, and the pointer
+belongs here so a reader following the fence does not compute the wrong number** (architect round-9 note 2).
+That fence asks for the class-Ø row and says of it "which is also the count of notes the migration converts
+SHAPE-ONLY". It is not: class Ø has two live spellings and only the key-PRESENT one is a write. The fence is
+left VERBATIM because it is a historical INSTRUCTION that was already carried out — and carried out
+correctly, since `docs/wi-032-whatsapp-corpus-census.md:172` and `:184` report the split the clause did not
+ask for (absent key **6**, `""` **1025**, YAML null **0**, class Ø **1031**). So the shape-only conversion
+count is **1025**, the `whatsapp`-carrying population the TERMINAL-STATE PARTITION ranges over is **1168**,
+and the 6 absent-key notes need no write and sit outside the partition's domain. `## Approach` step (4) states
+this where the numbers are USED, which is the only place a conductor reads them.
+
+```writes
+path: obsidian_schemas/identifier.py
+why: Task 2 — STORABLE_DOMAINS, CLASS_ABSENT, CLASSES, jid_domain, is_storable, classify, classify_field on WhatsAppJID. `parse` unchanged.
+```
+
+```writes
+path: obsidian_schemas/models.py
+why: Task 3 — `whatsapp: List[str]`, the tolerant `mode="before"` validator, the derived `whatsapp_jids` property, the identifier import.
+```
+
+```writes
+path: obsidian_schemas/name_gate.py
+why: Task 4 — WHATSAPP_PATTERN, WHATSAPP_KEY, `_member_at`, `_as_stored_list`, `_refuse`'s `refused_value` keyword, and the arm between steps 3 and 4.
+```
+
+```writes
+path: obsidian_schemas/repositories/person.py
+why: Tasks 6, 7, 8 — the derived phone pivot and its inverse, the iterating projection, `get_by_identifier`, the cascade step and label, the `save` rider plus its two APPEND-ONLY docstring paragraphs.
+```
+
+```writes
+path: scripts/lint_vault.py
+why: Task 9 — WHATSAPP_CHECK and one report-only detector arm in `check_structural`. No auto-fix rule, no change to `apply_fixes`, `_gate_refusal_pattern` untouched.
+```
+
+```writes
+path: scripts/migrate_whatsapp_to_list.py
+why: Task 10 — NEW. plan_migration / apply_migration / readback_migration / _cli, the action table, the repair guard, the single `update_frontmatter_field` write, the triple reconciliation, plus M1's `RepairDisclosure` record and read-only `format_repair_disclosure` (`## Design` §10(a)) and M4's `_escape_for_one_line` helper that every rendered field of that disclosure passes through (`## Design` §10(d)).
+```
+
+```writes
+path: tests/derivations.py
+why: Task 11 — one member added to MUTATING_DRIVE_VAULT_POSITIONS (`apply_migration`) plus its comment, so the containment wall is not vacuous over the new module.
+```
+
+```writes
+path: tests/fixture_vault.py
+why: Task 5 — `_person`'s whatsapp default becomes `[]`, Thrandell's override becomes the class-B LIST, Fennwick's NoteSpec gains the class-C LIST, CORPUS_DIGEST regenerated.
+```
+
+```writes
+path: tests/fixtures/vault/@Thrandell Ibberly.md
+why: Task 5 — the person round-trip representative's `whatsapp` becomes the storable `15555550142@lid`, so a correct build does not redden two standing round-trip tests.
+```
+
+```writes
+path: tests/fixtures/vault/@Fennwick Drostane.md
+why: Task 5 — receives the class-C value `447700900789@example.com`; the one corpus note satisfying all three of AC-1's receiver constraints.
+```
+
+```writes
+path: tests/test_identifier.py
+why: Task 2 — the WhatsAppJID block gains the storable predicate and the classifier beside its existing parse pins.
+```
+
+```writes
+path: tests/test_whatsapp_jid_storage.py
+why: Tasks 2, 3, 6, 7 — NEW. The predicate/classifier battery plus AC-1, AC-2 and AC-4's checks.
+```
+
+```writes
+path: tests/test_whatsapp_write_door.py
+why: Tasks 4, 8, 9 — NEW. AC-3's check across all three surfaces, plus the detector's own check.
+```
+
+```writes
+path: tests/test_whatsapp_migration.py
+why: Tasks 10, 11, 12, 13 — NEW. AC-5's check, the containment wall over its own source, the wall-membership closure, plus the two mitigation checks (M1-and-M4's repair-disclosure check, which carries M4's derived `BREAK_CODEPOINTS` set and its adversarial control-character plant, and M2/M3's bracket redaction-and-shape wall).
+```
+
+```writes
+path: docs/wi-032-whatsapp-live-baseline.md
+why: Task 13 — the live bracket's ENTRY half, §5 left empty for the conductor's post-run exit numbers, §3 built to `## Design` §10(c) (two loud breaks listed, the raw-file writer in its own DATA-LOSS HOLD row) and to §10(b) (counts, classes and code paths only, walled by Task 13's own check). A DELIVERABLE of the ship condition, not evidence any criterion's premise rests on.
+```
+
+## Mitigation Folds — 2026-09-27
+
+The FOUR `kind: required` mitigations of `## Threat Model — 2026-09-27 (round 2)` — the LATEST SPEAKING
+round, which re-emits round 1's M1, M2 and M3 with their `desc` byte-identical and adds M4 — each folded into
+`## Design` AND the Implementation-Plan task its fence names, in the SAME edit as
+this record. Every `desc` below is copied verbatim from that round's `mitigation` fence. The four share one
+generator and are closed as one class in one Design subsection (§10) rather than as sentences scattered
+across §7 and Task 13: the generator is that the item's irreversible half is authorized by a human reading two
+artifacts — the migration's stdout and `docs/wi-032-whatsapp-live-baseline.md` — whose CONTENT no section
+specified, so both defaulted to per-cell counts.
+
+Sweeping that ladder gave the same answer twice, at two levels, which is why this section is one class and not
+four instances. At the SURFACE level, the surfaces a human reads at a go/no-go are exactly three: the dry run's
+stdout (M1, now specified and asserted), the tracked bracket document (M2 and M3, now specified and walled),
+and the `lint_vault` detector's output, which §10(b) declares to be a COUNT in the bracket and per-note LINES
+on stdout — the same partition, stated rather than left to the reader. No fourth such surface exists in this
+design: `_refuse` carries its value as an attribute and reaches no message or traceback (threat model,
+Information disclosure), and the two grounding artifacts are already in HEAD as counts-and-code-paths. At the
+RENDER level — the next level down, which round 2 found because M1 itself created it — the question is not
+which surface carries what but HOW the one surface that renders a note-derived value renders it: M4 closes that
+with ONE escape helper applied to EVERY field of the record (not to the one field the finding named), stated as
+a rule over the whole class of characters that can break a line or hide in one (derived by calling
+`str.splitlines()` over the codepoint space, never a hand list of four), and §10(d)'s own sweep then enumerates
+the dimensions, intersections and class-C sub-cells and DECLARES what it found — six further render surfaces,
+five closed by construction and the sixth (`lint_vault`'s pre-existing per-issue `vf.path`) deliberately
+declined rather than silently missed, an empty intersection, and a 2×2 of sub-cells all four planted.
+
+No `## Write Targets` path was added or removed by this fold, so the item's touch surface and review level are
+unchanged, and no signed span (`## Intent`, `## Acceptance Criteria`) was touched.
+
+```fold
+id: M1
+desc: The DRY RUN must print the class-C repair as per-note (stored value -> proposed JID) pairs and flag every member whose digits are not already in its own `phones[]`, so the 82 irreversible re-spellings are authorized with the rewrites VISIBLE rather than off aggregate per-cell counts — AC-5 leg (d)'s key-preservation is true by construction of the repair spelling (both keys derive from the same `normalize_phone` output, `phone_normalization.py:52`) and so is not evidence the digits are the right number, and the census itself singles out the one uncorroborated member as "the one row worth eyeballing in the dry run" (`docs/wi-032-whatsapp-corpus-census.md:207-208`) while nothing in the design can show it.
+design: `plan_migration` carries, per class-C note, a `RepairDisclosure(path, stored_value, proposed_jid, corroborated)` record whose `corroborated` is computed by `phones_match` over that note's OWN raw `phones[]`, and `format_repair_disclosure(plan)` returns one line per record with the UNCORROBORATED records FIRST under their own header, which `_cli` prints on every run BEFORE any write — so the 82 irreversible re-spellings are authorized with every stored-value → proposed-JID pair VISIBLE and the census's one uncorroborated member unmissable, never off aggregate per-cell counts.
+landed: Task 10
+work: The M1 RIDER, per `## Design` §10(a): `plan_migration` carries a `RepairDisclosure(path, stored_value, proposed_jid, corroborated)` record per class-C note on `plan.repairs`, with the three header/banner literals as module constants the check IMPORTS, and with `corroborated` computed by calling `phones_match(WhatsAppJID.parse(v).phone_digits, normalize_phone(p))` over each non-blank `p` in that note's OWN raw `phones[]`; `format_repair_disclosure(plan)` RETURNS (never prints) one line per record carrying the note path, the stored value and the proposed JID, each field ESCAPED through `_escape_for_one_line` per the M4 rider below, with the UNCORROBORATED records first under their own header; and `_cli` prints it on every run BEFORE any write, including under `--apply` and under `--no-repair` (where the header states no repair will be attempted and those notes join R). Add `test_whatsapp_dry_run_discloses_each_class_c_repair_pair` to `tests/test_whatsapp_migration.py`, over a temp vault planted with one CORROBORATED class-C note (its digits also in its own `phones[]`), one UNCORROBORATED class-C note (digits in no `phones[]` entry, the live census's single such member), and one note per other class: the line set is EXACTLY one line per class-C plant with the expected count DERIVED by calling `classify_field` over the plants rather than written as a literal; each line's proposed JID is computed in the test by CALLING the same repair spelling on the plant's own stored value; the uncorroborated plant appears under the uncorroborated header and the corroborated one does not, with both expectations computed by calling `phones_match` over the plants' own values and never from a hardcoded flag; a class-A plant whose digits are absent from its `phones[]` yields NO line (the population is class C only, so the disclosure is not a corroboration report); and the whole disclosure is READ-ONLY, asserted by the same tree digest before and after that leg (a) uses. Every plant literal in this module is RESERVED-block or synthetic, the same clause Task 13's sibling check carries: this module introduces no live identifier, and the census carries none for a builder to reach for (threat-model note 3, round-2 note 1). verify: test_whatsapp_migration_dry_run_then_write_then_readback test_whatsapp_dry_run_discloses_each_class_c_repair_pair
+```
+
+```fold
+id: M2
+desc: The M1 pairs and the detector's per-note issue lines stay on stdout for the go/no-go and are NEVER written into `docs/wi-032-whatsapp-live-baseline.md` or any other tracked document, which carries counts, classes and code paths only — `docs` is a member of `DOC_SCAN_EXCLUDED` (`tests/test_vault_path_required.py:387`, intersected at `:425`) so `docs/**` is outside the markdown scan's domain and nothing mechanical catches a pasted live identifier.
+design: The repair pairs and the detector's per-note issue lines are STDOUT of the conductor's live run and are NEVER written into `docs/wi-032-whatsapp-live-baseline.md` or any other tracked document — which carries counts, classes and code paths only — and because `docs/**` is outside the repo-wide markdown scan's domain (`DOC_SCAN_EXCLUDED = {".git", ".venv", "docs", "state", "node_modules"}`, `tests/test_vault_path_required.py:387`, intersected against every path part at `:425`) nothing standing would catch a pasted live identifier, so this item ships that wall itself: a check over the bracket file's FINAL text asserting that no JID-shaped token and no run of nine or more digits survives outside a 40-hex commit token.
+landed: Task 13
+work: The M2 RIDER, per `## Design` §10(b): counts, classes and code paths ONLY — no vault note name, no live identifier, and specifically none of Task 10's repair pairs and none of the detector's per-note issue lines, both of which are stdout of the conductor's live run. Add `test_wi032_live_baseline_row_shape_and_redaction_wall` to `tests/test_whatsapp_migration.py`, reading the bracket's FINAL text, with three duties. (i) REDACTION, run over all THREE `docs/wi-032-*` artifacts (this bracket and both grounding artifacts) and deliberately NOT over `docs/whatsapp-jid-value-type.md`, which `## Design` §9 line 5 and F18 leg 6 keep one real number in on purpose: after stripping every `\b[0-9a-f]{40}\b` token, no `\d{9,}` run and no digit-immediately-before-`@`-and-a-domain-label survives — with the claimed match-shapes driven through that same predicate as fixtures and every literal RESERVED-block or synthetic (threat-model note 3: this module introduces no live identifier), `"15555550142"`, `"123456789012@s.whatsapp.net"` and `"15555550142@lid"` asserted to MATCH and `27cb78cc5a2099972dccea984664193e69414def` (the real pinned HEAD at `docs/wi-032-consumer-audit.md:92`, which carries the nine-digit run `984664193`), `1168`, `1025`, `82`, `663-665`, `2026-09-27` and a bare `@s.whatsapp.net` asserted NOT to. (ii) FIGURES: §1's six rows and five derived partition figures equal values DERIVED by parsing the census's own verbatim stdout block (`docs/wi-032-whatsapp-corpus-census.md`, its `(a)`, `(c)` and `(c')` lines) — never literals re-typed from this plan — so the bracket is proven to AGREE with the artifact it copies from; the check does not re-measure the live vault and no hermetic check can, and its coupling is declared in one line in the check itself: it pins that artifact's machine-output block and consumes the property that those three lines are its census script's stdout. (iii) SHAPE: `DATA-LOSS HOLD` is present, `merge-duplicate-persons.py:380-384` appears inside that row and NOT inside §3's ordered list, and that list has exactly two items naming the invariant and the endpoint. The check asserts the §5 HEADING exists and asserts NOTHING about §5's content — the conductor writes the exit figures there after the build, and a check pinning §5 empty would redden the floor at close-out. verify: test_wi032_live_baseline_row_shape_and_redaction_wall
+```
+
+```fold
+id: M3
+desc: The bracket's ENTRY row must separate `orchestrator/bin/merge-duplicate-persons.py:380-384` from the two loud consumer breaks and state it as a DATA-LOSS HOLD rather than as the third item of one list — it regex-reads a single `whatsapp` line and re-emits a scalar through `Path.write_text` outside the package boundary, so against a migrated vault it can silently drop a person's second JID or blank the field, which is the exact harm this item exists to prevent and the only one of the three measured breaks that does not announce itself.
+design: `docs/wi-032-whatsapp-live-baseline.md` §3 states the two LOUD breaks as its ordered list — `orchestrator/src/invariants.py:663-665`, a vault-wide red invariant, and `HAL9000/backend_fastapi/routers/contacts.py:41,50`, a 500ing endpoint — and states `orchestrator/bin/merge-duplicate-persons.py:380-384` in its OWN row under the heading `DATA-LOSS HOLD`, because that site regex-reads a single `whatsapp` line and re-emits a scalar through `Path.write_text` outside the package boundary, so against a migrated vault it can silently collapse a person's list to one value or blank the field — the exact harm this item exists to prevent, and the only one of the three that does not announce itself.
+landed: Task 13
+work: §3 is built to `## Design` §10(c) — the M3 RIDER: its ordered list is the TWO LOUD breaks and only those two, `orchestrator/src/invariants.py:663-665` (red vault-wide) and `HAL9000/backend_fastapi/routers/contacts.py:41,50` (500ing), each with its pinned 40-hex HEAD; the raw-file writer at `orchestrator/bin/merge-duplicate-persons.py:380-384` stands OUTSIDE that list in its own row headed `DATA-LOSS HOLD`, carrying its pinned HEAD, its reaching callers (`bin/apply-vault-review.py:152,158`), the `whatsapp: ""` clearing path (`docs/wi-032-consumer-audit.md:202-204`) and the conductor instruction that neither that script nor `apply-vault-review.py` is run against the vault post-migration until the other repo fixes it; and a one-line pointer to `docs/wi-032-consumer-audit.md:227-239` for items 4–7 of its seven-site list rather than a re-listing. §3 also carries the 26-lid sentence `## Approach` now carries. (iii) SHAPE of Task 13's check asserts it: `DATA-LOSS HOLD` is present, `merge-duplicate-persons.py:380-384` appears inside that row and NOT inside §3's ordered list, and that list has exactly two items naming the invariant and the endpoint. verify: test_wi032_live_baseline_row_shape_and_redaction_wall
+```
+
+```fold
+id: M4
+desc: `format_repair_disclosure` must render each record's stored value ESCAPED rather than VERBATIM — one physical line per record, guaranteed, with newline, carriage return, tab and the ANSI escape rendered as visible escapes — and the M1 check must plant one class-C note whose stored value carries an interior newline plus the text of `CORROBORATED_HEADER` and assert the line count still equals the record count and no forged header appears: `WhatsAppJID.parse` normalizes with `str(raw).strip().lower()` (`identifier.py:273`) so an INTERIOR control character survives into `.jid` while `normalize_phone` strips every non-digit (`phone_normalization.py:52-55`), making such a value phone-bearing, domain-less and therefore class C — so the one artifact the irreversible 82-note go/no-go is read against can be reflowed or have a section header forged by the very data it describes, and the check's own "exactly one line per class-C plant" oracle is asserted only over clean plants that cannot falsify it.
+design: `format_repair_disclosure` renders EVERY field of every `RepairDisclosure` — `path`, `stored_value` and `proposed_jid` alike — through the single module-level helper `_escape_for_one_line`, which escapes the backslash first and then renders as a visible `\xNN`/`\uNNNN` escape every character `str.splitlines()` treats as a line break and every character whose `unicodedata.category` is `Cc`, `Cf`, `Zl` or `Zp` (so the newline, the carriage return, the tab, the ANSI `\x1b` and their whole class), which makes ONE PHYSICAL LINE PER RECORD a guarantee of the formatter over ANY stored value instead of an accident of the data — and Task 10's M1 check plants an UNCORROBORATED class-C note whose stored value carries an interior newline followed by the text of `CORROBORATED_HEADER` and asserts that the output's line count still equals the record count plus the headers the formatter itself emitted, and that no output line EQUALS a header constant the formatter did not emit.
+landed: Task 10
+work: The M4 RIDER — the disclosure's render, per `## Design` §10(d): add the module-level helper `_escape_for_one_line(raw: str) -> str` to `scripts/migrate_whatsapp_to_list.py` and route EVERY field of every `RepairDisclosure` through it in `format_repair_disclosure` — `path`, `stored_value` and `proposed_jid` alike, so the guarantee is total over the RECORD and survives a later change to the repair spelling. The helper escapes the backslash FIRST (so the rendering is unambiguous) and then renders as a visible `\xNN`/`\uNNNN` escape every character `str.splitlines()` treats as a line break and every character whose `unicodedata.category` is `Cc`, `Cf`, `Zl` or `Zp`; every other character passes through unchanged. The implementation is the CATEGORY test ALONE — that set CONTAINS the break set, which leg (1) proves rather than assumes — and the rendering is pinned so nothing is a judgment call: `\\` for the backslash, then `f"\\x{cp:02x}"` for a codepoint below `0x100` and `f"\\u{cp:04x}"` for the rest. Extend `test_whatsapp_dry_run_discloses_each_class_c_repair_pair` — not a new check, because this is the property that makes that check's own oracle total — with five legs, each oracle DERIVED and never listed. (1) TOTALITY: `BREAK_CODEPOINTS = frozenset(cp for cp in range(0x110000) if len(f"a{chr(cp)}b".splitlines()) > 1)` computed ONCE at module level (~1s; compute it once, never replace it with a hand list of characters — the hand list is the defect this leg exists to prevent), then for every `cp` in it `_escape_for_one_line(f"a{chr(cp)}b").splitlines()` has length 1, and for every `cp` in it plus `0x1b` the escaped rendering contains no such raw character. (2) NO-OP ON CLEAN: `_escape_for_one_line(x) == x` for every field of every clean plant, so the escape is the identity wherever verbatim is safe and the 82 live bare digit runs render exactly as a verbatim render would. (3) THE ADVERSARIAL PLANT: one more class-C note, planted through the SAME `_temp_vault` door as every other plant (so §8's PROVENANCE clause is unaffected), as a YAML double-quoted scalar carrying the `\n` escape followed by the text of `CORROBORATED_HEADER` imported from the module, with the RESERVED-block number `447700900321` and its `phones[]` holding no matching digits — asserted before it is used with: the value read back out of the note CONTAINS the planted control character, `classify_field` called on it returns exactly `["C"]`, and `phones_match` over that note's own `phones[]` returns False so it lands in the UNCORROBORATED section. (4) LINE COUNT STILL EQUALS RECORD COUNT: `len(format_repair_disclosure(plan).splitlines())` equals the record count plus the number of headers the formatter itself emitted, with BOTH terms derived — the record count by calling `classify_field` over the plants, the header term by calling the formatter over the same plan with the adversarial plant removed and counting the header lines it produced. (5) NO FORGED HEADER: the set of output lines EQUAL to any of the three imported header/banner constants is exactly the set that run produced, so a header appearing only because the data spelled one is RED. Then complete the 2×2 of class-C sub-cells by planting the fourth cell — a CORROBORATED control-character-bearing note — with its corroboration likewise computed by calling `phones_match` and never written beside the plant. verify: test_whatsapp_migration_dry_run_then_write_then_readback test_whatsapp_dry_run_discloses_each_class_c_repair_pair
+```
+
+## Verification
+
+How to know the whole thing works, end to end. The five `check:` names are the machine floor — plus the two
+plan-task checks `## Mitigation Folds` adds, which are verification artifacts and not criteria
+(`test_whatsapp_dry_run_discloses_each_class_c_repair_pair` for M1 and M4 — M4 rides the SAME check because the
+escape is what makes that check's one-line-per-record oracle total rather than clean-plant-only — and
+`test_wi032_live_baseline_row_shape_and_redaction_wall` for M2 and M3). This section is
+what the floor is not — the smoke path, the graceful failures, the downstream consumers, the DERIVED
+regression enumeration, and the one live act a cage cannot perform.
+
+**Happy path (the smoke test).** Materialize the corpus into a temp vault, run
+`plan_migration` and read its six per-cell counts; run `apply_migration`; run `readback_migration`; assert
+the triple agrees part-for-part and that every person's `.key` multiset is unchanged. Run `apply_migration`
+ONCE MORE over the result and assert it writes nothing — zero write-door calls, the digest unchanged, the
+same triple — which is the retry remedy's own property (`## Design` §7). Then, on the same
+vault: `PersonRepository(vault).get_by_identifier(WhatsAppJID.parse("15555550142@lid"))` returns Thrandell,
+`repo.resolve("15555550142@lid")` returns Thrandell, `repo.get_by_phone("5555550142")` returns None, and
+`repo.get_by_phone("447700900789")` returns Fennwick.
+
+**Failure modes that must fail GRACEFULLY.** A bare number written to `whatsapp:` through any of the three
+dict doors: `NameGateRefusal` with `.pattern == "whatsapp_not_a_jid"`, `.refused_value` set, the note
+byte-identical, the value absent from the message and from the traceback. A `save` of a person whose STORED
+value is class C/D/E: the same refusal, the value still on the model and still in the note, and the note
+still writable through every delta arm. A note carrying a nested container under `whatsapp:`: `lint_vault`
+reports it and does not crash. An absent or blank `--vault`: the migration exits non-zero before touching a
+filesystem. A `NameGateRefusal` mid-run on a note the plan called convertible: the run ABORTS loudly — it is
+a defect, not a transient, and must never be caught and counted.
+
+**Integration — downstream consumers that must still work.** `tests/test_repositories.py` (its John Smith
+fixture stores the class-C scalar `whatsapp: "447990558521"` at `:33` and `test_get_by_phone_whatsapp_jid`
+at `:316-319` asserts `get_by_phone("447990558521@s.whatsapp.net")` finds him — still green, because the
+tolerant reader accepts the scalar and the value is phone-bearing so it still pivots) and
+`tests/test_identity_index.py` (`:76-84` asserts a `whatsapp` equal to a `phone` unifies to ONE `phone:` key
+with no conflict — still green for the same reason). **Neither is a declared write target, and that is a
+PREDICTION to be falsified by running them, not a conclusion:** if either goes red the cause is in the
+design and the remedy is the design, not the test. The out-of-tree consumers are already measured — 20
+production sites, zero element-type assumptions, zero whole-record projections
+(`docs/wi-032-consumer-audit.md`) — and the cardinality breaks are disclosed in the live bracket's
+entry row rather than fixed here: the first three named individually, the third of them in its own
+`DATA-LOSS HOLD` row (`## Design` §10(c)), with items 4–7 carried as a pointer to the audit.
+
+**Regression — DERIVED from the edited surfaces, not inherited.** Sweep the resolved test roots for modules
+naming each `## Write Targets` path and run every module the sweep returns. The census below is a FLOOR
+measured on 2026-09-27 and never a total — this derivation has under-reached at its reading step every time
+anyone has run it, which is why Task 12 RUNS each predicate instead of trusting this list:
+
+| edited surface | modules that assert into it | what each requires |
+|---|---|---|
+| `obsidian_schemas/identifier.py` | `tests/test_identifier.py`, `tests/test_phone_normalization.py:105-119` | the `MIN_DIGITS` boundary pins on `parse` — green because `parse` is untouched; this is the module that goes red if Ruling A's alternative (b) is ever taken |
+| `obsidian_schemas/models.py` | `tests/test_parser.py:161`, `:248-264`, `tests/fixture_vault.py:85-105` | the declared person oracle hand-transcribes `models.py`'s defaults, so `whatsapp: ""` → `[]` travels with the annotation |
+| `obsidian_schemas/name_gate.py` | `tests/test_name_gate.py`, `tests/test_name_gate_wall.py` (arm sweep, `EDITED_FUNCTION_ARM_COUNTS`'s six per-function equalities, the `ast` single-home) | no spurious arm; `declared_type` never `absent`; no `ast` outside `tests/derivations.py` |
+| `obsidian_schemas/repositories/person.py` | `tests/test_repositories.py`, `tests/test_identity_index.py`, `tests/test_identity_endgame.py` (clause (e1) over 29 `save` lines, the Cut-0 resolve golden at `:672-729`, `ITEM_EDITED_QUALNAMES`'s rows at `:1065-1080`, `phone_index_iteration_sites` at `:642-644`, `resolve`'s no-index-reads clause at `:692-698`), `tests/test_provenance_write_seam.py`, `tests/test_write_target_seam_wall.py`, `tests/test_concurrent_access.py` | prose APPEND-ONLY; the golden cannot move (the roster carries no `whatsapp` at all); no new write capability or frontmatter payload binding; every phone-index iteration `materialized`; `resolve` reads no index directly |
+| `scripts/lint_vault.py` | `tests/test_lint_vault_fix_rules.py` (the oracle table scoped to `auto_fixable_emitter_checks`, the seven write-causing detectors, the four-bucket accounting), `tests/test_lint_vault_fix_gate.py`, `tests/test_stem_name_divergence_detector.py` (the marked-set equality, `_divergence_issues`' filter on `issue.check`), `tests/test_vault_path_required.py` (the no-implicit-default scan over `scripts/**`) | a report-only rule owes no oracle; the divergence module's four assertions untouched; no forbidden default pattern |
+| `scripts/migrate_whatsapp_to_list.py` | `tests/test_name_gate_wall.py` (its universe is package-and-scripts), `tests/test_vault_path_required.py:312-331`, `tests/test_address_splitter.py:102`, `tests/test_company_name_contract.py:615-621`, `tests/test_write_routing.py:91`, `:370` | every frontmatter write arm routes through `gate_write` with a resolved declaration; no `expanduser`/`Path.home()`/`/Users/`; no second address splitter; no write routing around the door |
+| `tests/derivations.py` | `tests/test_lint_vault_fix_rules.py:288`, `tests/test_stem_name_divergence_detector.py:144` — the two existing consumers of `mutating_drive_vault_args` | each runs the scan over its OWN file only, neither calls `apply_migration`, so adding the member changes neither answer |
+| `tests/fixture_vault.py` + the two corpus notes | `tests/test_fixture_vault.py` (the freeze, the byte-copy, the privacy wall and its reach, `roundtrip_representative` uniqueness, the type-registry sweep, the census verdict loop, the skip surface / `LOADABLE` / `RESOLVABLE` declarations), `tests/test_writer.py:404-428`, `tests/test_parser.py:248-264`, `tests/test_stem_name_divergence_detector.py:341-352` | digest regenerated; zero privacy violations with no exemption added; the representative gate-clean and storable; no declared resolution answer moved; the marked set untouched |
+| every NEW `tests/test_*.py` | `tests/test_fixture_vault.py:1373-1395`, `tests/test_provenance_write_seam.py:1828-1861`, `tests/test_loud_fail_harness.py:103`, `tests/test_ac_interpreter.py:95-106` | names no `ast`; IMPORTS every skip reason rather than typing it; every top-level `def test_` globally unique |
+| `docs/wi-032-whatsapp-live-baseline.md` | `tests/test_vault_path_required.py:436-450` — and, NEW this fold, `tests/test_whatsapp_migration.py`'s `test_wi032_live_baseline_row_shape_and_redaction_wall` | `docs/**` is EXCLUDED from that scan's domain (`DOC_SCAN_EXCLUDED`), so the file joins no STANDING markdown wall — which is exactly why M2 makes this item ship one: the new check is the only thing that reads this file's text, it asserts redaction, census-derived figures and §3's shape (`## Design` §10(b), §10(c)), and it asserts nothing about §5 so the conductor's exit numbers cannot redden the floor |
+
+**Four counting walls, and each ships its claimed match-shapes as fixtures.** AC-3's derived arm set,
+Task 12's wall census and — added by these folds — Task 13's redaction predicate, whose oracle is
+`matches == 0` over a document's text and so is the purest member of the class, plus Task 10's repair-disclosure
+LINE COUNT, whose oracle is `lines == records + headers`, are all oracles whose value is
+a COUNT or a SET of structural matches, and
+`matches == N` says nothing about the matcher's reach. So each claimed shape is driven through the wall's OWN
+predicate — never a re-implementation — as a GREEN fixture on every floor run: for the arm set, a planted
+arm that MUST be collected and a near-miss (a function that parses frontmatter and writes nothing) that must
+NOT be; for the containment scan, a planted `apply_migration(vault)` call that must be collected and a
+planted call with an unreducible vault expression that must RAISE; for the line count, M4's adversarial plant —
+a class-C value carrying an interior newline plus the text of `CORROBORATED_HEADER` — which is the shape that
+falsifies `lines == records` if the formatter does not escape, driven through `format_repair_disclosure` itself,
+beside the totality leg that drives every codepoint in the DERIVED `BREAK_CODEPOINTS` set through
+`_escape_for_one_line` (`## Design` §10(d)). A wall that passes by matching everything
+and is then narrowed back with nothing checking the narrowing is the specific failure this buys out of; a wall
+whose only inputs cannot falsify it is the same failure wearing a green tick, and the line count was one until
+M4 landed.
+
+**The live replay — a CLOSE-OUT step, outside the cage, never a plan task.** This is an incident-class item:
+it exists because a malformed JID was written for a real person through HAL9000's PATCH door on 2026-09-09
+and repaired by hand. A green fixture battery is not evidence that the door now refuses it. After the build
+lands and before the item closes, the conductor:
+
+1. Commits `docs/wi-032-whatsapp-live-baseline.md`'s ENTRY row (Task 13's figures) and shows Dave the two loud
+   consumer breaks and, separately, the `DATA-LOSS HOLD` row with its do-not-run instruction
+   (`## Design` §10(c)).
+2. Runs the migration's DRY RUN against the live vault and shows Dave the six per-cell counts beside the
+   census's, including the 1025 shape-only figure named as the population with no semantic effect — AND the
+   repair disclosure's 82 `(stored value → proposed JID)` pairs with the uncorroborated member first
+   (`## Design` §10(a)), which is the artifact the go/no-go on the irreversible re-spellings is actually taken
+   against. **Read it as EXACTLY 82 record lines plus its two headers** — that equality is guaranteed by the
+   render (§10(d)), so a line count that disagrees is a defect and not a long value, and any `\n`/`\x1b`-style
+   visible escape in a printed value is the render doing its job rather than a corrupt note. Those pairs stay on
+   the terminal: nothing from them is pasted into the bracket or any other tracked
+   document (§10(b)).
+3. On Dave's go, runs `--apply`, then the readback, then `scripts/lint_vault.py` and reads the new
+   `whatsapp_not_storable` check's issue COUNT as an INDEPENDENT second witness to `|R|` — two counts by two
+   tools that must agree, which is the whole reason that detector exists. The count is what the bracket carries;
+   the detector's per-issue lines name vault notes and stay on the terminal (§10(b)).
+4. **Replays the actual incident, unmuted:** attempts to write `"+44 7739 341679"` into `whatsapp:` on a
+   DISPOSABLE person note through HAL9000's PATCH door and confirms the refusal, the unchanged bytes, and
+   that the note is still editable for everything else. A disposable note, never Kim Faura's own and never
+   any production record. **Redact the transcript before it is recorded in any tracked document** — the run
+   is live, the transcript is not.
+5. Writes §5's exit numbers as the partition's three parts with their two named sub-counts.
+
+A caged builder's vault writes are reverted at the merge boundary, so any of the five run as a plan task
+would change nothing and report success.
+
+## Scope Boundary
+
+**What we are NOT doing.**
+
+- **Not typing `emails`, `phones`, `linkedin` or `slack`.** Ruling C: `whatsapp` only. The follow-on item is
+  framed as "derived typed accessors alongside the stored `List[str]`" and NOT as
+  `emails: list[Email]` — F13 shows a strictly-typed stored field cannot hold a value the door refuses
+  without erasing it or making the note unsaveable, and `slack` cannot be typed at all without inventing the
+  workspace the frontmatter does not carry (`person.py:305-312`). The class-Ø rule generalizes to it.
+- **Not narrowing `WhatsAppJID.parse`.** Rejected item 7, on measured blast radius: `parse_identifiers` is
+  `strict=True` by default and is the declared Phase-4 adapter seed, the WI-035 pivot and
+  `_resolve_identifier` both want maximum reach, and `tests/test_identity_index.py:80` would keep passing
+  while silently ceasing to test its own name.
+- **Not CONTRACTING the tolerant reader.** Expand → migrate → contract is three phases and this item ships
+  the first two. The third is gated on `|R|` reaching zero by HAND repair, on no schedule this item can
+  promise. Refusing the scalar at read time converts an un-migrated note into an INVISIBLE one (rejected
+  item 3).
+- **Not adding a `schema_version` field.** That is WI-010's own question, which this migration un-parks by
+  being the first real one. Whether WI-010 then un-parks as a generic mechanism or closes as answered is a
+  queue call, not a scope creep.
+- **Not touching `_IDENTIFIER_PRIORITY`.** A different frame's ordering, right as it stands, and its
+  explaining comment is frozen prose (`## Design` §5(f)).
+- **Not widening any other item's wall.** Not WI-016's privacy wall (rejected item 11), not WI-016's census
+  digest (`## Design` §9 line 4), not WI-024's `AUTHORIZED_PROSE_OWNERS` (rejected item 15), not WI-029's
+  `NOT_RENAMEABLE_MARKER` (rejected item 14), not the `SKIP_REASONS` two-home equality, not the `ast`
+  single-home.
+- **Not fixing `orchestrator/bin/merge-duplicate-persons.py`.** It edits frontmatter as TEXT outside the
+  package boundary, so `## Intent`'s "every writer refuses it at the boundary" is false of it BY DESIGN — a
+  named exclusion the absolutes sweep already scopes, and already on the WI-029 divergence-generator list.
+  Disclosed in the live bracket's entry row as its own `DATA-LOSS HOLD` row (`## Design` §10(c)) carrying the
+  do-not-run instruction, fixed in another repo's item. Declining the fix is not declining the disclosure.
+- **Not a `_whatsapp_index`.** WI-023 spent a whole item deleting the legacy per-kind email dict so
+  resolution has ONE authority. The lid is already in the WI-125 index under `jid:<lid>`; the gap was a
+  public reader (rejected item 2).
+- **Not provenance (`source`/`observed_at`/`corroboration`) on the note.** Out by Dave's 2026-09-26 ruling
+  (2) — the writer keeps its own ledger, keyed by value (rejected item 5).
+
+**Unchanged files — do NOT touch, and the reason for each.**
+
+- `obsidian_schemas/writer.py` — F8's projection step is DELETED from scope by F13 leg 1: with the stored
+  field `List[str]` nothing dataclass-shaped is ever in `model_fields`, so there is no projection to write
+  (rejected item 9). The `no !!python/object in the bytes` assertion stays as the guard that keeps it true.
+- `obsidian_schemas/parser.py` — `_normalize_frontmatter` stays field-name-AGNOSTIC; the tolerant read lives
+  on the model (`## Design` §2).
+- `obsidian_schemas/phone_normalization.py` — a stdlib-only leaf whose two consumers both WANT the naive
+  `@`-split. Fix the caller, not the leaf (rejected item 4).
+- `docs/vault-shape-census.md` and `docs/vault-fixtures.md` — another item's digest-frozen artifact and its
+  signed criteria. A row here is a conductor pass plus a D4b re-sign in front of Dave, never a build edit.
+- `tests/test_fixture_vault.py`, `tests/test_identity_endgame.py`,
+  `tests/fixtures/identity_endgame/prose_surface_cut0.json`, `tests/test_stem_name_divergence_detector.py`,
+  `tests/test_lint_vault_fix_rules.py` — walls this item JOINS and satisfies, never files it edits. Task 8's
+  check IMPORTS `_golden` and `AUTHORIZED_PROSE_OWNERS` from `tests/test_identity_endgame.py` (`## Design`
+  §6): reading a wall's own reader and its own tuple is how the conjunct avoids a second spelling of either,
+  and it is not an edit to that module or to the JSON it reads.
+- `tests/test_writer.py`, `tests/test_parser.py`, `tests/test_repositories.py`,
+  `tests/test_identity_index.py`, `tests/test_phone_normalization.py` — predicted GREEN under the design and
+  RUN to confirm. If one goes red, the remedy is the design; re-expecting a refusal in a round-trip test is
+  rejected item 12.
+- `README.md`, `CLAUDE.md`, `SESSION_LOG.md`, `pyproject.toml`, `pipeline-runners.yaml`, `state/**` — outside
+  this project's `write_authority` by declaration, and nothing in the build depends on any of them.
+
+## Risk Analysis
+
+This touches the person corpus Dave's whole estate resolves against, so the honest accounting matters more
+than the reassuring one.
+
+| # | What could go wrong | Likelihood | Impact | Mitigation |
+|---|---|---|---|---|
+| 1 | The migration drops a person's second WhatsApp identity | LOW — nothing populates second JIDs yet, so the live population is zero on day one | HIGH — silent identity loss, invisible until a lookup fails | AC-5 leg (c)'s `.key` multiset oracle plus TWO per-note counts (parseable, and TOTAL including unparseable), computed from a RE-READ of the note bytes; the two-JID plant is the fixture whose whole purpose is this |
+| 2 | A build erases a value the door refuses | LOW — AC-4 leg (b) is the wall | HIGH — silent data loss on exactly the population the item exists for | the stored field is `List[str]` so nothing is dropped at READ time; AC-4 leg (b) asserts the raw string survives by equality against the note's bytes; rejected item 8 names the branch a build reaches by default |
+| 3 | The migration clears a class-D value to reach a flat zero | LOW now that the exit figure is a PARTITION | HIGH — same erasure, arriving through the run instead of through the reader | the never-clears conjunct is asserted PER PLANT in AC-5 leg (e), so the route is red BY INTENT and not as a side effect of leg (c)'s total-value count (rejected item 17) |
+| 4 | The scalar→list flip breaks a consumer on migration day | **CERTAIN — seven measured sites** | MEDIUM — one red invariant, one 500ing endpoint, one raw-file writer that can collapse a list, four further readers | measured and pinned in `docs/wi-032-consumer-audit.md`; disclosed in the live bracket's ENTRY row in front of Dave BEFORE the write, with the raw-file writer separated into its own `DATA-LOSS HOLD` row carrying a do-not-run instruction (`## Design` §10(c)) because it is the only one of them that is silent; the tolerant reader means the LIBRARY never breaks, only code that reads the field as a string |
+| 5 | A consumer writes a bare number and starts being refused | MEDIUM — 82 live notes prove the producers exist | LOW-MEDIUM — a break in somebody else's path, which is the Intent working | the migration's repair pass runs FIRST, so all 82 are key-preservingly repaired and the door refuses nothing on the live vault the day it lands; the two HAL9000 generic entity doors are named in the disclosure |
+| 6 | A back-out is needed after the live run | LOW | MEDIUM — reverting the library makes every migrated note INVISIBLE, not oddly shaped | the back-out is a REVERSE migration through the same door, exact up to 82 canonical re-spellings and only while no note carries a second JID; both qualifiers are in `## Approach`'s back-out paragraph and in the bracket |
+| 7 | A build turns another item's green wall red and "fixes" it there | MEDIUM — it has been the single most productive defect class across nine gate rounds | MEDIUM-HIGH — buys a green by destroying another item's evidence | four rejected items name the exact branches (11, 12, 15, 16); `## Scope Boundary`'s unchanged-files list says which files are walls; Task 12 RUNS each wall's own predicate rather than reasoning about it |
+| 8 | `lint_vault` crashes on a malformed live note | LOW | MEDIUM — the repair tool is what finds malformed notes, so a crash is the worst possible failure mode | the detector's one classifier call is wrapped and reports under the same check; a nested-container plant exercises that arm rather than assuming it |
+| 9 | A live identifier the new repair disclosure printed is pasted into the tracked bracket | MEDIUM — it is the natural move: record the detail you were shown in the document where you record what you decided, and this fold is what puts 82 real telephone numbers on the screen | MEDIUM — a permanent committed disclosure of real contact data, in a file `docs/**` exclusion keeps outside every standing markdown scan | the transparency mitigation ships WITH its wall rather than after it (`## Design` §10(b)): Task 13's check runs a redaction predicate over the bracket's FINAL text — no `\d{9,}` run and no JID-shaped token outside a 40-hex commit token — and ships both its match and near-miss shapes as fixtures, so it can pass neither by matching everything nor by matching nothing |
+| 10 | The go/no-go is taken against a disclosure the disclosed data reflowed or forged a header into | LOW on today's corpus — the census measured all 82 as bare digit runs — but UNMEASURED, because the census was never asked about interior control characters, and the three unvalidated doors that wrote the Kim Faura value are the same three that could write one | MEDIUM-HIGH — the conductor's line count stops equalling the repair count, the UNCORROBORATED-first ordering stops being reliable, and a forged `CORROBORATED` header can move the one row the census asked a human to read into the safe half of an IRREVERSIBLE 82-note authorization; no note is corrupted either way, since the repair reads only `phone_digits` | the render is escaped at the formatter rather than the values being trusted (`## Design` §10(d)): one helper over EVERY field of the record, the rule stated over the whole class of line-breaking and invisible characters with the break set DERIVED by calling `str.splitlines()` rather than hand-listed, and the M1 check's own line-count oracle made total by an adversarial class-C plant carrying an interior newline plus the text of `CORROBORATED_HEADER` — so the assertion that used to hold only over clean plants now holds over any stored value |
+
+**Migration path.** Expand (the tolerant reader plus the list-emitting writer, shipped in one commit) →
+migrate (the conductor-run bracketed live pass, dry run in front of Dave, then `--apply`, then the readback
+and the detector as two independent witnesses) → contract (NOT this item; gated on `|R|` reaching zero by
+hand repair). The position is forward-only from the moment any note gains a second JID, and the bracket's
+exit entry is what records that window closing.
+
+**Rollback plan.** Before the live pass: the build is a library revert, because no note has changed shape.
+After the live pass: a reverse migration through the same door — `--apply` in the other direction — never a
+library revert, because a list-shaped note against pre-WI-032 code raises `SchemaDriftError` and lands on
+the load skip surface, INVISIBLE rather than oddly shaped. The tolerant reader is kept either way.
 
 ## Acceptance Criteria
 
@@ -2687,219 +4926,6 @@ basis: original
 findings: 1/4
 ```
 
-## Architectural Review — 2026-09-26 (round 4)
-
-**Recommendation: REVISE — two blocking findings, both on the fixture-plant plan, both with a
-precedent in this repo for the fold**
-
-Round 4, re-read at this worktree's HEAD (`c93006a` plus the seeded uncommitted delta). Every
-citation below was read in the code or the doc this round. **The prior rounds' findings all HELD**,
-including round 3's and the AC red-team's convergent class-Ø finding, which is closed at the right
-altitude. What this round found is in the material the FOLDS added: the reclassification of
-`@Thrandell Ibberly.md` as the corpus's free class-C member (F6's first amendment) and the plant
-list that fell out of it (F6's second) were never checked against the frozen corpus's own two
-contracts — its ROUND-TRIP REPRESENTATIVE and its PRIVACY WALL. Neither touches Ruling A or Ruling
-B, and I raise no new question for Dave; both are corrections to this document, and both must land
-before the AC frame freezes because the frozen criterion text asserts the answers.
-
-### Trigger check
-
-Fired for the reasons rounds 1–3 recorded: a new persistent frontmatter shape across ~1,170 live
-person notes; significant extension of three core systems (the WI-021 gate, the WI-125 identifier
-index, `resolve_all`); >3 files in different concerns; cross-system consumers; effort > 1 day.
-
-### The prior findings, re-read against this tree
-
-**Round-1 findings 1 and 2 — still CLOSED.** Re-verified rather than carried: `identifier.py:276-281`
-tests the `@lid` SUBSTRING then `normalize_phone(s)` ≥ `Phone.MIN_DIGITS == 7` and tests for a JID
-suffix nowhere, so `WhatsAppJID.parse("+44 7739 341679")` still succeeds and only the STORABLE
-predicate refuses it; `phone_normalization.py:52` splits at the FIRST `@`; `person.py:1190-1194` is
-the save rider and writes back `emails`/`phones`/`aliases` only; `writer.py:112-117` emits every
-declared field unconditionally.
-
-**Round-3's blocking finding (class Ø) — CLOSED, and the fold is complete rather than cosmetic.**
-Every leg of it is now asserted rather than described: the ABSENCE bullet ahead of both predicates in
-`## Exploration Notes`, class Ø as a CELL, AC-1's ORDER assertion, AC-3's CLEARING and CLASS-Ø legs
-at every arm, AC-4(a)'s round trip meeting the write side, and F16 carrying the derivation. The
-mechanism re-read this round: `identifier.py:271-275` has no blank branch — and the package's own
-existing test already parametrizes `None` and `""` alongside `"notaphone@s.whatsapp.net"`
-(`tests/test_identifier.py:140`), which is the sharpest form of F16's point; `person.py:318-320`'s
-`add()` returns on a `None`-or-blank raw before parsing; `name_gate.py:399`'s `elif entry and …`
-draws the same line by falsiness; `writer.py:333-337` sets a field and there is no delete affordance
-anywhere in the writer, so CLEARING really is the residual's only repair door; `models.py:94` and
-`tests/fixture_vault.py:94` are the default and the transcribed oracle the refusing build would have
-broken.
-
-**Round-3's three non-blocking notes and round-2's notes 4 and 5 — all folded.** Verified the
-corrections are true, not just present: `writer.py:229-233` is a second `whole_record=True` gate call
-and `base.py:462-465` is the delegation, so `BaseRepository.save` reaches it and
-`name_gate.py:289-294`'s docstring confirms the flag is not the discriminant — the payload containing
-the key is; `frontmatter_write_arms` (`tests/derivations.py:979-1010`) derives arms off
-`write_frontmatter`'s payload binding, so the writer entity arm is in the derived-by-equality set
-exactly as F11's correction claims. AC-5's RE-READ clause, the live run as a SHIP CONDITION, the
-producer-side disclosure in `## Approach`, and Ruling C's mint-on-ruling are all in the text.
-
-### Review (only where this round's findings bite)
-
-**Fit, Duplication, Boundaries, Determinism, Reversibility, Generalization, Build-vs-extend, Prior
-art.** Unchanged from round 2's reads, all re-spot-checked: `_CONTAINER_KEYS` still excludes
-`whatsapp` (`name_gate.py:84`), `_is_str_list`/`_shaped` are still positive predicates under which a
-bare `str` falls to pass-through (`name_gate.py:181-198`), `_refuse` still admits no note-derived
-value (`name_gate.py:142-174`), `_resolve_identifier` still reads `jid:<lid>` and pivots
-phone-bearing JIDs (`person.py:902-908`), `_index_entity`/`_remove_entity_from_indexes` are still
-exact mirrors (`person.py:266-270`, `:412-416`), and `resolve_all`'s cascade still has no
-`whatsapp_jid` step (`person.py:628-651`). Liberal-for-reach / conservative-for-storage remains the
-outside view rather than a local invention, so no cited execution is owed.
-
-**Cost & maintenance — this is the dimension that moved.** F6 prices the fixture plant as "one
-`CORPUS_DIGEST` regeneration … and, if the plant declares a new class, a census row", and calls the
-plant-versus-inline-note choice the spec-writer's. Both findings below are that price being wrong:
-the frozen corpus is not a blank page with a digest on it, it is a corpus with two live contracts,
-and one of the five cells cannot be planted in it at all as the class table spells it.
-
-### Blocking issues
-
-**1. The note the folds appointed as the free class-C member is the corpus's ONE person round-trip
-representative, and two in-tree tests write it through the gated whole-record arm asserting NO
-refusal. After AC-3 both go RED, and the note is not substitutable.**
-
-`@Thrandell Ibberly.md` carries `roundtrip_representative=True` (`tests/fixture_vault.py:219-233`),
-`_representative` asserts there is EXACTLY ONE per type (`tests/test_fixture_vault.py:689-695`), and
-the flag's declared contract is that those notes "declare their model's whole field set, which is
-what makes AC-2's round trip total for them" (`tests/fixture_vault.py:13-14`). Two tests then write
-that entity through the door:
-
-- `tests/test_writer.py:404-428` — `test_corpus_note_round_trips_through_the_write_door` parses the
-  person representative and calls `write_markdown_file(out / name, entity=doc.entity, …)` at `:421`,
-  then asserts every declared field survives, `whatsapp` among them (`:424-427`);
-- `tests/test_fixture_vault.py:705-761` — the AC-2 type-registry sweep does the same for every
-  representative at `:753`, and at `:726-732` asserts the person representative is "GATE-CLEAN by the
-  DOOR's own predicate".
-
-That arm is `write_markdown_file(entity=…)` with `whole_record=True` (`writer.py:229-233`) — the
-second whole-record-projection arm F11's own correction added — so under AC-3 a class-C stored value
-is REFUSED there and both tests raise `NameGateRefusal` instead of comparing a field. F6 does name a
-consequence here, but it names the wrong arm and understates the shape: it says "any existing test
-that round-trips a fixture person through `save` needs re-reading", when the colliding arm is the
-exported writer entity arm, the tests are the two above rather than a set to go looking for, and the
-note is the corpus's unique representative rather than one specimen among several. Meanwhile F6
-instructs the opposite of what the collision requires — "The plant must KEEP Thrandell's value rather
-than tidy it — it is the discriminating member" — and AC-1's frozen `why:` restates it ("the corpus
-supplies Ø (21 notes) and C (`@Thrandell Ibberly.md:7`) for free"). One note cannot be both the
-gate-clean total round trip and the door-refused class-C specimen.
-
-The reason this is blocking rather than a build-time surprise is the branch a builder reaches for
-when the battery goes red: "the round trip now legitimately refuses, so change the test to expect a
-refusal." That build is self-consistent and green, and it silently deletes the only assertion in the
-repo that a whole person field set survives the write door — an existing invariant, traded away
-inside a build whose AC text told the builder that C was free.
-
-**The fold, and this corpus has already solved this exact collision once.**
-`docs/vault-fixtures.md:5938-5943` (WI-016's own build log, deviation 3) records the identical shape
-— a representative must declare every field, a wall forbids the realistic value for one of them —
-and resolves it IN THE CORPUS rather than in either rule: "the four representatives carry those
-fields empty and four non-representative notes carry the URLs … No criterion moved." Fold the same
-way: the person representative's `whatsapp` becomes a value the door accepts (class Ø, or class B —
-see finding 2 for why class A is not available to it), the class-C specimen moves onto a
-NON-representative note keeping the `@example.com` spelling, and F6's plant accounting plus AC-1's
-`why:` are corrected to say C is a plant rather than free. Also worth one line in the touch list: the
-manifest's own override moves with the field's shape as well as its default —
-`tests/fixture_vault.py:225` (`whatsapp="447700900789@example.com"`) alongside `:94`, because
-`tests/test_fixture_vault.py:745-748` compares the parsed attribute against that declared scalar.
-
-**2. Two of the four plant literals the class table names are inadmissible ANYWHERE in the fixture
-corpus's reach, and the class-A cell is structurally inadmissible there — the corpus's one JID is
-spelled `@example.com` BECAUSE of that wall, which is also why Thrandell is class C in the first
-place.**
-
-WI-016's privacy wall scores every email-shaped token in its reach against RFC 2606 / RFC 6761:
-`EMAIL_SHAPED = [\w.+-]+@[\w.-]+\.\w+`, `RESERVED_EMAIL_DOMAINS = {example.com, example.net,
-example.org}` as an EXACT-match frozenset, `RESERVED_TLDS = (".test", ".invalid", ".example")`, and
-`_host_is_reserved` accepts only exact membership or a reserved-TLD suffix
-(`tests/test_fixture_vault.py:302-325`). The live leg asserts zero violations per file
-(`:1067-1069`), and the reach is every file under `tests/fixtures/vault/` PLUS the manifest module
-`tests/fixture_vault.py` (`:386-392`). Applied to the literals this document freezes:
-
-- **class A — `447700900123@s.whatsapp.net`: RED.** `s.whatsapp.net` is neither exact-reserved nor
-  under a reserved TLD. And this is not a spelling accident that a different exemplar fixes: STORABLE
-  is membership of the closed set `{"s.whatsapp.net", "lid"}`, so a phone-bearing STORABLE value must
-  carry exactly that domain. **No class-A member can exist anywhere in the corpus's reach**, which
-  also means the person representative cannot be made class A. `docs/vault-fixtures.md:5944-5948` is
-  this constraint already recorded and already paid for: "A real JID (`<digits>@s.whatsapp.net`) is
-  scored by `reserved_email_violations` against a domain no RFC reserves, so the corpus's JID is
-  spelled `447700900789@example.com`" — the decision that makes Thrandell class C.
-- **class E — `447700900456@lid.example.com`: RED.** `lid.example.com` is a SUBDOMAIN of
-  `example.com`, which the frozenset matches by equality only, and it ends in none of the three
-  reserved TLDs. Cheap fix, and it stays the cell it is: `447700900456@lid.example` is wall-clean
-  (`.example` is a reserved TLD) and still class E — it contains the `@lid` substring so it parses
-  with empty `phone_digits`, and its domain after the LAST `@` is `lid.example`, outside the closed
-  set. But it is a correction to a literal three criteria name (the class table, AC-1's boundary-probe
-  list, AC-3's required class-E member) plus AC-5's plant.
-- **class D — `notaphone@s.whatsapp.net`: RED if planted in the reach**, same mechanism as class A.
-  It is admissible in a test module's own literals, which is where AC-1's independence leg needs it.
-- **class B is admissible, with a constraint nobody has stated.** `@lid` carries no dot after the
-  `@`, so it is not email-shaped and the email wall never sees it — but `reserved_phone_violations`
-  does (`:342-347`), and AC-1's REQUIRED negative-control lid ("11-digit string beginning with `1`")
-  is satisfiable only from the NANP 555-01xx pattern: `15555550142@lid` passes
-  (`RESERVED_PHONE_PATTERNS`' third member, `tests/test_fixture_vault.py:308-312`) and its 10-digit
-  form `5555550142` is the `phones_match` counterpart the control needs. An arbitrary 11-digit lid is
-  RED on the phone wall. Worth naming so the control is not discovered to be unplantable.
-- **One more digit-level trap in the class-A exemplar even before the domain.** Thrandell's stored
-  phone is `+44 7700 900123` (`tests/fixture_vault.py:224`), which normalizes to `447700900123` — the
-  same digits the class-A exemplar uses — so that value would key `phone:447700900123` onto a second
-  entity and mint an identifier conflict in the frozen corpus (`_index_identifiers`,
-  `person.py:336-366`). Nothing in the battery pins the corpus's conflict set, so it would not go
-  red; it would just be wrong. A plant has to pick an UNUSED member of a narrow reserved block, not
-  merely a reserved-looking one.
-
-So F6's cost line is short by the wall, and the choice it hands the spec-writer ("that cost is the
-spec-writer's choice against an inline temp-vault note, not an open question for Dave") is FORCED for
-class A rather than free. Decide it in this document, because F6 currently invokes WI-286 to argue
-the opposite direction. Two arms: (a) the storable-form members live in the new test module's own
-temp vault, and F6 says plainly that WI-286's reach-for-the-corpus-first rule yields here to WI-016's
-privacy wall — nothing frozen is touched, and classes Ø, C and E can still come from the corpus; or
-(b) this item declares a named `s.whatsapp.net` exemption in WI-016's wall the way `RESERVED_ISBN` is
-declared (`tests/fixture_vault.py:46-50` — "asserted by EQUALITY against a one-member literal so it
-cannot be padded"). **Recommend (a):** the exemption in (b) is defensible on the merits
-(`s.whatsapp.net` is a protocol constant, not an identifying host) but it widens another item's
-privacy wall to admit a real domain, and (a) buys the same coverage while leaving the wall alone.
-Either way it is one sentence in F6 and a correction to AC-1's `why:`; what is not affordable is
-freezing a plant list whose two storable-form members cannot be planted where the criterion says.
-
-### Non-blocking notes (fold if cheap; no round is owed for them)
-
-1. **AC-2's class-Ø cascade leg is satisfied today by a guard that predates this item, so it cannot
-   fail for the reason it states.** `resolve_all` returns `[]` for a blank or whitespace-only query
-   before step 1 runs (`person.py:606-611`), so "a blank query neither raises nor returns a person
-   who merely has an empty `whatsapp:` field" is already true and stays true however the new step is
-   written. Keep the leg — but state it as a pin on the guard's POSITION (the blank bail-out stays
-   ABOVE the new `whatsapp_jid` step), which is the thing inserting a step can actually break.
-2. **Class Ø's `None` member reaches the READER only as a bare `whatsapp:` key, and today such a note
-   is INVISIBLE rather than empty.** YAML loads a valueless key as `None`,
-   `_normalize_frontmatter` passes `None` through untouched (`parser.py:118-132`), and
-   `whatsapp: str` (`models.py:94`) rejects it — so `model_validate` fails and the owned note raises
-   `SchemaDriftError` onto the load skip surface (`parser.py:203-208`). Two cheap consequences: AC-4(a)
-   should name YAML null explicitly as a class-Ø READ spelling, because the post-migration annotation
-   has to coerce null → `[]` or the clearing spelling's own residue is unreadable; and the census's
-   class-Ø row must be counted off the note BYTES rather than off loaded models, or it omits exactly
-   the bare-key notes — a clause for `docs/wi-032-whatsapp-corpus-census.md`'s `why:`.
-3. **Carried, not re-raised.** Rulings A, B and C are untouched by everything above, and the ordering
-   the document states — settle A and B, measure the census, then freeze the frame — is still right.
-   The two findings above are upstream of the FREEZE but downstream of the rulings, so they do not
-   reopen anything Dave is being asked to sign.
-
-```verdict
-gate: architect
-verdict: REVISE
-date: 2026-09-26
-model: claude-opus-5
-note: The fold that made `@Thrandell Ibberly.md` the free class-C member collides with the frozen corpus's own two contracts — it is the ONE person round-trip representative, written through the gated whole-record arm with no refusal expected at `tests/test_writer.py:421` and `tests/test_fixture_vault.py:753`, and the class-A/class-E plant literals are unreserved hosts under the WI-016 privacy wall (`tests/test_fixture_vault.py:302-325`, reach at `:386-392`), which is itself why the corpus's one JID is `@example.com` and therefore class C at all.
-targets: AC-1, AC-2, AC-3, AC-4, AC-5, #exploration-notes, #write-targets
-prior: held
-basis: folded-material
-findings: 2/5
-```
-
 ## Conductor Note — 2026-09-26 (revise-cap ESC-WI-032-idea-revise-cap-2594e354, answered by hand under the 2026-08-11 standing grant)
 
 Read this as the instruction for the next ideation-partner round; it replaces the resume note a
@@ -2934,838 +4960,6 @@ literal, per AC-1's independence leg.
 
 **Then sweep the next level** — every OTHER literal the ACs name (phones, emails, the `check:` test
 names) against the same walls — and say what that sweep found, even if it found nothing.
-
-## Architectural Review — 2026-09-26 (round 5)
-
-**Recommendation: REVISE — one blocking finding, and the fold is one deletion plus one sentence**
-
-Round 5, re-read at this worktree's HEAD (`c93006a` plus the seeded uncommitted delta). Every citation
-below was read in the code or the doc THIS round. **The prior rounds' findings all HELD**, including
-round 4's two fixture-plant findings and the AC red-team's convergent round-3 pair, both of which are
-closed at the right altitude (F17, the class table's fourth column, AC-1's WHERE clause, rejected items
-11 and 12). What this round found is the NEXT member of the class the conductor note ruled must be
-closed in ONE fold: the fixture-and-cost plan still carries one instruction that was never checked
-against the contract of the artifact it proposes to edit. It touches no ruling, raises no new question
-for Dave, and is a correction to this document.
-
-### Trigger check
-
-Fired for the reasons rounds 1–4 recorded: a new persistent frontmatter shape across ~1,170 live person
-notes; significant extension of three core systems (the WI-021 gate, the WI-125 identifier index,
-`resolve_all`); >3 files in different concerns; cross-system consumers; effort > 1 day.
-
-### The prior findings, re-read against this tree
-
-**Round-1 findings 1 and 2 — still CLOSED.** Re-verified rather than carried: `identifier.py:269-281`
-raises on `None` and on empty through two lines with no blank branch, tests the `@lid` SUBSTRING at
-`:276`, then `normalize_phone(s)` against `Phone.MIN_DIGITS` at `:278-280`, and tests for a JID suffix
-nowhere — so `WhatsAppJID.parse("+44 7739 341679")` still succeeds and only the STORABLE predicate
-refuses it; `phone_normalization.py:39-55` splits at the FIRST `@` and strips every non-digit;
-`identifier.py:298` keys a phone-bearing JID on `phone:<digits>` and a lid on `jid:<jid>`. The
-`List[str]` answer and its derived accessor are unchanged and still right.
-
-**Round-3's class-Ø finding and round-4's two plant findings — CLOSED, and the round-4 folds check out
-against the code they rest on.** Re-verified this round, not carried: `tests/fixture_vault.py:219-233`
-is Thrandell's spec with `whatsapp="447700900789@example.com"` and `roundtrip_representative=True`;
-`tests/test_fixture_vault.py:689-695` asserts EXACTLY ONE representative per declared type, and
-`:726-732` / `:753-761` are the gate-clean assertion and the write through the whole-record entity arm;
-`tests/test_writer.py:404-428` is the second such write. The privacy wall is as F17 leg 2 states —
-`EMAIL_SHAPED` requires a dot after the `@` (`:302`), `RESERVED_EMAIL_DOMAINS` is matched by EQUALITY
-and `RESERVED_TLDS` by suffix (`:306-319`), and `reach_files()` is the corpus directory plus
-`tests/fixture_vault.py` (`:386-392`). The three respelled literals are right at the digit level too:
-`15555550142` matches `RESERVED_PHONE_PATTERNS`' third member `^1?\d{3}55501\d{2}$` (`:311`) and
-`normalize_phone("15555550142@lid")` is `15555550142`, so the class-B corpus plant is wall-clean on the
-phone leg while being invisible to the email leg (`@lid` carries no dot); `447700900321` and
-`447700900654` are unclaimed members of the drama block; and I re-ran F17 leg 3's predicate — the only
-claimed members are `447700900123` (`:224`, `:288-290`), `447700900456` (`:323`, and the `RESOLVABLE`
-row at `:533`) and `447700900789` (`:225`). One fact worth adding because it is the leg most likely to
-have been broken by moving a value and nobody checked it: `RESOLVABLE` (`tests/fixture_vault.py:529-534`)
-carries no `447700900789` query, so relocating the class-C value to a non-representative note changes no
-declared resolution answer, and `LOADABLE`/`SKIPS` (`:490-525`) are untouched because the tolerant reader
-adds no skip.
-
-### Review (only where this round's finding bites)
-
-**Fit, Duplication, Boundaries, Determinism, Reversibility, Generalization, Build-vs-extend, Prior art.**
-Unchanged from rounds 2 and 4, re-spot-checked: `_refuse` still admits no note-derived value and takes a
-plain `pattern_key: str` (`name_gate.py:142-174`), `_is_str_list`/`_shaped` are still positive predicates
-under which a bare `str` falls to pass-through (`name_gate.py:181-198`), and `normalize_phone` is still
-the stdlib-only leaf whose consumers want the naive split. Liberal-for-reach / conservative-for-storage
-remains the outside view; no cited execution is owed.
-
-**Cost & maintenance — again the dimension that moves, and for the same reason one level out.** Round 4
-found the plant plan priced against the corpus's bytes rather than against the corpus's CONTRACTS. The
-fold corrected that for three contracts — the round-trip representative, the privacy wall, and
-identifier-conflict uniqueness. It did not sweep the rest, and one of the unswept ones is named in the
-fixture cost line itself.
-
-### Blocking issue
-
-**1. "The census gains a row for each newly declared class, and its own digest follows" is wrong on both
-halves. `docs/vault-shape-census.md` is frozen against a digest that lives inside ANOTHER work item's
-SIGNED criterion, and its class-row vocabulary cannot hold a `whatsapp` cell — so following the line
-lands the builder in a red whose cheapest green is amending WI-016's frozen AC-3 text or writing a false
-count into the estate's shape ledger.**
-
-The line is `### Effort`'s itemized fixture work (iv), and the claim behind it is F6's cost sentence ("if
-the plant declares a new class, a census row") re-endorsed by F6's third amendment ("and one census row
-per newly declared class"). Three facts, each read this round:
-
-- **The digest has no build-owned home.** `assert_census_is_frozen()` compares `sha256` over
-  `docs/vault-shape-census.md` against `declared_census_digest()`, which reads the value out of the
-  `AC-3` `criteria` fence in `docs/vault-fixtures.md` (`tests/test_fixture_vault.py:217-254`). Those
-  criteria are FROZEN — signed 2026-09-08, and that document states in terms that "every remaining
-  correction to a criterion's own text is now a D4b re-sign" (`docs/vault-fixtures.md:1389-1396`). The
-  value currently stands at `CENSUS_DIGEST = sha256:4cb7945f…` inside that fence (`:1418`). So "its own
-  digest follows" names an edit that does not exist: the digest follows only by editing another item's
-  signed criterion, and the assertion runs in TWO places (`tests/test_fixture_vault.py:789`, `:1031`), so
-  a census edit reddens the floor the moment it lands.
-- **The row vocabulary is name-corruption classes, not field-value cells.** `census_class_rows`
-  (`:122-138`) reads `census-class` fences whose ids are either a `branch_id` derived from
-  `TIER1_BRANCHES + COMPANY_TIER1_BRANCHES` — asserted in BOTH directions at `:830-838` — or one of the
-  six hand-listed shape classes (`:842-848`), and the landed table is exactly those sixteen
-  (`docs/vault-shape-census.md:62-210`, ids `email_chars` … `postal_address_in_name`). `count` is a
-  LIVE-VAULT count and `specimen` is a name string. There is no cell in that table for "a `whatsapp`
-  value that parses and is not storable".
-- **And leg (i) is an EQUALITY, which makes a MEASURED whatsapp row unsatisfiable for the one cell that
-  matters.** `{MEASURED row ids}` must equal `{union of NOTES[...].shape_classes}` (`:800-803`), and any
-  note declaring a `shape_class` must also declare a `Verdict` (`:856-891`) from a three-member
-  vocabulary every arm of which is evaluated against that note's `name`. Class A's live count is not
-  zero, and F17 leg 2's own derivation says no class-A member can exist anywhere in the corpus's reach —
-  so a MEASURED class-A row can never acquire the corpus specimen the equality demands. Class Ø's 21
-  members are not corruption specimens and have no verdict to declare.
-
-Why this is blocking rather than a build-time surprise: `docs/**` is builder-writable in full, which
-WI-016's own AC-3 `why:` names as the reason leg (iv) exists. So the builder who follows item (iv), sees
-two tests go red, and reaches for the shortest green has two self-consistent routes and both are green on
-every criterion in THIS set — re-freeze the digest by editing WI-016's signed AC-3 fence, or write the
-new rows as `status: ABSENT, count: 0` with a plausible command/stdout pair, which is verbatim the
-false-ledger route that same `why:` says the leg was added to close. Neither is a thing to discover from a
-build, and the second corrupts the artifact this repo designates as the sole oracle for every live-vault
-claim its hermetic suite cannot re-derive.
-
-**The fold, and it is cheaper than either wrong route.** WI-032's six cells already have a home:
-`docs/wi-032-whatsapp-corpus-census.md`, the precondition this document declares in `## Write Targets`,
-whose `why:` already asks for "one row per cell of the SIX-cell class table". So delete the census-row
-cost from F6's original sentence and from F6's third amendment, and replace `### Effort` item (iv) with
-the affirmative statement that `docs/vault-shape-census.md` is NOT touched by this item — its class table
-is WI-016's name-corruption vocabulary, its digest lives in WI-016's signed AC-3 fence, and the per-cell
-counts this item needs belong in its own census precondition. The fixture cost then reduces to what is
-genuinely build-side: the two corpus edits, the manifest overrides, and one `CORPUS_DIGEST` regeneration,
-all of which `tests/fixture_vault.py:21-25` and `:44` make a legal build-side move. If a later reader
-decides WI-032 does owe a row in WI-016's census, that is a conductor pass plus a D4b re-sign of another
-item's signed criterion and it goes in front of Dave — not into a cost line.
-
-**The generator, stated so the next fold can close the class rather than the member.** The conductor note
-asked for a MATRIX of every plant literal × every corpus contract, naming the privacy wall,
-`roundtrip_representative` uniqueness, the type-registry sweep, "and any other wall that reads
-`tests/fixtures/vault/`". F17 delivered three of those. Unswept and reading the corpus or its manifest:
-`test_every_census_corruption_class_has_a_specimen_with_a_verdict` (`:783`, the one above),
-`test_the_skip_surface_over_the_corpus_equals_its_declared_reasons` (`:923`, with `SKIPS`, `LOADABLE` and
-`RESOLVABLE` as its declared oracles — I checked it and it is CLEAN under the corpus edits, which is
-worth SAYING rather than leaving unsaid), and
-`test_the_fixture_vault_files_close_their_wall_memberships_by_running_each_predicate` (`:1353`, whose
-universe the new test module joins — note 3 below). The conductor also asked for a next-level sweep over
-every OTHER literal the ACs name and for its result to be stated "even if it found nothing"; the document
-states no such sweep. Completing the matrix over the four walls named here, and stating the next-level
-result, is what makes this the last round of this class rather than the fifth.
-
-### Non-blocking notes (fold if cheap; no round is owed for them)
-
-1. **Say where the whatsapp refusal `pattern` is DECLARED, not only that it is distinct.** AC-3 requires
-   "its own stable `pattern` value distinct from every `NameValidator` pattern", which is the right
-   requirement and is satisfiable for free: `_refuse` takes a plain `pattern_key: str`
-   (`name_gate.py:142-174`), so a gate-local literal needs no record anywhere. The gap is what it does
-   not forbid. WI-016's AC-3 floor is DERIVED from `{record.branch_id for record in TIER1_BRANCHES +
-   COMPANY_TIER1_BRANCHES}` and asserted in both directions (`tests/test_fixture_vault.py:830-838`), and
-   that criterion's `why:` pre-prices the consequence by name: a new Tier-1 branch reddens it
-   immediately and discharging it needs a live-vault count, a scan command and verbatim stdout plus a
-   re-taken digest — a conductor pass. A builder who declares the whatsapp refusal as a
-   `name_validation` record because that is where the other patterns live pays exactly that. One clause
-   in AC-3 or in the touch list closes it.
-2. **The class-B corpus edit changes the DECLARED SHAPE as well as the value, and the manifest override
-   has to move with both.** `tests/test_fixture_vault.py:745-748` compares
-   `getattr(doc.entity, attribute)` against the declared literal and `:755-761` compares the re-parsed
-   frontmatter MAPPING against the same literal, so with the stored field `List[str]`,
-   `tests/fixture_vault.py:225` must declare `["15555550142@lid"]` and `:94`'s default must become `[]`
-   even though the corpus note itself keeps the scalar spelling (the tolerant reader is what makes that
-   pair agree). The document names both lines; it does not say the declared VALUE becomes a list, and
-   that is the half a builder gets wrong while reading the line as "change the string".
-3. **The new test module joins three set-equality walls, all in one test.** `ast` use is asserted
-   single-homed to `tests/derivations.py` (`tests/test_fixture_vault.py:1383-1386`), the legal homes for
-   a `SKIP_REASONS` literal are pinned to exactly two files by EQUALITY (`:1392-1395`), and every
-   top-level `def test_` in the listed modules must resolve uniquely through `check_module`
-   (`:1438-1442`). AC-3 and AC-5 already route their derivations through `tests/derivations.py`, so the
-   first is honoured by design; the second is the one that bites, because AC-4(a)'s skip-surface
-   assertions invite typing a reason literal instead of importing it from
-   `obsidian_schemas/repositories/base.py`. One line in the touch list, and it is cheaper than the red.
-4. **Carried, not re-raised.** Rulings A, B and C are untouched by everything above — by both gates'
-   statement and by mine — and the ordering the document states, settle A and B, measure the census,
-   then freeze the frame, is still the right one. The finding above is upstream of the FREEZE and
-   downstream of the rulings, so it reopens nothing Dave is being asked to sign.
-
-```verdict
-gate: architect
-verdict: REVISE
-date: 2026-09-26
-model: claude-opus-5
-note: `### Effort` item (iv) and F6 still price "a census row per newly declared class, and its own digest follows" as build-side and free, but `docs/vault-shape-census.md` is frozen against a digest that lives inside WI-016's SIGNED AC-3 fence (`tests/test_fixture_vault.py:217-254`, `docs/vault-fixtures.md:1418`) and its class-row vocabulary is name-corruption `branch_id`s with live-vault counts and name specimens, so a whatsapp cell has no row — and the two cheapest greens are amending another item's signed criterion or writing a false ABSENT/0 row, which is verbatim the route WI-016's own leg (iv) exists to close; the item's six cell counts already belong in `docs/wi-032-whatsapp-corpus-census.md`.
-targets: AC-1, AC-3, AC-5, #exploration-notes
-prior: held
-basis: folded-material
-findings: 1/4
-```
-
-## Architectural Review — 2026-09-26 (round 6)
-
-**Recommendation: REVISE — one blocking finding, and it is NOT the plant class's next member**
-
-Round 6, re-read at this worktree's HEAD (`c93006a` plus the seeded uncommitted delta). Every citation
-below was read in the code THIS round. **The prior rounds' findings all HELD**, and the class the
-conductor note ruled must be closed in ONE fold — the fixture-plant × corpus-contract matrix — IS closed:
-F18's six legs check out leg by leg against the code they cite, including the three that report a clean
-result. What this round found is a different generator in ORIGINAL text: F9's claim that the linter's
-REPORT surface comes free. `_gate_refusal_pattern` has exactly ONE call site in the tool and that call
-site was never read. It touches no ruling, raises no new question for Dave, and the fold is one detector
-arm plus one AC clause.
-
-### Trigger check
-
-Fired for the reasons rounds 1–5 recorded: a new persistent frontmatter shape across ~1,170 live person
-notes; significant extension of three core systems (the WI-021 gate, the WI-125 identifier index,
-`resolve_all`); >3 files in different concerns; cross-system consumers; effort > 1 day.
-
-### The prior findings, re-read against this tree
-
-**Round-1 findings 1 and 2 — still CLOSED.** Re-verified rather than carried: `identifier.py:269-281`
-raises on `None` and on empty through two lines with no blank branch (`:271-275`), tests the `@lid`
-SUBSTRING at `:276`, then `normalize_phone(s)` against `Phone.MIN_DIGITS` at `:278-280`, and tests for a
-JID suffix nowhere — so `WhatsAppJID.parse("+44 7739 341679")` still succeeds and only the STORABLE
-predicate refuses it; `:298` keys a phone-bearing JID `phone:<digits>` and a lid `jid:<jid>`. One fact
-worth adding because the design's shape rests on it and no finding states it: `WhatsAppJID` is a frozen
-dataclass that ALREADY carries three derived `@property`s (`phone` at `:283-286`, `value` at `:288-290`,
-`key` at `:292-298`), so `jid_domain`/`is_storable` is the fourth member of an existing pattern rather
-than a new mechanism on the type.
-
-**Round-3's class-Ø finding — CLOSED.** `person.py:318-320`'s `add()` returns on a `None`-or-blank raw
-BEFORE parsing, re-read; `:330-331` projects `whatsapp` only when truthy; `name_gate.py:399`'s
-`elif entry and …` draws the same line by falsiness; `models.py:94` is the `""` default and
-`tests/fixture_vault.py:94` the hand-transcribed oracle.
-
-**Round-4's two plant findings and round-5's census finding — CLOSED, and F18's matrix is sound where I
-re-drove it.** Leg 1: `declared_census_digest()` really does read `CENSUS_DIGEST` out of the AC-3
-`criteria` fence of `docs/vault-fixtures.md` (`tests/test_fixture_vault.py:217-239`), `assert_census_is_frozen()`
-compares it to `sha256` over the census bytes (`:242-254`) and runs at `:789` and `:1031`;
-`census_class_rows` (`:122-137`) admits only `branch_id`s from `_branch_ids()` (`:587-595`, asserted both
-ways at `:830-838`) or the six hand-listed shape classes (`:842-848`), the MEASURED set is an EQUALITY
-against `NOTES[...].shape_classes` (`:800-803`), and every shape-class specimen must declare a `Verdict`
-evaluated against its `name` (`:856-891`). So "a `whatsapp` cell has no row and the digest has no
-build-owned home" is exactly right, and item (iv)'s affirmative statement is the correct fold. Leg 2:
-the eight admissible receivers are at `tests/fixture_vault.py:326-341` and `@Fennwick Drostane.md` is
-`:340-341`. Leg 3: `reserved_phone_violations` sweeps `spec.fields.get("phones", ())` only
-(`:1152-1168`) and never reads `whatsapp`; `RESOLVABLE` (`tests/fixture_vault.py:529-534`) carries no
-`447700900789` query. Legs 5 and 6: `_temp_vault`-style walls confirmed at
-`tests/test_fixture_vault.py:1353-1442`, and the three derivation hooks the ACs lean on all exist
-(`tests/derivations.py:979`, `:1870`, `:2175`). The digit arithmetic checks out too: `15555550142`,
-`15555550163` and `5555550142`/`5555550163` all match `^1?\d{3}55501\d{2}$` (`:311`), `447700900987`
-matches `^447700900\d{3}$` (`:309`), and `@lid` carries no dot so `EMAIL_SHAPED` (`:302`) never fires on
-either lid literal.
-
-### Review (only where this round's finding bites)
-
-**Fit, Duplication, Boundaries, Determinism, Reversibility, Generalization, Build-vs-extend, Prior art.**
-Unchanged from rounds 2, 4 and 5, re-spot-checked. `_index_entity` still feeds
-`normalize_phone(entity.whatsapp)` into `_phone_index` unconditionally (`person.py:266-270`);
-`_index_identifiers` still records a collision to `_conflict_sets` and "never raises: a conflict is an
-observability output" (`person.py:336-344`), which is the mechanism F17 leg 3 and AC-5's pinned pairs
-exist to avoid; `resolve_all` still bails on a blank query BEFORE step 1 (`:608-609`) and still has no
-`whatsapp_jid` step (`:628-651`); `_RESOLVE_CASCADE_ORDER` is still four labels (`:145`) with an unknown
-label ranking last (`:190-197`). Liberal-for-reach / conservative-for-storage remains the outside view;
-no cited execution is owed.
-
-**Cost & maintenance — the dimension that moves again, and this time one level SIDEWAYS rather than
-out.** Rounds 4 and 5 found the plant plan priced against the corpus's bytes rather than its contracts.
-This round's finding is the same mistake against a different artifact: a capability the document prices
-at ZERO on the strength of a function's docstring, without reading where the function is CALLED.
-
-### Blocking issue
-
-**1. F9's "the linter's report surface comes free" is false. `_gate_refusal_pattern` has exactly ONE call
-site in the tool, inside the `stem_name_divergence` arm and behind `stem != stored` — so a note whose
-`whatsapp` the door refuses is reported by `lint_vault` only if its filename ALSO disagrees with its
-stored name, a live population WI-029 closed to ZERO five days ago. The item promises in five places
-that the D+E residual is "reported and left"; as specced, it is left and not reported.**
-
-The facts, each read this round:
-
-- **One call site, and it is not a detector.** `_gate_refusal_pattern` is defined at
-  `scripts/lint_vault.py:334-352` and called at `scripts/lint_vault.py:450` — the only occurrence in the
-  tool. It sits inside `check_structural`'s `stem_name_divergence` arm, behind
-  `if vf.entity_type == "person"` (`:433`) and `if isinstance(stored, str) and stored.strip() and stem
-  != stored` (`:449`), and its return value becomes a MARKER appended to that issue's message (`:451-462`).
-  It emits no `LintIssue` of its own. `rg -n 'whatsapp' scripts/lint_vault.py` is still 0 matches, and
-  none of the five check functions (`:355`, `:496`, `:577`, `:698`, `:798`) reads the field —
-  `field_type_mismatch` is about `auto_created` (`:464-465`).
-- **The live population of that arm is zero.** `docs/stem-divergence-live-baseline.md:191` records the
-  exit figure: divergent live person notes **8 → 0**, conductor-performed 2026-09-26. So on today's vault
-  the one route to `_gate_refusal_pattern` is never taken at all. It is not a narrow report surface; it
-  is an empty one.
-- **And the `--fix` half is true for a different reason than F9 gives.** F9 says a refusing arm "does not
-  make a malformed-JID note unfixable — PROVIDED the refusal carries its own `pattern` value". The
-  `pattern` requirement is right, but it is not what makes that true: `apply_fixes` gates the DELTA
-  (`whole_record=False`, `:1181`) and no auto-fixable rule's delta contains `whatsapp` at all — the five
-  are `field_type_mismatch`, `person_missing_name`, `missing_body_sections`,
-  `meeting_missing_from_timeline`, `broken_wikilink` (`tests/test_lint_vault_fix_rules.py:614-624`). So
-  the refusal bucket never fires for this field either, from either direction.
-
-**Why this is blocking rather than a build-time surprise: the item is buildable three ways and two of
-them ship silent.** AC-3's closing clause reads "And one consequence pinned where it is FREE -
-`lint_vault` REPORTS such a note through `_gate_refusal_pattern` under that distinct pattern", and
-`### Effort`'s touch list prices `scripts/lint_vault.py` as "(pattern routing only)".
-
-- **Build A** adds a report-only detector. Correct, and it is what the Intent needs — but it is a NEW
-  detector in a tool whose changes carry a WI-026 floor, which the AC calls free and the touch list does
-  not carry.
-- **Build B** follows the citation literally and widens the existing marker so a non-storable `whatsapp`
-  turns it on. Green on every criterion in this set, and wrong twice over: the marker's own text says
-  "this divergence is not repaired by renaming the file to the stored name; repair the field"
-  (`scripts/lint_vault.py:451-454`), which is a FALSE statement about a divergence whose actual defect is
-  a JID; and it would flip live rows from UNMARKED to MARKED against a bracket that records "divergent
-  rows the WRITE DOOR refuses (b3): 0 of 8" (`docs/stem-divergence-live-baseline.md:124`).
-- **Build C** reads "pinned where it is free" as already-true and touches the tool not at all. Green on
-  every criterion, and the residual is silent.
-
-So the promise is made in `## Intent` ("A value that is already wrong is reported and left, never
-erased"), in F13 leg 3 ("both reported by the linter and left for hand repair"), in Ruling B leg 2, in
-AC-5 leg (e) ("reported as needing repair") and in `### Examples of done` ("the linter names it instead
-of nobody noticing until a hand repair") — and the machinery behind it does not exist. This is the same
-defect SHAPE the class-Ø fold closed one artifact over: a repair path the document commits to that the
-item's own tooling does not provide. There the door refused the repair; here nothing reports that a
-repair is owed.
-
-**The fold, and it is cheap because this repo has already built exactly this detector once.** Add ONE
-report-only arm to `scripts/lint_vault.py`'s `check_structural` — a `whatsapp` value the STORABLE
-predicate rejects, `auto_fixable` left at its default so it never enters `apply_fixes`, carrying its own
-check name and never the `stem_name_divergence` marker. WI-029's own detector is the precedent to copy
-literally (ERROR, `structural`, never auto-fixable), and the cost is bounded and measurable rather than
-assumed: the AC-1 oracle-table equality in `tests/test_lint_vault_fix_rules.py:596-624` is scoped to
-`auto_fixable_emitter_checks` (`:599`), so a report-only rule does NOT join it and owes no repair oracle;
-and `tests/test_stem_name_divergence_detector.py:283-289` filters on `issue.check == DIVERGENCE_CHECK`,
-so a new check name disturbs none of that module's set equalities. Then: AC-3's closing clause stops
-saying "free" and names the new check as an assertion (fires on class C/D/E, silent on Ø and on storable
-values, `auto_fixable is False`); `### Effort`'s touch list carries `scripts/lint_vault.py` as a DETECTOR
-plus a test module for it; and F9 is corrected to say the report surface is a new arm and the `--fix`
-survivability comes from the delta containing no `whatsapp` key. If Dave would rather not grow the
-linter, the honest alternative is to DELETE the word "reported" from the Intent, F13 leg 3, Ruling B leg
-2, AC-5 leg (e) and `### Examples of done` and say the residual is discovered by the migration's own
-report only — but that is a promise being withdrawn, so it should be withdrawn in writing rather than by
-a build.
-
-### Non-blocking notes (fold if cheap; no round is owed for them)
-
-1. **AC-1's receiver constraint list is short by one class, and it is the same unread call site.** The
-   WHERE clause admits any non-representative person note that LOADS and declares no
-   `shape_classes`/`verdict`. Two notes satisfy all three and are still wrong receivers:
-   `@Perrowin Tessamund Drostane.md` and `@Yolvenna Brindlecote Skarnell.md` declare
-   `shape_classes=()` and no `verdict` — they carry a `discriminator` instead
-   (`tests/fixture_vault.py:297-306`) — and they are the corpus's two MARKER-BEARING stem-divergent
-   notes, asserted by EQUALITY at `tests/test_stem_name_divergence_detector.py:341-345` with their
-   patterns pinned at `:346-352`. A non-storable `whatsapp` on either makes WI-029's marker set depend on
-   the gate's arm ORDER, the same question F18 leg 2 removed for census specimens. The criterion NAMES
-   `@Fennwick Drostane.md`, which is why this is a note and not a finding — but the CONSTRAINT should
-   read "and is not stem-divergent", because the constraint is what a builder reasons from when the named
-   note stops being available. (The two notes that would actually have gone RED — `@Quillam Ostrivane.md`
-   and `@Quillam Lumbrek.md`, whose `patterns[...] is None` is asserted at `:353-354` — are already
-   excluded by the `shape_classes` clause.)
-2. **A third in-tree reader of the representative's declared `whatsapp`, not on the touch list.**
-   F17 leg 1 names `tests/test_writer.py:404-428` and `tests/test_fixture_vault.py:705-761`.
-   `tests/test_parser.py:248-264` (`test_corpus_person_note_parses_to_its_declared_values`) is a third:
-   it selects the person `roundtrip_representative` and compares `getattr(doc.entity, attribute)` against
-   `spec.fields` for every declared field. It stays GREEN under the fold — the tolerant reader gives
-   `["15555550142@lid"]`, which is what `:225` will declare — but a builder who changes `:225` to a
-   scalar list-member string sees it red in a module `### Effort` does not mention. One line in the touch
-   list.
-3. **The other four corpus-reading modules are CLEAN under the two corpus edits, stated rather than left
-   unsaid** (the conductor note asked for clean sweep results to be reported). `tests/test_repositories.py:2255`
-   imports `LOADABLE`/`materialize_vault` only — cache quantities, unaffected by a field's value;
-   `tests/test_provenance_write_seam.py:147-171` derives its subjects from stem≠name divergence and from
-   name-sharing, and neither `@Thrandell Ibberly.md` nor `@Fennwick Drostane.md` is either;
-   `tests/test_stem_name_divergence_detector.py`'s four divergent members all carry `whatsapp: ""` today
-   and stay class Ø under the fold, so its marker equality is untouched by the edits themselves (note 1
-   is about the CONSTRAINT, not the named receiver); `tests/test_lint_vault_fix_rules.py` plants its own
-   notes over a materialized copy and hands `apply_fixes` explicit issue lists, so no corpus-wide count
-   moves.
-4. **Carried, not re-raised.** Rulings A, B and C are untouched by everything above — the refused
-   population, the repair door and the migration's repair pass are all unchanged; only the REPORT half
-   moves. The ordering the document states, settle A and B, measure the census, then freeze the frame, is
-   still right, and this finding is upstream of the FREEZE and downstream of the rulings.
-
-### On the class the conductor note ruled closed
-
-Stated explicitly, because it is the discriminant the factory reads and not a rhetorical point. The
-plant class — every plant literal × every contract of the frozen corpus, its manifest and the
-declarations those walls derive from — is CLOSED. I re-drove F18's six legs against the code this round
-and every one of them holds, including the three that report nothing; the two corpus edits, the five
-minted digit runs and the two pinned two-JID literals are all admissible where the document now puts
-them, and `tests/test_fixture_vault.py` needs no widening. This round's finding is not the seventh member
-of that class: its subject is `scripts/lint_vault.py`, its generator is F9 — text that predates every
-fold and that no gate round, mine included, has re-read against the tool's call graph — and its fold
-lands in a file the plant matrix never had reason to open.
-
-```verdict
-gate: architect
-verdict: REVISE
-date: 2026-09-26
-model: claude-opus-5
-note: F9 prices the linter's report path at zero, but `_gate_refusal_pattern` has ONE call site (`scripts/lint_vault.py:450`), inside the `stem_name_divergence` arm behind `stem != stored`, emitting a MARKER and never an issue — and WI-029 closed that live population to 0 (`docs/stem-divergence-live-baseline.md:191`), so the D+E residual that `## Intent`, F13 leg 3, Ruling B leg 2, AC-5 leg (e) and `### Examples of done` all promise is "reported and left" is left and never reported; AC-3 calls the consequence free, so two of the three self-consistent builds ship silent and one falsifies WI-029's own marker.
-targets: AC-1, AC-3, AC-5, #intent, #exploration-notes
-prior: held
-basis: original
-findings: 1/4
-```
-
-## Architectural Review — 2026-09-26 (round 7)
-
-**Recommendation: REVISE — one blocking finding, and it is the THIRD artifact class rather than
-the next member of either closed one**
-
-Round 7, re-read at this worktree's HEAD (`c93006a` plus the seeded uncommitted delta). Every
-citation below was read in the code THIS round. **The prior rounds' findings all HELD**, and both
-classes the document has been closing are closed: the fixture-plant × corpus-contract matrix (F18)
-and the linter's report surface (F19). What this round found is a class no round has opened: the
-walls that read **`obsidian_schemas/repositories/person.py` itself** — the file this item edits
-most heavily. `tests/test_identity_endgame.py` freezes that file's PROSE verbatim for every owner
-outside a thirteen-member authorized list, and `PersonRepository.save` — the frame F11 and F13 make
-this item's disclosure home and its refusal surface — is not on that list. The document names that
-module exactly once, at `tests/test_identity_endgame.py:274`, for an unrelated phone literal (F17
-leg 3 extended): it was opened for a digit grep and its walls were never read. No ruling is touched
-and I raise no new question for Dave.
-
-### Trigger check
-
-Fired for the reasons rounds 1–6 recorded: a new persistent frontmatter shape across ~1,170 live
-person notes; significant extension of three core systems (the WI-021 gate, the WI-125 identifier
-index, `resolve_all`); >3 files in different concerns; cross-system consumers; effort > 1 day.
-
-### The prior findings, re-read against this tree
-
-**Round-1 findings 1 and 2 — still CLOSED.** Re-verified rather than carried: `identifier.py:271-275`
-raises on `None` and on empty with no blank branch, `:276` tests the `@lid` SUBSTRING, `:278-280`
-tests `normalize_phone(s)` against `Phone.MIN_DIGITS`, and a JID suffix is tested nowhere — so
-`WhatsAppJID.parse("+44 7739 341679")` still succeeds and only STORABLE refuses it. The `List[str]`
-stored field with a derived accessor is unchanged and still right.
-
-**Round-6's finding (F19, the report surface) — CLOSED, and the fold's cost accounting is correct
-where I re-drove it, including the two walls F19 does not name.** `_gate_refusal_pattern` is still
-defined at `scripts/lint_vault.py:334-352` with its one call at `:450`, splicing
-`NOT_RENAMEABLE_MARKER` (`:72`, `:452`) into the divergence ERROR's message and emitting no issue;
-`auto_fixable: bool = False` is the dataclass default (`:96`). The new arm joins nothing it should
-not: `auto_fixable_emitter_checks` collects only `LintIssue(...)` calls that pass an
-`auto_fixable=` keyword and skips a construction with none at all
-(`tests/derivations.py:1893-1906`), so a report-only arm is outside the WI-026 oracle table by
-construction (`tests/test_lint_vault_fix_rules.py:599`, `:621-624`) exactly as F19 leg 4 claims. Two
-walls F19 does not name are also clean, and I state them because an unstated clean result is
-indistinguishable from an unswept one: `_check_the_corpus_is_a_false_positive_floor` filters
-`observed` to the `pinned` seven before its equality against `CORPUS_PINNED_ISSUES`
-(`tests/test_lint_vault_fix_rules.py:842-845`) and `set(subjects) == set(pinned)` at `:897` demands
-a subject only for a pinned member — so a new check is invisible to both; and the divergence
-module's own `triaged` dict over ALL structural issues (`tests/test_stem_name_divergence_detector.py:359-363`)
-asserts only `@Isolde Varnholt.md`, an undecodable skip specimen carrying no frontmatter at all, so
-the new arm cannot move it.
-
-**Round-3's class-Ø finding and rounds 4–5's plant/census findings — CLOSED.** Re-verified the
-load-bearing facts: `person.py:318-320`'s `add()` returns on a `None`-or-blank raw before parsing;
-`writer.py:333-337` sets a field and there is no delete affordance; F18 leg 2's eight admissible
-receivers are at `tests/fixture_vault.py:326-341`.
-
-### Review (only where this round's finding bites)
-
-**Fit, Duplication, Boundaries, Determinism, Reversibility, Generalization, Build-vs-extend, Prior
-art.** Unchanged from rounds 2, 4, 5 and 6, re-spot-checked: `_index_entity` still feeds
-`normalize_phone(entity.whatsapp)` into `_phone_index` unconditionally (`person.py:266-270`);
-`resolve_all` still bails on a blank query before step 1 and still has no `whatsapp_jid` step;
-`_RESOLVE_CASCADE_ORDER` is still four labels (`:145`) with an unknown label ranking last
-(`:190-197`). Liberal-for-reach / conservative-for-storage remains the outside view; no cited
-execution is owed.
-
-**Cost & maintenance — the dimension that moves, for the third time and on the third artifact.**
-Rounds 4–5 found the plan priced against the frozen corpus's bytes rather than its CONTRACTS; round
-6 found a tool capability priced off a docstring rather than off a call graph. This round: the
-package file the item edits most is priced as ordinary code, and it is not — its comment and
-docstring text is a frozen fixture of another item.
-
-### Blocking issue
-
-**1. `PersonRepository.save`'s docstring is FROZEN VERBATIM by WI-024's prose wall, and it is
-exactly where F11's write-back disclosure and F13's refusal disclosure have to land. The three
-builds that resolve the red are all self-consistent and green on every criterion in this set; one
-reverts a disclosure this document promises, and one has to DELETE prose to buy its green.**
-
-The wall, each fact read this round. `prose_lines` (`tests/derivations.py:1773`) records EVERY
-comment line and EVERY docstring line of a file with its owning definition's qualname
-(`ProseLine`, `:1644-1648`). `tests/fixtures/identity_endgame/prose_surface_cut0.json` is that
-surface over `person.py` recorded at Cut 0 — "Recorded ONCE, against unchanged code; never
-re-recorded" (`tests/test_identity_endgame.py:402`). Clause (e1) of
-`test_strangler_prose_class_is_closed_in_the_package` then asserts, on every run of the floor, that
-every Cut-0 `(owner, text)` pair whose owner is NOT in `AUTHORIZED_PROSE_OWNERS` is still present in
-the final text (`:1006-1019`), compared on `(owner, text)` so a reflow of the line itself is a loss.
-`AUTHORIZED_PROSE_OWNERS` (`:359-373`) is thirteen members: `<module>`, `__init__`,
-`_index_entity`, `_project_identifiers`, `_index_identifiers`, `_remove_entity_from_indexes`,
-`get_by_phone`, `resolve`, `resolve_all`, `find_or_create_stub`, the deleted legacy stub,
-`resolve_or_create`, `_resolve_identifier`. **`PersonRepository.save` is not among them, and it owns
-31 Cut-0 lines** (`prose_surface_cut0.json:2401-2543`), which I compared against the file: they are
-byte-identical to `person.py:1155-1196` today, so the wall is green now and goes red on an edit.
-
-Two of those 31 lines are the frames this item's own findings point at:
-
-- `person.py:1174-1178` / `prose_surface_cut0.json:2466-2488` — "The write-back is the IDENTIFIER
-  fields ONLY and never `name`", the paragraph that enumerates what the rider writes back
-  (`entity.emails`/`phones`/`aliases`, `:1192-1194`). F11 requires that write-back to grow
-  `whatsapp`, so the enumeration becomes incomplete.
-- `person.py:1180-1184` / `prose_surface_cut0.json:2491-2513` — the `phones[]` in-place-mutation
-  disclosure, ending "Stated because it is one field wider than the consumer audit's grep list was
-  written against." **F11 cites this exact range as the model for WI-032's disclosure** ("the same
-  class of disclosure WI-021 made for `phones[]` (`person.py:1180-1184`)"), and `### Examples of
-  done` promises of the new refusal surface that "it says so". The natural way to honour either
-  sentence is to extend that paragraph, and extending it rewrites its lines.
-- Also frozen and also on this item's turf: `person.py:1169-1172` explains `whole_record=True`'s
-  consequence as "both cross-field migrations run here exactly as they ran before". After Ruling B
-  leg 2 there is a third consequence — a REFUSAL — and this is the sentence that would state it.
-
-**Why this is blocking rather than a build-time surprise: three routes, all green, and the AC set
-cannot tell them apart.** No leg of AC-1 through AC-5 asserts anything about `person.py`'s prose;
-AC-3's `save` arm asserts refusal BEHAVIOUR only.
-
-- **Build A — append only.** Add the disclosure as a NEW paragraph and leave all 31 Cut-0 lines
-  byte-identical. Correct, green, and free — (e1) is a presence test, not an equality on the whole
-  surface. Nothing in the document says this is the constraint.
-- **Build B — add `PersonRepository.save` to `AUTHORIZED_PROSE_OWNERS`.** This is the move a builder
-  reaches for on reading (e1)'s own failure message ("either it is a member the plan missed … or
-  revert it"), and it is worse than widening another item's wall: clause (e2) asserts that every
-  authorized owner has at least one Cut-0 line MISSING from the final text (`:1021-1030`), so
-  authorizing `save` is RED until one of its 31 lines is DELETED. Buying the green requires
-  destroying prose — and it is the same widen-another-item's-wall move rejected item 11 refused for
-  the privacy wall, here with a mandatory deletion attached.
-- **Build C — revert the prose.** Green on (e1), green on every criterion, and it ships a `save`
-  whose docstring enumerates a write-back that has grown a field and explains a `whole_record=True`
-  that has grown a refusal. That silently withdraws `### Examples of done`'s "and it says so" — the
-  same defect shape F19 closed one artifact over, arriving through prose instead of through a
-  detector.
-
-**The fold, and it is one clause plus one touch-list line.** State in `### Effort`'s touch list that
-`person.py`'s prose surface is frozen for every owner outside WI-024's thirteen, that `save` is such
-an owner, and that this item's disclosures are therefore **APPEND-ONLY in that frame** — new
-paragraphs, every Cut-0 line byte-identical, `AUTHORIZED_PROSE_OWNERS` and
-`prose_surface_cut0.json` untouched (the WI-016 privacy-wall precedent: arm (a), leave the other
-item's wall alone). Add `tests/test_identity_endgame.py` to the touch list as a wall the item joins
-rather than a file it edits. One clause in AC-3's `save` arm or in `## Approach` step (2) pins it if
-the spec-writer wants it asserted rather than instructed; Build B is worth a rejected item, because
-it is the move (e1)'s own message invites and the one that costs a prose deletion.
-
-**And the class, swept to its end so this is the last round of it rather than the seventh of
-something.** Every wall in the suite that reads `person.py`'s text or behaviour, against every frame
-this item edits. Two bit (above); the rest are CLEAN and I state them as such:
-
-- **The Cut-0 resolve golden — CLEAN, and this was the one most likely to bite.**
-  `test_resolve_is_one_cascade_and_matches_the_pre_cut_golden` (`:672-729`) replays every golden
-  query through `repo.resolve` over a roster-seeded vault and asserts NO answer moved, with an
-  exception list the item declares CLOSED ("Cut 3 gets none of its own", `:722-724`). WI-032 changes
-  what enters `_phone_index` (AC-1) and inserts a cascade step (AC-2), either of which could move an
-  answer — but `tests/fixtures/identity_endgame/roster.json` carries no `whatsapp` at all (grep over
-  `tests/fixtures` returns the field only in `tests/fixtures/vault/*.md` and in the prose surface),
-  so every seeded note is class Ø, contributes no phone-index entry from this field and no `jid:`
-  key. The golden cannot move, and `repo.load() == len(ROSTER_TABLE)` with `skipped_count == 0`
-  (`:346-347`) survives the tolerant reader. Worth saying out loud because the remedy a builder
-  would reach for — re-recording the golden — is the one `:434-436` names as "the one way this
-  oracle can be defeated".
-- **WI-024's item-wall membership rows — CLEAN.** `test_identity_endgame_wall_membership_is_closed`
-  (`:1101`) pins `non_completed_write_sites` over `ITEM_EDITED_QUALNAMES` (`:1065-1080`, which
-  contains `_index_entity`, `_project_identifiers`, `_remove_entity_from_indexes` and `resolve_all`
-  — four frames this item edits) and asserts `frontmatter_write_arms([person_path]) == []`
-  (`:1156`). Both hold as long as this item adds no write capability and no frontmatter payload
-  binding to `person.py`, which the design does not: the gate call and the writer delegation are
-  already there. Named so it stays true rather than discovered.
-- **The `ast` single-home equality — CLEAN, and it has a second home.** `:1134-1135` asserts it over
-  package + tests, which is the same requirement F18 leg 5 carried from
-  `tests/test_fixture_vault.py:1383-1386`; the new test module satisfies both by routing derivations
-  through `tests/derivations.py`. No new obligation, but the wall is now known to be asserted twice.
-- **`phone_index_iteration_sites` — CLEAN, with one constraint worth carrying.** `:642-644` asserts
-  every phone-index iteration site is classified `materialized`. `_index_entity`'s change is an
-  insert rather than an iteration, so nothing moves — but a builder who adds a loop over
-  `self._phone_index` while making `_remove_entity_from_indexes` its exact inverse (AC-1) must wrap
-  it in one of `MATERIALIZING_WRAPPERS` (`tests/derivations.py:1620`). One line in the touch list.
-- **`resolve`'s no-index-reads clause — CLEAN.** `:692-698` asserts `PersonRepository.resolve` reads
-  none of the four indexes directly. The new cascade step lands in `resolve_all` and the new public
-  door is its own method, so the clause is untouched — and it is the guard that would catch a
-  builder putting `get_by_identifier`'s lookup inside `resolve`.
-
-### Non-blocking notes (fold if cheap; no round is owed for them)
-
-1. **`_IDENTIFIER_PRIORITY` is a SECOND ordering for `whatsapp_jid` and the document never cites
-   it.** `person.py:778` declares `_IDENTIFIER_PRIORITY = {"email": 0, "phone": 1, "whatsapp_jid": 1}`
-   — whatsapp_jid TIES with phone for the Branch-A best-hit — and the class-body comment above it
-   (`:772-777`) explains why: "A phone-bearing WhatsAppJID resolves like a Phone (same number → same
-   person), so it shares phone's priority." AC-2 requires the new cascade label ranked AHEAD of
-   `phone` (F15). The two are different frames — a typed-identifier best-hit inside
-   `resolve_or_create` versus a cascade-label rank in `select_resolution` — so this is not a
-   contradiction, and the tie is right for its frame because a phone-bearing JID and a phone ARE the
-   same key. But the item's own principle is "no second spelling anywhere", one of the two orderings
-   is about to change and the other is not mentioned in the document at all, so the spec should say
-   which frame owns which ordering and why they differ. Note the comment that explains the tie is
-   owned by `PersonRepository` (the class, `prose_surface_cut0.json:1681-1683`) — also NOT an
-   authorized owner, so it is frozen too, which is the blocking finding's second member and the
-   reason this note is worth a sentence rather than nothing.
-2. **One more in-tree reader of `WhatsAppJID.parse`'s boundary, not on the touch list and green by
-   design.** `tests/test_phone_normalization.py:105-124` pins `parse` over
-   `447990558521@s.whatsapp.net`, `12345@lid` and the raising `12345@s.whatsapp.net`, i.e. the
-   `MIN_DIGITS` boundary. Ruling A's recommended arm leaves `parse` untouched, so the module stays
-   green and needs no edit — worth naming only because it is the module that goes red if anyone
-   revisits Ruling A's alternative (b), and rejected item 7's cost line ("four call sites plus two
-   test premises") does not count it.
-3. **Carried, not re-raised.** Rulings A, B and C are untouched by everything above — the refused
-   population, the repair door, the migration's repair pass and the report arm are all unchanged;
-   what moves is where a disclosure's TEXT may be written. The ordering the document states — settle
-   A and B, measure the census, then freeze the frame — is still right, and this finding is upstream
-   of the FREEZE and downstream of the rulings.
-
-### On the two classes the document has closed, and why this is not a third instance of them
-
-Stated explicitly because it is the discriminant the factory reads. The fixture-plant class (every
-plant literal × every contract of the frozen corpus, its manifest and the declarations those walls
-derive from) is closed — F18's six legs re-drove clean where I checked them. The report-surface
-class is closed — F19's fold is sound and its cost accounting survives the two walls it does not
-name. This round's subject is neither: it is `obsidian_schemas/repositories/person.py`, the file the
-item edits most, and the wall is a PROSE fixture rather than a plant or a detector. The generator is
-the same one the conductor note named — an artifact treated as ordinary material without reading the
-contracts it carries — and the sweep above runs it to the end over every wall in the suite that
-reads that file, stating the five clean results as well as the two that bit, so the next round has
-no unopened artifact of this class to find.
-
-```verdict
-gate: architect
-verdict: REVISE
-date: 2026-09-26
-model: claude-opus-5
-note: `PersonRepository.save`'s 31-line docstring is frozen verbatim by WI-024's prose wall — clause (e1) of `test_strangler_prose_class_is_closed_in_the_package` (`tests/test_identity_endgame.py:1006-1019`) requires every Cut-0 `(owner, text)` pair of an owner outside `AUTHORIZED_PROSE_OWNERS` (`:359-373`, which omits `save`) to survive, and `prose_surface_cut0.json:2401-2543` is byte-identical to `person.py:1155-1196` today — yet F11 names `person.py:1180-1184` as the home for the new write-back disclosure and `### Examples of done` promises the refusal surface "says so"; no AC touches that prose, so all three resolving builds are green and two are harmful (revert the disclosure, or authorize `save` and delete one of its lines to satisfy (e2)).
-targets: AC-2, AC-3, #exploration-notes, #approach
-prior: held
-basis: original
-findings: 1/3
-```
-
-## Architectural Review — 2026-09-26 (round 8)
-
-**Recommendation: REVISE — one blocking finding, and it is the MIGRATION'S TERMINAL STATE rather than
-another artifact whose contract nobody read**
-
-Round 8, cold-start re-read at this worktree's HEAD (`c93006a` plus the seeded uncommitted delta, which
-carries the round-7/red-team-round-6 fold). Every citation below was read in the code THIS round. **The
-prior rounds' findings all HELD** — including round 7's, whose fold (F20) not only landed but CORRECTED
-both arriving fences' line count, which I re-ran and confirm. What this round found is not the eighth
-member of the wall-sweeping class: it is a contradiction between two conjuncts of AC-5 and the exit
-numbers `## Approach` step (4) commits to the live bracket, and it is about what the vault LOOKS LIKE
-when the migration has finished. No ruling is reopened, but the finding does correct a claim this
-document makes about Ruling B's alternative arm.
-
-### Trigger check
-
-Fired for the reasons rounds 1–7 recorded: a new persistent frontmatter shape across ~1,170 live person
-notes; significant extension of three core systems (the WI-021 gate, the WI-125 identifier index,
-`resolve_all`); >3 files in different concerns; cross-system consumers; effort > 1 day.
-
-### The prior findings, re-read against this tree
-
-**Round-1 findings 1 and 2 — still CLOSED.** Re-verified rather than carried: `identifier.py:271-275`
-raises on `None` and on empty through two lines with no blank branch, `:276` tests the `@lid` SUBSTRING,
-`:278-281` tests `normalize_phone(s)` against `Phone.MIN_DIGITS`, and a JID suffix is tested nowhere —
-so `WhatsAppJID.parse("+44 7739 341679")` still succeeds and only STORABLE refuses it. One fact worth
-adding because it closes a latitude the STORABLE bullet leaves open in its wording: `.jid` holds the
-**normalized** value, `str(raw).strip().lower()` (`identifier.py:266`, `:273`, `:277`, `:281`), so a
-`jid_domain` property computed off `self.jid` is case-insensitive for free and `447700900321@S.WHATSAPP.NET`
-is storable without a second rule. The bullet says "the raw value's JID DOMAIN"; the type has no raw
-value to read, which makes the recommended spelling the only buildable one. Nothing to change.
-
-**Round-3's class-Ø finding — CLOSED.** `person.py:318-320`'s `add()` returns on a `None`-or-blank raw
-BEFORE calling any parser; `models.py:94` is still `whatsapp: str = ""`; `writer.py:333-337` sets a field
-and there is no delete affordance. The six-cell table is a genuine partition, which I checked rather than
-took: over a non-empty value the three booleans (parses? / `phone_digits` empty? / storable?) have exactly
-five reachable combinations and the table names all five — a value like `447700900321@lid@s.whatsapp.net`
-(the `@lid` substring with a storable LAST-`@` domain) falls in B by the table's own definition rather
-than off the end of it.
-
-**Rounds 4–6's plant, census and report-surface findings — CLOSED.** `_CONTAINER_KEYS` still excludes
-`whatsapp` (`name_gate.py:84`); `_index_identifiers` still records a collision to `_conflict_sets` and
-"never raises" (`person.py:336-344`), which is the fact F17 leg 3's silent-conflict argument rests on;
-`_RESOLVE_CASCADE_ORDER` is still four labels (`person.py:145`) with `rank`'s unknown label falling to
-`len(...)` (`:190-197`).
-
-**Round-7's prose finding (F20) — CLOSED, and its own correction of the two arriving fences is right.**
-Predicate re-run this round: `rg -c '"owner": "PersonRepository\.save"'
-tests/fixtures/identity_endgame/prose_surface_cut0.json` → **29**, not the 31 the round-7 architect fence
-and the red-team round-6 fence both state. I also checked the mapping F20 claims rather than the count
-alone: `save`'s docstring is `person.py:1158-1189`, which is 32 lines carrying 5 blanks (`:1161`, `:1168`,
-`:1173`, `:1179`, `:1185`), plus the two trailing comment lines at `:1195-1196` — 27 + 2 = 29. And the
-fold's load-bearing claim that APPEND is FREE is true of the clause as written: (e1) builds
-`final_pairs = {(r.owner, r.text) for r in final}` and asserts `unauthorized_losses == []` over Cut-0
-pairs (`tests/test_identity_endgame.py:1006-1019`) — a PRESENCE test, so a new paragraph adds a pair
-nobody reads and removes none. `AUTHORIZED_PROSE_OWNERS` (`:359-373`) omits `PersonRepository.save`, and
-(e2) (`:1021-1030`) does demand an authorized owner LOSE a line, so rejected item 15's cost is real.
-
-### Review (only where this round's finding bites)
-
-**Fit, Duplication, Boundaries, Determinism, Reversibility, Generalization, Build-vs-extend, Prior art.**
-Unchanged from rounds 2, 4, 5, 6 and 7 and re-spot-checked: `_index_entity` still feeds
-`normalize_phone(entity.whatsapp)` into `_phone_index` unconditionally (`person.py:266-270`) with
-`_remove_entity_from_indexes` its exact mirror (`:412-416`); the gate's refusal contract still admits no
-note-derived value (`name_gate.py:142-174`). Liberal-for-reach / conservative-for-storage remains the
-outside view — the standard identifier answer, not local machinery — and expand → migrate → defer-contract
-remains the standard parallel-change answer, so no cited execution is owed.
-
-**Reversibility — the dimension that moves this round, and it moves FORWARD rather than back.** F14
-states the back-out correctly. What no round has asked is the mirror question: what does the vault look
-like when the migration has SUCCEEDED? The answer the design forces is not the answer the document
-commits to Dave, and the two are written three sentences apart.
-
-### Blocking issue
-
-**1. The gate refuses a class-D or class-E value in EITHER shape, so the migration cannot convert those
-notes' shape at all — they are terminally scalar. Yet AC-5 leg (e), `## Approach` step (4)'s exit numbers
-and `### Examples of done` all commit to "zero notes left in the scalar shape" in the same breath as
-"the D+E residual reported and byte-identical". Those two conjuncts cannot both hold, and AC-5 mandates
-the class-D plant that makes them collide, so NO build passes the criterion as written.**
-
-The mechanism, in four read facts and one step:
-
-- A shape conversion is a write that introduces `whatsapp`. For a class-D note the payload is
-  `{"whatsapp": ["n/a"]}` — the list shape with one non-storable member, which AC-3 names explicitly
-  ("a list containing one bad member among good ones") and refuses with **nothing written**.
-- There is no arm that escapes it. AC-5 leg (b) asserts STRUCTURALLY that every write goes through
-  `vault_io` *and through the gate*, no direct `write_text`; and the delta rule cannot help, because the
-  delta rule (`name_gate.py:31-36`) keeps a stored-dirty note writable only for writes that do NOT
-  re-introduce the field — and re-introducing the field is the entire content of a shape conversion.
-- So the migration leaves every class-D and class-E note in the scalar shape, necessarily. That is not a
-  build choice; it is forced by AC-3 plus AC-5 leg (b), and the document says as much where it describes
-  the cells: class E is "left byte-identical by the migration like D", and AC-5 leg (e) asserts "its
-  note's `whatsapp` bytes are asserted byte-identical".
-- And the collision is present in AC-5's own fixture by mandate, not only on the live vault: leg (d)
-  requires a planted class-E note asserted byte-identical after a repair-enabled run, and the plant list
-  requires "at least one note per NON-Ø cell — A, B, C, D and E". So the class-D and class-E plants are
-  scalar when the run ends, and leg (e)'s zero-scalar conjunct is red on the hermetic suite regardless of
-  what the live census reports.
-
-**Why this is blocking rather than a build-time surprise: every route out is red, which is worse than
-buildable-two-ways.** Enumerated, because the four-way sweep is what shows the criterion is unsatisfiable
-rather than merely ambiguous:
-
-- **(a) let the gate accept D/E for the conversion** — red on AC-3, and it retires the item's own refusal.
-- **(b) bypass the gate for the conversion** — red on AC-5 leg (b), which asserts the route structurally.
-- **(c) CLEAR the D/E values so the note converts as class Ø** — the one route that reaches a
-  zero-scalar vault, and it is silent data loss on exactly the population the item exists to preserve:
-  rejected item 8's harm arriving through the migration instead of through the reader. It is caught, and
-  I want to record WHY so the fold does not re-buy the guard: leg (c)'s TOTAL-value count per note (added
-  in the first red-team round precisely so the parseable-only scoping could not become a licence to delete
-  what it excludes) goes 1 → 0 and fails. That guard is load-bearing and, on this reading, it is the only
-  thing standing between the criterion's own contradiction and erasure.
-- **(d) honour byte-identity and report the residual** — the correct build, and red on leg (e)'s
-  zero-scalar conjunct.
-
-So the build-runner's real exits are to amend a FROZEN criterion (a D4b re-sign after Dave's signature,
-which is exactly the cost this document elsewhere refuses to defer) or to reinterpret "zero notes left in
-the scalar shape" as "zero of the notes the write COMMITS" — the charitable reading, which is correct and
-which nothing in the text licenses. That second exit is the same defect SHAPE F19 closed one artifact over:
-a clause satisfied by a reader's generosity rather than by construction, riding on a neighbouring
-assertion. Here it is worse than in F19's case, because the clause is also an EXIT NUMBER: `## Approach`
-step (4) commits it to the live bracket ("The exit numbers that matter: zero notes left in the scalar
-shape, the class-C repair count equal to the census's class-C row, the D+E residual reported and
-byte-identical"), and `### Examples of done` promises "the readback reports zero notes left in the old
-shape". If the live class-D population is non-zero, the conductor performing the bracket cannot produce
-the figure the item ships against and is left adjudicating it in prose — which is the one thing the
-entry/exit discipline exists to prevent. If it happens to be zero, the figure works by luck, which is the
-"stays green while unclassified" shape this document refuses everywhere else (it is the stated reason
-class E is asserted rather than assumed).
-
-**And it touches a claim about Ruling B, which is why it is not purely editorial.** AC-5 leg (d)'s
-closing clause says a run invoked with repair disabled "leaves class C untouched and reports it (Ruling
-B's alternative arm, so the criterion holds either way Dave rules)". It does not hold either way: under
-the alternative arm class C is also unstorable at the gate, so class C joins the terminally-scalar
-residual, the zero-scalar conjunct is further out of reach by the census's class-C count — the row the
-document itself calls the load-bearing one — and N notes end the migration both scalar AND unsaveable
-through the whole-record arms. Dave is entitled to that number when he rules on the repair, and today
-the document tells him the criterion is arm-agnostic.
-
-**The fold, and it is one clause plus one sentence in three places.** State the terminal state instead of
-a number that assumes it away: the migration's exit condition is **zero notes left in the scalar shape
-EXCEPT the reported D+E residual (C+D+E under Ruling B's alternative arm), whose scalar count EQUALS the
-census's class-D and class-E rows** — still an oracle, still falsifiable, and now the same number the
-`lint_vault` detector reports as an independent second witness, which is what AC-3's REPORT LEG was built
-to buy. Scope leg (e)'s zero-scalar conjunct to the notes the write COMMITS, and add the conjunct that
-keeps route (c) red by intent rather than by side effect: the migration never CLEARS a value to make a
-note convert — clearing is a hand repair a person asks for through the delta arms (AC-3's CLEARING leg),
-never something the run does. Then correct leg (d)'s arm-agnostic claim, and make the same edit in
-`## Approach` step (4)'s exit numbers and in `### Examples of done`'s "zero notes left in the old shape".
-One consequence worth stating in `## Exploration Notes` while the fold is open, because it is the honest
-form of F7's "refusing the scalar form is a separate item or never": the tolerant reader can never be
-contracted while any D+E note survives, so the CONTRACT phase of expand → migrate → contract is gated on
-the residual reaching zero by hand, not on this item.
-
-### Non-blocking notes (fold if cheap; no round is owed for them)
-
-1. **The list flip turns one of the three whatsapp frames from loud to SILENT, and the touch list names
-   the frame without naming the trap.** `### Effort` lists `_index_entity`, `_remove_entity_from_indexes`
-   and `_project_identifiers` as frames to edit. Two of them fail LOUDLY on the new shape, which is fine:
-   `normalize_phone` does `phone.split("@")` (`phone_normalization.py:52`), so `normalize_phone(<a list>)`
-   raises `AttributeError` at `person.py:268` and `:414`. The third does not. `_project_identifiers` guards
-   with `if entity.whatsapp:` and makes ONE `add(WhatsAppJID.parse, entity.whatsapp)` call
-   (`person.py:330-331`); `add`'s blank guard tests `isinstance(raw, str)` (`:319`) so a list passes it, and
-   `parse` does `s = str(raw).strip().lower()` (`identifier.py:273`) — so
-   `WhatsAppJID.parse(["447700900321@s.whatsapp.net"])` SUCCEEDS with `phone_digits == "447700900321"`,
-   because `normalize_phone` splits at the first `@` and strips non-digits and recovers the same digits from
-   the list's repr. A build that forgets the loop therefore produces the CORRECT `phone:` key for a
-   single phone-bearing value: AC-1's and AC-2's class-A legs pass. What catches it is the `jid:`-keyed
-   cells (B and E get `jid:['15555550142@lid']`) and AC-5's two-JID note (one identifier where two are
-   asserted). The suite does go red, which is why this is a note — but "iterate the list; never hand the
-   list to `parse`" is one clause in the touch list, and it is cheaper than the diagnosis.
-2. **After the fix the phone-pivot rule is computed in three frames from three separate `parse` calls,
-   and the item's own principle is "no second spelling anywhere".** `_index_entity` (`:266-270`),
-   `_remove_entity_from_indexes` (`:412-416`) and `_project_identifiers` (`:330-331`) each decide
-   independently what a `whatsapp` value contributes, and after AC-1 all three need the same rule (only a
-   non-empty `phone_digits` pivots). `_index_identifiers` already runs at the END of `_index_entity`
-   (`:283-284`) over `_project_identifiers`' typed output, so the phone-index insert can be DERIVED from
-   the projected identifiers rather than re-parsed beside them. AC-1's inverse-over-the-same-table
-   assertion pins the behaviour either way, which is why this is a note and not a finding — but the spec
-   should say which frame owns the pivot rule, or a builder writes it three times and the next item that
-   widens it finds two of them.
-3. **Carried, not re-raised.** Rulings A and C are untouched by everything above. Ruling B is not
-   reopened either — the blocking finding does not change what the migration DOES to any cell, it changes
-   what the document claims the vault looks like afterwards and corrects a sentence that tells Dave the
-   criterion is indifferent to his answer on the repair. The ordering the document states — settle A and
-   B, measure the census, then freeze the frame — is still right, and this finding is upstream of the
-   FREEZE and downstream of the rulings.
-
-### On the classes this document has closed, and why this is not another instance of them
-
-Stated because it is the discriminant the factory reads. The three classes rounds 4–7 closed are
-artifacts whose CONTRACTS were unread: the frozen corpus and its manifest (F17, F18), a tool's report
-capability priced off a docstring (F19), and a package file's prose surface (F20). I re-drove each where
-its load-bearing facts were cheap to check and all three hold. This round's subject is not a fourth
-artifact and not a fixture: it is a contradiction between two conjuncts the document has carried since
-its first draft — AC-5 leg (e)'s zero-scalar exit number against the byte-identity guarantee the class
-table and leg (e) itself give class D and class E — made visible by nothing more than asking what the
-vault looks like after a successful run. It is reachable from the criteria text alone without opening
-another module, which is why it is `basis: original` and why the sweep that closed the artifact class
-could not have surfaced it.
-
-```verdict
-gate: architect
-verdict: REVISE
-date: 2026-09-26
-model: claude-opus-5
-note: AC-3 refuses a class-D/E value in BOTH shapes and AC-5 leg (b) asserts every migration write goes through the gate, so those notes are TERMINALLY SCALAR — yet AC-5 leg (e), `## Approach` step (4)'s exit numbers and `### Examples of done` all commit to "zero notes left in the scalar shape" alongside "the D+E residual reported and byte-identical", and AC-5 itself mandates the class-D plant that collides them; all four routes out are red (accept → AC-3, bypass → leg (b), clear → leg (c)'s total-value count, honour byte-identity → leg (e)), so no build passes and the real exits are a D4b re-sign or silently reinterpreting the exit number the live bracket ships against — and leg (d)'s claim to hold "either way Dave rules" is false, because under Ruling B's alternative arm class C joins the residual.
-targets: AC-5, AC-3, #approach, #exploration-notes
-prior: held
-basis: original
-findings: 1/3
-```
 
 ## Conductor Note — 2026-09-27 (round-budget ESC-WI-032-idea-round-budget-9c211f1b: Dave authorized one more round window; this carries revise-cap ESC-WI-032-idea-revise-cap-1a372790's fold so the window cannot lose it)
 
@@ -4099,3 +5293,843 @@ ac_hash_AC-4: 7bfa6009474f
 ac_hash_AC-5: 975c8d928253
 artifact: docs/spec-reviews/WI-032-dave-review-2026-09-27.md
 ```
+
+## Data Audit — 2026-09-27
+
+**Recommendation: PROMOTE to specced**
+
+### Trigger check
+
+**Class 1 AND Class 2, both firing, and this is the heaviest-premise item the gate has seen on this
+project.** Class 1: every criterion computes against a population nobody had measured for this field —
+how many of ~1,170 person notes carry a `whatsapp` value at all, how they distribute over the six-cell
+class table, how many people hold two JIDs, how many lids collide with a stored phone. Class 2: AC-3
+introduces a refusing write door and a new `lint_vault` detector, and AC-5 runs a migration — three new
+rules whose correctness is a claim about their effect on the corpus **as it stands today**, not on
+hypothesized future inputs. The item also quantifies universally in `## Intent` ("never reaches a person
+note", "Every writer refuses it at the boundary", "nothing already written is silently dropped"), so the
+counterexample hunt below is a required element rather than an extra.
+
+### Premise
+
+Eleven load-bearing empirical claims, in the order the criteria lean on them:
+
+1. The six-cell class distribution over the live person corpus — the denominator class Ø and the five
+   non-empty classes (AC-1, AC-5, `## Approach` step (4)).
+2. `|R|`, the terminal-state residual = class D + class E (+ class C under Ruling B's alternative arm) —
+   the live bracket's exit figure and the population AC-3's REPORT LEG detector ships against (F21).
+3. The class-C repair count, and that the repair is key-preserving on every member (AC-5 leg (d)).
+4. That bare telephone numbers actually DO arrive in this field, so the door is a wall and not theatre.
+5. That a person holding two JIDs is a real shape a scalar cannot hold — the premise paragraph's 51.
+6. That the lid→phone mis-index has a live victim population (`## Problem / Motivation` item 3, AC-1).
+7. Fixture-corpus shape: 22 `whatsapp`-carrying notes, 21 of them class Ø, one class-C value on the sole
+   person `roundtrip_representative`, and an admissible non-representative, non-skip, non-census-specimen,
+   non-stem-divergent receiver for it (F6, F17, F18 leg 2, F19 leg 5, AC-1's WHERE clause).
+8. That every planted literal is an unused member of a reserved block and unclaimed tree-wide (F17 leg 3,
+   F18 leg 6, AC-5's pinned two-JID pair).
+9. That no consumer assumes the ELEMENT type — the axis that decides Ruling B's recommended arm.
+10. That no consumer re-serializes a whole stored person record, so AC-3's `save`/`write_markdown_file`
+    refusal arms are walls rather than incidents.
+11. That `lint_vault --fix` still repairs a class-C-bearing note's OTHER issues once the gate arm exists —
+    AC-3 REPORT LEG conjunct (4) asserts this and it is a rule-effect claim, not a design claim.
+
+### Predicate + result
+
+**Claims 1–6 are grounded in `docs/wi-032-whatsapp-corpus-census.md` (conductor-performed 2026-09-27
+07:35 BST, in HEAD, one script, stdout verbatim, read-only, `$VAULT`/`$BRIDGE_DB` rendered).** Re-read
+this round line by line against the predicates this document declares. The census's `classify` calls
+`WhatsAppJID.parse` and computes the domain off `j.jid` — the normalized, lowercased string
+(`identifier.py:266`, `:273`, re-read) — which is the reading `## Exploration Notes` pins, not a restated
+shape. Its `"E" if j.phone_digits == "" else "C"` branch is EQUIVALENT to the table's definitions rather
+than merely similar: `parse` yields an empty `phone_digits` only via the `@lid` substring branch
+(`identifier.py:276-281`), so a non-storable value with no phone digits took that branch by construction.
+The class-Ø test precedes both predicate calls, which is the ORDER AC-1 asserts.
+
+| cell | count | of 1174 `type: person` |
+|---|---|---|
+| Ø (absent key 6, `""` 1025, YAML null 0) | 1031 | 87.8% |
+| A (storable, phone-bearing) | 35 | 3.0% |
+| B (storable `@lid`) | 26 | 2.2% |
+| C (parses, phone-bearing, not storable) | 82 | 7.0% |
+| D (non-empty, does not parse) | 0 | — |
+| E (`@lid` substring, non-storable domain) | 0 | — |
+| already list-shaped | 0 | — |
+
+1031 + 35 + 26 + 82 = 1174, and the model-side cross-check agrees (the repository loads 1174 with a skip
+surface of 0), so no note is hidden from either view. `whatsapp: str = ""` is confirmed at
+`models.py:94`, which is why 1025 notes carry exactly the model's own default — F16's derivation holds on
+the real numbers, not just on the argument.
+
+- **Claim 2: `|R| = 0`** under the recommended arm Dave ruled (D + E = 0); 82 under the alternative he
+  declined. So the partition's part (3) is empty on the live vault and the detector ships as a wall
+  against the next bare number, not as a backlog. This does not soften anything: AC-5's mandated class-D
+  and class-E plants make `|R|` non-empty on the hermetic suite, which is where F21's contradiction lived.
+- **Claim 3: 82 repairs, all key-preserving.** All 82 class-C values are bare numbers with no `@` at
+  all — no odd-domain spellings — so every one has non-empty `phone_digits` and AC-5 leg (d)'s
+  phone-bearing guard never fires negatively on a live note. 81 of 82 already carry the same digits in
+  their own `phones:`, and the 82nd keys on its own digits, so the `.key` multiset is preserved on every
+  member and the readback oracle has a non-trivial population to prove "no identifier moved" against.
+- **Claim 4: grounded.** 82 bare numbers, one every ~14 person notes.
+- **Claim 5: grounded and reproduced exactly** — 51 bridge display names holding BOTH a phone-JID and a
+  lid, against 475 distinct 1:1 names; 26 vault notes have already chosen the lid over the phone form,
+  which is the scalar losing an identifier in the field.
+- **Claim 6: the harmful shape is ZERO today.** None of the 172 bridge lids and none of the 26
+  vault-stored lids has digits that `phones_match` any of the 141 stored phone digit-strings, so no live
+  lookup for a real number returns a lid's owner. The defect is latent, which AC-1 already handles by
+  PLANTING the falsifying member rather than hoping for one. See note (i) below on the census's wider
+  inference.
+
+**Claims 7 and 8 I grounded myself this round** (the census is scoped to the live vault and says so).
+`rg 'whatsapp' tests/fixtures/vault/` returns exactly 22 notes; 21 carry `whatsapp: ""` and
+`@Thrandell Ibberly.md:7` carries `447700900789@example.com` — F6 exact. `@Fennwick Drostane.md` exists
+and carries `whatsapp: ""`, so AC-1's named receiver is available. The three reserved-phone patterns are
+`^447700900\d{3}$`, `^07700900\d{3}$` and `^1?\d{3}55501\d{2}$` (`tests/test_fixture_vault.py:308-312`),
+and reserved hosts are three `example.*` domains by EQUALITY plus `.test`/`.invalid`/`.example` by suffix
+(`:306-307`, `:315-319`) — which confirms, structurally, that `s.whatsapp.net` is inadmissible in the
+corpus's reach and that `lid.example` is admissible where `lid.example.com` is not. Every pinned literal
+(`15555550142`, `15555550163`, `447700900987`, `447700900654`, `5555550142`) matches its pattern and
+appears NOWHERE in the tree outside this document, its rounds drawer, the review artifact and the state
+ledgers — unclaimed, as F17 leg 3 and F18 leg 6 claim. No `55501` run exists anywhere in the fixture
+corpus today.
+
+**Claims 9 and 10 are grounded in `docs/wi-032-consumer-audit.md`** (in HEAD, three repos at pinned
+40-hex HEADs with dirty counts, literal commands, verbatim lines, 20 production sites on three axes).
+Claim 9 comes back the way the fence hoped: **ZERO element-type assumptions** across all 20 sites — every
+break is caused by the VALUE becoming a list, and each site would be equally happy with `List[str]`
+elements once it indexes one. That is affirmative evidence FOR Ruling B's recommended arm rather than the
+absence of evidence against it. Claim 10: **ZERO call sites** for `repo.save(person)` or
+`write_markdown_file(entity=…)` in all three repos, with every field-level door enumerated — so AC-3's
+whole-record refusal arms have no consumer caller today and, with `|R| = 0`, no live note to refuse.
+
+**Claim 11 I ran as a rule-effect predicate against the code rather than accepting the criterion's
+sentence.** `apply_fixes` hands the gate the DELTA, not the record — `gate_write(delta,
+declared_type=fm.get("type"), whole_record=False)` at `scripts/lint_vault.py:1181-1182` — so a fix for an
+unrelated issue on a class-C-bearing note presents a payload with no `whatsapp` key, the new arm is never
+consulted (the delta-not-record rule), and the note's other issues still repair. The subsequent write
+re-serializes the whole frontmatter (`_wfm(fm)` at `:1194-1198`) and re-emits the stored value unchanged,
+so `--fix` neither refuses the note nor drops the value. AC-3 REPORT LEG conjunct (4)'s claim holds, and
+it holds for a mechanical reason the document did not state.
+
+Code mechanisms re-read directly, all as cited: `_index_entity` feeds `normalize_phone(entity.whatsapp)`
+into `_phone_index` unconditionally (`person.py:266-270`); `_project_identifiers`'s `add()` returns on a
+`None` or blank raw BEFORE parsing (`:318-320`), which is the existing convention class Ø rests on; and
+`whatsapp` is projected through `WhatsAppJID.parse` at `:330-331`.
+
+### Counterexample hunt (WI-293)
+
+`## Intent` quantifies over an enumerable domain three times, and `## Exploration Notes` already carries
+THE ABSOLUTES SWEEP over the document's own text. That sweep walks the DOCUMENT; this hunt walks the
+ESTATE, which is the axis it cannot reach.
+
+**Domain:** every code path in the three consumer repos plus this package that WRITES a `whatsapp` value
+into a person note's frontmatter, at each candidate's own declared granularity (a raw-file writer is
+judged as a raw-file writer, not by whether it imports this package). **Predicate:** does the write reach
+`gate_write` — and if it does not, is it false-by-design or merely unaudited? Enumerated from the consumer
+audit's per-repo sweeps (three greps per repo, `.py` and non-`.py`, tests listed separately) plus this
+repo's own WI-021 derivation.
+
+**One false-by-design member class found: writers OUTSIDE the package boundary that edit frontmatter as
+text.** The member is `orchestrator/bin/merge-duplicate-persons.py:380-384` — it regex-reads the
+`whatsapp` line, merges scalars, re-emits `whatsapp: "<v>"` via `_write_fm_field` and commits with
+`Path.write_text`, bypassing `PersonRepository` and therefore the gate entirely. `## Intent`'s "Every
+writer refuses it at the boundary" is FALSE of it by construction, and it is the one site that can
+collapse a migrated list to a single scalar or clear it to `""` when the single-line regex misses a block
+list. **Disposition: NAMED EXCLUSION, already filed.** The absolutes-sweep row scopes that universal to
+"AC-3's DERIVED arm set plus the two whole-record-projection arms", i.e. the package's arms; the consumer
+audit names this site as break #3 and relays it under "not this repo's to fix" (it is already on the
+WI-029 divergence-generator list). It is not a class-C producer — it propagates whatever shape it read, it
+does not synthesize a bare number — so it cannot falsify sentence one of `## Intent`. It is a
+cardinality-era data-loss path, which is note (ii) below and a sequencing fact rather than a criterion
+defect.
+
+**Classes walked and found CLEAN, stated so the hunt is falsifiable:** HAL9000's two generic entity doors
+(`entities.py:251` `find_or_create_stub`, `:461` `update_fields`) are gate arms, and they are the class-C
+producers the disclosure paragraph names — in scope, refusing by design. The `new-person` skill and
+orchestrator's `roles/enricher.yaml:163-176` both write through the PATCH door, so they are the same two
+arms one level up. exocortex writes the field nowhere in production (its one site is the `ContactInfo`
+mirror READ at `clients/contacts.py:74`). `lint_vault --fix` is a delta arm and was run as a predicate
+above (claim 11) rather than reasoned about. Within this package, the WI-021 derivation plus
+`tests/test_write_target_seam_wall.py` are the standing proof that no write site routes around the gate or
+the seam. **Opt-in gating, scheduled external writers and grandfathered epochs: none found in this
+domain** — there is no cron, no scheduled job and no env-gated writer of this field in any of the three
+repos (the two bridge-store readers at `contact_normalizer.py:52` and `queue_writer.py:62` are READERS and
+write no note; `jobs/sync_interactions.py` writes only the interactions DB).
+
+### Conclusion
+
+Every load-bearing empirical claim this item's five criteria and its live bracket rest on is measured,
+dated today, taken read-only with the command and the verbatim stdout on paper, and both grounding
+artifacts were in git HEAD before the ACs were presented for signature (the WI-300 door). The numbers
+CONFIRM the design rather than merely permitting it: 1031 class-Ø notes are why the class-Ø fold (F16) was
+the right correction and not defensive padding; 82 class-C notes make the door a wall against a value that
+demonstrably arrives; zero element-type assumptions across 20 consumer sites is affirmative evidence for
+Ruling B's recommended arm; zero whole-record projections make AC-3's `save` arms affordable; and
+`|R| = 0` makes the TERMINAL-STATE PARTITION's exit row a number a conductor can produce without
+adjudicating anything in prose. Nothing in the data contradicts a criterion, no premise is stale (the
+oldest figure is 07:35 BST today), and the one hermetic-versus-live tension — class D and E are zero live
+but mandated as plants — is exactly what F21's partition was built to hold. Two non-blocking notes, both
+recorded rather than raised as OPEN questions, and neither touching a criterion or a ruling:
+
+(i) The census §2 bullet "the resolution fix therefore changes no live lookup result on the day it lands"
+is true of the harmful collision shape row (g) measures (a query for a REAL number returning a lid's
+owner — population 0) and slightly over-broad for the other shape `## Problem / Motivation` item 3
+describes (a query for a number nobody holds returning the lid's owner — population 26, since every
+stored lid's digits sit in `_phone_index` by `person.py:266-270`). §3 scopes row (g) explicitly, the doc's
+own premise plants its falsifying member rather than leaning on the census, and no consumer synthesizes
+such a query (orchestrator strips the JID first; HAL9000's `resolve_by_whatsapp` has no production
+caller), so the live blast radius is nil. Worth a sentence in the live bracket's entry row, not a revise.
+
+(ii) The consumer audit's ordered break list — two hard breaks on migration day
+(`orchestrator/src/invariants.py:663-665` red vault-wide, `HAL9000/.../contacts.py:41,50` 500ing) and the
+raw-file write above — is measured and sequenced in the artifact, but `## Approach`'s disclosure paragraph
+still discloses only the class-C producer refusal. The cardinality break is the wider disclosure, and the
+live-run ship condition is where it belongs (the bracket's entry row, in front of Dave, before the write).
+Flagged for the spec-writer's extension of `## Write Targets`; it changes no criterion and the AC frame is
+frozen, so it is not worth an AC re-sign.
+
+```verdict
+gate: data-premise
+verdict: PROMOTE
+date: 2026-09-27
+model: claude-opus-5
+note: Both precondition artifacts in HEAD and re-read against the declared predicates — live corpus measured at 1174 person notes (Ø 1031 / A 35 / B 26 / C 82 / D 0 / E 0, so |R| = 0 and the class-C repair is 82 key-preserving re-spellings), 51 dual-JID bridge names, 0 live lid→phone collisions, 0 element-type assumptions and 0 whole-record projections across 20 consumer sites; fixture claims (22/21, Thrandell's class-C, @Fennwick Drostane, the reserved patterns, every pinned literal unclaimed) and AC-3's --fix-still-repairs rule-effect verified in-tree this round; counterexample hunt found one false-by-design writer outside the package boundary, already a named exclusion.
+```
+
+## Threat Model — 2026-09-27 (round 2)
+
+**Recommendation: PROMOTE to threat-modeled — round 1's three mitigations all HELD and are re-emitted
+unchanged, plus ONE new required mitigation on the surface round 1's own M1 created. Every one lands on an
+existing Implementation-Plan task, no `criteria` fence moves, and Rulings A, B and C are untouched.**
+
+Round 2 at this gate. Round 1 (above) raised M1/M2/M3; the spec-writer folded all three into a new
+`## Design` §10 plus Task 10 and Task 13 riders, and the spec-reviewer then REVISE'd on two unpinned oracles,
+which the spec-writer has also folded (`## Design` §6's COMPUTABLE FORM with Task 8's two legs, and
+`## Design` §7's RE-RUN IS A NO-OP with Task 10's re-run leg). So this round's material is FOUR new things:
+§10(a)/(b)/(c), §6's computable form, §7's re-run subsection, and the `## Mitigation Folds` record. I re-read
+each of them and re-verified in code every claim of theirs that a security property rests on, rather than
+reading the fold record and taking its word.
+
+### What this round re-read, and what it re-verified in code
+
+- **The three folds are faithful and their `desc` text is copied verbatim** into `## Mitigation Folds`. I did
+  not judge the pairs from the fold record: I read §10(a), §10(b) and §10(c) and the Task 10 / Task 13 riders
+  in place. All three are satisfied on the substance, not just quoted — §10(a) makes the per-note pair a
+  `RepairDisclosure` record on the plan `apply_migration` already consumes, with `corroborated` recomputed the
+  SAME way the census computed it (`phones_match` over the note's own raw `phones[]`) rather than by a second
+  equivalence of its own; §10(b) ships the redaction wall itself with MUST / MUST-NOT match-shapes driven
+  through its own predicate; §10(c) gives the raw-file writer its own `DATA-LOSS HOLD` row with the
+  do-not-run instruction that makes it a hold.
+- **`tests/support.py`'s `patcher` cannot leak.** Task 10's re-run oracle installs a call counter over
+  `writer.update_frontmatter_field` through it, so I checked the undo path: `Patcher.undo` runs the stack in
+  reverse inside a `finally` (`tests/support.py:67-78`), "including when the body raises". A counter that
+  escaped its pass could otherwise have silently suppressed writes in whatever ran next — a false-assurance
+  channel, and it is closed.
+- **§6's computable form names mechanisms that exist.** `AUTHORIZED_PROSE_OWNERS`
+  (`tests/test_identity_endgame.py:359`) and `_golden` (`:395`) are both where §6 and Task 8 say they are, so
+  the conjunct is reachable by import rather than by re-spelling either. Security-neutral, checked because it
+  is the newest material.
+- **The detector opens no disclosure channel.** Re-read §4's arm: the `LintIssue` message interpolates
+  `len(classes)` and the sorted CLASS LETTERS and no note-derived value (`## Design` §4, and its own closing
+  sentence says so). Only `vf.path` carries a note name, which §10(b) discloses honestly as stdout-only and
+  which is pre-existing `lint_vault` behaviour rather than this item's.
+- **The go/no-go human step now READS the disclosure**, which is what makes M1 a mitigation rather than a
+  print: `## Approach` step (4) carries it, and `## Verification`'s close-out step 2 orders the 82 pairs shown
+  to Dave with the uncorroborated member first and step 3 keeps the detector's per-issue lines on the terminal.
+
+### The three round-1 mitigations: all HELD
+
+None is re-opened and none of the new material weakens any of them, so all three are re-emitted below with
+their `desc` byte-identical. Two observations on their edges, both deliberately NOT re-raised:
+
+- **M2's requirement is broader than M2's wall, and that asymmetry is correct.** The `desc` forbids the pairs
+  in "any other tracked document" while the check ranges over the three `docs/wi-032-*` files. I considered
+  extending it to `SESSION_LOG.md` — the one other tracked file the project's own close-out writes, and
+  measured clean today (`rg '[0-9]{9,}' SESSION_LOG.md` → no matches, so it would be free on day one). I am
+  NOT asking for it. A permanent redaction wall owned by WI-032 over an ever-growing conductor surface is
+  exactly the widen-another-surface move this document declines three times (rejected items 11, 14, 15), and
+  it would redden this item's floor forever for reasons with nothing to do with this item. The requirement is
+  instead stated where the actor reads it — close-out step 2 ("nothing from them is pasted into the bracket or
+  any other tracked document"), step 3 and step 4's redact-the-transcript line. Instruction is the right
+  instrument here and a wall is the wrong one.
+- **M1's check plants are unpinned literals, and that is affordable.** Task 13's check carries the clause
+  "every literal RESERVED-block or synthetic" and Task 10's M1 check, in the same module, does not. It is not
+  a gap worth a fence: the plants live in a temp vault outside `reach_files()`, F18 leg 6 already ratifies
+  test-module literals, and a builder has no source of live numbers to reach for — the census carries none by
+  construction. Noted below so the convention travels.
+
+### STRIDE delta over the new material
+
+Only the categories the new material moves; the rest stand as round 1 recorded them.
+
+**Tampering — unchanged and slightly better.** §7's re-run subsection pins a property that was prose:
+the second pass writes nothing, asserted by a CALL COUNT rather than by a digest, because "identical bytes
+give an identical digest" — which is the right discriminator and closes a build that re-writes ~1168 live
+notes on every retry. §8's SPELLING clause is correctly carried onto the SECOND `apply_migration` call site,
+so the containment wall still collects both drives; a second drive spelled any other way raises there rather
+than escaping. Nothing in §6 or §10 adds a write arm.
+
+**Information disclosure — this is where the one new finding is.** §10(b) closed the WHERE of M1's
+disclosure. What no section closes is the HOW, and it is the one thing that makes the disclosure trustworthy
+at the moment it is read. §10(a) and Task 10 both specify that `format_repair_disclosure` returns "one line
+per record carrying the note path, the stored value **VERBATIM** and the proposed JID", and the M1 check
+asserts "the line set is EXACTLY one line per class-C plant". A stored value can falsify that, and I verified
+the mechanism rather than supposing it: `WhatsAppJID.parse` normalizes with `str(raw).strip().lower()`
+(`identifier.py:273`) — `.strip()` removes only LEADING and TRAILING whitespace, so an interior newline,
+carriage return, tab or ANSI escape survives into `.jid` intact; `normalize_phone` then strips every
+non-digit (`phone_normalization.py:52-55`), so `"447739341679\n<anything without an @>"` yields twelve digits,
+parses, is phone-bearing, has an empty `jid_domain` and is therefore **class C** — the exact population the
+disclosure prints. Rendered verbatim, one record becomes two or more lines, so the conductor's line count no
+longer equals the repair count, the UNCORROBORATED-first ordering is no longer visually reliable, and a
+stored value carrying a newline plus the text of `CORROBORATED_HEADER` renders a forged section header into
+the one artifact an irreversible 82-note go/no-go is taken against. The plants are all clean, so the check's
+own "one line per record" assertion is asserted over data that cannot falsify it — the stays-green-while-
+unclassified shape this document rejects everywhere else (it is the stated reason class E is asserted rather
+than assumed). Who writes such a value: the same three unvalidated doors that wrote the Kim Faura value, which
+is the item's whole premise; the census measured the 82 as bare numbers with no `@` and was never asked about
+interior control characters. This is M4, and it is a legibility-and-forgery mitigation rather than a
+data-integrity one — the repair itself reads only `phone_digits`, so a control-character-bearing value still
+repairs to a clean canonical JID and no note is corrupted. Same generator as M1 and M2: an unspecified
+property of a disclosure surface. Cost: an escaping call in one formatter plus one plant.
+
+**Spoofing, Repudiation, Denial of service, Elevation of privilege — no delta.** §6 and §7's new material
+add no identity claim, no audit surface and no capability; §10's formatter is read-only and correctly kept out
+of `MUTATING_DRIVE_VAULT_POSITIONS` for the same reason `plan_migration` and `readback_migration` are (§8's
+census subject is MUTATING drives), so the containment wall's six clauses are unchanged by it. `--vault`
+required, `--apply` opt-in and the non-vacuity fix all stand exactly as round 1 verified them.
+
+### Required mitigations
+
+Four. M1, M2 and M3 are re-emitted with `desc` byte-identical from round 1 because what each REQUIRES has not
+moved; M4 is new this round. Each is additive to an existing task, none asks for a change to any `criteria`
+fence, and none touches Ruling A, B or C — so no D4b re-sign is implied by any of them.
+
+```mitigation
+kind: required
+id: M1
+desc: The DRY RUN must print the class-C repair as per-note (stored value -> proposed JID) pairs and flag every member whose digits are not already in its own `phones[]`, so the 82 irreversible re-spellings are authorized with the rewrites VISIBLE rather than off aggregate per-cell counts — AC-5 leg (d)'s key-preservation is true by construction of the repair spelling (both keys derive from the same `normalize_phone` output, `phone_normalization.py:52`) and so is not evidence the digits are the right number, and the census itself singles out the one uncorroborated member as "the one row worth eyeballing in the dry run" (`docs/wi-032-whatsapp-corpus-census.md:207-208`) while nothing in the design can show it.
+landed: Task 10
+```
+
+```mitigation
+kind: required
+id: M2
+desc: The M1 pairs and the detector's per-note issue lines stay on stdout for the go/no-go and are NEVER written into `docs/wi-032-whatsapp-live-baseline.md` or any other tracked document, which carries counts, classes and code paths only — `docs` is a member of `DOC_SCAN_EXCLUDED` (`tests/test_vault_path_required.py:387`, intersected at `:425`) so `docs/**` is outside the markdown scan's domain and nothing mechanical catches a pasted live identifier.
+landed: Task 13
+```
+
+```mitigation
+kind: required
+id: M3
+desc: The bracket's ENTRY row must separate `orchestrator/bin/merge-duplicate-persons.py:380-384` from the two loud consumer breaks and state it as a DATA-LOSS HOLD rather than as the third item of one list — it regex-reads a single `whatsapp` line and re-emits a scalar through `Path.write_text` outside the package boundary, so against a migrated vault it can silently drop a person's second JID or blank the field, which is the exact harm this item exists to prevent and the only one of the three measured breaks that does not announce itself.
+landed: Task 13
+```
+
+```mitigation
+kind: required
+id: M4
+desc: `format_repair_disclosure` must render each record's stored value ESCAPED rather than VERBATIM — one physical line per record, guaranteed, with newline, carriage return, tab and the ANSI escape rendered as visible escapes — and the M1 check must plant one class-C note whose stored value carries an interior newline plus the text of `CORROBORATED_HEADER` and assert the line count still equals the record count and no forged header appears: `WhatsAppJID.parse` normalizes with `str(raw).strip().lower()` (`identifier.py:273`) so an INTERIOR control character survives into `.jid` while `normalize_phone` strips every non-digit (`phone_normalization.py:52-55`), making such a value phone-bearing, domain-less and therefore class C — so the one artifact the irreversible 82-note go/no-go is read against can be reflowed or have a section header forged by the very data it describes, and the check's own "exactly one line per class-C plant" oracle is asserted only over clean plants that cannot falsify it.
+landed: Task 10
+```
+
+### Notes (non-blocking)
+
+Round 1's notes 1, 2 and 4 are CLOSED — the `IdentifierError`-outside-`LoudFailError` sentence is in
+`## Edge Cases`' error-propagation entry, `_refuse`'s third numbered clause is appended beside rules 1 and 2
+in §3, and note 4 was informational. Round 1's note 3 (AC-3's real telephone number as a test literal) stays
+OPEN and correctly deferred, on the same reasoning the spec-reviewer re-deferred it with; I re-defer it again
+and for one more reason, which is that M4 makes the escaping plant a better place to spend a literal than a
+frozen criterion is. Two new:
+
+1. **Task 10's M1 plants should carry Task 13's literal convention explicitly.** The sibling check in the same
+   module says "every literal RESERVED-block or synthetic"; the M1 check says nothing, and it needs a
+   corroborated bare number, an uncorroborated one, and now M4's control-character-bearing one. Not a
+   mitigation for the reason given above — no live source exists to reach for, and the module is outside every
+   wall's reach — but one clause carries the convention to the check that will have the most plants.
+2. **M4's escaping is also the one place the disclosure's own oracle becomes total.** Once the formatter
+   guarantees one physical line per record, the M1 check's line-count assertion holds over ANY stored value
+   rather than over clean plants, so the fold buys a stronger oracle and not only a safer render. Worth a
+   sentence in §10(a) where the VERBATIM wording currently sits, so the next reader does not restore
+   "verbatim" as a fidelity improvement.
+
+```verdict
+gate: threat-modeler
+verdict: PROMOTE
+date: 2026-09-27
+model: claude-opus-5
+note: Round 2 re-read all four pieces of new material in place rather than trusting the fold record — §10(a)/(b)/(c), §6's computable form, §7's re-run subsection and `## Mitigation Folds` — and re-verified in code every claim a security property rests on: `patcher` undoes in a `finally` including on raise so the re-run's call counter cannot leak and silently suppress later writes, `AUTHORIZED_PROSE_OWNERS` and `_golden` are where §6 imports them from, the detector's message still interpolates only a count and class letters, and the go/no-go step now actually shows the 82 pairs to a human; M1, M2 and M3 all HELD and are re-emitted byte-identically, with M2's requirement-broader-than-its-wall edge deliberately left as instruction rather than a `SESSION_LOG.md` wall this item would then own forever (the widen-another-surface move rejected items 11/14/15 already decline). One new finding, same generator as M1 and M2 — an unspecified property of a disclosure surface: §10(a) and Task 10 both render the stored value VERBATIM, and `parse` normalizes with `.strip().lower()` so an INTERIOR newline or ANSI escape survives into `.jid` while `normalize_phone` strips non-digits, making such a value phone-bearing, domain-less and therefore class C — so the one artifact the irreversible 82-note go/no-go is read against can be reflowed or have a `CORROBORATED` header forged by the data it describes, while the check's own one-line-per-record oracle is asserted only over clean plants; M4 folds the escaping plus a falsifying plant into Task 10. No criterion text moves and no ruling is touched.
+```
+
+## Spec Review — 2026-09-27 (round 2)
+
+**Recommendation: PROMOTE to ready**
+
+Rulings on record: Rulings A, B and C are RULED (Dave, 2026-09-27), the ACs are FROZEN by his signature (`ac_hash dd772c1183de`), and WI-020's specification-altitude and fold-and-close declarations stand — nothing below reopens any of them, and nothing below asks for a `criteria` fence to move.
+
+Round 2 at this gate. Read from line 1 in full — `## Intent`, F1–F21, the rejected items, the three rulings, `## Approach`, `## Verified Diagnosis`, `## Design` §1–§10, `## Edge Cases`, the fourteen-task plan, `## Write Targets`, `## Mitigation Folds`, `## Verification`, `## Scope Boundary`, `## Risk Analysis`, all five `criteria` fences, `### Examples of done`, and the live carry-forward rounds (architect round 9, AC red-team round 8, the AC sign-off, the data audit, threat-model rounds 1 and 2, the injection-hunter round and round 1 of this gate). I walked the bar from scratch rather than from round 1's list, and I re-derived each of round 1's two findings from the code before reading its fold.
+
+### Citation verification
+
+**All verified ✓ — read for the PROPERTY each claim asserts, not for symbol existence.** The injected audit resolved 17 symbol-anchored citations with 0 findings; that is a floor and it proves only that cited symbols exist. The ones worth recording, because this round's material stands or falls on them:
+
+- **`_golden` is at `tests/test_identity_endgame.py:395-397`** and is the reader clause (e1) itself takes at `:996`; `AUTHORIZED_PROSE_OWNERS` at `:359-373` is thirteen members (`<module>`, `__init__`, `_index_entity`, `_project_identifiers`, `_index_identifiers`, `_remove_entity_from_indexes`, `get_by_phone`, `resolve`, `resolve_all`, `find_or_create_stub`, `LEGACY_STUB_OWNER`, `resolve_or_create`, `_resolve_identifier`) and carries neither `PersonRepository.save` nor the bare class; it is read at `:1003`. `rg -c '"owner": "PersonRepository\.save"' tests/fixtures/identity_endgame/prose_surface_cut0.json` → **29**. So §6's two legs are computable exactly as stated.
+- **§6's force claim is TRUE, which is the part a fold like this most often gets wrong.** I checked whether anything standing already witnesses a golden edit: clause (e1) (`:1008-1019`) and (e2) (`:1021-1030`) both compute their expectations FROM the golden, and `test_identity_goldens_are_frozen_pre_cut_data` (`:400-402`, `:442-455`) asserts only that the surface is non-empty and that every member of `TABLE_OWNERS` owns at least one line — and `PersonRepository.save` is not a `TABLE_OWNERS` member (`:379`), so deleting all 29 of its records is green on every standing clause. Leg 2 is the only thing that would redden it, and counting it as a LIST LENGTH rather than an `(owner, text)` set is the right instrument. The 29 is legitimately pinned by EQUALITY under WI-295: `prose_surface_cut0.json` is a Cut-0 golden this item declares as no write target and never edits, so the item's own arc cannot grow the population the pin froze.
+- **The cross-test-module import idiom exists where §6 says**, `tests/test_name_gate_delta_rule.py:54-55` (`from tests.test_lint_vault_fix_gate import lint_vault`, `from tests.test_name_gate_wall import …`).
+- **§7's re-run oracle is reachable.** `tests/support.py:Patcher.setattr` (`:51-57`) patches a module attribute and `patcher()` undoes the stack in a `finally` (`:67-78`), so the call counter cannot leak past the pass. `update_frontmatter_field` (`obsidian_schemas/writer.py:333-394`) takes `vault_io.note_lock` at `:368`, reads inside it at `:369`, gates the DELTA with the note's own parsed `type:` at `:385-387` and writes under the stamp precondition at `:393` — so §7's "the write is ONE call" both gives leg (b)'s gate route and makes the module-attribute counter the right discriminator.
+- **`WhatsAppJID.parse` (`obsidian_schemas/identifier.py:269-281`)** raises on `None` (`:272`) and on blank (`:274-275`) through the same lines it raises on `"n/a"` with, tests the `@lid` SUBSTRING at `:276`, `Phone.MIN_DIGITS` at `:279`, and a JID domain nowhere; it stores `str(raw).strip().lower()` (`:273`, `:277`, `:281`) and retains no raw value. `identifier.py:36` binds `ClassVar, FrozenSet, Optional, Tuple` and NOT `List`, with `from __future__ import annotations` at `:31` — §1's import sentence is exact, and `ClassVar`/`FrozenSet`/`Tuple` really are already bound.
+- **M4's mechanism, which I derived rather than accepted.** `.strip()` removes only the ends, so an interior control character survives into `.jid`; `normalize_phone` splits at the FIRST `@` and keeps digits (`obsidian_schemas/phone_normalization.py:52-55`). The adversarial plant `"447700900321\n" + CORROBORATED_HEADER` therefore carries twelve digits, no `@` anywhere in the header text (so the first-`@` split cannot truncate it), an empty `jid_domain` and is class **C** — the plant is the shape §10(d) claims. And §10(d)'s containment claim is TRUE on the running interpreter: every codepoint `str.splitlines()` breaks on (`\n \r \x0b \x0c \x1c \x1d \x1e \x85` → `Cc`, U+2028 → `Zl`, U+2029 → `Zp`) is inside the four categories, so "the implementation is the CATEGORY test ALONE and leg (1) proves the containment" is right rather than optimistic.
+- **`name_gate.py`** — the delta rule at `:31-36` reads verbatim "A stored-dirty note stays writable for every write that does not re-introduce its name"; `_CONTAINER_KEYS` at `:84`; `_refuse` at `:142-174` with rules **1** and **2** numbered, so §3's appended third clause is an append and not an edit; `_is_str_list`/`_shaped` at `:181-198` positive as F2 says; `result = dict(introduced)` at `:346`; the name arm at `:348-368` and the address arm opening at `:369-376`, so "between step 3 and step 4" is an executable placement; the `elif entry and …` keep-verbatim at `:399-403`; `whole_record`'s docstring at `:289-294` and the idempotence sentence at `:296-299`. `name_gate.py` is outside WI-024's prose freeze, whose clause filters on `r.module == PERSON_MODULE`, so `_refuse`'s docstring edit is free.
+- **`scripts/lint_vault.py`** — `LintIssue.auto_fixable` defaults False at `:96`; `check_structural` at `:355`; the `stem_name_divergence` arm at `:417-462` behind `vf.entity_type == "person"` (`:433`) and `isinstance(stored, str) and stored.strip() and stem != stored` (`:449`), with `_gate_refusal_pattern` (`:334-352`) called once at `:450` and its return spliced as a marker at `:451-454`; `field_type_mismatch` at `:464-465`, so §4's placement is real. `:44-48` imports `TYPE_TO_MODEL`, `parse_frontmatter`, `update_frontmatter_fields`, `NameGateRefusal`/`NoteAlreadyExists` and `gate_write` and neither `WhatsAppJID` nor `IdentifierError` — §4's import sentence is exact. `apply_fixes` gates the delta at `:1181-1182` and re-serializes through `_wfm(fm)` at `:1194-1198`.
+- **The corpus contracts, re-read for the Task 5 blast radius.** `tests/fixture_vault.py:225` is `whatsapp="447700900789@example.com"` inside the `roundtrip_representative=True` spec at `:219-233`; `_person`'s default at `:94`; `@Fennwick Drostane.md`'s spec at `:340-341` declares no `shape_classes`, no verdict, no identifiers. `tests/test_fixture_vault.py:745-748` compares the parsed attribute against the declared literal and `:753-761` writes through the gated door and compares the RE-PARSED frontmatter MAPPING against the same literal, for representatives only — so §9 line 2's "the DECLARED SHAPE moves with the value" is not a preference, it is what makes both halves agree, and Fennwick is untouched by that loop. `tests/test_vault_path_required.py`'s skip-reason homes are pinned by EQUALITY in TWO places (`:576-580` as well as `tests/test_fixture_vault.py:1392-1395`), which is what Prerequisite 6's `:569-580` names.
+- **`@Fennwick Drostane.md` is not a `tests/test_provenance_write_seam.py` subject, and could not hurt if it were.** The subjects are derived (`_divergent_person_specs` at `:145-156`, `_name_sharing_person_specs` at `:159-172`, union asserted at 5, `:411-420`); Fennwick's stem and stored name AGREE and its name is unique in the manifest. And the `save` cell derives its expected outcome from the door itself (`:475-495`, "reached BY RULE and never by a hand-list"), so a class-C stored value there would be handled rather than red.
+- **Both `kind: precondition` artifacts are in the tree** and their machine-output block carries the figures every derived number is computed from: `docs/wi-032-whatsapp-corpus-census.md:163` `(a)` 1174 person notes, `:165-171` `(c)` Ø 1031 / A 35 / B 26 / C 82 / D 0 / E 0 / list 0, `:172` `(c')` splits with `Ø:absent-key` 6, `Ø:empty-string` 1025 and `C:digits-already-in-own-phones[]` 81. So 1168 = 1174 − 6, MIGRATED = 1168, shape-only 1025, repairs 82 and `|R| = 0` are all derivable, which is what Task 13 (ii) requires.
+- **Task 13's redaction fixtures are MEASURED, not imagined — I re-ran both predicates.** `[0-9]{9,}` over `docs/wi-032-whatsapp-corpus-census.md` → **no matches**; over `docs/wi-032-consumer-audit.md` → exactly two lines, `:92` and `:144`, both runs sitting INSIDE 40-hex HEADs. So `27cb78cc5a2099972dccea984664193e69414def` is the right MUST-NOT-match specimen and the strip-40-hex-first rule is both necessary and sufficient over the two artifacts this item cannot edit.
+- **No conscious-pin sweep is owed.** `rg MUTATING_DRIVE_VAULT_POSITIONS` over the whole tree returns the declaration (`tests/derivations.py:2012-2017`), its two consumers (`:2230-2232`) and this document — no hardcoded count or membership pin anywhere, so adding `"apply_migration": 0` reddens nothing.
+
+One nit rather than drift, carried from round 1 and still harmless: F5 brackets `resolve_all`'s cascade as `person.py:628-690` and VD-3 as `:606-690`; both contain it.
+
+### Bar check
+
+Walked every check of `docs/spec-quality-bar.md` (the doc's own list is the count — never hardcoded). The spec satisfies the bar.
+
+- **Check 1 Self-containment** ✓ — the three rulings, the six-cell table with its fourth column, both predicates, the classifier, the action table, the plant accounting, the partition and the computable form of AC-3's hardest conjunct are all in-document. Nothing needs session memory.
+- **Check 2 Prerequisites** ✓ — nine, including the third trust boundary M4's fold added (UNTRUSTED → HUMAN, the rendered disclosure), the `.venv` staleness, `README.md`'s non-writability and an atomic-landing check that was RUN. Both precondition fences carry `grounds:` and both paths are in HEAD — the WI-300 ordering satisfied rather than claimed.
+- **Check 3 Interface contracts** ✓ — see above; every load-bearing citation was re-read for its asserted property. No cross-doc `writes` fence, so no merge authorization is being held.
+- **Check 4 Edge cases** ✓ — eleven categories in Case/Decision/Reasoning form, `OPEN: None`. Round 1's two unpinned resolutions are now pinned: the re-run no-op is asserted in Task 10 and the "Idempotency" entry names it as its fourth level; the blank-list-member case is decided in §3 with both reasons (a drop is a silent drop; filtering would cost the refusal its positional handle) and mirrored in `## Edge Cases`. The control-character case is new and correct — it is an ordinary class C in the library and special only at the render.
+- **Check 5 Implementation plan** ✓ — fourteen canonical `- [ ] **Task N — …**` definitions, ordinals 1–14 unique, dependency-ordered, parallelism noted. Every task carries a well-formed lowercase `verify:` declaration: twelve check arms (Task 5's three resolving against existing checks at `tests/test_fixture_vault.py:598`, `tests/test_writer.py:404` and `tests/test_parser.py:248`, each unique under `check_module`), one `baseline` and one `hand-run`, both reasons inside 200 characters, no arm over 8 names. No illustrative declaration begins a segment. No verify command writes anything: every one is a check name or the declared floor command, and Task 12's `NO_ARG_CONSTRUCTION` run is declared VOLUNTARY with its reason verified (`docs` is a `DOC_SCAN_EXCLUDED` member at `tests/test_vault_path_required.py:387`, intersected against every path part at `:425`).
+- **Check 6 Verification** ✓ — happy path, graceful failures, integration with its predictions named as predictions, and a DERIVED regression census carrying its own floor caveat. Oracle derivation is unusually strong: every AC computes its expected value by CALLING the predicates, AC-5's readback is pinned as a re-READ from note bytes, and the two oracles round 1 found unpinned are now pinned with their discriminators named (a call count, because a digest cannot tell "no write" from "re-write the same bytes"; a frozen-population count, because a post-build check has no referent for pre-build bytes). The inbound WI-301 half is discharged by Task 12 RUNNING each wall's own predicate. Counting walls: AC-3's arm set ships its shapes already standing, the containment scan's are ordered in Task 11, the redaction predicate's MUST/MUST-NOT lists are ordered in Task 13 and measured above, and M4 gives the repair-disclosure line count the falsifying input it previously lacked — which is the one that mattered, because that oracle was green over data that could not falsify it. The corpus-fixture arm is chosen (derive from the census's own stdout block) with its coupling declared in one line.
+- **Check 7 Scope boundary** ✓ — nine not-doing items and an unchanged-files list that says WHY per file, including the five walls the item JOINS and the one consumer break it declines to fix while still disclosing it.
+- **Check 8 Pattern consistency** ✓ — WI-029's detector shape for §4 and its containment wall for §8, WI-021's `_refuse` contract for §3, WI-016's deviation-3 fold for §9, WI-033's derived-accessor precedent for §2, and now WI-024's own reader and tuple imported rather than re-spelled for §6.
+- **Check 9 Risk analysis** ✓ — ten rows, honest likelihoods (row 4 CERTAIN, row 9 MEDIUM, row 10 honest that its likelihood is UNMEASURED rather than low), each mitigation naming a criterion or a rejected item.
+- **Check 10 Acceptance criteria** ✓ — five well-formed fences, all `kind: test`, all `check:` bare function names resolving uniquely under `check_module` (`tests/test_ac_interpreter.py:95-106`) with no collision against the tree's one existing `test_whatsapp_*` name. No `kind: command`, so no shell-safety question. Class-closing criteria derive their fixture space by calling the predicates and PLANT what the corpus cannot supply.
+- **Check 11 Verified diagnosis** ✓ and SUFFICIENT — four load-bearing claims, each cited to a falsifiable artifact I read, each artifact supporting its specific claim: VD-1's zero-match grep plus `_CONTAINER_KEYS`; VD-2's `parse` body plus 82 measured live members; VD-3's unconditional `normalize_phone` insert plus the permanent fuzzy arm plus 26 measured lids; VD-4's two-line `rg` plus the 8 → 0 bracket. The "Not claimed, and deliberately" paragraph correctly keeps the consumer-break claim out.
+- **Check 12 AC drift** — the frozen set is the `exploring` origination (`ac_hash dd772c1183de` plus five per-AC hashes) and `## Acceptance Criteria` IS that set, so there is no diff to classify. What I could check independently, I did: every post-signature fold landed as a plan-task rider or a `## Design` subsection, never as criterion text. This round is the strongest case of that — §6 states the COMPUTABLE FORM while leaving conjunct (2)'s wording verbatim, §7 adds a subsection and Task 10 a leg, and §10(d) is a Design subsection with a plan rider; the census fence's one wrong clause is still corrected DOWNSTREAM with the fence left verbatim. No strength-weakening, actor-swap, scope-narrowing, oracle-swap or exception-carving-by-addition. §6 is worth naming as the opposite of oracle-swap: it makes an unpinnable conjunct pinnable without weakening what it asserts.
+
+**Printed HEAD literals.** Every number the bracket prints is computed under the census's own declared rules — its `classify` calls `WhatsAppJID.parse`, reads the domain off `j.jid`, and tests emptiness before either predicate — and the `(c')` splits line is what makes 1025-vs-1031 available at all. Task 13 (ii) pins them by DERIVATION against that artifact's verbatim stdout block rather than against the live vault, and `## Approach` step (4) puts the live dry run's counts beside the census's in front of Dave. The one new equality pin, §6's 29, is explicitly argued as FROZEN with the reason the byte-identity form was unavailable — the WI-295 question asked and answered rather than skipped.
+
+**Universal claims.** THE ABSOLUTES SWEEP walks the document and the data audit's counterexample hunt walks the estate, disposing of the one false-by-design member class (a raw-file writer outside the package boundary) as a NAMED EXCLUSION with its domain and predicate stated. Both halves are present, which is what this rule asks for.
+
+### Build-runner dry-run
+
+Walked the plan top-to-bottom as the build-runner. Every task executes without leaving the document: the code blocks are literal, the placements are prescribed (the gate arm between steps 3 and 4, the detector between `stem_name_divergence` and `field_type_mismatch`, the cascade step immediately after step 4 and below the blank-query bail-out, the two disclosures as new paragraphs beside named line ranges), the corpus edit names the receiver AND the three constraints behind it, and every oracle is a call rather than a literal. The one transient red the ordering creates (Task 3 flips the annotation, Task 5 closes the corpus's declared oracle) is named and Task 5's verify is the three checks that go red on a half-done edit.
+
+I re-derived the wall interactions a builder would otherwise discover mid-build, and they hold: `frontmatter_write_arms` (`tests/derivations.py:979-1010`) keys on a `writer.write_frontmatter` call, so the migration's one-call design carries ZERO arms and `EDITED_FUNCTION_ARM_COUNTS` is untouched; `test_filesystem_mutation_is_single_homed` (`tests/test_write_routing.py:87-107`) is the standing wall that reddens a `write_text` under `scripts/` (`PATH_MUTATION_NAMES`, `tests/derivations.py:52-55`), and it carries its own MUST-NOT-MATCH battery; `_divergence_issues` filters on `issue.check` so the new detector is invisible to that module; a report-only rule is outside `auto_fixable_emitter_checks` so the WI-026 oracle table needs no fifth entry; and `apply_fixes` presents a delta with no `whatsapp` key, which the data-premise gate RAN rather than reasoned.
+
+Three questions a build-runner would plausibly ask, and the document answers all three: where does the APPEND-ONLY conjunct's second half get its referent (§6, at test time, off the artifact); what does a second migration pass do and how is that told apart from a re-write (§7, a zero call count on a module attribute); and is a blank member inside a list accepted or refused (§3, refused, with the `emails[]` precedent explicitly declined and why). Round 1's first two were the blocking findings; all three are now closed in the document rather than in a fence.
+
+**Write-Targets coverage.** Ran the per-task extraction. Fifteen builder fences and every task's named target is present: Task 2 → `identifier.py` + `test_identifier.py` + `test_whatsapp_jid_storage.py`; Task 3 → `models.py` + `test_whatsapp_jid_storage.py`; Task 4 → `name_gate.py` + `test_whatsapp_write_door.py`; Task 5 → `fixture_vault.py` + the two corpus notes; Tasks 6–7 → `repositories/person.py` + `test_whatsapp_jid_storage.py`; Task 8 → `repositories/person.py` + `test_whatsapp_write_door.py`; Task 9 → `scripts/lint_vault.py` + `test_whatsapp_write_door.py`; Task 10 → `scripts/migrate_whatsapp_to_list.py` + `test_whatsapp_migration.py`; Task 11 → `tests/derivations.py` + `test_whatsapp_migration.py`; Task 12 → `test_whatsapp_migration.py`; Task 13 → `docs/wi-032-whatsapp-live-baseline.md` + `test_whatsapp_migration.py`. Tasks 1 and 14 write only the Build Log. No fence declares a path no task writes; the M4 fold added no path, so the touch surface and the review level are unchanged; and the three absences a reader looks for each carry a reason (`README.md` outside `write_authority`, `docs/vault-shape-census.md` another item's frozen artifact, `tests/test_fixture_vault.py` a wall the item joins). The declaration names the item's real touch surface, so the selector reads neither more nor less than the build touches.
+
+**Mitigation folds.** The latest speaking round is `## Threat Model — 2026-09-27 (round 2)` with FOUR `kind: required` mitigations, and `## Mitigation Folds — 2026-09-27` carries a complete record for each — `id`, `desc`, `design`, `landed`, `work` — with every `desc` byte-identical to that round's fence (M1, M2 and M3 re-emitted unchanged, M4 new) and every `landed:` ordinal among the plan's fourteen. I did not judge any pair from the record: I found each `design` quote where it claims to be (§10(a)'s, §10(b)'s, §10(c)'s and §10(d)'s bolded sentences) and each `work` quote in its named task (Task 10's M1 and M4 riders, Task 13's M2 and M3 riders), and read the surrounding text. All four faithful. On satisfaction, which is mine: **M1** is satisfied — the record is on the plan `apply_migration` already consumes, `corroborated` is recomputed the same way the census computed it, the formatter returns rather than prints so it is assertable in-process, and both arms of Ruling B print it. **M2** is satisfied and keeps holding past close-out, because the check pins the §5 heading and nothing about its content while the redaction predicate still ranges over §5. **M3** is satisfied — the HOLD row carries the pinned HEAD, the reaching callers, the measured clearing path and the one do-not-run instruction that makes it a hold, with (iii) SHAPE pinning the separation rather than trusting prose. **M4** is satisfied, and it is the one I checked hardest because it is the newest: the escape is stated over the CLASS of line-breaking and invisible characters with the break set DERIVED by calling `str.splitlines()` over the codepoint space, the containment of that set inside `Cc`/`Zl`/`Zp` is true on this interpreter so "the implementation is the category test alone" is honest, every field of the record goes through one helper so the guarantee survives a later change to the repair spelling, and the adversarial plant is asserted to BE its claimed shape before anything is asserted with it — which is what turns a clean-plant-only oracle into a total one.
+
+### Minor notes (non-blocking)
+
+- **§7 attributes AC-5 leg (b)'s structural force to a wall that is VACUOUS over this module.** "`scripts/` is swept by `tests/test_name_gate_wall.py`'s arm wall … which is AC-5 leg (b)'s structural assertion, for free and from a wall that was already standing" sits two paragraphs above "the migration introduces NO new frontmatter write arm" — and the second is right: `frontmatter_write_arms` collects a function only when it calls `writer.write_frontmatter`, so the arm wall's domain over this module is empty and it asserts nothing about it. The coverage is real but comes from a different wall — `test_filesystem_mutation_is_single_homed` (`tests/test_write_routing.py:87-107`), which `## Verification`'s census already names for this file — and Task 10 orders the assertion regardless, so no build is licensed to skip it. One clause re-attributing it would stop the next reader pricing leg (b) off an empty domain, which is the F19 shape one wall over and the thing §8 caught for the containment scan.
+- **§8's two-token `live_path_names` equality needs its expected set from IMPORTED constants, and the trap is one line away.** `tests/derivations.py:2028-2030` states in terms that the graded module may not carry the env key as a bare Constant outside its one door; WI-029's module spells it exactly once inside `_temp_vault` (`tests/test_stem_name_divergence_detector.py:126-128`) and asserts against the imported `LIVE_PATH_TOKENS` at `:168`. A hand-typed `{"os.environ", "OBSIDIAN_VAULT_PATH"}` in the new assertion reddens the SOURCE clause it is asserting. Self-catching and immediately diagnosable, so not a gap — but `LIVE_PATH_TOKENS - {LIVE_PATH_DEFAULT_NAME}` is the spelling, and saying so costs a clause.
+- **The detector's predicate is two cells wider than "classes C, D and E".** §4 filters `c not in ("A", "B")`, so a blank MEMBER inside a populated list fires it (class Ø per-value — §3 decides this deliberately) and the `except IdentifierError` arm reports `"unclassifiable"`. Both populations are measured zero live (`docs/wi-032-whatsapp-corpus-census.md:171`, `class (list): 0`), so `## Approach`'s "its issue set IS R under either arm of Ruling B" holds as the exit row's independent second witness. Worth one clause so a later reader does not take the two sets as identical BY DEFINITION and then widen `STORABLE_DOMAINS` without re-checking.
+- **Nothing orders a containment wall for `tests/test_whatsapp_write_door.py`,** which Task 9 has drive the linter over a materialized copy. `run_lint` is a `MUTATING_DRIVE_VAULT_POSITIONS` member (`tests/derivations.py:2015`), so if the check drives it the module joins the class WI-026 built that discipline for, while Task 11's wall covers only `tests/test_whatsapp_migration.py`. Report-only with no `--fix`, and the cage reverts vault writes, so this is not a hazard — one line in Task 9 either carrying the same `_temp_vault` provenance or saying the check calls `check_structural` directly would close it.
+- **Two count labels drifted as the folds added bullets:** §10(a)'s "Four things about that sentence" now carries five (the ESCAPED bullet is M4's), and §7's "Three things make the assertion honest" carries four. Nothing is buildable two ways. Flagged only because the same class was corrected in this same edit (the `## Design` preamble's part count, six → ten), so it is a live recurrence rather than a one-off.
+
+### Carried-forward notes
+
+- **Threat-model note 3 (2026-09-27) — STILL OPEN, and correctly deferred a third time.** AC-3 requires `"+44 7739 341679"`, a real person's telephone number, as a test-module literal, and a reserved-block bare number would serve the criterion identically. Deferred because AC-3 is frozen by Dave's signature and the disclosure delta is zero: the value is already committed twice in this tree (`docs/write-door-bypasses.md:3994` and this document), `## Design` §9 line 5 forbids it ever entering the corpus or its manifest, and Task 13's redaction check deliberately excludes this document for exactly that ratified reason. I re-defer on the same reasoning plus the threat modeller's: M4's escaping plant is a better place to spend a literal than a frozen criterion is. Recorded so the next item to touch AC-3 prefers a reserved literal.
+- **Task 10 is the one task that is not a sitting — carried as an OBSERVATION, and it grew again.** A four-entry-point module plus a formatter plus an escape helper, a seven-arm action table, AC-5's five-leg check, the re-run leg and the M1/M4 disclosure check with its five derived legs, all in one checkbox. It cannot be split without breaking two `landed: Task 10` fences, so this is not a fix request — but it is the longest unresumable stretch in the plan and the abort ledger is per-checkbox, which is worth the build-runner knowing before it starts rather than at an abort.
+- Every other prior-round non-blocking note is CLOSED, and I verified each fold rather than taking a fence's word. Round 1 of this gate: the blank-list-member decision (§3, with the `emails[]` precedent declined and both reasons given, mirrored in `## Edge Cases`), the three imports (§1, §2 and §4, each checked against the module's real import line), §1's tail comment (now names the DECIDER, and the class-C derivation for an unquoted number and for a `date` is correct), Task 12's `docs/wi-032-*` count (one file, with the VOLUNTARY declaration and its `DOC_SCAN_EXCLUDED` reason verified), F18 leg 2 (narrowed to the `refusal` arm with the conservative scoping kept and its reason stated). Threat-model round 2: note 1 (Task 10's M1 rider now carries the RESERVED-block-or-synthetic literal clause) and note 2 (§10(a)'s fourth bullet says the escape is verbatim wherever verbatim is safe, so nobody restores "verbatim" as a fidelity improvement). Architect round 9: notes 1–5 all folded, spot-checked at the text (`## Approach` step (4) carries MIGRATED as part (2) with the repair count as a named sub-count; the 1025-vs-1031 split stated where the numbers are used with the fence corrected downstream; both back-out qualifiers with the class-C re-spelling named first; the shape-only population named as the run's one semantically empty part with Dave's decision point; the four sweep rows added and correctly marked as the spec-writer's). Data audit: notes (i) and (ii) both folded into the ship condition and §10(c). The threat modeller's deliberate non-ask — a `SESSION_LOG.md` redaction wall this item would then own forever — stands as a scope decision routed against, not an open note.
+
+```verdict
+gate: spec-reviewer
+verdict: PROMOTE
+date: 2026-09-27
+model: claude-opus-5
+note: Round 1's two findings are CLOSED and I re-derived each from code before reading its fold — §6's COMPUTABLE FORM is reachable and has real force (`_golden` at `tests/test_identity_endgame.py:395-397`, `AUTHORIZED_PROSE_OWNERS` thirteen members at `:359-373`, 29 `PersonRepository.save` records in `prose_surface_cut0.json`, and `save` is absent from `TABLE_OWNERS` so no standing clause witnesses a golden edit, which is exactly the gap the conjunct claims), and §7's re-run oracle is a module-attribute call count that `tests/support.py:Patcher.setattr` can install and `patcher()` undoes in a `finally`; all five of round 1's non-blocking notes are folded and verified against the real import lines and predicates; the latest speaking threat-model round's four `kind: required` mitigations all carry complete records with verbatim `desc`, and I found each `design`/`work` quote in place and read around it rather than judging the pairs — M4's escape is honest because the `Cc`/`Zl`/`Zp` categories really do contain every codepoint `str.splitlines()` breaks on and its adversarial plant really is class C; fourteen canonical tasks all carry resolving `verify:` declarations, the fifteen `writes` fences match the per-task extraction exactly with nothing added by the M4 fold, no verify command writes, no conscious-pin sweep is owed (`MUTATING_DRIVE_VAULT_POSITIONS` carries no count pin tree-wide), and Task 13's redaction fixtures are measured true in this worktree (zero nine-digit runs in the census, exactly two in the consumer audit and both inside 40-hex HEADs); five non-blocking notes survive, none leaving the item buildable two ways.
+```
+
+## Adversarial Review — 2026-09-27 (round 2)
+
+Round 2 for this gate, model `claude-sonnet-5`, decorrelated from the spec-reviewer's `claude-opus-5`. Round 1 (above) read the document end-to-end through `## Spec Review — 2026-09-27` and found no planted steering. This round's cold-start re-read covers the whole document again start to finish — `## Problem / Motivation` through the `## Approach` and `## Verified Diagnosis` sections not quoted in round 1's own text, the full `### Findings` block (F1–F21), `## Design` §1–§10, `## Edge Cases`, the Implementation Plan, `## Write Targets`, `## Mitigation Folds`, `## Verification`, `## Scope Boundary`, `## Risk Analysis`, `## Acceptance Criteria`, all nine Architectural Review rounds, both Conductor Notes, all eight AC Red-Team rounds, AC Sign-off, Data Audit, both Threat Model rounds, both Spec Review rounds, and round 1 of this gate — with particular weight on the two sections added since round 1's read: `## Threat Model — 2026-09-27 (round 2)` and `## Spec Review — 2026-09-27 (round 2)`.
+
+**New material since round 1: clean.** Threat Model round 2 finds M4 (an escaping requirement on `format_repair_disclosure`) through a self-derived mechanism trace (`identifier.py:273`'s `.strip()` leaving interior control characters intact, `phone_normalization.py:52-55`'s digit-only strip) rather than through any instruction embedded in the document, argues the finding on file:line citations exactly like every prior round, and explicitly declines to expand its own remit (the `SESSION_LOG.md` redaction-wall temptation, named and refused as scope creep onto another surface). Spec Review round 2 re-derives both of round 1's findings from code before reading the fold that closed them, which is the opposite of taking a prior verdict's word for anything, and its own PROMOTE is grounded in citations I re-checked (the 29-record `prose_surface_cut0.json` count, `Patcher.undo`'s `finally` block, the `Cc`/`Zl`/`Zp` category claim). Nothing in either section addresses a reviewer, an agent, or "the model" directly; nothing argues for a verdict independent of the technical claim it makes; nothing resembles a pre-baked conclusion dressed as spec content.
+
+**Ran the same sweeps round 1 ran, over the whole file, and independently.** A regex sweep for reviewer-directed imperative language, pre-approval claims, and "ignore/disregard prior instructions" phrasing (`ignore previous|disregard|as an AI|you must (approve|promote|emit)|do not (flag|report|question)|pre-?approved|jailbreak|reviewer should not|automatically (promote|approve)|trust me|secretly|hide this from`) returns exactly one hit, and it is round 1's own text at line 5719 *describing* the sweep it ran — not a planted instruction. A zero-width/bidirectional-Unicode sweep (`​‌‍⁠﻿‪-‮`) returns nothing. A sweep for exec/network/credential patterns (`subprocess|eval\(|exec\(|curl |wget |base64|api[_-]?key|secret|token=|password|https?://`) returns only legitimate in-document discussion of why the migration module must NOT import `subprocess` (a security-positive constraint, `## Design` §8) and the threat-model trigger check's own "no secret, credential, API key" negative finding.
+
+**The document's house style is not evidence of steering.** This item's defining feature — folds correcting folds, nine architect rounds and eight red-team rounds each re-deriving prior findings from code rather than trusting an earlier fence, findings numbered F1–F21 that amend and retract each other in writing — reads, on a first pass, like exactly the kind of dense self-referential text an injection would hide inside. Round 1 already made this call and I confirm it independently: every one of the ~5,978 lines argues its point via file:line citations and measured counts (census figures, `rg` predicate results, digit counts), the self-correction is uniform across the whole document rather than clustered in one section, and no fold ever asks a gate to accept a conclusion without the citation that grounds it. A document built to survive nine rounds of adversarial re-reading by construction LOOKS unusual; it is not the same thing as one built to manipulate a reviewer.
+
+**No fresh candidate phrase found.** Round 1 flagged and correctly cleared one phrase ("injected drift audit," line 5205, naming a distrusted automated tool pass). This round's re-read surfaced no second candidate anywhere in the material added since — including the `## Mitigation Folds` fences, whose `desc`/`design`/`work` triads are the closest thing in this document to text one gate writes for another gate to act on mechanically, and which I read for exactly that reason. All four (M1–M4) describe a concrete code change and its verification, addressed to a builder in the ordinary spec sense, not to a reviewing gate's verdict.
+
+```verdict
+gate: injection-hunter
+verdict: PROMOTE
+date: 2026-09-27
+model: claude-sonnet-5
+note: Full re-read of the document plus the two sections added since round 1 (Threat Model round 2, Spec Review round 2) and a repeat of round 1's injection-indicator, zero-width-Unicode, and exec/credential sweeps found no planted steering, no reviewer-directed imperative language, and no pre-baked verdict; the new material's findings (M4's escape requirement, both spec-review rounds' re-derivations) are grounded in file:line citations exactly like the rest of the document, and the `## Mitigation Folds` fences — the closest thing here to gate-to-gate instruction — address a builder's code change, not a reviewer's verdict.
+```
+
+## Code Review — 2026-09-27
+
+Build-exit reviewer, cold-start, model `claude-opus-5`. Pass A of the merged gate (WI-068); Pass B is the
+sibling section below.
+
+**Trigger check: FIRES.** The post-build diff is not doc-only. Five new files
+(`scripts/migrate_whatsapp_to_list.py`, three `tests/test_whatsapp_*.py` modules,
+`docs/wi-032-whatsapp-live-baseline.md`, 3289 lines) and twelve modified, of which five are package or
+script code (`identifier.py`, `models.py`, `name_gate.py`, `repositories/person.py`, `lint_vault.py`).
+No dependency or CI change. Not a small mechanical change by any reading.
+
+**Stated limit on this review's evidence, first, because it decides what the verdict rests on.** The floor
+command was REFUSED by this spawn's permission gate — both directly via `Monitor` ("This command requires
+approval") and through a delegated agent, which reported the same refusal verbatim. So this gate did NOT
+independently re-run the suite; the review is a source read of the final tree plus an audit of the Build
+Log's own execution evidence. That evidence is strong and is the thing the dead-shell rule asks for: the
+log carries three distinct floor counts taken by different methods (699 off a `git archive HEAD` export of
+`c7d074f` precisely because the worktree was already edited, 711 for the retained work, 716 final), five
+`criteria` checks re-run individually under the conveyor's own foreign interpreter, CLI runs with exit
+codes and tree digests per act (2 / 2 / 0-unchanged / 0-changed / 0-unchanged), and three mutate-and-observe
+probes with specific observed numbers (a call counter reading 23 against a reported `committed: 23`). A
+builder that never executed a command produces none of that. Deviation 1 is the tell: its own FIGURES leg
+caught a defect in its first implementation — a bare regex reading the census artifact's SOURCE f-string
+rather than its stdout, green by luck on the `(a)` marker — which is a leg working on a real run, not a
+claim from a source read.
+
+**Findings: Blocking — NONE.** Six non-blocking, below.
+
+**The five AI-maintainability checks, each run.** (1) NO new cross-project reach: the one
+`sys.path.insert` (`scripts/migrate_whatsapp_to_list.py:74`) resolves to this repo's OWN root, not a
+sibling, and the module reads no other project's `.env` or state; the three other-repo paths it touches
+(`orchestrator/src/invariants.py`, `HAL9000/.../contacts.py`, `merge-duplicate-persons.py`) appear only as
+prose citations in the live bracket, never as code reach. (2) NO new silent swallow in library code: every
+package-level failure mode is a typed loud refusal, and the two `except` bodies in the new script are each
+commented and each named by the spec — `readback_migration`'s `except IdentifierError: continue`
+(`:492-493`) IS AC-5 leg (c)'s mandated parseable/unparseable split computed by calling `parse` rather than
+from a hand list, and `_person_notes`' `except (OSError, UnicodeDecodeError, FrontmatterParseError)`
+(`:270`) names `lint_vault` as the reporting tool (finding 6 below trims it). (3) NO doc made false — this
+was checked against the tree and not assumed: `README.md:238`'s documented
+`get_by_phone("447990558521@s.whatsapp.net")` route still holds, because a class-C value is phone-bearing,
+so `_project_identifiers` yields a `WhatsAppJID` with non-empty `phone_digits` and `_index_entity`
+(`person.py:277-279`) still pivots it into `_phone_index`; `README.md:52` lists field NAMES only and carries
+no type. `CLAUDE.md`'s `person.py` row is now INCOMPLETE rather than false (it claims nothing the change
+falsifies), the test-count anchors are declared "archaeology only" and are not falsified by a new count,
+and the project root is outside `write_authority` by declaration with `## Design` Prerequisite 5 assigning
+both files to the conductor's `/wrap-up` — Build Log item 5 NAMES both rather than escalating, which is the
+right call for a caged builder and not a gap. (4) NO new dependence on deprecated code. (5) NO idiom
+regression, and this is the axis the change is strongest on: the refusal is a gate-local literal
+(`name_gate.py:90`) and deliberately NOT a `NameValidator` branch record, the boundary is typed rather than
+stringly-typed, the value travels as `.refused_value` attribute and reaches no message (`_refuse` rule 3,
+`name_gate.py:182-196`), and `rg` over the package returns no surviving scalar reader of `Person.whatsapp`.
+(6) The dead-shell rule: satisfied, per the paragraph above.
+
+**Step 2c, the two data-quality dimensions.** READBACK: this is the cleanest implementation of the
+verify-by-readback rule I have reviewed in this estate. `readback_migration` (`:464-510`) constructs a
+FRESH `PersonRepository` over the vault path and re-reads note BYTES through `_person_notes`, so the oracle
+is a load that did not exist before the write — the failure mode the rule exists for (comparing the
+migrating process's own re-indexed replica against itself) is closed by construction, and the reconciliation
+is part-for-part over a named three-part partition with `_cli` naming the part that disagreed and returning
+1 (`:568-574`). NO external write in the diff lacks one. NO-SILENT-PASS-ON-EMPTY: the reconciliation exits
+non-zero rather than finishing quietly; `--vault` is `required=True` with no default and no env fallback
+and a non-directory exits 2 before touching a filesystem (`:522-535`); and the test modules carry the
+anti-vacuity assertions the class needs — every class cell asserted non-empty
+(`test_whatsapp_jid_storage.py:269-272`), `assert scan.drives` for the containment wall
+(`test_whatsapp_migration.py:370`), `assert branch_ids` (`test_whatsapp_write_door.py:205`), and
+`assert set(before) - set(fresh._phone_index)` against a vacuously green inverse
+(`test_whatsapp_jid_storage.py:423`). No `<<< cage-reverted writes >>>` block was present in this spawn's
+input, so that sub-check has nothing to judge and no finding is manufactured for it.
+
+**The four correctness properties I re-derived from source rather than from the document.** The phone-pivot
+is now guarded on `ident.phone_digits` being non-empty and DERIVED from one projection shared with
+`_index_identifiers` (`person.py:276-293`), with `_remove_entity_from_indexes` taking its removal from the
+same projection as a lookup and not a loop (`:440-443`) — which is what keeps every phone-index iteration
+site `materialized`. The new cascade step is placed BELOW the phone step in execution order and guarded on
+`not candidate_jid.phone_digits` (`:701-708`), so a phone-bearing JID is still answered by step 4 and the
+README route is preserved, while `whatsapp-jid` sits immediately before `phone` in `_RESOLVE_CASCADE_ORDER`
+(`:150`) so a tie resolves to the lid's owner. The gate arm does not reuse `_shaped`
+(`name_gate.py:432-446`) — that predicate is positive and a bare `str` would fall through untouched, which
+would have made the arm structurally silent for every value on disk today, and the arm's comment says so.
+And `gated["whatsapp"]` in the `save` rider (`person.py:1275`) cannot `KeyError`, because
+`model_to_frontmatter` emits every declared field unconditionally (`writer.py:112-117`) and `gate_write`
+starts from `result = dict(introduced)` (`name_gate.py:400`), so THE OUTPUT NEVER GROWS still holds.
+
+**Non-blocking findings, most material first.**
+
+1. **Recommended — `apply_migration`'s `vault_path` parameter is dead, so the containment wall proves
+   slightly less than it reads as.** `scripts/migrate_whatsapp_to_list.py:433` binds `vault_path =
+   Path(vault_path)` and nothing below reads it; every write target comes from `action.path` off the plan
+   (`:449`). The wall pins the ARGUMENT at position 0 to a `_temp_vault`-bound name
+   (`tests/derivations.py:2023`, asserted at `tests/test_whatsapp_migration.py:361-376`) but says nothing
+   about the PLAN's provenance, so `apply_migration(temp_vault, plan_migration(live_vault))` would pass the
+   wall and write to the live vault. Latent only: all six call sites in the tree pass the same `vault`
+   identifier to both functions (`:523/:538`, `:623/:639`, `:674/:676`). The one-line close is to make the
+   parameter live — assert each `action.path` is under `vault_path` before the write — which converts a
+   scan-satisfying argument into an enforced invariant. Flagged rather than blocked because `## Design` §8
+   prescribed this shape and it cleared the architect, threat-model and AC gates; it is a hardening, not a
+   defect in what shipped.
+
+2. **Recommended — `models.py:56-89`'s "Matches the person.md template" block still reads `whatsapp: ""`**,
+   thirty lines above `whatsapp: List[str] = Field(default_factory=list)` at `:96`. The vault template
+   genuinely is unchanged, so the line is not false about the template — but the docstring's opening claim
+   is that the model matches it, and on this field it no longer does. A future reader (AI or not) opening
+   this file sees the two spellings side by side with nothing reconciling them. One clause on that line
+   naming the tolerant reader closes it; the file is already a declared write target, so it costs nothing.
+
+3. **Recommended — `_person_notes` skips an unreadable note with no count anywhere.**
+   `scripts/migrate_whatsapp_to_list.py:268-276` `continue`s past any `OSError` / `UnicodeDecodeError` /
+   `FrontmatterParseError`, so such a note is absent from the per-cell counts, from all three triples and
+   from the disclosure, and the run still prints "reconciled part-for-part" and exits 0. The project's rule
+   is "silent must be EXPLICIT", and this is explicit and commented with a named second witness
+   (`lint_vault` reports an undecodable note per the WI-026 floor) and consistent across plan and readback,
+   so it does not breach the rule. But the conductor reading the go/no-go sees no signal that N notes were
+   never considered. A single `skipped: N` line beside the per-cell counts makes the omission visible at
+   exactly the surface the irreversible decision is taken at.
+
+4. **Note — `identifier.py:365`'s final `raise` is unreachable.** The four branches at `:357-364` are
+   exhaustive over the `(is_storable, phone_digits)` boolean pair, so the fall-through guard cannot fire.
+   Harmless as defence against a future third predicate, and the AC's "no fall-through bucket" is satisfied
+   by construction either way — recorded so a later reader does not mistake it for a live path.
+
+5. **Note — dead local in a new test.** `tests/test_whatsapp_jid_storage.py:349-350` constructs `repo` and
+   calls `_ensure_loaded()`, then plants five notes and does all subsequent work through `fresh` (`:360`).
+   `repo` is never read again. The construction is presumably deliberate (a pre-plant load, so `fresh` is
+   demonstrably a second load), but nothing asserts that, so it reads as leftover.
+
+6. **Note — `docs/wi-032-whatsapp-live-baseline.md` overloads the word "entry" across two tables.** §1's
+   derived-partition table is headed `entry` while its rows are the PREDICTED terminal state (MIGRATED
+   1168, residual 0, and the prose at `:80-81` says part (1) "is ZERO by construction of the run"); §5's
+   table is headed `entry | exit` and its entry column is the actual pre-run state (part (1) 1168, MIGRATED
+   0). Both tables are internally correct and the §1 prose disambiguates, but a conductor scanning the two
+   at a go/no-go reads MIGRATED as 1168 in one and 0 in the other. Task 13's FIGURES leg pins §1 against
+   the census and cannot see this. A word — "predicted" on §1's column header — removes it.
+
+**Calibration note.** Nothing here is a style preference and nothing is a theoretical issue: findings 1 and
+3 are about a safety wall and an observability surface on the irreversible half of an incident-class item,
+findings 2 and 6 are the docs-made-false class caught at Recommended rather than Blocking because neither
+statement is actually false, and 4 and 5 are dead code recorded so the next reader does not have to
+re-derive that they are dead. The implementation matches the frozen criteria on every axis I checked
+against source, including the two places the criteria and the tree disagree — AC-3 says "the corpus's 21
+`whatsapp: \"\"` notes" while the corpus carries 20 (`rg` over `tests/fixtures/vault/`: 20 `""`, plus
+Fennwick's class C and Thrandell's class B), the 21st being `@Ferrigan Ostrakine.md`'s ABSENT key. Build
+Log deviation 4 measured that exact split (21 class-Ø versus 20 shape-only writes) and implemented the real
+behaviour rather than the frozen phrasing, which is correct: signed AC text is not a builder's to edit, and
+naming the divergence in the log is the disclosure the rule asks for.
+
+```verdict
+gate: code-reviewer
+verdict: PROMOTE
+date: 2026-09-27
+model: claude-opus-5
+note: No Blocking findings — all five AI-maintainability checks and both Step-2c dimensions pass against the final tree (no cross-project reach, no silent swallow in library code, README's two documented touchpoints re-derived as still true, gate-local refusal pattern with the value on an attribute and not in the message, and a readback that is a genuine re-read through a fresh repository with a part-for-part reconciliation that exits non-zero); six non-blocking findings recorded, the most material being that `apply_migration`'s `vault_path` parameter is dead so the containment wall pins the argument rather than the plan's provenance (latent only — all six call sites pass the same `_temp_vault`-bound name); this gate could NOT re-run the floor because the spawn's permission gate refused it, so the 716/exit-0 claim rests on the Build Log's own execution evidence, which is strong and internally corroborated (three floor counts by different methods, per-check foreign-interpreter runs, CLI exit codes with tree digests, and a leg that caught a real defect in its own first implementation).
+```
+
+## Test & Observability Review — 2026-09-27
+
+Same spawn, model `claude-opus-5`. Pass B of the merged gate.
+
+**Trigger check: APPLIES, and not by default.** This is not a pure refactor — the build ships a new
+production code path (a refusing arm on the one surface every writer shares), a new public repository API
+(`get_by_identifier`), a new resolution cascade step, a new persistent report-only detector in
+`lint_vault`, and a new one-off migration script that performs an irreversible re-spelling of 82 live
+notes. All four of this pass's checks are live except the invariant registry, which this project does not
+have.
+
+**Check 1 — tests exist for the new code paths: PASS, and substantially above the floor this check sets.**
+Nine top-level checks across three new modules plus an extension to `tests/test_identifier.py`, and all
+nine `verify:`/`check:` names in the plan and the criteria resolve to a real top-level `def` in the tree
+(verified by grep over `tests/test_whatsapp*.py`, not read off the plan). Happy path AND failure modes are
+both covered per criterion, which is what this check actually asks: the refusal is asserted at every arm
+of a DERIVED arm set held by EQUALITY with each exclusion carrying a structural reason
+(`tests/test_whatsapp_write_door.py:207-242`), in both stored shapes, with the good member placed FIRST in
+the list shape so `refused_value` discriminates which member was refused (`:252`); the four conjuncts of a
+refusal are factored into one helper so no arm silently gets a weaker version (`:153-184`), and they include
+`exc.__cause__ is None and exc.__suppress_context__` — a traceback-content assertion, not just a type
+assertion. The re-run no-op is asserted by a CALL COUNTER on the writer module attribute rather than by a
+digest, which is the only oracle that distinguishes "no write" from "re-wrote identical bytes", and the
+Build Log records that counter observed 23 on a pass that DOES write, so it is wired rather than blind.
+M4's totality leg derives `BREAK_CODEPOINTS` by calling `str.splitlines()` over the whole codepoint space
+instead of hand-listing four characters, and plants an adversarial class-C value carrying an interior
+newline plus the text of `CORROBORATED_HEADER` — the exact shape that falsifies `lines == records` — so
+that check's own oracle is total rather than clean-plant-only. The containment wall ships both of its
+claimed match-shapes as fixtures driven through the wall's OWN predicate: a call it must COLLECT and one
+with an unreducible vault expression it must RAISE on (`tests/test_whatsapp_migration.py:422-442`). That is
+the counting-wall discipline this estate has paid for elsewhere, applied here without being asked twice.
+
+**Check 2 — logging / loud failure per failure mode: PASS, with one non-blocking gap already recorded as
+Code Review finding 3.** The library's failure surface is a typed loud refusal carrying both a stable
+`pattern` and the offending value on `.refused_value`, deliberately reaching no message and no traceback —
+debuggable by attribute rather than by note bytes, which is the right trade here and is asserted both ways.
+The identifier-collision path keeps its existing `logger.warning` naming every participant
+(`person.py:382-387`). The migration's own failure modes are loud: a missing `--vault` exits 2 at
+`argparse` before any filesystem touch, a non-directory exits 2 with a stderr line naming the path, a
+reconciliation disagreement exits 1 with a stderr line naming WHICH part disagreed and all three values,
+and a `NameGateRefusal` mid-run on a note the plan called convertible is explicitly never caught — it
+aborts, which is correct, because it is a defect and not a transient. The gap: an unreadable note is
+skipped with no count on any surface (Code Review finding 3). Non-blocking because it is explicit,
+commented, consistent across plan and readback, and has a standing second witness in `lint_vault`'s
+undecodable-note reporting — but a `skipped: N` line belongs beside the per-cell counts.
+
+**Check 3 — alerting for new automated systems: PASS, N/A on the strict reading and satisfied on the one
+that matters.** Nothing here runs unattended: the migration is a conductor-invoked one-off whose
+irreversible half is gated on a human reading a printed disclosure, and the library changes are in-process
+refusals that surface to their caller. So there is no launchd/cron surface owing an error path. The
+question this check really asks — will Dave know if this breaks in prod — is answered by an artifact the
+item BUILDS rather than inherits: the `whatsapp_not_storable` detector fires on every `lint_vault` run, under
+its own check name, ERROR/`structural`, with `auto_fixable` left at its `False` default so the note never
+enters `apply_fixes` and `--fix`'s four-bucket accounting is untouched while that note's OTHER issues still
+repair (`scripts/lint_vault.py:475-503`). It reports and never repairs, judges both stored shapes because
+both exist on disk through the whole migration window, catches a nested container via `except
+IdentifierError` rather than crashing the run, and its issue COUNT is the independent second witness to the
+residual — two counts by two tools that must agree, which the Build Log records as exercised for real (two
+`whatsapp_not_storable` issues against a reported `residual: 2`). That detector shipping against an
+empty live population (bracket §4: class D 0, class E 0) is the right way round — it is the wall against
+the next bare number, not a backlog.
+
+**Check 4 — invariant registration: N/A, skipped rather than failed.** `**/invariants.py` over this
+worktree returns nothing: obsidian-schemas has no invariant registry, and v1 registry scope is
+orchestrator-only (`orchestrator/src/invariants.py`). This is the documented non-registry posture, not a
+gap, and no `## Observability Waiver` is owed. Worth recording for the next reader: this item's changes are
+what will turn `orchestrator`'s own `person_field_shapes_correct` (`src/invariants.py:663-665`) RED
+vault-wide, which the live bracket discloses as loud break 1 — so this project's behaviour change is
+already visible to the estate's one registry, from the other side.
+
+**Operational readiness beyond the three checks, because this is an incident-class item.** The live
+bracket's ENTRY half is written with §5 left as a named empty heading for the conductor, and Task 13's
+check asserts the heading exists while asserting NOTHING about its content, so the exit figures cannot
+redden the floor at close-out — that is the right shape and it is rare to get right. The close-out
+sequence is enumerated as five conductor steps including the incident replay against a DISPOSABLE note
+through HAL9000's PATCH door, the `DATA-LOSS HOLD` row carries an explicit do-not-run instruction for
+`merge-duplicate-persons.py` and `apply-vault-review.py` against the migrated vault, and the redaction wall
+over all three `docs/wi-032-*` artifacts is shipped by this item rather than assumed, precisely because
+`docs/**` is outside `DOC_SCAN_EXCLUDED`'s domain and nothing standing would catch a pasted live
+identifier. The one readability defect in that artifact is Code Review finding 6.
+
+```verdict
+gate: test-observability-checker
+verdict: PROMOTE
+date: 2026-09-27
+model: claude-opus-5
+note: All three live checks pass and the fourth is N/A — nine checks exist and resolve in the tree covering happy path plus failure modes per criterion, with the anti-vacuity discipline this estate requires of counting walls (derived arm set held by equality, both claimed match-shapes driven through the wall's own predicate, a call counter rather than a digest as the re-run oracle, and M4's break set derived over the codepoint space instead of hand-listed); failure modes are loud (typed refusal carrying pattern and value as attributes, stderr plus non-zero exits naming the disagreeing part, a mid-run refusal deliberately never caught) with one non-blocking gap, an unreadable note skipped without a count; no unattended automation is introduced, and the standing "will Dave know" surface is the new report-only `whatsapp_not_storable` detector whose issue count is an independent second witness to the residual, exercised for real in the Build Log; invariant registration is N/A because this project has no registry (`**/invariants.py` returns nothing) and v1 scope is orchestrator-only.
+```
+
+## Intent Check — 2026-09-27
+
+Cold-start read against the frozen referent (`## Intent`, all five `criteria` fences, `### Examples of
+done`), then the test bodies behind each `check:`, then the built artifact — independent of the Code
+Review / Test & Observability Review verdicts above, which I read only after forming my own view.
+
+**AC-1** (`test_lid_digits_never_enter_the_phone_index`,
+`tests/test_whatsapp_jid_storage.py:259-424`) — genuinely exercises the classifier's totality (table,
+corpus, boundary probes), the emptiness-before-predicates ORDER, predicate independence on planted D/E
+members, the phone-index population for A/C, the non-population for B/E including the fuzzy-arm
+false-positive control (`get_by_phone(CORPUS_LID_TEN_DIGIT) is None`), class Ø's no-identifier-projected
+assertion, and `_remove_entity_from_indexes` as the exact inverse (asserting the inverse actually removed
+something, closing the vacuous-inverse trap). No stub, no weakened assertion, no narrowed domain relative
+to the desc.
+
+**AC-2** (`test_whatsapp_jid_resolution_door_over_every_accepted_form`) — asserts the cascade label is
+present, ranked ahead of `phone` by a real tie observed on a lid/fuzzy-phone collision, and that the
+prior relative order is byte-identical; resolves A/C through `phone:`, B/E through `jid:`.
+
+**AC-3** (`test_whatsapp_refused_at_every_write_arm_reported_by_lint_vault_and_disclosed_append_only` +
+the detector test) — the arm set is DERIVED and asserted by equality (not hand-listed), every arm is
+driven in both shapes with the four-conjunct refusal helper (pattern, `refused_value` attribute, value
+absent from the message, suppressed traceback chain, byte-identical target), the `save` arm is pinned in
+both directions including the near-miss control (delta write still succeeds), the CLEARING and CLASS-Ø
+legs are exercised at every arm and every spelling, the REPORT LEG's detector test drives the tool's own
+read path (`read_vault`/`build_indexes`/`check_structural`) and asserts fire/silence per class plus
+message discipline, and the APPEND-ONLY clause reads the real WI-024 golden fixture and asserts all three
+conjuncts (nothing missing, no unauthorized owner, something genuinely landed). This is the AC I expected
+the hollow-build shape on (irreversible refusal surface, multiple frozen artifacts to reconcile) and it
+held under a direct read of the test body, not just the desc's word for it.
+
+**AC-4** (`test_whatsapp_read_write_shape_and_no_silent_drop`) — tolerant read over five stored spellings
+including the bare-valueless-key case (with the skip-surface check reading `skipped_notes` directly
+rather than trusting a docstring claim), the class-Ø read/write round trip, no-silent-drop asserted on
+raw bytes AND the typed view's storability-vs-parseability split, one-written-shape asserted both ways
+(unrelated write leaves scalar untouched; re-introducing a refused value leaves bytes unchanged) plus the
+literal `!!python/object` absence check, and the round-trip fixed point over both accepted and refused
+values.
+
+**AC-5** (`test_whatsapp_migration_dry_run_then_write_then_readback`) — the highest-risk criterion (an
+irreversible live migration) and the one I read most adversarially. Leg (b) is a real structural claim
+(no new frontmatter write arm, no filesystem-mutation capability, exactly one calling frame) rather than
+an observed-result proxy. The readback oracle is asserted over keys AND two counts per note, the two-JID
+note's both-identities-kept assertion is present, the class-C repair is asserted key-preserving with the
+phone-digits guard exercised on a real class-E plant (bytes unchanged), the partition's three parts are
+checked part-for-part across plan/write/readback, the never-clears conjunct is asserted per plant, and
+the no-op re-run uses a wired call counter (not a digest) that the Build Log independently reports
+observed 23 on a pass that does write — closing exactly the "green by construction" trap AC-5's own `why:`
+names. Both arms of Ruling B are executed, not just the recommended one. I re-derived the residual counts
+(`readback.triple[2] == 2` then `== 3` under `--no-repair`) against the desc's stated partition myself
+rather than trusting the assertion messages, and they agree.
+
+**`### Examples of done` against the artifact.** All four worked scenarios (two-identities-kept-and-lid-
+never-a-phone; bare-number-refused-but-still-resolvable; already-wrong-value-reported-and-repairable;
+live-migration-partition-and-non-zero-exit-on-disagreement) are each backed by a specific assertion I
+traced above — none is a promise the build leaves unbuilt.
+
+**No fidelity defect found and no intent-drift found.** Every AC's test proves its `desc` at the domain
+the `desc` claims, including the narrowest legs (the near-miss delta-write control, the vacuous-inverse
+trap, the phone-digits repair guard) that a same-family reviewer's gestalt read would be likeliest to
+wave through. The build matches `## Intent` on both halves (refusal at write, liberal resolution) and on
+its condition (nothing already-wrong is silently dropped; the residual stays fixable through the ordinary
+doors) — all three demonstrated by executing the doors, not by asserting the promise text.
+
+```verdict
+gate: intent-check
+verdict: PROMOTE
+date: 2026-09-27
+model: claude-sonnet-5
+note: Read all five test bodies (AC-1 through AC-5) against their frozen `desc`/`why` and against `### Examples of done`, independently of the prior Code Review / Test & Observability verdicts — every AC's test proves its full claimed domain with no stubbed seam, no weakened assertion, no narrowed input domain and no missing negative case (the write-door refusal, clearing, class-Ø and append-only legs of AC-3, and the residual/repair/no-op-rerun legs of AC-5's migration test, were the ones most likely to hide a hollow build and all held under direct reading), and the built artifact matches `## Intent` on both the refusal half and the liberal-resolution half.
+```
+
+## Retrospective — 2026-09-27
+
+### Was the spec accurate?
+
+Mostly, and the accuracy was earned upstream rather than free: six AC red-team rounds and seven
+architect rounds ran before the spec froze, and each of the last four found a real defect in the
+*fixture-plant or class-table text itself* (the class-Ø absent-vs-empty split, class E, the
+representative-note privacy-wall collision, the two-JID plant's missing literal) rather than a
+style nit — so the heavy round count bought a spec the build then executed with almost no drift.
+The one drift the Build Log records is small and self-caught: Task 13's own FIGURES leg found its
+first implementation reading the census artifact's SOURCE f-string instead of its stdout (green by
+luck on one marker), fixed same-spawn. The one place spec text and shipped behaviour diverge is
+AC-3's literal "21" versus the corpus's actual 20 shape-only writes — a wording artifact of the
+absent-key/empty-string distinction the spec's own later fold introduced, disclosed in Build Log
+deviation 4 and judged correct by Code Review (signed AC text isn't a builder's to silently edit).
+
+### Edge cases that surprised us
+
+- The absent-key vs. empty-string split (class Ø having two live spellings, only one of which is a
+  write) wasn't in the original class table — it surfaced only in the second/third AC red-team
+  round, after which `## Write Targets` needed a correction note pointing at the right figure.
+- `apply_migration`'s `vault_path` parameter being dead code that the containment wall pins by
+  argument rather than by the plan's provenance (Code Review finding 1) — latent, not exercised by
+  any of the six live call sites, but not anticipated by the spec's containment design.
+- The live-baseline doc's own "entry" column meaning two different things across two tables (Code
+  Review finding 6) — a readability gap the spec's Task 13 check couldn't see because it only pins
+  §1 against the census, not §1 against §5.
+
+### What would have shortened the build?
+
+The build itself was smooth (five criteria checks all green on first re-run, code review and
+test-observability both PROMOTE with only non-blocking notes) — the cost was almost entirely paid
+before `building`, in the six AC red-team + seven architect rounds. A census/audit precondition
+that itself enumerated the class-Ø absent-vs-empty split (rather than the spec discovering it two
+folds later) would have shaved a round or two off `exploring`. Nothing suggests a spec-writer or
+build-runner instruction gap — the repeated pattern was two independent gates each round finding
+the *same* real defect in fixture-plant text, which reads as the review process working as
+designed for an item with this blast radius (a shared write door plus an irreversible 1,168-note
+migration), not as noise to trim.
+
+### Did the build serve the original intent, or the spec's drift of it?
+
+Intent Check (2026-09-27) read all five AC test bodies independently against `## Intent` and found
+no fidelity defect and no intent-drift — the build proves the refusal half, the liberal-resolution
+half, and the never-silently-drop condition by executing the doors, not by asserting the promise
+text. No gap to surface here.
+
+### Recommended follow-ups
+
+None — chain held up well. No blocking findings from any gate, no post-done defect to record. The
+non-blocking Code Review findings (dead `vault_path` guard, docstring template drift, unreadable-note
+skip count, unreachable branch, dead local, live-baseline column labeling) are all cheap, named, and
+left as recorded hardening rather than requiring a follow-up work item.
+
+No build-earned lesson cleared the `LESSONS.html` bar — the one real defect this build hit (Task
+13's source-vs-stdout regex) was caught and fixed within the same spawn before it cost real time or
+shipped corruption, which is a smooth build's ordinary self-correction, not a scar.

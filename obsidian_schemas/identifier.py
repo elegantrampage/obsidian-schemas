@@ -33,7 +33,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from email.utils import parseaddr
-from typing import ClassVar, FrozenSet, Optional, Tuple
+from typing import ClassVar, FrozenSet, List, Optional, Tuple
 
 # WI-021: MODULE-SCOPE, replacing the two deferred imports `Phone.parse` and
 # `WhatsAppJID.parse` carried. `phone_normalization` is a stdlib-only leaf that
@@ -263,6 +263,16 @@ class WhatsAppJID(Identifier):
     kind: ClassVar[str] = "whatsapp_jid"
     resolves: ClassVar[FrozenSet[str]] = frozenset({"person"})
 
+    #: WI-032. The closed set of JID domains a STORABLE value may carry. Read by
+    #: the WRITE DOOR and by nothing else — `parse` stays liberal for LOOKUP.
+    #: Widening this set later joins every sweep automatically, because every
+    #: criterion CALLS the predicate instead of restating its membership.
+    STORABLE_DOMAINS: ClassVar[FrozenSet[str]] = frozenset({"s.whatsapp.net", "lid"})
+
+    #: The six-cell storage classes, and the ONE spelling of the absent cell.
+    CLASS_ABSENT: ClassVar[str] = "Ø"
+    CLASSES: ClassVar[Tuple[str, ...]] = ("Ø", "A", "B", "C", "D", "E")
+
     jid: str          # normalized raw JID, lowercased
     phone_digits: str  # "" for @lid JIDs
 
@@ -296,6 +306,90 @@ class WhatsAppJID(Identifier):
         # (they're the same person — the system already treats them together via
         # normalize_phone/phones_match). @lid JIDs (no phone) key on the lid.
         return f"phone:{self.phone_digits}" if self.phone_digits else f"jid:{self.jid}"
+
+    @property
+    def jid_domain(self) -> str:
+        """The text after the LAST `@`; `""` when there is none.
+
+        Computed off `self.jid` because there is nowhere else to read it from:
+        this dataclass is frozen and holds no raw value — `parse` stores
+        `str(raw).strip().lower()`. That is not a limitation, it is what makes
+        the predicate case-insensitive for free, so
+        `447700900321@S.WHATSAPP.NET` is storable with no second rule.
+        """
+        return self.jid.rpartition("@")[2] if "@" in self.jid else ""
+
+    @property
+    def is_storable(self) -> bool:
+        """MEMBERSHIP of the closed set, never a suffix test. Under a bare
+        "has a non-empty suffix" reading `447700900789@example.com` becomes
+        storable, class C empties and class E ceases to exist — the reading
+        changes the class table's MEMBERSHIP, so it is not a latitude."""
+        return self.jid_domain in self.STORABLE_DOMAINS
+
+    @classmethod
+    def classify(cls, raw) -> str:
+        """The storage class of ONE raw `whatsapp:` value. TOTAL, and loud on
+        the one shape whose `str()` repr smuggles digits past `normalize_phone`.
+
+        ORDER IS THE CONTRACT. The emptiness test precedes BOTH predicate calls,
+        because `parse` raises on `""` and `None` through the same two lines it
+        raises on `"n/a"` with (no blank branch) — so a classifier that asks the
+        predicates first files the live corpus's 1025 default-valued notes as a
+        defect class.
+        """
+        if isinstance(raw, (list, tuple, set, dict)):
+            # `parse(["447700900321@s.whatsapp.net"])` SUCCEEDS with the right
+            # phone digits, recovered out of the list's repr by
+            # `normalize_phone`'s first-`@` split. A container reaching a
+            # per-value classifier is a CALLER bug, and it is refused rather
+            # than answered.
+            raise IdentifierError("whatsapp_jid", raw,
+                                  "a container reached the per-value classifier")
+        if raw is None:
+            return cls.CLASS_ABSENT
+        if isinstance(raw, str) and not raw.strip():
+            return cls.CLASS_ABSENT
+        try:
+            parsed = cls.parse(raw)
+        except IdentifierError:
+            return "D"
+        if parsed.is_storable and parsed.phone_digits:
+            return "A"
+        if parsed.is_storable and not parsed.phone_digits:
+            return "B"
+        if not parsed.is_storable and parsed.phone_digits:
+            return "C"
+        if not parsed.is_storable and not parsed.phone_digits:
+            return "E"
+        raise IdentifierError("whatsapp_jid", raw, "matches no declared class")
+
+    @classmethod
+    def classify_field(cls, stored) -> List[str]:
+        """The stored `whatsapp:` FIELD's per-value classes, in stored order.
+
+        THE one authority the gate arm, the lint detector, the migration and
+        every test call. Accepts BOTH stored shapes, because both exist on disk
+        for the whole migration window and an arm that inspects only lists is
+        silent for exactly the population this item exists for (F2).
+
+        Class Ø at the FIELD level is the EMPTY RESULT — an absent key (`None`),
+        `""`, whitespace, and `[]` all introduce no identifier, so there is no
+        member for any arm to judge and no arm can refuse them.
+        """
+        if stored is None:
+            return []
+        if isinstance(stored, str):
+            return [] if not stored.strip() else [cls.classify(stored)]
+        if isinstance(stored, (list, tuple)):
+            return [cls.classify(member) for member in stored]
+        # A non-`str` scalar: `parse` DECIDES the class. An unquoted
+        # `whatsapp: 447700900123` loads as an int, `str()` recovers twelve
+        # digits with no `@` at all, and the value is class C — phone-bearing,
+        # not storable, refused, repaired, reported. A `date` files as C too
+        # (`2026-09-27` → the eight-digit `20260927`). What lands in D is a
+        # scalar whose `str()` carries fewer than `Phone.MIN_DIGITS` digits.
+        return [cls.classify(stored)]
 
 
 @dataclass(frozen=True)

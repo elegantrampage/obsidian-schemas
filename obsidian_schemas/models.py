@@ -18,7 +18,9 @@ Entity Types:
 from typing import List, Optional, Literal, Union, Type
 from datetime import date
 from pathlib import Path
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
+
+from .identifier import IdentifierError, WhatsAppJID
 
 
 class BaseEntity(BaseModel):
@@ -91,7 +93,7 @@ class Person(BaseEntity):
     aliases: List[str] = Field(default_factory=list)
     emails: List[str] = Field(default_factory=list)
     phones: List[str] = Field(default_factory=list)
-    whatsapp: str = ""
+    whatsapp: List[str] = Field(default_factory=list)   # WI-032; was `str = ""`
     company: str = ""
     title: str = ""
     linkedin: str = ""
@@ -99,6 +101,52 @@ class Person(BaseEntity):
     roles: List[str] = Field(default_factory=list)
     birthday: str = ""
     created: str = ""
+
+    @field_validator("whatsapp", mode="before")
+    @classmethod
+    def _tolerate_scalar_whatsapp(cls, value):
+        """EXPAND phase (WI-032). The reader accepts BOTH shapes indefinitely,
+        because the VAULT is shared mutable state: any consumer running older
+        code against a migrated note breaks however the package is installed, so
+        a version pin creates no private window (F14 correcting F7). And a
+        refusing reader does not degrade gracefully — `parse_to_model` raises
+        `SchemaDriftError` on an owned note that fails validation, which the load
+        path records as a SKIP, making the note INVISIBLE rather than oddly
+        shaped.
+
+        Three spellings collapse to the empty collection and none of them is a
+        refusal: `None` (an absent key, and a BARE valueless `whatsapp:` key,
+        which YAML loads as null and `_normalize_frontmatter` passes through
+        untouched), `""`, and whitespace.
+        """
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [] if not value.strip() else [value]
+        return value
+
+    @property
+    def whatsapp_jids(self) -> List[WhatsAppJID]:
+        """The typed view (WI-032) — the PARSEABLE stored values, in stored order.
+
+        Filtered on PARSEABILITY and never on storability: classes C and E parse
+        and appear here (they are merely unstorable); class D does not parse and
+        appears only in the raw field. A build that filtered on storability is
+        RED on AC-4 leg (b).
+
+        A `@property` and NOT a field, which is what closes F8 by construction:
+        `model_to_frontmatter` iterates `model_class.model_fields`, so nothing
+        dataclass-shaped is ever handed to `yaml.dump`'s default `Dumper` while
+        the reader is `yaml.safe_load`. There is no projection step to remember,
+        and rejected item 9 is why there is none to write.
+        """
+        out = []
+        for raw in self.whatsapp:
+            try:
+                out.append(WhatsAppJID.parse(raw))
+            except IdentifierError:
+                continue
+        return out
 
     def get_primary_email(self) -> Optional[str]:
         """Get the first email address if available."""

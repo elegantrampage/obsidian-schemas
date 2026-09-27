@@ -2014,6 +2014,13 @@ MUTATING_DRIVE_VAULT_POSITIONS = {
     "quarantine_garbage": 1,
     "run_lint": 0,
     "main": None,
+    # WI-032. `scripts/migrate_whatsapp_to_list.py`'s ONE mutating entry point.
+    # `plan_migration`, `readback_migration` and `format_repair_disclosure` are
+    # read-only and are not members: this census's subject is MUTATING drives. The
+    # CLI entry is named `_cli` and not `main` deliberately — `main` is already a
+    # member with NO vault-argument position, so a collected `main()` call RAISES,
+    # and reusing the name would make that module's own CLI undrivable from a test.
+    "apply_migration": 0,
 }
 VAULT_KEYWORD = "vault_path"
 

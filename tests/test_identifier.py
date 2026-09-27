@@ -142,6 +142,48 @@ class TestWhatsAppJID:
         with pytest.raises(IdentifierError):
             WhatsAppJID.parse(bad)
 
+    # ── WI-032: the STORABLE predicate and the classifier ────────────────────
+    # `parse` above is the REACH predicate and is UNCHANGED. These pin the
+    # second, narrower question storage asks of the SAME type.
+
+    def test_jid_domain_is_the_text_after_the_last_at(self):
+        assert WhatsAppJID.parse("447700900321@s.whatsapp.net").jid_domain == "s.whatsapp.net"
+        assert WhatsAppJID.parse("15555550142@lid").jid_domain == "lid"
+        assert WhatsAppJID.parse("447700900654@lid.example").jid_domain == "lid.example"
+        # No `@` at all — the Kim Faura shape.
+        assert WhatsAppJID.parse("+44 7739 341679").jid_domain == ""
+
+    def test_storable_is_membership_of_the_closed_set(self):
+        assert WhatsAppJID.parse("447700900321@s.whatsapp.net").is_storable
+        assert WhatsAppJID.parse("15555550142@lid").is_storable
+        # Parses (VD-2) and is NOT storable — the value this item was minted for.
+        assert not WhatsAppJID.parse("+44 7739 341679").is_storable
+        assert not WhatsAppJID.parse("447700900789@example.com").is_storable
+
+    def test_storable_reads_the_normalized_string_so_case_is_free(self):
+        assert WhatsAppJID.parse("447700900321@S.WHATSAPP.NET").is_storable
+
+    def test_classify_files_the_six_cells(self):
+        assert WhatsAppJID.classify(None) == "Ø"
+        assert WhatsAppJID.classify("") == "Ø"
+        assert WhatsAppJID.classify("   ") == "Ø"
+        assert WhatsAppJID.classify("447700900321@s.whatsapp.net") == "A"
+        assert WhatsAppJID.classify("15555550142@lid") == "B"
+        assert WhatsAppJID.classify("+44 7739 341679") == "C"
+        assert WhatsAppJID.classify("n/a") == "D"
+        assert WhatsAppJID.classify("447700900654@lid.example") == "E"
+
+    def test_classify_refuses_a_container(self):
+        with pytest.raises(IdentifierError):
+            WhatsAppJID.classify(["447700900321@s.whatsapp.net"])
+
+    def test_classify_field_accepts_both_stored_shapes(self):
+        assert WhatsAppJID.classify_field(None) == []
+        assert WhatsAppJID.classify_field("") == []
+        assert WhatsAppJID.classify_field([]) == []
+        assert WhatsAppJID.classify_field("15555550142@lid") == ["B"]
+        assert WhatsAppJID.classify_field(["15555550142@lid", "n/a"]) == ["B", "D"]
+
 
 # ── SlackUserId ───────────────────────────────────────────────────────────────
 

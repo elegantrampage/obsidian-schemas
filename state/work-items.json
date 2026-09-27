@@ -1,7 +1,7 @@
 {
   "project": "obsidian-schemas",
   "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
-  "last_scanned": "2026-09-27T07:49:05Z",
+  "last_scanned": "2026-09-27T12:19:10Z",
   "next_id": 35,
   "items": [
     {
@@ -3158,7 +3158,7 @@
     {
       "id": "WI-032",
       "title": "Validate the WhatsApp JID shape at the person boundary",
-      "stage": "exploring",
+      "stage": "done",
       "file": "docs/whatsapp-jid-value-type.md",
       "created": "2026-09-21",
       "last_touched": "2026-09-27",
@@ -3178,6 +3178,34 @@
           "at": "2026-09-27",
           "by": "session",
           "forced": false
+        },
+        {
+          "from": "exploring",
+          "to": "specced",
+          "at": "2026-09-27",
+          "by": "porter",
+          "forced": false
+        },
+        {
+          "from": "specced",
+          "to": "ready",
+          "at": "2026-09-27",
+          "by": "porter",
+          "forced": false
+        },
+        {
+          "from": "ready",
+          "to": "building",
+          "at": "2026-09-27",
+          "by": "porter",
+          "forced": false
+        },
+        {
+          "from": "building",
+          "to": "done",
+          "at": "2026-09-27",
+          "by": "porter",
+          "forced": false
         }
       ],
       "latest_verdicts": {
@@ -3194,6 +3222,73 @@
           "date": "2026-09-27",
           "model": "claude-sonnet-5",
           "note": "Round 7's terminal-state contradiction is closed \u2014 re-derived the mechanism independently from `name_gate.py:31-36` before reading the fold, confirmed AC-5 leg (e)'s three-part partition oracle, the never-clears conjunct, leg (d)'s both-arms correction, and AC-4 leg (c)'s scoping are all present in the current criteria text and reachable from named `check:`s; re-verified rounds 1\u20136's closed classes directly in code (`identifier.py:270-281`'s parse/store behavior, the 29-line `prose_surface_cut0.json` count); ran the full failure-class hunt against the current AC text and found no tautological, zero-impl-satisfiable, gameable, uncovered-layer, mocked-oracle, unsatisfiable-pair, or class-closing defect; the architect's five round-9 non-blocking notes sit in prose outside every AC's `check:` and don't touch buildability."
+        },
+        "ac-signoff": {
+          "gate": "ac-signoff",
+          "verdict": "PROMOTE",
+          "date": "2026-09-27",
+          "reviewer": "dave",
+          "channel": "conversational",
+          "signed_at": "2026-09-27T08:00:00+01:00",
+          "provenance": "verified",
+          "signoff_escalation": "ESC-WI-032-exploring-awaiting-ac-signoff-eb28d58c",
+          "ac_hash": "dd772c1183de",
+          "intent_hash": "6eab0010f9ce",
+          "ac_hash_AC-1": "291f1a902f27",
+          "ac_hash_AC-2": "0f67fabf15c5",
+          "ac_hash_AC-3": "6e8ae465f384",
+          "ac_hash_AC-4": "7bfa6009474f",
+          "ac_hash_AC-5": "975c8d928253",
+          "artifact": "docs/spec-reviews/WI-032-dave-review-2026-09-27.md"
+        },
+        "data-premise": {
+          "gate": "data-premise",
+          "verdict": "PROMOTE",
+          "date": "2026-09-27",
+          "model": "claude-opus-5",
+          "note": "Both precondition artifacts in HEAD and re-read against the declared predicates \u2014 live corpus measured at 1174 person notes (\u00d8 1031 / A 35 / B 26 / C 82 / D 0 / E 0, so |R| = 0 and the class-C repair is 82 key-preserving re-spellings), 51 dual-JID bridge names, 0 live lid\u2192phone collisions, 0 element-type assumptions and 0 whole-record projections across 20 consumer sites; fixture claims (22/21, Thrandell's class-C, @Fennwick Drostane, the reserved patterns, every pinned literal unclaimed) and AC-3's --fix-still-repairs rule-effect verified in-tree this round; counterexample hunt found one false-by-design writer outside the package boundary, already a named exclusion."
+        },
+        "threat-modeler": {
+          "gate": "threat-modeler",
+          "verdict": "PROMOTE",
+          "date": "2026-09-27",
+          "model": "claude-opus-5",
+          "note": "Round 2 re-read all four pieces of new material in place rather than trusting the fold record \u2014 \u00a710(a)/(b)/(c), \u00a76's computable form, \u00a77's re-run subsection and `## Mitigation Folds` \u2014 and re-verified in code every claim a security property rests on: `patcher` undoes in a `finally` including on raise so the re-run's call counter cannot leak and silently suppress later writes, `AUTHORIZED_PROSE_OWNERS` and `_golden` are where \u00a76 imports them from, the detector's message still interpolates only a count and class letters, and the go/no-go step now actually shows the 82 pairs to a human; M1, M2 and M3 all HELD and are re-emitted byte-identically, with M2's requirement-broader-than-its-wall edge deliberately left as instruction rather than a `SESSION_LOG.md` wall this item would then own forever (the widen-another-surface move rejected items 11/14/15 already decline). One new finding, same generator as M1 and M2 \u2014 an unspecified property of a disclosure surface: \u00a710(a) and Task 10 both render the stored value VERBATIM, and `parse` normalizes with `.strip().lower()` so an INTERIOR newline or ANSI escape survives into `.jid` while `normalize_phone` strips non-digits, making such a value phone-bearing, domain-less and therefore class C \u2014 so the one artifact the irreversible 82-note go/no-go is read against can be reflowed or have a `CORROBORATED` header forged by the data it describes, while the check's own one-line-per-record oracle is asserted only over clean plants; M4 folds the escaping plus a falsifying plant into Task 10. No criterion text moves and no ruling is touched."
+        },
+        "spec-reviewer": {
+          "gate": "spec-reviewer",
+          "verdict": "PROMOTE",
+          "date": "2026-09-27",
+          "model": "claude-opus-5",
+          "note": "Round 1's two findings are CLOSED and I re-derived each from code before reading its fold \u2014 \u00a76's COMPUTABLE FORM is reachable and has real force (`_golden` at `tests/test_identity_endgame.py:395-397`, `AUTHORIZED_PROSE_OWNERS` thirteen members at `:359-373`, 29 `PersonRepository.save` records in `prose_surface_cut0.json`, and `save` is absent from `TABLE_OWNERS` so no standing clause witnesses a golden edit, which is exactly the gap the conjunct claims), and \u00a77's re-run oracle is a module-attribute call count that `tests/support.py:Patcher.setattr` can install and `patcher()` undoes in a `finally`; all five of round 1's non-blocking notes are folded and verified against the real import lines and predicates; the latest speaking threat-model round's four `kind: required` mitigations all carry complete records with verbatim `desc`, and I found each `design`/`work` quote in place and read around it rather than judging the pairs \u2014 M4's escape is honest because the `Cc`/`Zl`/`Zp` categories really do contain every codepoint `str.splitlines()` breaks on and its adversarial plant really is class C; fourteen canonical tasks all carry resolving `verify:` declarations, the fifteen `writes` fences match the per-task extraction exactly with nothing added by the M4 fold, no verify command writes, no conscious-pin sweep is owed (`MUTATING_DRIVE_VAULT_POSITIONS` carries no count pin tree-wide), and Task 13's redaction fixtures are measured true in this worktree (zero nine-digit runs in the census, exactly two in the consumer audit and both inside 40-hex HEADs); five non-blocking notes survive, none leaving the item buildable two ways."
+        },
+        "injection-hunter": {
+          "gate": "injection-hunter",
+          "verdict": "PROMOTE",
+          "date": "2026-09-27",
+          "model": "claude-sonnet-5",
+          "note": "Full re-read of the document plus the two sections added since round 1 (Threat Model round 2, Spec Review round 2) and a repeat of round 1's injection-indicator, zero-width-Unicode, and exec/credential sweeps found no planted steering, no reviewer-directed imperative language, and no pre-baked verdict; the new material's findings (M4's escape requirement, both spec-review rounds' re-derivations) are grounded in file:line citations exactly like the rest of the document, and the `## Mitigation Folds` fences \u2014 the closest thing here to gate-to-gate instruction \u2014 address a builder's code change, not a reviewer's verdict."
+        },
+        "code-reviewer": {
+          "gate": "code-reviewer",
+          "verdict": "PROMOTE",
+          "date": "2026-09-27",
+          "model": "claude-opus-5",
+          "note": "No Blocking findings \u2014 all five AI-maintainability checks and both Step-2c dimensions pass against the final tree (no cross-project reach, no silent swallow in library code, README's two documented touchpoints re-derived as still true, gate-local refusal pattern with the value on an attribute and not in the message, and a readback that is a genuine re-read through a fresh repository with a part-for-part reconciliation that exits non-zero); six non-blocking findings recorded, the most material being that `apply_migration`'s `vault_path` parameter is dead so the containment wall pins the argument rather than the plan's provenance (latent only \u2014 all six call sites pass the same `_temp_vault`-bound name); this gate could NOT re-run the floor because the spawn's permission gate refused it, so the 716/exit-0 claim rests on the Build Log's own execution evidence, which is strong and internally corroborated (three floor counts by different methods, per-check foreign-interpreter runs, CLI exit codes with tree digests, and a leg that caught a real defect in its own first implementation)."
+        },
+        "test-observability-checker": {
+          "gate": "test-observability-checker",
+          "verdict": "PROMOTE",
+          "date": "2026-09-27",
+          "model": "claude-opus-5",
+          "note": "All three live checks pass and the fourth is N/A \u2014 nine checks exist and resolve in the tree covering happy path plus failure modes per criterion, with the anti-vacuity discipline this estate requires of counting walls (derived arm set held by equality, both claimed match-shapes driven through the wall's own predicate, a call counter rather than a digest as the re-run oracle, and M4's break set derived over the codepoint space instead of hand-listed); failure modes are loud (typed refusal carrying pattern and value as attributes, stderr plus non-zero exits naming the disagreeing part, a mid-run refusal deliberately never caught) with one non-blocking gap, an unreadable note skipped without a count; no unattended automation is introduced, and the standing \"will Dave know\" surface is the new report-only `whatsapp_not_storable` detector whose issue count is an independent second witness to the residual, exercised for real in the Build Log; invariant registration is N/A because this project has no registry (`**/invariants.py` returns nothing) and v1 scope is orchestrator-only."
+        },
+        "intent-check": {
+          "gate": "intent-check",
+          "verdict": "PROMOTE",
+          "date": "2026-09-27",
+          "model": "claude-sonnet-5",
+          "note": "Read all five test bodies (AC-1 through AC-5) against their frozen `desc`/`why` and against `### Examples of done`, independently of the prior Code Review / Test & Observability verdicts \u2014 every AC's test proves its full claimed domain with no stubbed seam, no weakened assertion, no narrowed input domain and no missing negative case (the write-door refusal, clearing, class-\u00d8 and append-only legs of AC-3, and the residual/repair/no-op-rerun legs of AC-5's migration test, were the ones most likely to hide a hollow build and all held under direct reading), and the built artifact matches `## Intent` on both the refusal half and the liberal-resolution half."
         }
       },
       "verdicts": [
@@ -3228,61 +3323,6 @@
         },
         {
           "gate": "architect",
-          "verdict": "REVISE",
-          "date": "2026-09-26",
-          "model": "claude-opus-5",
-          "note": "The fold that made `@Thrandell Ibberly.md` the free class-C member collides with the frozen corpus's own two contracts \u2014 it is the ONE person round-trip representative, written through the gated whole-record arm with no refusal expected at `tests/test_writer.py:421` and `tests/test_fixture_vault.py:753`, and the class-A/class-E plant literals are unreserved hosts under the WI-016 privacy wall (`tests/test_fixture_vault.py:302-325`, reach at `:386-392`), which is itself why the corpus's one JID is `@example.com` and therefore class C at all.",
-          "targets": "AC-1, AC-2, AC-3, AC-4, AC-5, #exploration-notes, #write-targets",
-          "prior": "held",
-          "basis": "folded-material",
-          "findings": "2/5"
-        },
-        {
-          "gate": "architect",
-          "verdict": "REVISE",
-          "date": "2026-09-26",
-          "model": "claude-opus-5",
-          "note": "`### Effort` item (iv) and F6 still price \"a census row per newly declared class, and its own digest follows\" as build-side and free, but `docs/vault-shape-census.md` is frozen against a digest that lives inside WI-016's SIGNED AC-3 fence (`tests/test_fixture_vault.py:217-254`, `docs/vault-fixtures.md:1418`) and its class-row vocabulary is name-corruption `branch_id`s with live-vault counts and name specimens, so a whatsapp cell has no row \u2014 and the two cheapest greens are amending another item's signed criterion or writing a false ABSENT/0 row, which is verbatim the route WI-016's own leg (iv) exists to close; the item's six cell counts already belong in `docs/wi-032-whatsapp-corpus-census.md`.",
-          "targets": "AC-1, AC-3, AC-5, #exploration-notes",
-          "prior": "held",
-          "basis": "folded-material",
-          "findings": "1/4"
-        },
-        {
-          "gate": "architect",
-          "verdict": "REVISE",
-          "date": "2026-09-26",
-          "model": "claude-opus-5",
-          "note": "F9 prices the linter's report path at zero, but `_gate_refusal_pattern` has ONE call site (`scripts/lint_vault.py:450`), inside the `stem_name_divergence` arm behind `stem != stored`, emitting a MARKER and never an issue \u2014 and WI-029 closed that live population to 0 (`docs/stem-divergence-live-baseline.md:191`), so the D+E residual that `## Intent`, F13 leg 3, Ruling B leg 2, AC-5 leg (e) and `### Examples of done` all promise is \"reported and left\" is left and never reported; AC-3 calls the consequence free, so two of the three self-consistent builds ship silent and one falsifies WI-029's own marker.",
-          "targets": "AC-1, AC-3, AC-5, #intent, #exploration-notes",
-          "prior": "held",
-          "basis": "original",
-          "findings": "1/4"
-        },
-        {
-          "gate": "architect",
-          "verdict": "REVISE",
-          "date": "2026-09-26",
-          "model": "claude-opus-5",
-          "note": "`PersonRepository.save`'s 31-line docstring is frozen verbatim by WI-024's prose wall \u2014 clause (e1) of `test_strangler_prose_class_is_closed_in_the_package` (`tests/test_identity_endgame.py:1006-1019`) requires every Cut-0 `(owner, text)` pair of an owner outside `AUTHORIZED_PROSE_OWNERS` (`:359-373`, which omits `save`) to survive, and `prose_surface_cut0.json:2401-2543` is byte-identical to `person.py:1155-1196` today \u2014 yet F11 names `person.py:1180-1184` as the home for the new write-back disclosure and `### Examples of done` promises the refusal surface \"says so\"; no AC touches that prose, so all three resolving builds are green and two are harmful (revert the disclosure, or authorize `save` and delete one of its lines to satisfy (e2)).",
-          "targets": "AC-2, AC-3, #exploration-notes, #approach",
-          "prior": "held",
-          "basis": "original",
-          "findings": "1/3"
-        },
-        {
-          "gate": "architect",
-          "verdict": "REVISE",
-          "date": "2026-09-26",
-          "model": "claude-opus-5",
-          "note": "AC-3 refuses a class-D/E value in BOTH shapes and AC-5 leg (b) asserts every migration write goes through the gate, so those notes are TERMINALLY SCALAR \u2014 yet AC-5 leg (e), `## Approach` step (4)'s exit numbers and `### Examples of done` all commit to \"zero notes left in the scalar shape\" alongside \"the D+E residual reported and byte-identical\", and AC-5 itself mandates the class-D plant that collides them; all four routes out are red (accept \u2192 AC-3, bypass \u2192 leg (b), clear \u2192 leg (c)'s total-value count, honour byte-identity \u2192 leg (e)), so no build passes and the real exits are a D4b re-sign or silently reinterpreting the exit number the live bracket ships against \u2014 and leg (d)'s claim to hold \"either way Dave rules\" is false, because under Ruling B's alternative arm class C joins the residual.",
-          "targets": "AC-5, AC-3, #approach, #exploration-notes",
-          "prior": "held",
-          "basis": "original",
-          "findings": "1/3"
-        },
-        {
-          "gate": "architect",
           "verdict": "PROMOTE",
           "date": "2026-09-27",
           "model": "claude-opus-5",
@@ -3294,6 +3334,73 @@
           "date": "2026-09-27",
           "model": "claude-sonnet-5",
           "note": "Round 7's terminal-state contradiction is closed \u2014 re-derived the mechanism independently from `name_gate.py:31-36` before reading the fold, confirmed AC-5 leg (e)'s three-part partition oracle, the never-clears conjunct, leg (d)'s both-arms correction, and AC-4 leg (c)'s scoping are all present in the current criteria text and reachable from named `check:`s; re-verified rounds 1\u20136's closed classes directly in code (`identifier.py:270-281`'s parse/store behavior, the 29-line `prose_surface_cut0.json` count); ran the full failure-class hunt against the current AC text and found no tautological, zero-impl-satisfiable, gameable, uncovered-layer, mocked-oracle, unsatisfiable-pair, or class-closing defect; the architect's five round-9 non-blocking notes sit in prose outside every AC's `check:` and don't touch buildability."
+        },
+        {
+          "gate": "ac-signoff",
+          "verdict": "PROMOTE",
+          "date": "2026-09-27",
+          "reviewer": "dave",
+          "channel": "conversational",
+          "signed_at": "2026-09-27T08:00:00+01:00",
+          "provenance": "verified",
+          "signoff_escalation": "ESC-WI-032-exploring-awaiting-ac-signoff-eb28d58c",
+          "ac_hash": "dd772c1183de",
+          "intent_hash": "6eab0010f9ce",
+          "ac_hash_AC-1": "291f1a902f27",
+          "ac_hash_AC-2": "0f67fabf15c5",
+          "ac_hash_AC-3": "6e8ae465f384",
+          "ac_hash_AC-4": "7bfa6009474f",
+          "ac_hash_AC-5": "975c8d928253",
+          "artifact": "docs/spec-reviews/WI-032-dave-review-2026-09-27.md"
+        },
+        {
+          "gate": "data-premise",
+          "verdict": "PROMOTE",
+          "date": "2026-09-27",
+          "model": "claude-opus-5",
+          "note": "Both precondition artifacts in HEAD and re-read against the declared predicates \u2014 live corpus measured at 1174 person notes (\u00d8 1031 / A 35 / B 26 / C 82 / D 0 / E 0, so |R| = 0 and the class-C repair is 82 key-preserving re-spellings), 51 dual-JID bridge names, 0 live lid\u2192phone collisions, 0 element-type assumptions and 0 whole-record projections across 20 consumer sites; fixture claims (22/21, Thrandell's class-C, @Fennwick Drostane, the reserved patterns, every pinned literal unclaimed) and AC-3's --fix-still-repairs rule-effect verified in-tree this round; counterexample hunt found one false-by-design writer outside the package boundary, already a named exclusion."
+        },
+        {
+          "gate": "threat-modeler",
+          "verdict": "PROMOTE",
+          "date": "2026-09-27",
+          "model": "claude-opus-5",
+          "note": "Round 2 re-read all four pieces of new material in place rather than trusting the fold record \u2014 \u00a710(a)/(b)/(c), \u00a76's computable form, \u00a77's re-run subsection and `## Mitigation Folds` \u2014 and re-verified in code every claim a security property rests on: `patcher` undoes in a `finally` including on raise so the re-run's call counter cannot leak and silently suppress later writes, `AUTHORIZED_PROSE_OWNERS` and `_golden` are where \u00a76 imports them from, the detector's message still interpolates only a count and class letters, and the go/no-go step now actually shows the 82 pairs to a human; M1, M2 and M3 all HELD and are re-emitted byte-identically, with M2's requirement-broader-than-its-wall edge deliberately left as instruction rather than a `SESSION_LOG.md` wall this item would then own forever (the widen-another-surface move rejected items 11/14/15 already decline). One new finding, same generator as M1 and M2 \u2014 an unspecified property of a disclosure surface: \u00a710(a) and Task 10 both render the stored value VERBATIM, and `parse` normalizes with `.strip().lower()` so an INTERIOR newline or ANSI escape survives into `.jid` while `normalize_phone` strips non-digits, making such a value phone-bearing, domain-less and therefore class C \u2014 so the one artifact the irreversible 82-note go/no-go is read against can be reflowed or have a `CORROBORATED` header forged by the data it describes, while the check's own one-line-per-record oracle is asserted only over clean plants; M4 folds the escaping plus a falsifying plant into Task 10. No criterion text moves and no ruling is touched."
+        },
+        {
+          "gate": "spec-reviewer",
+          "verdict": "PROMOTE",
+          "date": "2026-09-27",
+          "model": "claude-opus-5",
+          "note": "Round 1's two findings are CLOSED and I re-derived each from code before reading its fold \u2014 \u00a76's COMPUTABLE FORM is reachable and has real force (`_golden` at `tests/test_identity_endgame.py:395-397`, `AUTHORIZED_PROSE_OWNERS` thirteen members at `:359-373`, 29 `PersonRepository.save` records in `prose_surface_cut0.json`, and `save` is absent from `TABLE_OWNERS` so no standing clause witnesses a golden edit, which is exactly the gap the conjunct claims), and \u00a77's re-run oracle is a module-attribute call count that `tests/support.py:Patcher.setattr` can install and `patcher()` undoes in a `finally`; all five of round 1's non-blocking notes are folded and verified against the real import lines and predicates; the latest speaking threat-model round's four `kind: required` mitigations all carry complete records with verbatim `desc`, and I found each `design`/`work` quote in place and read around it rather than judging the pairs \u2014 M4's escape is honest because the `Cc`/`Zl`/`Zp` categories really do contain every codepoint `str.splitlines()` breaks on and its adversarial plant really is class C; fourteen canonical tasks all carry resolving `verify:` declarations, the fifteen `writes` fences match the per-task extraction exactly with nothing added by the M4 fold, no verify command writes, no conscious-pin sweep is owed (`MUTATING_DRIVE_VAULT_POSITIONS` carries no count pin tree-wide), and Task 13's redaction fixtures are measured true in this worktree (zero nine-digit runs in the census, exactly two in the consumer audit and both inside 40-hex HEADs); five non-blocking notes survive, none leaving the item buildable two ways."
+        },
+        {
+          "gate": "injection-hunter",
+          "verdict": "PROMOTE",
+          "date": "2026-09-27",
+          "model": "claude-sonnet-5",
+          "note": "Full re-read of the document plus the two sections added since round 1 (Threat Model round 2, Spec Review round 2) and a repeat of round 1's injection-indicator, zero-width-Unicode, and exec/credential sweeps found no planted steering, no reviewer-directed imperative language, and no pre-baked verdict; the new material's findings (M4's escape requirement, both spec-review rounds' re-derivations) are grounded in file:line citations exactly like the rest of the document, and the `## Mitigation Folds` fences \u2014 the closest thing here to gate-to-gate instruction \u2014 address a builder's code change, not a reviewer's verdict."
+        },
+        {
+          "gate": "code-reviewer",
+          "verdict": "PROMOTE",
+          "date": "2026-09-27",
+          "model": "claude-opus-5",
+          "note": "No Blocking findings \u2014 all five AI-maintainability checks and both Step-2c dimensions pass against the final tree (no cross-project reach, no silent swallow in library code, README's two documented touchpoints re-derived as still true, gate-local refusal pattern with the value on an attribute and not in the message, and a readback that is a genuine re-read through a fresh repository with a part-for-part reconciliation that exits non-zero); six non-blocking findings recorded, the most material being that `apply_migration`'s `vault_path` parameter is dead so the containment wall pins the argument rather than the plan's provenance (latent only \u2014 all six call sites pass the same `_temp_vault`-bound name); this gate could NOT re-run the floor because the spawn's permission gate refused it, so the 716/exit-0 claim rests on the Build Log's own execution evidence, which is strong and internally corroborated (three floor counts by different methods, per-check foreign-interpreter runs, CLI exit codes with tree digests, and a leg that caught a real defect in its own first implementation)."
+        },
+        {
+          "gate": "test-observability-checker",
+          "verdict": "PROMOTE",
+          "date": "2026-09-27",
+          "model": "claude-opus-5",
+          "note": "All three live checks pass and the fourth is N/A \u2014 nine checks exist and resolve in the tree covering happy path plus failure modes per criterion, with the anti-vacuity discipline this estate requires of counting walls (derived arm set held by equality, both claimed match-shapes driven through the wall's own predicate, a call counter rather than a digest as the re-run oracle, and M4's break set derived over the codepoint space instead of hand-listed); failure modes are loud (typed refusal carrying pattern and value as attributes, stderr plus non-zero exits naming the disagreeing part, a mid-run refusal deliberately never caught) with one non-blocking gap, an unreadable note skipped without a count; no unattended automation is introduced, and the standing \"will Dave know\" surface is the new report-only `whatsapp_not_storable` detector whose issue count is an independent second witness to the residual, exercised for real in the Build Log; invariant registration is N/A because this project has no registry (`**/invariants.py` returns nothing) and v1 scope is orchestrator-only."
+        },
+        {
+          "gate": "intent-check",
+          "verdict": "PROMOTE",
+          "date": "2026-09-27",
+          "model": "claude-sonnet-5",
+          "note": "Read all five test bodies (AC-1 through AC-5) against their frozen `desc`/`why` and against `### Examples of done`, independently of the prior Code Review / Test & Observability verdicts \u2014 every AC's test proves its full claimed domain with no stubbed seam, no weakened assertion, no narrowed input domain and no missing negative case (the write-door refusal, clearing, class-\u00d8 and append-only legs of AC-3, and the residual/repair/no-op-rerun legs of AC-5's migration test, were the ones most likely to hide a hollow build and all held under direct reading), and the built artifact matches `## Intent` on both the refusal half and the liberal-resolution half."
         }
       ],
       "acceptance_criteria": [

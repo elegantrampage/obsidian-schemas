@@ -57,7 +57,7 @@ from email.utils import parseaddr
 from typing import Any, Mapping, NoReturn, Optional
 
 from .errors import NameGateRefusal, chainable_cause
-from .identifier import Email, IdentifierError
+from .identifier import Email, IdentifierError, WhatsAppJID
 from .name_validation import (
     COMPANY_TIER1_BRANCHES,
     NameValidationError,
@@ -82,6 +82,15 @@ _REFUSAL_REASON: str = "the write introduces a name this package refuses"
 
 # The three identifier-bearing frontmatter keys this gate has any rule about.
 _CONTAINER_KEYS = ("emails", "phones", "aliases")
+
+#: WI-032. The whatsapp refusal's pattern. The gate's OWN literal, like
+#: `UNDECLARED_PATTERN` above it — never a NameValidator branch record, which
+#: would join WI-016's derived AC-3 class floor and cost a conductor pass for a
+#: refusal that is not a name judgement at all.
+WHATSAPP_PATTERN: str = "whatsapp_not_a_jid"
+
+#: The one identifier key this gate judges by VALUE rather than by container shape.
+WHATSAPP_KEY: str = "whatsapp"
 
 # The parens form — `Name (a@b.com)` — which `Email.parse` deliberately does not
 # accept. The splitter owns it BEFORE delegating, which is the whole of what
@@ -139,7 +148,8 @@ def split_address(entry: Any) -> tuple:
 # The ONE refusal construction site (Design §2)
 # ---------------------------------------------------------------------------
 
-def _refuse(pattern_key: str, *, cause: Optional[BaseException] = None) -> NoReturn:
+def _refuse(pattern_key: str, *, cause: Optional[BaseException] = None,
+            refused_value: Any = None) -> NoReturn:
     """Build and raise the gate's refusal. The ONE construction site.
 
     Two rules, both total over this single raise-site, and both are about a
@@ -168,9 +178,22 @@ def _refuse(pattern_key: str, *, cause: Optional[BaseException] = None) -> NoRet
        renders and which at the create-shaped arms ends in `@<the refused
        name>.md`. `pattern` is set as an ATTRIBUTE after construction, so it
        reaches no message at all.
+
+    3. **`refused_value` (WI-032) is the same channel, and it exists for the ONE
+       arm whose refused value is not a name.** The whatsapp arm honours "loudly
+       and NAMING THE VALUE" by handing the value here; it is set as an ATTRIBUTE
+       after construction exactly as `pattern` is, so it reaches no message and
+       no traceback renders a note's bytes. Rule 2 forbids a note-derived value
+       in the CONSTRUCTOR and this is not one. The NAME arms deliberately pass
+       nothing through it — the name a name arm would pass IS an email address at
+       `contains_email_chars` and `rfc2822_leak`, which is the whole reason rule
+       2 exists. Set unconditionally (None where there is none) so every refusal
+       carries the attribute and no consumer has to guess whether to use
+       `getattr`.
     """
     exc = NameGateRefusal(_REFUSAL_REASON)
     exc.pattern = pattern_key
+    exc.refused_value = refused_value
     raise exc from (chainable_cause(cause) if cause is not None else None)
 
 
@@ -196,6 +219,37 @@ def _is_str_list(value: Any) -> bool:
 def _shaped(introduced: Mapping[str, Any], key: str) -> bool:
     """The key is present AND its value is a list of strings."""
     return key in introduced and _is_str_list(introduced[key])
+
+
+# ---------------------------------------------------------------------------
+# WI-032's two three-line helpers. Both read `WhatsAppJID.classify_field`'s OWN
+# shape rules and neither re-derives a class.
+# ---------------------------------------------------------------------------
+
+def _member_at(stored: Any, position: int) -> Any:
+    """The raw member `classify_field` filed at `position`.
+
+    Correct only while the classifier returns exactly one class per stored
+    member, which is why its list branch carries no falsiness filter: filtering
+    a blank member out would cost the refusal its ability to name the value.
+    """
+    if isinstance(stored, (list, tuple)):
+        return stored[position]
+    return stored
+
+
+def _as_stored_list(stored: Any) -> list:
+    """ONE WRITTEN SHAPE. A scalar the caller handed us becomes a one-member
+    list, absence becomes `[]`, and every accepted member passes through
+    VERBATIM — the migration's repair is the only rewriter, and it rewrites
+    before the write."""
+    if stored is None:
+        return []
+    if isinstance(stored, str):
+        return [] if not stored.strip() else [stored]
+    if isinstance(stored, (list, tuple)):
+        return list(stored)
+    return [stored]
 
 
 # ---------------------------------------------------------------------------
@@ -365,6 +419,31 @@ def gate_write(
             _refuse(exc.pattern, cause=exc)
         # On the accept path the name the caller handed us is emitted
         # byte-for-byte — `result` already carries it, untouched.
+
+    # ---- 3b. WhatsApp (WI-032) — a VALUE judgement, not a container shape ----
+    #
+    # PLACED AFTER THE NAME ARM, and the position is prescribed rather than left
+    # free: several corpus notes declare a refusal `Verdict` naming a NAME
+    # pattern whose whole declared field set is written through the gated door
+    # with `exc.pattern` asserted equal to it. Keeping the name refusal first
+    # makes every one of those declarations true by CONSTRUCTION rather than by
+    # an insertion point nobody wrote down.
+    #
+    # Unlike `emails`/`phones`/`aliases` this arm does NOT use `_shaped`. That
+    # predicate is POSITIVE, so a bare `str` falls to pass-through untouched
+    # (`_is_str_list`) — and every `whatsapp` value on disk today IS a bare str,
+    # so an arm copied from the containers would be structurally silent for
+    # exactly the population this item exists for.
+    if WHATSAPP_KEY in introduced:
+        members = introduced[WHATSAPP_KEY]
+        for position, member_class in enumerate(
+                WhatsAppJID.classify_field(members)):
+            if member_class not in ("A", "B"):
+                _refuse(WHATSAPP_PATTERN,
+                        refused_value=_member_at(members, position))
+        # ONE WRITTEN SHAPE. The key set is unchanged, so THE OUTPUT NEVER GROWS
+        # still holds by construction.
+        result[WHATSAPP_KEY] = _as_stored_list(members)
 
     # ---- 4. Addresses ------------------------------------------------------
     #

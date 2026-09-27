@@ -4,7 +4,7 @@ name: "Thrandell Ibberly"
 aliases: []
 emails: ["thrandell@example.com"]
 phones: ["+44 7700 900123"]
-whatsapp: "447700900789@example.com"
+whatsapp: "15555550142@lid"
 company: "Voxleaf Ltd"
 title: "director"
 linkedin: ""
