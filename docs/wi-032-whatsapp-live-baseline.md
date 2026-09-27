@@ -191,14 +191,14 @@ conjuncts:
 
 | figure | entry | exit |
 |---|---|---|
-| (1) notes left in the SCALAR shape OUTSIDE R | 1168 | |
-| (2) MIGRATED — now carrying the LIST form | 0 | |
-| ⤷ sub-count: SHAPE-ONLY conversions (class Ø, key present) | 0 | |
-| ⤷ sub-count: class-C REPAIRS | 0 | |
-| (3) the residual R — reported, byte-identical, terminally scalar | 0 | |
-| `whatsapp_not_storable` issue count (the INDEPENDENT second witness to the residual R) | n/a — the detector does not exist pre-build | |
-| identifier-key multiset unchanged corpus-wide | n/a | |
-| values CLEARED by the run | n/a — the run never clears | |
+| (1) notes left in the SCALAR shape OUTSIDE R | 1168 | **0** |
+| (2) MIGRATED — now carrying the LIST form | 0 | **1168** |
+| ⤷ sub-count: SHAPE-ONLY conversions (class Ø, key present) | 0 | **1025** (plus 61 storable A/B values now one-element lists) |
+| ⤷ sub-count: class-C REPAIRS | 0 | **82** (81 corroborated by the note's own `phones[]`; the 1 uncorroborated number was added to that note's `phones[]` through `PersonRepository.update_fields` after the run and read back) |
+| (3) the residual R — reported, byte-identical, terminally scalar | 0 | **0** |
+| `whatsapp_not_storable` issue count (the INDEPENDENT second witness to the residual R) | n/a — the detector does not exist pre-build | **0** (`--report` over the live vault after the write; agrees with (3)) |
+| identifier-key multiset unchanged corpus-wide | n/a | **yes** — the run's readback reconciled part-for-part; census re-run: repository loads 1174, skip surface 0 |
+| values CLEARED by the run | n/a — the run never clears | **0** |
 
 The two counts of part (3) are taken by DIFFERENT tools — the migration's own readback and the linter's
 detector — and must agree; a disagreement is the bracket's failure signal, not a figure to adjudicate in
@@ -209,3 +209,67 @@ DISPOSABLE person note through HAL9000's PATCH door, confirmed refused, with the
 the note still editable for everything else. Never Kim Faura's own note and never any production record.
 The transcript is redacted before anything from it is recorded here — the run is live, the transcript is
 not.
+
+### Attestation — conductor, 2026-09-27 15:41–15:58 UTC, on Dave's go ("go ahead with the migration")
+
+**Sequence, same vault, `$VAULT`:** pre-flight (no live drive on this project, `OBSIDIAN_SCHEMAS_WRITE_GUARD`
+unset, tree clean at the ship commit's parent); a fresh dry run whose six cells and plan triple matched the
+census artifact byte-for-byte; `--apply` (eight seconds; the script's own dry-run → write → readback
+triple reconciled part-for-part and exited 0); then the exit measurements below, each by a DIFFERENT tool
+than the one that wrote.
+
+**Exit measurement 1 — the census script re-run over the migrated vault** (the same script as
+`docs/wi-032-whatsapp-corpus-census.md` §0, stdout verbatim for the rows that changed):
+
+```
+(a) top-level @*.md files: 1838; type: person: 1174; not person: 664; frontmatter unreadable: 0
+(b) whatsapp value shape: scalar 0, list 1168 (list elements by class: {'A': 117, 'B': 26})
+(c) class Ø: 1031
+(c) class A: 0
+(c) class B: 0
+(c) class C: 0
+(c) class D: 0
+(c) class E: 0
+(c) class (list): 143
+(c') splits: {'Ø:absent-key': 6}
+(c'') residual |R| recommended arm (D+E): 0; alternative arm (C+D+E): 0
+(d) PersonRepository loads 1174 people; skip surface 0; loaded+skipped = 1174 vs byte-count 1174
+```
+
+Every value is now list-shaped (scalar 0, list 1168); the 1031 class-Ø notes are 6 absent keys plus 1025
+empty lists; the 143 populated lists hold 117 class-A elements (35 pre-existing + 82 repaired) and 26
+class-B; residual 0 under both arms; the repository loads 1174 with an empty skip surface, so no note fell
+onto the load skip surface in either shape.
+
+**Exit measurement 2 — the linter's detector, `--report` never `--fix`:** `whatsapp_not_storable` issues
+**0**; parse/drift issues **0** (the report's 4841 total is the pre-existing warning population of the
+other rules, unchanged in kind). Agrees with part (3) of the partition — the two witnesses concur.
+
+**Consumers, re-read after the write, not before:** HAL9000's process held the pre-build library in memory
+(its `whatsapp: str` cannot load a list note), so the conductor kickstarted `com.davewascha.hal9000`
+immediately after the write; it came up on the new library plus HAL9000's own widened mirrors, loads 1174
+people, serves `whatsapp` as a JSON array through both `/api/entities/person/{name}` and
+`/api/contacts/resolve`, zero error lines since restart (confirmed by the HAL9000 session). orchestrator's
+`person_field_shapes_correct` invariant GREEN against the live vault after the write; its 82 baselined
+`whatsapp` entries pruned fail-closed (orchestrator session). exocortex's and mainspring dispatch's
+list-aware reads are on disk. The consumer-audit addendum records the full readback.
+
+**The one uncorroborated repair:** the single class-C note whose digits were not already in its own
+`phones[]` kept its number inside the repaired JID (same `phone:` key) and, after the run, had that number
+appended to `phones[]` through `PersonRepository.update_fields` (the repository door, gate + `vault_io`),
+read back through a fresh repository: `phones` 0 → 1, `whatsapp` unchanged.
+
+**Incident replay — the Kim Faura value into `whatsapp:` on a DISPOSABLE person note through HAL9000's
+PATCH door:** two disposable notes were created via `POST /api/entities/person` for this and both were
+moved to `$VAULT/_quarantine/` through `vault_io.move_note` afterwards (never deleted; never a production
+record, never Kim Faura's own note). Attempt 1's PATCH returned no HTTP response to the client (curl code
+000) — the note's bytes were nonetheless byte-identical after it and a follow-up field PATCH on the same
+note returned 200. Attempt 2, repeated verbosely on the second disposable note: **HTTP 400**, body
+`{"detail":"the write introduces a name this package refuses"}` — the refused value appears NOWHERE in the
+response body (the value rides the error's attribute, not its message, as AC-3 conjunct (1) requires) —
+bytes byte-identical after the refusal; then a control PATCH of a storable phone-form JID (a reserved-block
+literal) on the same note returned 200 and landed in the list shape. The door refuses the value that caused
+this item, loudly, and stays open for everything else.
+
+**Ship condition: MET.** `|R| = 0` by both witnesses; 82 repairs, each key-preserving; dry-run == write ==
+readback; no value cleared; every consumer that reads the field re-verified against the migrated vault.
