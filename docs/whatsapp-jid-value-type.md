@@ -1503,6 +1503,8 @@ cheap NOW and cost a D4b re-sign after the signature.
 
 #### Ruling A — does a STORABLE predicate exist, or is a bare phone number an acceptable `whatsapp:` value?
 
+**RULED — Dave, 2026-09-27 (in-session: "proceed with A", i.e. the recommendation).** The recommended arm: two predicates on one type — `parse` unchanged for reach, a derived STORABLE property (`jid_domain` in the closed set `{s.whatsapp.net, lid}`) read only by the write door. A bare telephone number is refused at every write arm and still resolves on lookup. The census (`docs/wi-032-whatsapp-corpus-census.md`) prices it: 82 bare numbers live today, every one repaired key-preservingly by the migration under Ruling B, so the door refuses nothing on the live vault on the day it lands. The ACs stand on this arm — frozen by Dave's signature in the same move (ac_hash `dd772c1183de`). Landed by the conductor.
+
 The fact that forces this: `WhatsAppJID.parse("+44 7739 341679")` SUCCEEDS (F12). So a door wired to
 the parser refuses only digit-less junk, and the Kim Faura value — the one that caused this item —
 still writes cleanly. Dave's ruling (1) says the field's type IS `WhatsAppJID`, "both forms; no second
@@ -4075,4 +4077,25 @@ verdict: PROMOTE
 date: 2026-09-27
 model: claude-sonnet-5
 note: Round 7's terminal-state contradiction is closed — re-derived the mechanism independently from `name_gate.py:31-36` before reading the fold, confirmed AC-5 leg (e)'s three-part partition oracle, the never-clears conjunct, leg (d)'s both-arms correction, and AC-4 leg (c)'s scoping are all present in the current criteria text and reachable from named `check:`s; re-verified rounds 1–6's closed classes directly in code (`identifier.py:270-281`'s parse/store behavior, the 29-line `prose_surface_cut0.json` count); ran the full failure-class hunt against the current AC text and found no tautological, zero-impl-satisfiable, gameable, uncovered-layer, mocked-oracle, unsatisfiable-pair, or class-closing defect; the architect's five round-9 non-blocking notes sit in prose outside every AC's `check:` and don't touch buildability.
+```
+
+## AC Sign-off
+
+```verdict
+gate: ac-signoff
+verdict: PROMOTE
+date: 2026-09-27
+reviewer: dave
+channel: conversational
+signed_at: 2026-09-27T08:00:00+01:00
+provenance: verified
+signoff_escalation: ESC-WI-032-exploring-awaiting-ac-signoff-eb28d58c
+ac_hash: dd772c1183de
+intent_hash: 6eab0010f9ce
+ac_hash_AC-1: 291f1a902f27
+ac_hash_AC-2: 0f67fabf15c5
+ac_hash_AC-3: 6e8ae465f384
+ac_hash_AC-4: 7bfa6009474f
+ac_hash_AC-5: 975c8d928253
+artifact: docs/spec-reviews/WI-032-dave-review-2026-09-27.md
 ```
