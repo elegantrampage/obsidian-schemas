@@ -1531,6 +1531,8 @@ whether to count class C as a defect population or as normal data.
 
 #### Ruling B — what does the model hold for a value the door would refuse, and does the migration repair it?
 
+**RULED — Dave, 2026-09-27 (in-session, one word: "repair").** The recommended arm, all three parts: `List[str]` stored with a derived typed accessor; `save` refuses a stored unstorable value and never erases it, clearing stays legal everywhere, the residual is reported by the new `lint_vault` detector; the migration REPAIRS class C key-preservingly. The ACs below already stand on this arm — no text changes. Landed by the conductor at the grounding door (the drive was live when the word was given).
+
 The fact that forces this: `save` gates a WHOLE-RECORD PROJECTION and `model_to_frontmatter`
 re-introduces `whatsapp` on every save (F13; the second such arm is `write_markdown_file(entity=…)`, per
 F11's correction — the handle is the projection, not the `whole_record` flag). So the two candidate builds
@@ -1567,6 +1569,8 @@ from a build.
   "either way" unchanged, and asserts both arms.
 
 #### Ruling C — scope (unchanged from the previous round)
+
+**RULED — Dave, 2026-09-27 (in-session: "whatsapp only").** WI-032 ships the `whatsapp` axis whole and nothing else; the `emails`/`phones`/`linkedin` element-typing is minted as its own item, framed as derived typed accessors alongside the stored `List[str]`, per the recommendation below. The ACs below already stand on this scope — no text changes. Landed by the conductor at the grounding door.
 
 Dave's ruling (2) says the other identifier fields become typed lists too. Two axes hide inside that
 one sentence and they cost very different amounts:
