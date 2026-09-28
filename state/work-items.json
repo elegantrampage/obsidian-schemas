@@ -1,7 +1,7 @@
 {
   "project": "obsidian-schemas",
   "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
-  "last_scanned": "2026-09-28T09:13:14Z",
+  "last_scanned": "2026-09-28T12:01:52Z",
   "next_id": 35,
   "items": [
     {
@@ -2803,7 +2803,7 @@
     {
       "id": "WI-033",
       "title": "TimelineEntry relocates into the library, with a derived introduced_by accessor",
-      "stage": "exploring",
+      "stage": "specced",
       "file": "docs/timeline-entry-relocation.md",
       "created": "2026-09-26",
       "last_touched": "2026-09-28",
@@ -2823,6 +2823,13 @@
           "at": "2026-09-28",
           "by": "session",
           "forced": false
+        },
+        {
+          "from": "exploring",
+          "to": "specced",
+          "at": "2026-09-28",
+          "by": "porter",
+          "forced": false
         }
       ],
       "latest_verdicts": {
@@ -2839,49 +2846,33 @@
           "date": "2026-09-28",
           "model": "claude-sonnet-5",
           "note": "Round-1's AC-2 finding (person axis undiscriminated) is closed \u2014 the fold plants a second person note with a differing counterparty/day/source, asserts scoping in both directions on both people, and adds an invariance-to-removal run, which together kill both the union build and the read-one-fixed-note build; independently re-verified every code citation the fold leans on (models.py:53, parser.py:250-252, body_sections.py:39, person.py:1489-1493/1502/1543-1545, name_gate.py:359-400) plus P1/P9 by fresh grep, all holding, and a fresh sweep of AC-1/AC-3/AC-4 found nothing new."
-        }
-      },
-      "verdicts": [
-        {
-          "gate": "architect",
-          "verdict": "REVISE",
-          "date": "2026-09-28",
-          "model": "claude-opus-5",
-          "note": "The Intent promises one definition of the vocabulary but nothing in the Approach, the ACs or the preconditions cuts HAL9000 over, leaving two copies with a frozen-snapshot parity test that cannot detect drift (LESSONS #4); AC-1(a)'s oracle is unexecutable because precondition 1 captures outputs without the inputs or the pinned `when` that produced them; AC-2(e)'s one-copy scan excludes `scripts/`, where the existing prose-parser specimen lives and where AC-4's new marker-reading detector lands.",
-          "targets": "AC-1, AC-2, AC-4, #intent, #approach, #write-targets",
-          "prior": "none",
-          "basis": "original",
-          "findings": "3/7"
         },
-        {
-          "gate": "architect",
-          "verdict": "REVISE",
+        "ac-signoff": {
+          "gate": "ac-signoff",
+          "verdict": "PROMOTE",
           "date": "2026-09-28",
-          "model": "claude-opus-5",
-          "note": "All three round-1 findings closed and the folds exceed what I asked; one new blocking issue in the fold itself \u2014 \"declared kind table\" is a closed refusing enum in AC-1(a2) (new this round) and an open kind-SLUG rule in `## Approach`, A1 and precondition 1, which are two different write doors with different post-cutover consequences, and the same root leaves the library's refusal surface unpinned against HAL9000's while the item's stated meaning of \"relocate\" is byte parity.",
-          "targets": "AC-1, AC-3, #approach",
-          "prior": "held",
-          "basis": "folded-material",
-          "findings": "1/4"
+          "reviewer": "dave",
+          "channel": "conversational",
+          "signed_at": "2026-09-28T10:52:08+01:00",
+          "provenance": "verified",
+          "signoff_escalation": "ESC-WI-033-exploring-awaiting-ac-signoff-3326b5a4",
+          "ac_hash": "a2bb3913f2c8",
+          "intent_hash": "beab28f263a8",
+          "ac_hash_AC-1": "c6ef8476f351",
+          "ac_hash_AC-2": "6535ee8af9f4",
+          "ac_hash_AC-3": "c198dfc5612c",
+          "ac_hash_AC-4": "f9d4f2dffcaf",
+          "artifact": "docs/spec-reviews/WI-033-dave-review-2026-09-28.md"
         },
-        {
-          "gate": "architect",
+        "data-premise": {
+          "gate": "data-premise",
           "verdict": "PROMOTE",
           "date": "2026-09-28",
           "model": "claude-opus-5",
-          "note": "Round 2's finding is closed in both clauses and closed structurally rather than in prose \u2014 D8 rules the write door OPEN and AC-1(a4) plants the out-of-table kind that makes a closed-enum build RED, while precondition 1 part 3 plus AC-1(c2) pin the refusal surface in the only direction that can break a caller; P10 re-verified at `name_gate.py:359-400`, and the one residual finding is a test-assertion reification in AC-1(c2) that cannot ship a wrong system under either reading, so it is a spec-writer note rather than a fourth round."
-        },
-        {
-          "gate": "ac-red-team",
-          "verdict": "REVISE",
-          "date": "2026-09-28",
-          "model": "claude-sonnet-5",
-          "note": "AC-2 plants intro-by data on only one person note, so nothing asserts `introduced_by(person)` reads that person's own `## Timeline` rather than the whole vault \u2014 a build that globs all notes for `intro-by` markers passes every clause and could silently cross-attribute introductions in production.",
-          "targets": "AC-2",
-          "prior": "none",
-          "basis": "original",
-          "findings": "1/1"
-        },
+          "note": "Class 1 and Class 2 both fire and both are grounded \u2014 precondition 1 pins HAL9000's contract with six input\u2192output render samples and 29 input\u2192verdict probes produced by RUNNING its code at a 40-hex HEAD (which also settles AC-1(c2)'s guard set at exactly five capture-accepted members), precondition 2 turns every prose number into a dated counts-only census (5664 files, 1314 person notes, introduced_by carriers 0, legacy intro 86/22 marked, grammars 43/38/5, intro-by 1, intro-to 0), precondition 3 sweeps 36 repos and finds all six live append_to_timeline callers pass a str so the narrowing breaks nothing on landing, precondition 4 records a performed mint (HAL9000 WI-082); I re-ran P1/P4/P5/P8/P9 and both derived instruments in-tree at HEAD 133c27a and all hold, and the counterexample hunt over `## Intent`'s \"every writer\" found three false-by-design classes (the section-append door's four hand-composing callers, four raw-file writers including this tree's own linter fixer, and exocortex's kindless high-volume meeting writer) all already dispositioned as named exclusions or as AC-1(f)'s declared outcome class; the two residuals \u2014 the 86-entries-all-outbound direction split is not in the census, and WI-082's mint is uncommitted in HAL9000's tree \u2014 govern no criterion and are recorded with the counts-only predicate that closes the first at build-start re-grounding."
+        }
+      },
+      "verdicts": [
         {
           "gate": "architect",
           "verdict": "PROMOTE",
@@ -2895,6 +2886,30 @@
           "date": "2026-09-28",
           "model": "claude-sonnet-5",
           "note": "Round-1's AC-2 finding (person axis undiscriminated) is closed \u2014 the fold plants a second person note with a differing counterparty/day/source, asserts scoping in both directions on both people, and adds an invariance-to-removal run, which together kill both the union build and the read-one-fixed-note build; independently re-verified every code citation the fold leans on (models.py:53, parser.py:250-252, body_sections.py:39, person.py:1489-1493/1502/1543-1545, name_gate.py:359-400) plus P1/P9 by fresh grep, all holding, and a fresh sweep of AC-1/AC-3/AC-4 found nothing new."
+        },
+        {
+          "gate": "ac-signoff",
+          "verdict": "PROMOTE",
+          "date": "2026-09-28",
+          "reviewer": "dave",
+          "channel": "conversational",
+          "signed_at": "2026-09-28T10:52:08+01:00",
+          "provenance": "verified",
+          "signoff_escalation": "ESC-WI-033-exploring-awaiting-ac-signoff-3326b5a4",
+          "ac_hash": "a2bb3913f2c8",
+          "intent_hash": "beab28f263a8",
+          "ac_hash_AC-1": "c6ef8476f351",
+          "ac_hash_AC-2": "6535ee8af9f4",
+          "ac_hash_AC-3": "c198dfc5612c",
+          "ac_hash_AC-4": "f9d4f2dffcaf",
+          "artifact": "docs/spec-reviews/WI-033-dave-review-2026-09-28.md"
+        },
+        {
+          "gate": "data-premise",
+          "verdict": "PROMOTE",
+          "date": "2026-09-28",
+          "model": "claude-opus-5",
+          "note": "Class 1 and Class 2 both fire and both are grounded \u2014 precondition 1 pins HAL9000's contract with six input\u2192output render samples and 29 input\u2192verdict probes produced by RUNNING its code at a 40-hex HEAD (which also settles AC-1(c2)'s guard set at exactly five capture-accepted members), precondition 2 turns every prose number into a dated counts-only census (5664 files, 1314 person notes, introduced_by carriers 0, legacy intro 86/22 marked, grammars 43/38/5, intro-by 1, intro-to 0), precondition 3 sweeps 36 repos and finds all six live append_to_timeline callers pass a str so the narrowing breaks nothing on landing, precondition 4 records a performed mint (HAL9000 WI-082); I re-ran P1/P4/P5/P8/P9 and both derived instruments in-tree at HEAD 133c27a and all hold, and the counterexample hunt over `## Intent`'s \"every writer\" found three false-by-design classes (the section-append door's four hand-composing callers, four raw-file writers including this tree's own linter fixer, and exocortex's kindless high-volume meeting writer) all already dispositioned as named exclusions or as AC-1(f)'s declared outcome class; the two residuals \u2014 the 86-entries-all-outbound direction split is not in the census, and WI-082's mint is uncommitted in HAL9000's tree \u2014 govern no criterion and are recorded with the counts-only predicate that closes the first at build-start re-grounding."
         }
       ],
       "acceptance_criteria": [

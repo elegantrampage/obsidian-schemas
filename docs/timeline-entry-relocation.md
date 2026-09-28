@@ -2,17 +2,26 @@
 id: WI-033
 title: TimelineEntry relocates into the library, with a derived introduced_by accessor
 project: obsidian-schemas
-stage: exploring
+stage: specced
 created: 2026-09-26
 last_touched: 2026-09-28
 stage_changed: 2026-09-28
 touched_by: session
 tags: []
 depends_on: []
-transitions: ["idea>exploring@2026-09-28@session"]
+transitions: ["idea>exploring@2026-09-28@session", "exploring>specced@2026-09-28@porter"]
 ---
 
 # TimelineEntry relocates into the library, with a derived introduced_by accessor
+
+### Archived Rounds
+
+<!-- archive-split: machine-maintained pointer; do not edit -->
+Settled gate rounds for this item live in `docs/timeline-entry-relocation-rounds.md` — every round at a conveyor door
+this item has already advanced past, byte-for-byte, append-only, never rewritten. READ ON DEMAND
+ONLY: each gate's latest standing round is still in this document, so nothing needed to advance this
+item is in the drawer. Open it only to read a settled round's full reasoning.
+
 
 ## Problem / Motivation
 
@@ -576,6 +585,868 @@ it detects nothing on its own, and drift in HAL9000's copy during the window is 
 hermetic floor. Who re-runs it, and when, is named: the cutover item's first act, as its re-entry
 condition (D7).
 
+## Design
+
+Written 2026-09-28 by the spec-writer, cold-start, against the tree at HEAD `133c27a`. Every citation
+below was READ at its cited symbol this round; the preconditions were read end to end. The four
+`criteria` fences and `## Intent` are FROZEN by the `ac-signoff` fence (`ac_hash a2bb3913f2c8`) and are
+not touched by this spec — see §0.
+
+### §0 — Where this spec's refinements live, and why not in the fences
+
+`hash_section` freezes the WHOLE body of `## Intent` and `## Acceptance Criteria`, nested `###`
+subsections included, and `docs/spec-reviews/WI-033-dave-review-2026-09-28.md` records the frozen bytes:
+they include the section's `**DRAFT — not frozen.**` preamble and all of `### Examples of done`. So every
+byte of that span is a signed artifact now, the preamble's own sentence included — it is left
+byte-identical deliberately, and the `ac-signoff` fence beneath it is the operative status. One
+consequence governs this whole section: **the five residual notes rounds 3 and 4 left for the spec-writer
+are resolved HERE, in unsigned prose the builder reads, rather than by editing a signed fence.** A
+within-spirit edit would invalidate the signature and buy a re-sign for text that changes no behaviour;
+the builder executes `## Design` and `## Implementation Plan`, so a resolution stated here is binding
+where it is needed. Nothing below weakens, rewrites or excepts a criterion; each entry says which clause
+it reifies and the reifications are asserted, not merely written.
+
+- **(R1) AC-1(c2)'s guard-set EQUALITY is reified (round 3 note 1, round 4 note 3).** Read literally the
+  clause cannot hold: the `-->`/`<!--` guard is HAL9000's own, so those probes sit on the capture's
+  REFUSE side and cannot appear in "capture-ACCEPTED". The operative form, and the one the builder
+  implements: **both sides are derived from the capture, and the right-hand side is the capture's
+  `accept` probes FILTERED by this document's four guard predicates** (§1.4) — never a typed list. The
+  assertion is `{p for p in accept_probes if library_refuses(p)} == {p for p in accept_probes if
+  guarded(p)}`, with a non-vacuity assertion that the second set is non-empty. At the capture's HEAD that
+  set has exactly FIVE members and the data-premise gate already named them (`text` containing `-->`,
+  `text` containing `<!--`, and a discriminator that is empty, whitespace-only or `:`-bearing); five is
+  recorded here as INFORMATIONAL and is never a pinned count, because a re-run capture may probe more
+  boundary values and the filter is what makes the clause survive that.
+- **(R2) AC-1(a2)'s "the set of kinds the capture holds" means the `## Parity samples` section's kinds
+  (round 3 note 2, round 4 note 3).** The `## Validation boundary` section deliberately probes
+  `kind: deal-closed` — a slug-valid kind no sample renders — which must NOT be in `PARITY_KINDS` or
+  (a2)'s own "a member with no sample is RED" fires. The equality's right-hand side is therefore
+  `{sample["kind"] for sample in parity_samples}` and nothing else.
+- **(R3) AC-3(d)'s undeclared-company corner is stated (round 3 note 3).** Writing the rule into the
+  person body means an UNDECLARED write on a note that is semantically a company is ALSO refused for
+  carrying `introduced_by` — it falls through `obsidian_schemas/name_gate.py:gate_write:373` exactly as
+  an undeclared person write does. That is the ruled trade: covering the undeclared PERSON route (P10)
+  matters more than exempting an undeclared COMPANY one for a key nothing may carry, and the live
+  exposure is nil because all five driven arms derive a declaration
+  (`obsidian_schemas/writer.py:update_frontmatter_field:386`,
+  `obsidian_schemas/writer.py:update_frontmatter_fields:444`,
+  `obsidian_schemas/repositories/base.py:update_fields:729`). AC-3(d)'s company/book exemption is about
+  DECLARED `company`/`book` payloads, which return at `:373` before the rule.
+- **(R4) AC-1(e)'s anchoring is a READ; the write path is untouched (round 4 note 2).** The typed arm
+  locates `## Timeline` for the dedupe test by READING
+  (`obsidian_schemas/body_sections.py:get_section:137`, which is `parse_body_sections` one frame in). The
+  WRITE remains the shipped string insertion at
+  `obsidian_schemas/repositories/person.py:append_to_timeline:1543-1545`, and the no-`## Timeline`
+  accommodation at `:1512-1537` is not touched: its comment states at length why the
+  `parse_body_sections`/`write_body_sections` round trip must never be the write mechanism (it keeps only
+  `^## `-delimited spans, so it deletes a preamble and destroys a heading-less body). §2 states this as a
+  rule so a builder cannot satisfy AC-1(f)'s placement clause while re-opening that data-loss guard.
+- **(R5) A provenance-less `Person` is answered by mirroring the door (round 4 note 1).**
+  `introduced_by` resolves the note by `_resolve_write_target` first and `get_file_path(person.name)`
+  second and refuses third — byte-for-byte the two-step at
+  `obsidian_schemas/repositories/person.py:append_to_timeline:1489-1493` — so
+  `append_to_timeline(p, e)` followed by `introduced_by(p)` cannot read a different note than the one
+  just written. §3 states it; §5's Edge Cases carry the refusal.
+
+### §1 — The new leaf module `obsidian_schemas/timeline_entry.py`
+
+A LEAF whose only intra-package import is `errors` (matching `obsidian_schemas/name_gate.py`'s stated
+leaf discipline at `name_gate.py:14-20`). It imports `re`, `dataclasses`, `datetime` and `typing` from
+the stdlib and nothing else. It must NOT import `writer`, `parser`, `vault_io`, `models`,
+`body_sections` or anything under `repositories/`.
+
+**It reads no clock.** HAL9000's module ships a `_now()` for its HTTP door's convenience
+(`docs/wi-033-hal9000-timeline-entry-capture.md`, part 1, `core/timeline_entry.py:115-122`); the library
+does not relocate it. `when` is always the caller's, which is what makes every render reproducible and is
+the property AC-1(a)'s oracle rests on. This is a deliberate non-relocation, not an omission: a clock
+read is not part of the vocabulary, and a library that had one would let a caller mint an entry whose
+bytes no test can predict.
+
+#### §1.1 One kind grammar, three uses
+
+The kind slug is written ONCE and the heading and marker patterns are composed from it, so the module
+cannot disagree with itself about what a kind is:
+
+```python
+_KIND_BODY = r"[a-z][a-z0-9_-]{0,31}"
+KIND_PATTERN = re.compile(rf"^{_KIND_BODY}$")
+HEADING_PATTERN = re.compile(rf"^### (?P<date>.+?) \[(?P<kind>{_KIND_BODY})\] *$", re.MULTILINE)
+MARKER_PATTERN = re.compile(
+    rf"^<!-- (?P<kind>{_KIND_BODY}):(?P<day>\d{{4}}-\d{{2}}-\d{{2}}):(?P<discriminator>.+) -->$",
+    re.MULTILINE)
+```
+
+`KIND_PATTERN` is HAL9000's, verbatim from the capture's part 1
+(`KIND_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")`) — the OPEN slug rule D8 rules as the write
+door. `MARKER_PATTERN`'s shape is the capture's `render` output read back: `<!-- {key} -->` on its own
+line, `(?P<discriminator>.+)` non-empty. `HEADING_PATTERN` is date-AGNOSTIC — it captures the date text
+and never parses it, which is the whole of why the three legacy heading grammars (43 `Month D, YYYY` /
+38 ISO-with-time / 5 bare ISO, `docs/wi-033-intro-corpus-baseline.md`) cost this item nothing.
+
+Two properties of these patterns are DECLARED rather than discovered, because each bounds the module's
+reach and a later reader must be able to falsify the claim:
+
+- **Line-anchored under `re.MULTILINE`.** A marker that is not alone on its line is invisible to
+  `parse_markers`, and so is a marker on a CRLF line (`$` matches before `\n`, so a trailing `\r` leaves
+  ` -->$` unmatched). This is identical to the predicate the live census used
+  (`docs/wi-033-intro-corpus-baseline.md`, `## Definitions`: `^<!-- (?P<kind>…):(?P<day>…):(?P<disc>.+) -->$`),
+  so the library's reach EQUALS the measured population by construction — the 22-of-86 legacy markers,
+  the one live `intro-by` and the three `merge` markers are exactly what it sees.
+- **The kind is bounded at 32 characters and the census's predicate was not** (`[a-z][a-z0-9_-]*`). A
+  33-character kind on disk would be visible to the census and invisible to the library. Declared
+  immaterial by measurement: the census found seven kinds, the longest 8 characters
+  (`intro-by`/`intro-to`). One grammar bounded by the write door is worth more than agreement with a
+  one-off measuring script.
+
+#### §1.2 Types
+
+```python
+@dataclass(frozen=True)
+class TimelineEntry:
+    kind: str
+    text: str
+    when: datetime
+    discriminator: Optional[str] = None
+    # __post_init__ validates; see §1.4
+
+class Marker(NamedTuple):
+    kind: str            # the marker's own kind slot
+    day: date            # parsed from the day slot
+    discriminator: str   # VERBATIM from the discriminator slot
+    source: str          # the verbatim marker line, exactly as it appears on the page
+
+class Entry(NamedTuple):
+    kind: str                  # the heading's kind slot
+    date_text: str             # the heading's date text, UNPARSED
+    body: str                  # the heading's own body, to the next `^#{2,3} ` line
+    marker: Optional[Marker]   # the well-formed marker inside that body, or None
+
+@dataclass(frozen=True)
+class IntroRecord:
+    introducer: str   # the counterparty, verbatim from the marker's discriminator slot
+    date: date        # from the marker's day slot
+    source: str       # the verbatim marker string the record was read from
+```
+
+`IntroRecord` lives HERE rather than in `repositories/person.py`, so a consumer imports the vocabulary
+and its record type from one module and no second dataclass declares the same three fields.
+
+#### §1.3 Functions, and the bytes
+
+```python
+def render(entry: TimelineEntry) -> str
+def dedupe_key(entry: TimelineEntry) -> Optional[str]
+def dedupe_probe(entry: TimelineEntry) -> Optional[str]
+def parse_markers(timeline_text: str) -> list[Marker]
+def parse_entries(timeline_text: str) -> list[Entry]
+```
+
+`render` emits, byte for byte, what the capture's `render` emits:
+`### {month} {day}, {year} [{kind}]\n{text}\n` plus `<!-- {key} -->\n` when a key exists — the HTML
+comment OMITTED, never emitted empty. The heading date is composed as
+`f"{entry.when.strftime('%B')} {entry.when.day}, {entry.when.year}"` rather than with HAL9000's
+`strftime('%B %-d, %Y')`. The bytes are identical (`%-d` is the no-pad day, which is `.day`), and the
+substitution drops a platform-specific `strftime` extension the library would otherwise carry into every
+consumer. `%B` stays, so both sides remain locale-sensitive in exactly the same way — a non-English
+locale moves both identically, and the corpus on disk is English. AC-1(a) proves the equality against the
+capture's own six samples.
+
+`dedupe_key` is `f"{kind}:{when:%Y-%m-%d}:{discriminator}"`, `None` when there is no discriminator,
+discriminator VERBATIM (no slug, no case-fold — the capture's own rule, "or `Sören Winter` and
+`Søren Winter` would collide"). `dedupe_probe` is the delimited form `f"<!-- {key} -->"`, `None` when the
+key is: it is the ONE string the door's dedupe test uses, so a key that is passed can never fail to be
+the key that was embedded.
+
+`parse_markers` is a flat `MARKER_PATTERN.finditer` in DOCUMENT ORDER, which is newest-first for stored
+entries (P3: `append_to_timeline` prepends). It yields a `Marker` only when the day slot parses through
+`date.fromisoformat`; an impossible date (`2026-13-45`) is a marker the library does not recognise, and
+it is REPORTED by the linter's `intro_by_without_marker` rather than raised on. That direction is
+deliberate and is the one place this module departs from the package's loud-fail idiom: the write door
+refuses loudly (§1.4), and a READER over arbitrary vault bytes must not let one bad note poison a whole
+scan — `lint_vault` walks 5,664 files.
+
+`parse_entries` is the heading-anchored reader the linter needs: `HEADING_PATTERN.finditer` for the
+heading, the body running to the next `^#{2,3} ` line (the census's own body definition), and
+`marker` = the FIRST `Marker` that `parse_markers` returns over that body, or `None`. It calls
+`parse_markers` rather than re-matching, so "well-formed" is ONE predicate in this module and
+`intro_by_without_marker` reports exactly the entries the accessor cannot see. It exists so
+`scripts/lint_vault.py` can ask "this heading's entry has no marker" without owning a grammar.
+
+`Marker.source` is the regex match's own text — `m.group(0)`, the marker line WITHOUT its trailing
+newline, since `$` is zero-width. Stated because AC-2 pins `source` byte-for-byte against "the marker
+substring present in that note's own text".
+
+#### §1.4 Validation — HAL9000's rules, plus exactly four declared guards
+
+Reproduced from HAL9000 (capture part 1), refusing on the same inputs:
+
+| Field | Refused when |
+| --- | --- |
+| `kind` | not a `str`, or does not match `KIND_PATTERN` |
+| `text` | not a `str`, or empty after `.strip()` |
+| `discriminator` | not a `str` and not `None`; or contains `-->`, `<!--`, `\n` or `\r` |
+
+The library's FOUR OWN guards — the complete set of inputs HAL9000 accepts and the library refuses, which
+is the enumerated exception AC-1(c2) asserts as an equality:
+
+1. `text` contains `-->` — it would terminate the comment the entry's own marker opens.
+2. `text` contains `<!--` — it would forge a second marker through the prose channel, which is the one
+   place a text channel can corrupt a machine channel.
+3. `discriminator` is empty or whitespace-only — the rendered marker would either be unreadable by
+   `MARKER_PATTERN` (empty) or would key every same-kind, same-day entry onto a blank counterparty
+   (whitespace). Either way the entry the door writes is one the accessor cannot honestly answer from.
+4. `discriminator` contains `:` — the key separator. `parse_markers` still READS such a marker off disk
+   (the pattern takes the rest of the line), so nothing on disk becomes invisible; what is refused is
+   MINTING a new key that a consumer splitting on `:` reads as a different kind/day/counterparty triple.
+
+The guard is on CONSTRUCTION only. Stating that split matters: the library is stricter than HAL9000 at
+the write door and exactly as permissive as the census at the read door.
+
+Refusals raise `TimelineEntryRefusal`, a new leaf of `LoudFailError` added to
+`obsidian_schemas/errors.py` beside `NameGateRefusal` (`errors.py:NameGateRefusal:106`), declaring no
+`__init__` — the hierarchy's one constructor is what bounds the message — and carrying a `pattern`
+attribute set AFTER construction, exactly as `NameGateRefusal.pattern` is. It needs ONE new member in
+`errors.py:REASONS:152`, because `bounded_message` refuses any reason that is not an enumerated literal
+(`errors.py:bounded_message:177-188`): `"a timeline entry field this package refuses"`. The refusal
+`pattern` values are module-level literals in `timeline_entry.py` — `KIND_PATTERN_KEY = "kind_not_a_slug"`,
+`TEXT_EMPTY_KEY`, `TEXT_FORGERY_KEY`, `DISCRIMINATOR_TYPE_KEY`, `DISCRIMINATOR_FORGERY_KEY`,
+`DISCRIMINATOR_EMPTY_KEY`, `DISCRIMINATOR_SEPARATOR_KEY` — following WI-032's precedent exactly
+(`name_gate.py:WHATSAPP_PATTERN:90`: the gate's OWN literal, never a `NameValidator` branch record). No
+note-derived value reaches the constructor; the refused VALUE is not passed at all, because at this door
+the refused value is a person's name or a note's prose (the rule `name_gate.py:_refuse:174-192` exists
+for).
+
+#### §1.5 The parity universe and the staleness anchor
+
+```python
+PARITY_KINDS = frozenset({"intro", "intro-by", "intro-to", "merge", "note"})
+HAL9000_PARITY_ANCHOR = "d54430da9547a93525c6cc1b20cf781c9a63f82e"
+INTRO_BY_KIND = "intro-by"      # WI-077, on the INTRODUCEE's note — the accessor's only source
+INTRO_TO_KIND = "intro-to"      # WI-077, the introducer-side mirror
+LEGACY_INTRO_KIND = "intro"     # OUTBOUND; never a source for the accessor (ruling §2)
+```
+
+Both literals are FROZEN, not LIVE (WI-295): the capture is a committed artifact at a fixed 40-hex HEAD
+and its epoch is closed, so an equality pin is legal — and both are nonetheless ASSERTED against the
+file rather than trusted (AC-1(a2), AC-1(a3)). `PARITY_KINDS` gates nothing: no `TimelineEntry`
+construction, no `render`, no `dedupe_key`, no `parse_markers` and no `parse_entries` call reads it
+(D8, machine-checked by AC-1(a4)'s planted `deal-closed`). Its only readers are the two derived sweeps'
+fixture spaces.
+
+### §2 — The door: `append_to_timeline`'s typed overload
+
+`obsidian_schemas/repositories/person.py:append_to_timeline:1452` becomes:
+
+```python
+def append_to_timeline(self, person: Person,
+                       entry: Union[str, TimelineEntry],
+                       deduplicate_key: Optional[str] = None) -> bool
+```
+
+Flow, with every branch named:
+
+1. **A `TimelineEntry` AND a `deduplicate_key`** — refused with `TimelineEntryRefusal`, pattern
+   `BOTH_ENTRY_AND_KEY_KEY`. The typed path derives the key; a caller supplying a second one is asking
+   the door to disagree with itself, which is the defect AC-1(d) exists to close.
+2. **A `TimelineEntry`** — `rendered = render(entry)`, `probe = dedupe_probe(entry)`. Dedupe is
+   MARKER-ANCHORED: inside the lock, read the note, split the fence
+   (`person.py:_split_frontmatter_fence:96`), take `get_section(body, "Timeline")`, and skip iff any
+   `Marker` that `parse_markers` returns over THAT SPAN has a key equal to `dedupe_key(entry)`. Not a
+   substring test at all: a `## Notes` line quoting the key verbatim is outside the span, and a quoted
+   key inside the span that is not a well-formed marker line does not match. A `None` key — an entry with
+   no discriminator — means NO DEDUPE (the capture's own rule: a free-text note has no event identity, and
+   inventing one would suppress a second, genuinely intended note), so AC-1(d)'s "the same entry twice
+   writes once" is about a DISCRIMINATOR-BEARING entry and two identical `note` entries legitimately write
+   twice. `get_section` is `parse_body_sections` one frame in
+   (`obsidian_schemas/body_sections.py:get_section:137`), which is what AC-1(e)'s span wording and
+   AC-2(a2)'s `parse_body_sections` wording both name.
+3. **A `str`** — byte-for-byte today's behaviour, INCLUDING the whole-file substring dedupe at
+   `person.py:1502`. That looseness is load-bearing for a live caller: precondition 3's cross-repo
+   reading item 2 records exocortex's kindless meeting writer
+   (`ingestion/stages/note.py:375`) deduping on a bare meeting stem matched whole-file, and narrowing it
+   would duplicate a meeting line on every hourly re-run. AC-1(f)'s "keeps working unchanged" is this
+   branch.
+4. **The write** — identical for both branches and unchanged: prepend after the `## Timeline` marker
+   (`person.py:1543-1545`), or create the section at end of file by string insertion when the marker is
+   absent (`person.py:1512-1537`). **The anchoring in step 2 is a READ and the write path is not
+   touched** (R4): no `write_body_sections` round trip is introduced anywhere on this path.
+5. **Returns** — `True` when written, `False` ONLY for the deliberate dedupe no-op, as today.
+
+The existing three-argument string call is unchanged for all six live callers precondition 3 measured
+(all pass a `str`, so the typed overload has ZERO callers on the day and the narrowing touches no live
+call).
+
+### §3 — The accessor `PersonRepository.introduced_by`
+
+```python
+def introduced_by(self, person: Person) -> list[IntroRecord]
+```
+
+1. Resolve the note: `self._resolve_write_target(person)`
+   (`obsidian_schemas/repositories/base.py:_resolve_write_target:392`), else
+   `self.get_file_path(person.name)`; if neither yields an existing path, raise
+   `ValueError(f"Person file not found: {person.name}")` — the same expression the door raises at
+   `person.py:1493` and at five sibling doors in that module. Mirroring the door is the point (R5): the
+   READ and the WRITE must agree about which note is this person's note, or WI-029's divergence class
+   re-opens on the one seam it just closed.
+2. `content, _stamp = vault_io.read_note(file_path)` — NO lock. `vault_io.read_note:641-663` sanctions
+   the unlocked read in its own contract ("a read outside the lock cannot lose a note … enforcing it
+   would forbid the legitimate unlocked read"), and `write_note` is atomic, so a concurrent writer
+   yields old bytes or new bytes and never torn ones.
+3. `_, body = _split_frontmatter_fence(content, file_path)`; `timeline = get_section(body, "Timeline")`.
+   `None` (no `## Timeline` section at all) returns `[]`.
+4. `[IntroRecord(introducer=m.discriminator, date=m.day, source=m.source)
+   for m in parse_markers(timeline) if m.kind == INTRO_BY_KIND]`.
+
+Four properties, each a rule rather than an accident:
+
+- **THE FILTER IS THE EXACT SLUG** `INTRO_BY_KIND`, never a substring and never `PARITY_KINDS`
+  membership. A kind the library never captured yields no record and does not raise (AC-2(a)).
+- **THE MARKER IS THE ONLY CHANNEL** (D1). Not the heading, not the prose, not frontmatter. This is why
+  `parse_markers` and not `parse_entries` is the accessor's reader: the heading is presentation.
+- **THE READ IS SCOPED TO THAT PERSON'S OWN NOTE.** No glob, no vault-wide scan, no repository index
+  walk. AC-2(a2) asserts it in both directions on both people plus invariance to the other note's
+  removal.
+- **`source` IS THE BYTES ON THE PAGE** — `Marker.source` is the matched marker line verbatim, so a
+  consumer that disagrees with the accessor has the exact substring to quote.
+
+`obsidian_schemas/__init__.py` exports `TimelineEntry`, `IntroRecord`, `Marker`, `Entry`,
+`TimelineEntryRefusal`, `render`, `dedupe_key`, `dedupe_probe`, `parse_markers`, `parse_entries`,
+`PARITY_KINDS`, `HAL9000_PARITY_ANCHOR`, `INTRO_BY_KIND`, `INTRO_TO_KIND`, `LEGACY_INTRO_KIND` and adds
+each to `__all__`. AC-2(e)'s closing clause ("`introduced_by` is exported from the package so a consumer
+has a typed route") is satisfied by `IntroRecord`: the accessor is a method on the already-exported
+`PersonRepository`, so what a consumer needs importable is the record type it returns.
+
+### §4 — The gate rule
+
+`obsidian_schemas/name_gate.py` gains two literals and one arm:
+
+```python
+RETIRED_PERSON_KEY: str = "introduced_by"     # ruling §1 — retired, not modelled
+RETIRED_KEY_PATTERN: str = "retired_person_key"
+```
+
+**Placement, measured rather than chosen (P10).** The arm is a new section `3c`, INSIDE the person body
+— below the declared-non-person early return at `name_gate.py:gate_write:373-398` — and immediately
+AFTER the WhatsApp arm (`3b`, `:437-446`), before section 4's address normalization:
+
+```python
+if RETIRED_PERSON_KEY in introduced:
+    _refuse(RETIRED_KEY_PATTERN, refused_value=RETIRED_PERSON_KEY)
+```
+
+Three reasons for that exact position, each quoting the code's own argument:
+
+- **In the person body, not keyed on `declared_type == PERSON_TYPE`.** `:373`'s
+  `declared_type is not None and declared_type != PERSON_TYPE` is guarded that way precisely so "an
+  UNDECLARED write that introduces identifiers but NO `name:` must fall THROUGH" (`:364-368`). A rule
+  keyed on the equality would leave a person note missing its `type:` free to carry the key.
+  `company` and `book` are exempted for free by that same return (R3 states the undeclared-company
+  corner).
+- **After the name arm and the WhatsApp arm.** `3b`'s own comment states why its position is prescribed:
+  corpus notes declare a refusal `Verdict` naming a NAME pattern and write their whole declared field set
+  through the gated door, so keeping the name refusal first makes those declarations true BY
+  CONSTRUCTION. A third arm inherits the same obligation, and it is not a name judgement either.
+- **Before section 4.** Nothing is normalized on a payload that is about to be refused, and the refusal
+  lands before any write in every arm.
+
+`refused_value` carries the KEY and never the key's value (D4): at this arm the value is a person's name,
+and `_refuse`'s rule 2 (`name_gate.py:_refuse:174-192`) exists to keep note-derived identity out of
+refusals. `pattern` is a source literal, set as an attribute after construction, reaching no message.
+
+One rule, one place, every arm (P8): `gate_write` has six call sites and the rule is written once.
+
+### §5 — `lint_vault`'s three report-only detectors
+
+All three land in `scripts/lint_vault.py:check_structural:366`, category `"structural"`, modelled
+byte-for-byte on the shipped `whatsapp_not_storable` arm (`lint_vault.py:475-503`): report-only,
+`auto_fixable` left at its `False` default, with the comment that arm already carries about the
+four-bucket accounting. They are NOT added to `check_timeline`, and that is a decision rather than
+taste: `check_timeline` walks `idx["meetings"]`/`idx["persons"]` and its leading comment
+(`lint_vault.py:740-745`) states that it never iterates `files` and therefore owes no `read_error`
+decline. A file-walk added there would make that comment false; `check_structural` already walks `files`
+with the `read_error`/`parse_error` guards FIRST (`:378-397`), which discharges AC-4(f) with no new guard
+code at all.
+
+**Position inside the loop: immediately after the `parse_error` guard (`:397`) and BEFORE the
+`no_frontmatter` arm (`:399`).** The four arms below it (`no_frontmatter`, `missing_type`,
+`if not vf.entity_type`, the `TYPE_TO_MODEL` skip) all `continue`, and each is type-scoped triage — a
+retired key on an untyped note is exactly the route AC-3(a) keeps closed, and `[intro]` entries are
+counted by the census over every `*.md` rather than over typed person notes.
+
+| check id | severity | fires on | message carries |
+| --- | --- | --- | --- |
+| `legacy_intro_entry` | WARNING | every `Entry` in the note's `## Timeline` whose kind is `LEGACY_INTRO_KIND` | the heading's own text (kind + date text), naming the note through `LintIssue.file_path` |
+| `intro_by_without_marker` | WARNING | every `Entry` whose kind is `INTRO_BY_KIND` and whose `marker` is `None` | the heading's own text |
+| `retired_key_introduced_by` | ERROR | every note whose frontmatter carries `RETIRED_PERSON_KEY`, of ANY type and of none | the key name, never its value |
+
+**Why the detector's reach is wider than the gate's, stated so the two do not read as a contradiction.**
+The GATE refuses exactly where the ruling retires the key — a person-declared or undeclared write (§4,
+R3) — because refusing a `company` write would be an unsigned subtraction (AC-3(d)). The DETECTOR reports
+every carrier whatever its `type:`, because the key is retired as a VOCABULARY matter and a note the
+report skipped would be a note nobody could find; the report costs a line and repairs nothing. Live yield
+is 0 either way (`docs/wi-033-intro-corpus-baseline.md`: `introduced_by_frontmatter_carriers: 0`).
+
+All three read the LIBRARY's grammar. `scripts/lint_vault.py` adds
+`from obsidian_schemas.timeline_entry import (INTRO_BY_KIND, LEGACY_INTRO_KIND, parse_entries)` beside
+the library imports it already carries (`lint_vault.py:38-60` imports `body_sections`, `gate_write`,
+`identifier` and `vault_io`), and `RETIRED_PERSON_KEY` from `obsidian_schemas.name_gate`. The two
+timeline detectors call `parse_entries(get_section(vf.body, "Timeline") or "")`. The script defines NO
+pattern of its own and no delimiter literal — AC-2(e)'s scan asserts exactly that, and the IMPORT is
+asserted by OBJECT IDENTITY (`lint_vault.parse_entries is timeline_entry.parse_entries`), which proves
+the import rather than a spelling of it.
+
+`intro_not_symmetric` (`lint_vault.py:check_timeline:814-834`) is untouched (P7): it is the evidence the
+Intent's boundary claim rests on, its prose regex contains no marker delimiter so it is outside AC-2(e)'s
+predicate by construction, and removing a shipped report is a separate subtraction with its own audit.
+
+### §6 — The fixture re-key, and the pool constraint that decides its value
+
+`tests/fixtures/vault/@Morvette Harkwell.md:16` becomes `manager: "Oskaline Thrandell"`, and
+`tests/fixture_vault.py:325`'s `undeclared={"introduced_by": "Voxleaf"}` becomes
+`undeclared={"manager": "Oskaline Thrandell"}`. `CORPUS_DIGEST` (`tests/fixture_vault.py:44`) is
+regenerated by the one command that module documents at `:24-25`.
+
+**D9 — the swapped value is a FRESH COMBINATION of CERTIFIED tokens, never a fresh token, and the
+constraint is structural.** D3 said "chosen FRESH … a name the identifier index cannot resolve". Read as
+"an invented name" that is UNBUILDABLE, and the wall is worth naming because it is invisible until the
+floor reddens: the manifest's `undeclared` VALUES are identity positions by AC-5(b) clause 3 and enter
+`tests/test_fixture_vault.py:_identity_text:994-1016`, every identity token must be in
+`fixture_vault.py:NAME_POOL:591` (or `CONNECTIVE_SET`, or an admitted org suffix), and
+`NAME_POOL ⊆ docs/vault-shape-census.md`'s pool table, where each row carries the conductor's live-vault
+NON-OCCURRENCE command and its verbatim stdout. A new token would need a new census row — a live
+measurement the caged builder cannot make, in a digest-frozen document
+(`test_fixture_vault.py:assert_census_is_frozen`). So: both tokens are existing `NAME_POOL` members
+(`Oskaline`, `Thrandell`), and the PAIR is not any corpus note's name, stem, alias or title, which is
+what makes it resolve to nothing and carry no second job — D3's actual intent, satisfied without
+touching the census. `Voxleaf` stays certified and stays used (`@Voxleaf Ltd.md`), so the non-vacuity
+clause (`NAME_POOL - id_tokens == ∅`) is unaffected in both directions.
+
+**The manifest comment at `tests/fixture_vault.py:323-324` is left BYTE-IDENTICAL.** `reach_files()`
+(`test_fixture_vault.py:386-392`) scans `tests/fixture_vault.py` itself, so every capitalized word in
+that file is an extracted token that must be in `PROSE_ALLOWLIST` (`fixture_vault.py:615`) unless it is
+an identity token. Re-wording the comment is a ratchet paid for nothing; only the dict literal moves.
+
+**`docs/vault-fixtures.md:279` is a CONDUCTOR-COMMITTED PRECONDITION, not a builder write.** The
+sentence "a `manager:` or `introduced_by:` on a schema-drift or forward-compatibility note" must read
+`manager:` alone (AC-3(c)). That file is ANOTHER item's tracked work-item document (WI-016, `id: WI-016`
+in its frontmatter), and since WI-245 the merge boundary admits a declared cross-doc edit only when it is
+**additive prose outside every fence**. This edit REPLACES prose, so a caged builder's write to it is
+refused at the merge boundary — the failure WI-245 says costs a conductor hand-landing plus a relaunch.
+Declared instead as a fifth `kind: precondition` fence in `## Write Targets`. Two things make that safe
+rather than a hope: the same sentence is also inside WI-016's SIGNED AC-5 fence at `:1434`, which is
+**not** in scope and must not be touched (moving a typed parse of another item's doc is exactly what the
+merge rule forbids, and it is another item's signed criterion); and the PRE-DRIVE floor check (WI-156 /
+WI-164) is clean — no test in this tree reads `:279`'s prose, so the doc edit participates in no
+bijection or symmetry invariant and needs no atomic landing with the builder's re-key. AC-3(c)'s own
+check is what makes the edit verifiable at all, since a precondition probe reads presence and the file is
+already in HEAD.
+
+### §7 — Configuration
+
+None. No setting, threshold, toggle, env var or flag is introduced. `lint_vault`'s three new checks are
+always on, in the `structural` category, and `--category structural` already selects them; nothing is
+gated behind a flag, because a report-only detector's cost is a line of output.
+
+### §8 — Prerequisites & Assumptions
+
+1. **Five conductor-committed preconditions in git HEAD before the build is armed** — the four already
+   committed (`docs/wi-033-hal9000-timeline-entry-capture.md`, `docs/wi-033-intro-corpus-baseline.md`,
+   `docs/wi-033-consumer-audit.md`, `docs/wi-033-hal9000-cutover-followup.md`) plus §6's
+   `docs/vault-fixtures.md` edit. Each is declared as a `kind: precondition` fence.
+2. **No live vault, no network, no service.** The floor is hermetic by WI-031 clause (v); HAL9000,
+   exocortex, orchestrator and mainspring need not be running and are not called. Every live fact this
+   item rests on is read from a committed precondition and never re-measured.
+3. **The project interpreter.** `pipeline-runners.yaml` declares `seed_deps: [.venv]` and no `commands:`
+   or `ac_runner:` block, so (a) the floor command is
+   `/Users/davewascha/Workspaces/obsidian-schemas/.venv/bin/python -m pytest <tree>/tests -q`, (b) there
+   is NO registered `command_id`, so no task may declare `verify: cmd:…`, and (c) every AC check is
+   discovered by its bare top-level `def` and invoked with zero arguments under the conveyor's own
+   interpreter. Therefore **every new check module begins with
+   `from tests.ac_interpreter import ensure_project_interpreter` / `ensure_project_interpreter(__file__)`
+   BEFORE any package import**, as `tests/test_stem_name_divergence_detector.py:38-40` does; without it
+   the check is RED at `building → done` under an interpreter that cannot import pydantic.
+4. **Trust boundary.** Vault bytes are UNTRUSTED input, and this item adds two readers of them
+   (`parse_markers`, `parse_entries`) plus one accessor. Neither reader raises on hostile bytes; neither
+   is used to build a path, a command or a write. The WRITE side is where validation lives, and it is
+   total over the three fields (§1.4). Nothing is interpolated into a shell, a query or an error message.
+5. **`PARITY_KINDS` and `HAL9000_PARITY_ANCHOR` are only as true as the capture**, which freezes HAL9000
+   at one HEAD. Drift in HAL9000's own copy during the window between this item and the minted cutover
+   (HAL9000 WI-082) is UNDETECTED by this tree's floor — accepted in writing by D7, not mitigated.
+6. **WI-034 is folded** (ruling §2) and nothing else is waiting: WI-029's provenance seam and WI-032's
+   list shape are shipped.
+
+### §9 — What each touched file joins: the standing walls (WI-301)
+
+DERIVED, not remembered: the population was found by sweeping `tests/` for modules that read the text of
+files they did not name at authoring time — i.e. every module that calls
+`tests/derivations.py:python_files_under:185` over `PACKAGE_ROOT` / `TESTS_ROOT` / `SCRIPTS_ROOT`, plus
+the two markdown/corpus sweeps that reach files by `rglob` and `iterdir`. **This census is a FLOOR
+measured on 2026-09-28 and never a total** — this derivation has under-reached at its reading step every
+time it has been run in this factory, which is why Task 11 RUNS each predicate on the files' FINAL text
+rather than reasoning about which shapes match, and why anything the run returns that this table does not
+name is NAMED in the Build Log and satisfied, never worked around and never satisfied by narrowing the
+wall.
+
+| Wall (its own shipped predicate) | What it requires of this item's files |
+| --- | --- |
+| `modules_using_ast` == `{"tests/derivations.py"}` — asserted from `tests/test_fixture_vault.py:1383`, `test_name_gate_wall.py:1136`, `test_lint_vault_fix_rules.py:1957`, `test_loud_fail_harness.py:103` | NO new file may import or use `ast`. Both new derivations live in `tests/derivations.py`; the new test modules call them and never parse source themselves. |
+| `skip_reason_literal_sites(…, SKIP_REASONS)` == `{base.py, tests/test_fixture_vault.py}` — `test_fixture_vault.py:1392`, `test_lint_vault_fix_rules.py:1963`, `test_whatsapp_migration.py:968`, `test_provenance_write_seam.py:1857` | No new file may hand-type a skip-reason literal. None does. |
+| `frontmatter_write_arms(PACKAGE_ROOT, SCRIPTS_ROOT)` — `test_company_name_contract.py:621`, `test_lint_vault_fix_rules.py:1971` (`apply_fixes` == exactly one arm) | The typed overload writes a BODY through `vault_io`, introducing no frontmatter write arm; the gate arm adds none. |
+| `character_class_strip_sites` == `[]` and `address_splitting_implementations` == `set()` over package+scripts — `test_address_splitter.py:102`, `test_lint_vault_fix_rules.py:1987` | `timeline_entry.py` must not roll a negated-character-class strip and must not parse an address. It does neither. |
+| `gate_call_declarations` / `gate_call_placement` — `test_name_gate_wall.py` | The new gate arm adds no `gate_write` CALL and no new frontmatter arm, so both derived pins are unmoved. Task 6's new `gate_call_sites` derivation is additive. |
+| `write_target_buckets` / `door_calls_inside_note_lock` / `non_completed_write_sites` / `falsy_returns_in(COMMIT_FUNCTION_NAMES)` — `test_write_target_seam_wall.py:227`, `test_provenance_write_seam.py:425,1274`, `test_write_routing.py:466` | The accessor is a READ and adds no write site; the typed arm reuses the existing `vault_io.write_note` calls inside the existing lock. `append_to_timeline` is not in `COMMIT_FUNCTION_NAMES`, so its deliberate `False` stays legal. |
+| `NO_ARG_CONSTRUCTION` over every repo `*.md` outside `docs/`/`state/` — `test_vault_path_required.py:443-459`, re-run over the corpus by `test_fixture_vault.py:1414` | The edited corpus note must not contain `…Repository()`. It does not. (`docs/**` is excluded, so this document and the preconditions are out of reach.) |
+| `test_fixture_vault.py:test_fixture_vault_is_frozen_and_materialized_by_byte_copy` + `test_no_corpus_note_carries_a_live_identifier` | `CORPUS_DIGEST` regenerated in the same commit as the note edit; the swapped value's tokens in `NAME_POOL` (§6); no new prose token in the manifest. |
+| `test_fixture_vault.py:1419-1431` (W-14, pytest collection globs) and `check_module` uniqueness (W-10, `test_ac_interpreter.py:95-106`) | The three new test modules match `test_*.py` and each defines a check name that resolves to exactly ONE module tree-wide. Task 11 asserts the second by CALLING `check_module` on all four AC check names. |
+| `test_lint_vault_fix_rules.py:288` — the five-clause containment wall over that module's OWN source | Task 9's additions there take their vault from `_temp_vault(root)`, bind it to the identifier `vault`, name no live-path token outside that door, and construct no repository. |
+| `test_lint_vault_fix_rules.py:822` — `len(pinned) == 7` over `auto_fixable_emitter_checks + GARBAGE_CHECKS` | The three new checks are NOT auto-fixable, so the pin stays at 7. It is re-read rather than edited (Task 12), and it is the evidence for AC-4(e). |
+| `test_lint_vault_fix_rules.py:1703-1708,1775` — `CENSUS_SHAPE_TO_RULE` and `docs/lint-vault-live-baseline.md`'s §1/§4 rows bound to the auto-fixable rule set | Unmoved for the same reason: a report-only rule owes the live baseline no row. This is why report-only is not merely ruling §3's preference but the only arm buildable inside a hermetic cage. |
+
+**The conscious-pin sweep (WI-229).** The countable corpora this item touches are the lint check-id set
+and the frozen fixture corpus. Their declaring symbols are
+`tests/derivations.py:auto_fixable_emitter_checks`, `auto_fixable_branch_checks`,
+`scripts/lint_vault.py:CATEGORY_ORDER` and `tests/fixture_vault.py:NOTES` / `CORPUS_DIGEST`. Reading
+every file those symbols reach at FILE granularity returns the pins named in the last three rows above,
+plus `CORPUS_DIGEST` itself. The obligation is stated as a predicate and never as a number: **the
+auto-fixable rule set does not change, and the digest changes exactly once.**
+
+### §10 — Pattern consistency
+
+Every piece has a model in this tree: the leaf module's import discipline is `name_gate.py:14-20`; the
+refusal leaf and its pattern literal are `NameGateRefusal` + `WHATSAPP_PATTERN`; the report-only detector
+is `whatsapp_not_storable` (`lint_vault.py:475-503`); the gate arm's placement argument is `3b`'s own;
+the accessor's note resolution is `append_to_timeline:1489-1493`; the new check modules' shape — the
+interpreter shim first, one `def test_*` calling `_check_*` helpers, the containment wall defined first
+where the module drives the linter — is `tests/test_stem_name_divergence_detector.py`; the capture-parsing
+test's shape is `tests/test_lint_vault_fix_rules.py:113`'s declared-headings parse of
+`docs/lint-vault-live-baseline.md`. The one deviation from a shipped pattern is §1.3's non-raising
+reader, justified there.
+
+### §11 — Mechanics a builder would otherwise have to guess
+
+Four, each with the shipped thing to copy rather than a description:
+
+1. **Parsing the capture.** Select the section by its declared `## ` heading, take every fenced block
+   whose info string is `yaml` inside that section, and `yaml.safe_load` each one — the capture was
+   produced with `yaml.safe_dump`, so the round trip is exact and the `rendered` block scalar's single
+   trailing newline is the renderer's own. `yaml` is importable because the interpreter shim re-execs
+   under the project interpreter (§8.3); under the conveyor's bare `-S` interpreter it is not, which is
+   the whole reason the shim is the module's first statement. Shape to copy:
+   `tests/test_lint_vault_fix_rules.py:113` and its declared-headings parse of
+   `docs/lint-vault-live-baseline.md`.
+2. **Planting source files for the two WI-235 batteries.** `tests/support.py:temp_dir` for the scratch
+   root, plus a four-line local `_plant_source(root, name, source)` that writes `root/name` and returns
+   the path — the shape `tests/test_lint_vault_fix_rules.py:_plant_source:352` already carries. The
+   planted file is handed to the DERIVATION; the test itself never parses source, because `ast` is
+   single-homed to `tests/derivations.py` (§9, row 1).
+3. **Planting vault notes.** For the accessor and gate checks a plain temp directory plus
+   `Path.write_text` is enough — no corpus is needed (D6: these specimens are BEHAVIOURAL and owe the
+   census no row) — and each planted `## Timeline` entry is produced by the library's own `render`, so the
+   fixture's bytes are the door's bytes. For AC-4's check, `_temp_vault(root)` + `_plant` inside
+   `tests/test_lint_vault_fix_rules.py`, which materializes the frozen corpus and refuses a corpus stem.
+4. **Constructing a repository.** Every repository in a test is constructed with an EXPLICIT temp path: a
+   no-argument construction resolves the LIVE vault from the environment inside the library (WI-031), and
+   in `tests/test_lint_vault_fix_rules.py` the containment wall's clause (v) asserts that module
+   constructs none at all — so AC-4's check reaches the linter through `lint_vault`'s own entry points and
+   never through a repository.
+
+## Verified Diagnosis
+
+Four load-bearing claims about how the current system behaves; if any were false the work would change
+shape. Each was re-run this round with Read/Grep at HEAD `133c27a`.
+
+1. **The dedupe contract is a whole-file substring test, and the key can disagree with the marker.**
+   `obsidian_schemas/repositories/person.py:append_to_timeline:1502` is literally
+   `if deduplicate_key and deduplicate_key in content:` where `content` is the entire note including
+   frontmatter and every other body section (bound at `:1499` from `vault_io.read_note`), and `entry` and
+   `deduplicate_key` are unrelated parameters (`:1455-1456`). Falsifiable in one read; it is what §2's
+   branches 2 and 3 are about.
+2. **The writer PREPENDS despite its name.** `person.py:1543-1545` —
+   `parts = content.split(timeline_marker, 1)` then
+   `parts[0] + timeline_marker + formatted_entry + parts[1]`. Newest-first is therefore the stored order
+   and the accessor's declared order.
+3. **Nothing in this library defines the vocabulary, and one second copy of a PROSE parser already
+   exists.** `**/timeline_entry*.py` over the tree returns no file; `<!--` / `-->` over every `*.py`
+   returns zero matches (so AC-2(e)'s scan starts from zero and needs no exemption); and
+   `scripts/lint_vault.py:check_timeline:816` is
+   `re.compile(r"[Ii]ntroduc(?:ed|tion)[^[]*\[\[(@[^\]|]+)")`, a live prose-parsing specimen, report-only.
+4. **The gate structurally cannot distinguish an introduction from a re-emission, so an unconditional ban
+   needs an emptied population rather than an exemption.** The gate reads only its arguments
+   (`name_gate.py:22-29`); `Person` is `extra="allow"` (`models.py:34-40`); `model_to_frontmatter`
+   serializes `model_extra` into every note the library writes (`models.py:45-53`, stated verbatim there);
+   and `PersonRepository.save`'s write-back rider hands that whole projection to the gate —
+   `gate_write(model_to_frontmatter(entity), declared_type=self.type_name, whole_record=True)`
+   (`person.py:1270-1271`). So a `save()` of a note that already carries the key hands the key to the gate
+   inside `introduced`. The live population is 0 carriers over 5,664 files
+   (`docs/wi-033-intro-corpus-baseline.md`) and the fixture population is exactly one note, which §6
+   empties.
+
+## Edge Cases & Open Questions
+
+- **Empty / null / malformed input.** *Case:* a caller passes `kind=None`, `text=""`, a non-`str`
+  discriminator, or a `when` that is not a `datetime`. *Decision:* the first three raise
+  `TimelineEntryRefusal` with the pattern §1.4 names (the `text` and `kind` rules are HAL9000's, so the
+  refusal is parity, not tightening). A non-`datetime` `when` raises `AttributeError` from `strftime` at
+  render time and is NOT guarded, because `when` is a required positional with no plausible wrong-type
+  caller and a type check there would be the only validation in the module with no capture probe behind
+  it. *Reasoning:* the door refuses what a caller can plausibly get wrong from data; a wrong TYPE is a
+  programming error that should surface uncaught. *Test:* AC-1(c), AC-1(c2).
+- **Malformed input on the READ side.** *Case:* a marker whose day is `2026-13-45`; a marker not alone on
+  its line; a CRLF note; a `## Timeline` section containing a quoted key that is not a marker.
+  *Decision:* none of these is a `Marker`; `parse_markers` yields nothing for them and raises nothing.
+  The linter REPORTS an `intro-by` heading in that state as `intro_by_without_marker`. *Reasoning:* a
+  reader over 5,664 untrusted files must not let one note poison a scan, and the narrowing is honest
+  because the linter names every entry the accessor cannot see. *Test:* AC-2(c), AC-4(b).
+- **Empty / absent sections.** *Case:* a person note with an empty `## Timeline`, with no `## Timeline`
+  at all, or with no frontmatter fence. *Decision:* `[]` for the first two; the third raises
+  `FrontmatterParseError` from `_split_frontmatter_fence:96`. *Reasoning:* absence of entries is a
+  legitimate answer, absence of a parseable note is not. *Test:* AC-2(d).
+- **Race conditions / concurrent access.** *Case:* an external writer (Obsidian, HAL9000) lands a write
+  between the accessor's read and its caller's use; or two callers append the same entry at once.
+  *Decision:* the accessor reads WITHOUT the lock, sanctioned by `vault_io.read_note:641-663`, and
+  returns a snapshot; `write_note` is atomic so the read is never torn. The typed append keeps today's
+  behaviour — one `note_lock` spanning read, dedupe and write (`person.py:1498-1546`) — so the second
+  caller's dedupe test sees the first caller's marker and returns `False`. *Reasoning:* the door's
+  existing lock discipline already makes the dedupe correct under concurrency once the test is anchored
+  to the marker; widening the accessor to take a lock would forbid the legitimate unlocked read.
+  *Test:* AC-1(d) (same entry twice writes once); the existing `tests/test_concurrent_access.py` battery
+  is the regression.
+- **External dependency failure.** *Case:* HAL9000 unreachable; the vault absent; a precondition file
+  missing at test time. *Decision:* no service is called anywhere in this item. A missing note raises the
+  door's own `ValueError`. A missing or unparseable capture file makes AC-1's check RAISE rather than
+  skip — the test opens `docs/wi-033-hal9000-timeline-entry-capture.md` with no fallback and asserts its
+  sample and probe sets are non-empty, because a fence reader that finds nothing is otherwise green
+  (this tree's own scar, `tests/test_fixture_vault.py:1451-1454`). *Test:* AC-1(a), AC-1(c2).
+- **First-run vs subsequent-run.** *Case:* the first typed append to a note with no `## Timeline`.
+  *Decision:* identical to today — the section is created at end of file by string insertion
+  (`person.py:1512-1537`) and the entry lands. There is no other first-run difference: no cache, no
+  index, no migration, no state file. *Test:* AC-1(f).
+- **Migration / backfill.** *Case:* getting from today's state to the new one. *Decision:* there is no
+  data migration. The 86 legacy `[intro]` entries stay exactly as they are (A5, ruling §3) and become
+  visible through `legacy_intro_entry`; the one stored `introduced_by` value was converted by hand on
+  2026-09-28 through the sanctioned doors before this item (ruling §1), so the live population is already
+  0; the only "migration" is the fixture re-key in §6. *Reasoning:* a rewrite of the legacy corpus buys
+  the accessor nothing (all 86 are outbound) and would need its own WI-032-shaped live bracket.
+  *Test:* AC-4(a) reports them; AC-3(c) reads the committed zero as a premise.
+- **Idempotency.** *Case:* the same typed entry appended twice; the linter run twice; the builder's
+  fixture re-key applied twice. *Decision:* the second append is the deliberate `False` no-op; the linter
+  is read-only for these three checks, so N runs yield N identical reports; the re-key is a text edit
+  whose second application is a no-op. *Test:* AC-1(d).
+- **Retry semantics.** *Case:* a caller retries after a failure. *Decision:* unchanged from the door's
+  shipped contract — `ExternalWriteConflict` is retryable (its retry re-reads), `StaleEntityWrite` is
+  retryable after `refresh()`, `WriteFailedError` and both refusal leaves are NOT (a refusal is a
+  deterministic function of the payload, so an identical retry gets an identical refusal —
+  `errors.py:NameGateRefusal:130-134`). `TimelineEntryRefusal` inherits that reading and says so in its
+  docstring. *Test:* covered by the existing loud-fail batteries (Regression, below).
+- **Partial failure.** *Case:* the refusal fires after part of a write. *Decision:* impossible on both
+  new paths. The gate arm refuses before `write_frontmatter` at every driven arm (AC-3(b) asserts NO FILE
+  CHANGED); the typed arm's validation happens in `TimelineEntry.__post_init__`, i.e. before the object
+  the door receives exists. *Reasoning:* a refusal that fires after a partial write is worse than no
+  refusal. *Test:* AC-3(b).
+- **Error propagation.** *Case:* what the caller sees. *Decision:* `TimelineEntryRefusal` and
+  `NameGateRefusal` are both `LoudFailError` leaves, so `except LoudFailError` still means "this package
+  refused"; every ABSORBING handler and every oracle names the LEAF and its `pattern`, per the idiom
+  `errors.py:NameGateRefusal:122-128` states. The accessor's "no note" is the door's own `ValueError`.
+  No message carries note content, and no refusal is chained to a foreign exception except through
+  `chainable_cause`. *Test:* AC-1(c), AC-3(a).
+- **Trust boundary crossings.** *Case:* hostile vault bytes reaching the marker readers; a caller forging
+  a marker through the `text` channel. *Decision:* the readers are regex matchers over text, build no
+  path and execute nothing; the forgery channel is closed at construction by guards 1 and 2 of §1.4.
+  *Reasoning:* the machine channel (the marker) must not be writable from the prose channel (the text),
+  which is the one crossing this item creates. *Test:* AC-1(c), AC-1(c2).
+- **A kind nobody captured.** *Case:* a new writer builds `TimelineEntry(kind="deal-closed", …)`.
+  *Decision:* it constructs, renders and round-trips; the library makes no byte-parity CLAIM about it;
+  the accessor returns no record for it and does not raise. *Reasoning:* D8 — this item relocates and
+  does not tighten. *Test:* AC-1(a4), AC-2(a).
+- **A locale whose `%B` is not English.** *Case:* the heading's month name changes. *Decision:* accepted
+  and unguarded: both HAL9000's renderer and the library's call `strftime('%B')`, so a locale moves both
+  identically and parity is preserved; the on-disk corpus is English. *Reasoning:* pinning a month table
+  in the library would make it DIFFER from the code it is relocating — the one thing §1 must not do.
+  *Test:* AC-1(a) proves the equality under the build environment's own locale.
+
+OPEN: None.
+
+## Implementation Plan
+
+Tasks are ordered by dependency and each is one sitting. Tasks 2–4 are one coherent leg (the leaf module
+and its oracle) and must not be reordered. Tasks 5, 6 and 8 are independent of each other once Task 2
+lands and may be done in any order; Tasks 9–12 come last.
+
+- [ ] **Task 1 — Record the baseline the later assertions are deltas against.** Before the first edit,
+  run the floor command and record in the Build Log: the case count it reports, the value of
+  `tests/fixture_vault.py:CORPUS_DIGEST`, and the `len(pinned)` figure
+  `tests/test_lint_vault_fix_rules.py:822` asserts (7). **Verify:** the three numbers are in the Build
+  Log before any file is edited; no later check asserts them as literals.
+  verify: baseline — the pre-edit floor count, CORPUS_DIGEST and the len(pinned)==7 reading are recorded in the Build Log; no later check pins them (WI-238).
+
+- [ ] **Task 2 — The leaf module, its refusal leaf and the package exports.** Create
+  `obsidian_schemas/timeline_entry.py` exactly as §1 specifies: `_KIND_BODY` and the three patterns
+  (§1.1), the four types (§1.2), the five functions (§1.3), the validation table and the four guards with
+  their pattern literals (§1.4), `PARITY_KINDS`, `HAL9000_PARITY_ANCHOR` and the three kind constants
+  (§1.5). Add `TimelineEntryRefusal` to `obsidian_schemas/errors.py` beside `NameGateRefusal`, declaring
+  no `__init__` and carrying `pattern: Optional[str] = None`, plus ONE new member in `REASONS`:
+  `"a timeline entry field this package refuses"`. Export all of §3's names from
+  `obsidian_schemas/__init__.py` and add each to `__all__`. **Verify:** Task 3's check is the oracle;
+  this task is done when the module imports under the project interpreter and the new leaf is
+  constructible.
+  verify: test_timeline_entry_reproduces_hal9000_render_and_validation_boundary
+
+- [ ] **Task 3 — The parity and validation-boundary check, driven by the committed capture.** Create
+  `tests/test_timeline_entry.py` (interpreter shim first, per §8.3) defining
+  `test_timeline_entry_reproduces_hal9000_render_and_validation_boundary`, which parses
+  `docs/wi-033-hal9000-timeline-entry-capture.md` — the `## Parity samples` and `## Validation boundary`
+  sections, one `yaml` fence per record, exactly as `tests/test_lint_vault_fix_rules.py:113` parses
+  `docs/lint-vault-live-baseline.md` by declared headings — and asserts, with every oracle read from the
+  file and NO literal re-typed into the test:
+  (a) for every sample, `render(TimelineEntry(kind=…, text=…, when=datetime.fromisoformat(…),
+  discriminator=…))` is byte-identical to that sample's `rendered` block;
+  (a2) `PARITY_KINDS == {s["kind"] for s in samples}` — the `## Parity samples` section's kinds, per R2;
+  (a3) `HAL9000_PARITY_ANCHOR` equals the 40-hex HEAD the capture declares, read out of the capture's own
+  prose and asserted to match `^[0-9a-f]{40}$`;
+  (a4) a PLANTED slug-valid kind absent from `PARITY_KINDS` (`deal-closed`) constructs, renders and
+  round-trips, and `PARITY_KINDS` is asserted not to be consulted — the planted kind's own round trip is
+  the discriminant;
+  (b) for every member of `PARITY_KINDS` iterated (never a hand list) plus the planted kind,
+  `parse_markers(render(entry))` returns exactly one `Marker` whose `kind`, `day` and `discriminator`
+  equal the entry's, and `dedupe_key(entry)` equals that marker's reconstructed key;
+  (c) each of §1.4's guards raises `TimelineEntryRefusal` with the pattern this document names;
+  (c2) R1's reified equality — the set of `accept` probes the library REFUSES equals the set of `accept`
+  probes matching this document's four guard predicates, with that second set asserted non-empty, and
+  every `accept` probe outside it asserted to CONSTRUCT.
+  Non-vacuity first: assert the sample set and the probe set are non-empty and that the probes carry both
+  verdict values, so a fence reader that finds nothing is RED rather than green. **Verify:** the check
+  raises when any sample's bytes are altered by one space (observe by hand-mutating a copy of the parsed
+  dict in a scratch run, then revert).
+  verify: test_timeline_entry_reproduces_hal9000_render_and_validation_boundary
+
+- [ ] **Task 4 — The typed overload on the door.** Change
+  `obsidian_schemas/repositories/person.py:append_to_timeline` to §2's five-branch flow: the
+  `Union[str, TimelineEntry]` parameter, the both-arguments refusal, the marker-anchored dedupe over
+  `get_section(body, "Timeline")` using `parse_markers` and `dedupe_key`, the unchanged string branch
+  including its whole-file substring test, and the unchanged write and return values. Add
+  `parse_body_sections`-backed `get_section` to nothing — it is already imported at `person.py:61`.
+  Extend Task 3's check with AC-1(d), (e) and (f): the same entry twice writes once and returns `False`;
+  a note whose `## Notes` section quotes the key verbatim is NOT deduped against and the entry IS
+  appended; the typed path prepends inside `## Timeline` and the existing string-and-key signature still
+  works. State in the method's docstring that the anchoring is a READ and that the write mechanism and
+  the no-`## Timeline` accommodation are unchanged (R4). **Verify:** as declared.
+  verify: test_timeline_entry_reproduces_hal9000_render_and_validation_boundary
+
+- [ ] **Task 5 — The accessor, and the person axis discriminated.** Add
+  `PersonRepository.introduced_by` exactly as §3 specifies. Create
+  `tests/test_introduced_by_accessor.py` (interpreter shim first) defining
+  `test_introduced_by_reads_only_this_persons_intro_by_markers` over a PLANTED temp vault holding two
+  person notes: A carrying one entry per `PARITY_KINDS` member (iterated, never hand-listed) plus
+  AC-1(a4)'s out-of-table kind, each with a known counterparty and day; B carrying its own well-formed
+  `intro-by` entry with a different counterparty, a different day and different `source` bytes. Assert
+  AC-2's oracle as this document states it, then (a) the kind axis; (a2) the person axis in BOTH
+  directions on BOTH people, plus the invariance run — the same `introduced_by(A)` over a vault from
+  which B's note has been removed returns the IDENTICAL list; (b) plurality and newest-first order with
+  B's note still present; (c) a markerless `intro-by` heading absent from the result; (d) the three
+  never-the-other-channels cases with B's note present. Each entry is planted by rendering it through the
+  library's own `render` into the note's `## Timeline`, so the fixture's bytes are the door's bytes.
+  **Verify:** as declared.
+  verify: test_introduced_by_reads_only_this_persons_intro_by_markers
+
+- [ ] **Task 6 — The gate rule, and a derived arm sweep that names what it excludes.** Add §4's two
+  literals and the section-`3c` arm to `obsidian_schemas/name_gate.py`, with a comment stating the three
+  placement reasons §4 gives. Add to `tests/derivations.py` a new derivation
+  `gate_call_sites(files) -> list[GateCallSite]`, where a site is
+  `(module, qualname, ordinal, fields_is_empty_literal, declared_type_is_none_literal)` for every call
+  resolving to `gate_write` (reusing `_resolves_to` / `_import_aliases`, so an aliased import is
+  collected). Create `tests/test_retired_key_gate_rule.py` (interpreter shim first) defining
+  `test_the_write_gate_refuses_the_retired_introduced_by_key`: (a) the refusal on both values of
+  `whole_record`, with `pattern` and `refused_value` asserted, plus the explicit undeclared route
+  (`declared_type=None`, no `name:`); (b) the derived sweep — the excluded set (both flags true) asserted
+  to EQUAL exactly the one site in `writer.py:roundtrip_file`, the other five each DRIVEN through its own
+  public door (`write_markdown_file` with `entity=` and with `frontmatter=`,
+  `update_frontmatter_field`, `update_frontmatter_fields`, `BaseRepository.update_fields`,
+  `PersonRepository.save`), each asserted to refuse AND to leave the file byte-identical; and the drive
+  table asserted TOTAL — its covered set plus the excluded set equals the derived site set, so a seventh
+  call site added later is RED until someone drives it; (d) another undeclared key (including `manager`)
+  passes through unchanged, and a `company`-declared and a `book`-declared payload carrying the key are
+  NOT refused. Ship the WI-235 battery for the new derivation: plant source files carrying each claimed
+  shape — a direct call with `{}` and `declared_type=None`, one with `{}` and an attribute declaration,
+  one with a non-empty literal and `None`, one through an aliased import — drive them through
+  `gate_call_sites` itself, and include a near-miss (a call to a different function named in a docstring)
+  the predicate must NOT collect. **Verify:** as declared.
+  verify: test_the_write_gate_refuses_the_retired_introduced_by_key
+
+- [ ] **Task 7 — Empty the fixture population.** Apply §6: the note edit, the manifest edit with its
+  comment left byte-identical, and the `CORPUS_DIGEST` regeneration using the command
+  `tests/fixture_vault.py:24-25` documents. Add to Task 6's check the derived scan AC-3(c) names: no file
+  under `tests/fixtures/vault/` and no `NoteSpec.undeclared` key in `tests/fixture_vault.py:NOTES` names
+  `introduced_by` afterwards; the swapped value's extracted tokens are all in `NAME_POOL`; and
+  `docs/vault-fixtures.md` (the conductor-committed precondition) names `manager:` alone in the sentence
+  at its undeclared-key example, asserted by the absence of the phrase `` `introduced_by:` `` outside
+  that file's `criteria` fences. Read the committed live zero from
+  `docs/wi-033-intro-corpus-baseline.md` as a premise; never re-measure a vault. **Verify:** as declared
+  — the corpus walls and the gate check together.
+  verify: test_no_corpus_note_carries_a_live_identifier test_fixture_vault_is_frozen_and_materialized_by_byte_copy test_the_write_gate_refuses_the_retired_introduced_by_key
+
+- [ ] **Task 8 — The three detectors.** Add §5's three arms to `scripts/lint_vault.py:check_structural`
+  at the stated position, with the library imports §5 names and no pattern of the script's own. Each is
+  `auto_fixable=False` by default, carries the severity the table gives, and its message names the
+  heading or the key and never a value. **Verify:** Task 9's check.
+  verify: test_lint_vault_reports_the_intro_legacy_shapes_and_never_repairs_them
+
+- [ ] **Task 9 — AC-4's check, inside the module that already owns the containment wall.** Add
+  `test_lint_vault_reports_the_intro_legacy_shapes_and_never_repairs_them` to
+  `tests/test_lint_vault_fix_rules.py`, taking its vault from `_temp_vault(root)` and its plants from
+  `_plant`, so the five-clause wall at `:252` covers the new drives with no second door. Assert: (a)
+  `legacy_intro_entry` fires once per `[intro]` heading across all three planted heading grammars
+  (`Month D, YYYY`, ISO-with-time, bare ISO); (b) `intro_by_without_marker` fires once per markerless
+  `intro-by` heading, and the grammar it uses is the library's — asserted by object identity, e.g.
+  `lint_vault.parse_entries is timeline_entry.parse_entries`; (c) `retired_key_introduced_by` fires once
+  per carrier, including an UNTYPED note; (d) silence over the planted negatives AC-4(d) enumerates, and
+  over the frozen corpus as a SET EQUALITY of `(note, rule_id)` pairs computed twice in the same run —
+  once with the three rule ids present and once with them filtered out; (e) a `--fix` drive over a vault
+  carrying both a planted auto-fixable issue and the three new ones: the four-bucket total still equals
+  the auto-fixable issue count and the new issues are counted by the summary's non-fixable figure;
+  (f) an undecodable note (planted with `_plant_bytes`) is reported by none of the three.
+  **Verify:** as declared, together with the write-causing-detector pin that proves the report-only
+  posture.
+  verify: test_lint_vault_reports_the_intro_legacy_shapes_and_never_repairs_them test_every_write_causing_detector_fires_exactly_on_its_declared_subjects
+
+- [ ] **Task 10 — One definition of the grammar, asserted structurally.** Add to
+  `tests/derivations.py` a derivation `marker_grammar_sites(files) -> list[GrammarSite]`: every string
+  `Constant` in the parsed tree whose value contains `<!--` or `-->`, EXCLUDING docstrings (the first
+  statement of a module, class or function), reported as `(module, lineno)`. Add AC-2(e)'s clause to
+  Task 5's check: over `python_files_under(PACKAGE_ROOT, SCRIPTS_ROOT)` the sites' module set equals
+  exactly `{"obsidian_schemas/timeline_entry.py"}`; `scripts/lint_vault.py` contributes zero sites and
+  imports the module (object identity, as in Task 9); and `intro_not_symmetric`'s regex is asserted to
+  contain no delimiter, so its exclusion is by construction rather than by exemption. Ship the WI-235
+  battery for the new derivation: plant a module defining a marker regex (matched), one carrying the
+  delimiter only in a docstring (not matched), one carrying it only in a comment (not matched), one that
+  merely imports the grammar (not matched), and a near-miss string containing `<!` and `--` separately
+  (not matched) — every shape driven through `marker_grammar_sites` itself. **Verify:** as declared.
+  verify: test_introduced_by_reads_only_this_persons_intro_by_markers
+
+- [ ] **Task 11 — Close the wall memberships by RUNNING each predicate, and prove the checks are
+  discoverable.** Add `test_the_wi033_files_close_their_wall_memberships_by_running_each_predicate` to
+  `tests/test_timeline_entry.py`, modelled on
+  `tests/test_fixture_vault.py:test_the_fixture_vault_files_close_their_wall_memberships_by_running_each_predicate`:
+  for the FINAL text of every file this item creates or edits, CALL each wall's own shipped predicate
+  from §9's table (`modules_using_ast`, `skip_reason_literal_sites`, `frontmatter_write_arms`,
+  `character_class_strip_sites`, `address_splitting_implementations`, `NO_ARG_CONSTRUCTION` over the
+  edited corpus note, and the pytest collection globs) and assert the answer each wall requires, with a
+  non-vacuity assertion first that the universe actually reaches the new files. In the same check, call
+  `tests/test_ac_interpreter.py:check_module` on all four of this item's AC check names and assert each
+  resolves to exactly one module — the conveyor's own discovery rule, which raises on a duplicate name.
+  Anything the run returns that §9's table did not name is NAMED in the Build Log and satisfied there,
+  never by narrowing a wall. **Verify:** as declared.
+  verify: test_the_wi033_files_close_their_wall_memberships_by_running_each_predicate
+
+- [ ] **Task 12 — Floor green, and the pins re-read rather than edited.** Run the floor command. Confirm
+  it is GREEN with a case count no lower than Task 1's baseline, and confirm by reading that
+  `tests/test_lint_vault_fix_rules.py:822` still reads `len(pinned) == 7`, that
+  `CENSUS_SHAPE_TO_RULE`'s value set still equals the derived auto-fixable set, and that
+  `docs/lint-vault-live-baseline.md` needed no edit. Record the final count and all three pin readings in
+  the Build Log. **Verify:** a hand-run of the floor command; `pipeline-runners.yaml` declares no
+  `commands:` block, so there is no registered `command_id` to name.
+  verify: hand-run — the floor command is not a registered command_id (pipeline-runners.yaml declares no commands block), so the whole-suite run plus three pin re-reads is an act recorded in the Build Log.
+
 ## Write Targets
 
 Four `kind: precondition` artifacts, declared HERE so the drive pauses for the conductor's commits
@@ -583,6 +1454,16 @@ BEFORE the acceptance-criteria frame is presented (WI-300). The builder is caged
 shell: none of the four is reachable from inside the tree, and each settles a premise an AC or a stated
 scope boundary below rests on. The spec-writer EXTENDS this section at `exploring → specced` with the
 builder's own write targets; these four are never replaced.
+
+**Extended 2026-09-28 by the spec-writer**, per the sentence above: the four ideation-authored
+`grounds:` fences stand unchanged, ONE further `kind: precondition` fence is added for
+`docs/vault-fixtures.md` (`## Design` §6 states why the caged builder cannot be its author — since
+WI-245 the merge boundary admits a declared edit to another item's tracked document only when it is
+additive prose outside every fence, and AC-3(c)'s edit REPLACES prose), and the builder's own write
+targets follow it. Every builder path below sits inside this project's declared `write_authority`
+(`obsidian_schemas/**`, `tests/**`, `scripts/**`, `docs/**`); nothing in the plan writes the project
+root, `bin/**` or `state/**`, and no task's verify command writes anything at all — Task 12's floor
+command and every check are read-only over the tree (WI-238).
 
 ```writes
 kind: precondition
@@ -611,6 +1492,233 @@ path: docs/wi-033-hal9000-cutover-followup.md
 grounds: Whether the second half of the relocation — HAL9000 deleting its own `timeline_entry.py` and importing the library's — is a MINTED work item with an id, an owner and a re-entry condition, or an unscheduled intention this document merely predicts
 why: The Intent promises ONE definition of the vocabulary; this item, scoped to this tree, ships only the library half, so at its `done` the durable state is two implementations of one grammar with the library's copy pinned against a frozen capture of the other. A frozen capture cannot detect drift, which is LESSONS #4 and its named scar (exocortex's private copy of the name-prefix regexes never inherited the canonical validator's fixes). Library-first is the right sequencing; leaving the second half as a sentence in `### Dependencies` is what turns it into that scar. This artifact is what makes the mint an ACT the drive pauses for rather than a prediction: the conductor mints the cutover in HAL9000's own backlog (it cannot be minted here — different project) and commits this record into this tree's HEAD. Contents: the minted item's id and project; a one-line scope (delete `backend_fastapi/core/timeline_entry.py`, repoint the WI-058 door and the WI-077 router to `obsidian_schemas.timeline_entry`, keep HAL9000's HTTP surface and readback); the re-entry condition verbatim from D7's three clauses, including the diff of a re-run parity capture against `HAL9000_PARITY_ANCHOR`; and the 40-hex HEAD of HAL9000 the anchor pins, so a later reader can compute the drift window rather than guess it. No vault note name, no live identifier. It is a RECORD, not a plan: if the mint does not happen, this file cannot be written truthfully and the drive stops at the pause — which is the point.
 ```
+
+```writes
+kind: precondition
+path: docs/vault-fixtures.md
+why: Task 7 / AC-3(c) — the conductor commits this one-sentence edit, because the caged builder cannot be its author. The file is ANOTHER item's tracked work-item document (`id: WI-016`), and since WI-245 the merge boundary admits a declared cross-doc edit only when it is ADDITIVE PROSE outside every fence; AC-3(c)'s edit REPLACES prose at `:279` ("a `manager:` or `introduced_by:` key" must read `manager:` alone), so a caged write to it is refused at the merge boundary and costs a conductor hand-landing plus a relaunch. The edit is ONE sentence and nothing else: the same phrase inside WI-016's SIGNED AC-5 `criteria` fence at `:1434` is explicitly OUT of scope and must not be touched — moving a typed parse of another item's document is what the merge rule forbids, and that fence is another item's signed criterion. Checked against the PRE-DRIVE floor (WI-156, WI-164): no test in this tree reads `:279`'s prose and the file participates in no bijection or symmetry invariant the floor enforces, so this lands independently of the builder's fixture re-key and no atomic landing is required. Presence alone is not the evidence — the file is already in HEAD, so the WI-156 probe is trivially satisfied and AC-3(c)'s own check is what makes the edit verifiable.
+```
+
+```writes
+path: obsidian_schemas/timeline_entry.py
+why: Task 2 — the new leaf module: the vault's timeline-entry vocabulary (`## Design` §1).
+```
+
+```writes
+path: obsidian_schemas/errors.py
+why: Task 2 — the `TimelineEntryRefusal` leaf beside `NameGateRefusal`, plus ONE new `REASONS` member.
+```
+
+```writes
+path: obsidian_schemas/__init__.py
+why: Task 2 — the package exports and `__all__` entries for the new vocabulary and `IntroRecord`.
+```
+
+```writes
+path: obsidian_schemas/repositories/person.py
+why: Tasks 4 and 5 — `append_to_timeline`'s typed overload and the `introduced_by` accessor.
+```
+
+```writes
+path: obsidian_schemas/name_gate.py
+why: Task 6 — the two retired-key literals and the section-3c refusal arm inside the person body.
+```
+
+```writes
+path: scripts/lint_vault.py
+why: Task 8 — the three report-only detectors in `check_structural`, reading the library's grammar by import.
+```
+
+```writes
+path: tests/derivations.py
+why: Tasks 6 and 10 — `gate_call_sites` and `marker_grammar_sites`, the single home of `ast` in this tree.
+```
+
+```writes
+path: tests/test_timeline_entry.py
+why: Tasks 3, 4 and 11 — AC-1's capture-driven check and the wall-membership RUN.
+```
+
+```writes
+path: tests/test_introduced_by_accessor.py
+why: Tasks 5 and 10 — AC-2's two-person planted vault and the one-definition scan.
+```
+
+```writes
+path: tests/test_retired_key_gate_rule.py
+why: Tasks 6 and 7 — AC-3's gate refusal, the derived arm sweep and the emptied-population scan.
+```
+
+```writes
+path: tests/test_lint_vault_fix_rules.py
+why: Task 9 — AC-4's check, added to the module that already owns the containment door and the planting helpers.
+```
+
+```writes
+path: tests/fixture_vault.py
+why: Task 7 — the manifest's `undeclared` re-key and the regenerated `CORPUS_DIGEST`.
+```
+
+```writes
+path: tests/fixtures/vault/@Morvette Harkwell.md
+why: Task 7 — the one corpus carrier's key re-keyed to `manager:` (`## Design` §6).
+```
+
+## Verification
+
+How the whole thing is known to work, end to end. The floor command is
+`/Users/davewascha/Workspaces/obsidian-schemas/.venv/bin/python -m pytest <tree>/tests -q`; every check
+below is one of the four AC checks or a named existing test.
+
+**Happy path (smoke).** Build a `TimelineEntry(kind="intro-by", text="Introduced by [[@X|X]] via gmail",
+when=datetime(2026, 9, 27, 18, 42, 7), discriminator="X")`, hand it to `append_to_timeline`, then call
+`introduced_by` on the same `Person`: one `IntroRecord` comes back whose `introducer` is `"X"`, whose
+`date` is `date(2026, 9, 27)` and whose `source` is the marker line on the page. Every oracle here is
+derived from values the test itself holds — the entry it constructed and the bytes it wrote — never from
+an assumed layout (WI-149). Covered by
+`test_introduced_by_reads_only_this_persons_intro_by_markers`.
+
+**The external oracle.** "The module renders correctly" is not the claim; byte parity with HAL9000 is, and
+it is proved by reading BOTH sides out of `docs/wi-033-hal9000-timeline-entry-capture.md` — the inputs and
+the expected bytes — so no literal a builder re-typed from the same reading of the same code can make it
+pass (WI-144). `test_timeline_entry_reproduces_hal9000_render_and_validation_boundary`.
+
+**Failure modes, each with its observable output.** A forged text or a guarded discriminator raises
+`TimelineEntryRefusal` with the named `pattern` and writes nothing. A payload introducing
+`introduced_by` raises `NameGateRefusal` with `pattern == RETIRED_KEY_PATTERN` and
+`refused_value == "introduced_by"`, at five derived arms, with the target file byte-identical afterwards.
+A typed entry plus a `deduplicate_key` raises rather than silently preferring one. A note with no
+`## Timeline` yields `[]`; a note that does not exist raises the door's own `ValueError`; a note whose
+frontmatter fence is broken raises `FrontmatterParseError`. An undecodable note is reported once as
+`unreadable_note` and by none of the three new checks.
+
+**The counting walls ship their claimed shapes as fixtures (WI-235).** Three checks in this item have a
+COUNT as their oracle, and each ships its claimed match-shapes through the wall's OWN predicate plus a
+near-miss the predicate must not match: AC-2(e)'s "exactly one definition of the grammar" drives five
+planted source shapes through `marker_grammar_sites` (Task 10); AC-3(b)'s "the excluded set is exactly
+one site" drives four planted call shapes, aliased import included, through `gate_call_sites` (Task 6);
+AC-4(d)'s "silent over the frozen corpus" is a SET EQUALITY of `(note, rule_id)` pairs computed twice in
+the same run rather than a zero, so a new issue that displaces an old one cannot cancel out (Task 9).
+Mutate-and-observe is used as the complementary half only — Task 3's one-space mutation — and never as
+the proof.
+
+**The delta assertion captures its baseline first (WI-238).** Task 1 records the pre-edit floor count,
+the pre-edit `CORPUS_DIGEST` and the pre-edit `len(pinned)` reading in the Build Log before any file is
+edited. Task 12 asserts only PROPERTIES — GREEN, a count no lower than the baseline, and three pins
+re-read as unchanged — never a hardcoded number.
+
+**Integration: the downstream consumers precondition 3 measured, none of which this item moves.** All six
+live `append_to_timeline` call sites pass a `str` and stay on the unchanged branch, so the typed overload
+has zero callers on the day and the marker-anchored narrowing touches no live call. `introduced_by` has
+ZERO callers on the day and two measured waiting consumers (HAL9000 WI-078, orchestrator WI-194), both at
+`idea`. `introduced_by` as a frontmatter key has zero readers and zero writers estate-wide, so the gate
+rule breaks no caller. The three writer classes the data-premise gate's counterexample hunt found —
+`append_to_body_section`'s four hand-composing instruction-driven callers, the four raw-file writers
+(including this tree's own `lint_vault` fixer), and exocortex's kindless high-volume meeting writer — are
+each false-by-design members of `## Intent`'s universal and are dispositioned as named exclusions or as
+AC-1(f)'s declared outcome class; AC-4(d)'s planted negatives and AC-2(d)'s silence clauses assert the
+behaviour they require (the new checks do not flag them; the accessor returns nothing for them).
+
+**Regression — DERIVED from the edited surfaces, not inherited (WI-238).** Sweeping the resolved test
+root for modules that name each `## Write Targets` path returns, and every one of these must still pass:
+for `obsidian_schemas/name_gate.py` — `tests/test_name_gate.py`, `tests/test_name_gate_wall.py`,
+`tests/test_name_gate_refusals.py`, `tests/test_company_name_contract.py`,
+`tests/test_whatsapp_write_door.py`, `tests/test_lint_vault_fix_gate.py`; for
+`obsidian_schemas/repositories/person.py` — `tests/test_repositories.py`,
+`tests/test_provenance_write_seam.py`, `tests/test_write_target_seam_wall.py`,
+`tests/test_identity_endgame.py`, `tests/test_concurrent_access.py`,
+`tests/test_whatsapp_jid_storage.py`, `tests/test_whatsapp_migration.py`; for
+`obsidian_schemas/errors.py` and `obsidian_schemas/__init__.py` — `tests/test_loud_fail_parse.py`,
+`tests/test_loud_fail_load.py`, `tests/test_loud_fail_write.py`, `tests/test_loud_fail_harness.py`; for
+`scripts/lint_vault.py` — `tests/test_lint_vault_fix_rules.py`, `tests/test_lint_vault_fix_gate.py`,
+`tests/test_stem_name_divergence_detector.py`, `tests/test_write_routing.py`; for
+`tests/derivations.py` — every module in §9's table, since each imports from it; for
+`tests/fixture_vault.py` and the corpus note — `tests/test_fixture_vault.py`,
+`tests/test_parser.py`, `tests/test_writer.py`, `tests/test_repositories.py`,
+`tests/test_vault_path_required.py`, and every module that materializes the corpus
+(`tests/test_lint_vault_fix_rules.py`, `tests/test_stem_name_divergence_detector.py`,
+`tests/test_whatsapp_migration.py`, `tests/test_whatsapp_write_door.py`,
+`tests/test_whatsapp_jid_storage.py`, `tests/test_provenance_write_seam.py`). The list is a SWEEP's
+output at 2026-09-28 and the obligation is the whole floor being GREEN, not this enumeration being
+complete.
+
+**No incident replay is owed (WI-173).** This is not an incident-class item: nothing broke in production
+and this spec asserts no live failure. The four diagnostic claims in `## Verified Diagnosis` are about
+code shapes, each falsifiable by a read, and the one live fact that could have been an incident — the
+single stored `introduced_by` value — was already converted and read back by the conductor on 2026-09-28
+(ruling §1) before this item. No incident is manufactured to satisfy the check, and no plan task drains
+live state.
+
+**A corpus fixture derives or freezes (WI-278 analogue).** AC-1's check reaches into `docs/**` at run
+time, which in this tree is the artifact class WI-031 clause (v) keeps out of the floor's path. It takes
+the FROZEN-BYTES arm: `docs/wi-033-hal9000-timeline-entry-capture.md` is a conductor-committed,
+machine-shaped artifact whose fences are the oracle, selected by its DECLARED headings
+(`## Parity samples`, `## Validation boundary`) exactly as `tests/test_lint_vault_fix_rules.py:113`
+selects `docs/lint-vault-live-baseline.md`'s — never by a glob, a size, a position or a live population's
+shape. The coupling is DECLARED here in one line so the next reader can falsify it: **AC-1's check pins
+those two heading names and the five/three declared keys per fence, and consumes the property that every
+`rendered` block and every `verdict` was produced by RUNNING HAL9000's code at
+`HAL9000_PARITY_ANCHOR`.**
+
+## Scope Boundary
+
+**What we are NOT doing.** Nothing in `## Exploration Notes`' *What this item does NOT do* is reopened,
+and it is the operative list: no HAL9000 cutover (minted as HAL9000 WI-082, recorded by precondition 4);
+no narrowing of the kinds any writer may use (`PARITY_KINDS` gates nothing); no validating on HAL9000's
+behalf where the library ends up LOOSER; no rewrite of the 86 legacy `[intro]` entries; no change to
+`intro_not_symmetric`; no `introduced_by` field on any model; no change to `append_to_timeline`'s existing
+string signature, its whole-file substring dedupe on that branch, or its prepend placement; and no
+live-vault write. Four further absences this spec adds, named so a builder does not drift in:
+
+- **No standing cross-repo drift checker.** D7's addendum declines it in writing and records the runnable
+  form for the cutover item. A `scripts/`-resident checker reading a sibling repo's absolute path would
+  re-open the out-of-tree dependency WI-031 clause (v) closed.
+- **No new lint CATEGORY, and no change to `check_fns`, `CATEGORY_ORDER` or `CATEGORY_LABELS`.** The
+  three detectors join `check_structural` (§5). The `--category` CLI vocabulary is unchanged.
+- **No auto-fix, and therefore no edit to `apply_fixes`, `FixOutcome`, `DECLINE_GUARDS`,
+  `docs/lint-vault-live-baseline.md` or the `len(pinned) == 7` pin.** Those are re-read, never edited
+  (Task 12).
+- **No second timeline door.** `append_to_body_section` is untouched, and the `section`-as-a-variable
+  route through it (`routers/entities.py` in HAL9000, per precondition 3) stays exactly as loose as it is
+  today; this item makes its output VISIBLE through the linter rather than refusing it.
+- **No clock in the library** (§1) and no `_now()` relocation.
+
+**Unchanged files the builder must not touch.** `obsidian_schemas/body_sections.py` (A2 — it is
+entity-agnostic by contract and entry kinds are vocabulary); `obsidian_schemas/models.py` (A4 — no field
+is added, and `_source_path` is read through `_resolve_write_target`, never extended);
+`obsidian_schemas/writer.py`, `obsidian_schemas/vault_io.py`,
+`obsidian_schemas/repositories/base.py`, `obsidian_schemas/identifier.py`,
+`obsidian_schemas/name_validation.py`, `obsidian_schemas/name_cleaning.py`,
+`obsidian_schemas/phone_normalization.py`; `docs/vault-shape-census.md` (digest-frozen — and §6's D9 is
+what keeps this item from needing a row in it); `docs/lint-vault-live-baseline.md`;
+`docs/vault-fixtures-rounds.md` (declared byte-for-byte append-only by
+`docs/vault-fixtures.md:3761`); WI-016's signed `criteria` fences inside `docs/vault-fixtures.md`;
+`pipeline-runners.yaml`, `CLAUDE.md`, `README.md`, `SESSION_LOG.md` and `state/**` (outside the cage by
+design); and every other corpus note under `tests/fixtures/vault/` except
+`@Morvette Harkwell.md` — `_plant` refuses a corpus stem for a reason, and a second edited note costs a
+second digest argument for nothing.
+
+## Risk Analysis
+
+This item changes a door four repos call, adds a refusal to THE write gate, and adds two readers of live
+vault bytes. Three risks are material; each is stated with its likelihood, its impact and what actually
+holds it.
+
+| Risk | Likelihood | Impact | What holds it |
+| --- | --- | --- | --- |
+| **The gate's unconditional refusal bricks a live note.** A note that regains `introduced_by` by hand-edit becomes unwritable through `save` until the key is deleted — D3's deliberately INVERTED trade against the name gate's stored-dirty ruling. | Low: the live carrier population is 0 over 5,664 files and the key has zero writers estate-wide (preconditions 2 and 3). | One note's writes refuse loudly until a one-line hand fix. | The population is EMPTIED rather than exempted (D3), so there is no exemption arm to widen; the remedy is one line; `retired_key_introduced_by` names the note as an ERROR in the tool Dave runs; the refusal is loud and nothing is written (AC-3(b)). |
+| **The library refuses an input HAL9000 accepts, and the first victim is HAL9000's own caller — after the cutover, when this tree's floor no longer watches it.** The four guards of §1.4 are deliberate over-refusals. | Low for `text` (a note name or a rendered sentence containing `-->` or `<!--`), very low for the discriminator cases (a counterparty name that is empty, whitespace or contains `:`). | A HAL9000 write that succeeds today would raise post-cutover. | The guard set is pinned as a SET EQUALITY against the capture's `accept` probes (AC-1(c2), R1), so the exception cannot be widened one case at a time; each guard has a stated reason (§1.4); the refusal is LOUD, never a silent drop; and the cutover item's first act re-runs the capture and diffs it, which is where a newly-diverging input surfaces. |
+| **The parity pin goes stale silently.** `HAL9000_PARITY_ANCHOR` freezes HAL9000 at one HEAD; drift in its copy during the window is invisible to this tree's hermetic floor. | Certain to be possible; the window is bounded by one scheduled item. | The accessor could return `[]` against real HAL9000 bytes with a green floor. | Accepted in writing, not mitigated (D7). What exists: the anchor is machine-checked against the capture (AC-1(a3)), so a re-run is one diff; the cutover is a MINTED item with an id (HAL9000 WI-082, precondition 4) whose re-entry condition is that diff; and `intro_by_without_marker` makes an unreadable on-disk entry visible in the linter even if the grammars diverge. |
+
+**Rollback.** Every change is additive except one line of the fixture corpus. Reverting the commit
+removes a new module, a new error leaf, one gate arm, one accessor, three report-only checks and a
+parameter widening; no data was migrated, no state file was written, no live note was touched. The only
+non-additive step, the corpus re-key, reverses by restoring the note line, the manifest line and the
+previous `CORPUS_DIGEST`.
+
+**Migration path.** None is needed (see `## Edge Cases` > Migration / backfill). If the legacy `[intro]`
+rewrite is ever wanted, `docs/wi-033-intro-corpus-baseline.md` is already the ENTRY half of that
+bracket and A5 states the shape: dry run → gated write → readback, WI-032's own.
 
 ## Acceptance Criteria
 
@@ -682,551 +1790,6 @@ visible, not silently rewritten and not silently ignored.
 *then* the answer is a work item with an id, an owner and a re-entry condition — committed as
 `docs/wi-033-hal9000-cutover-followup.md`, naming the HEAD the library is pinned against — rather than a
 sentence in a dependencies list that nobody is holding.
-
-## Architectural Review — 2026-09-28
-
-**Recommendation: REVISE — return to exploration.** The approach is very close and most of it is right;
-three of its load-bearing statements are unbuildable or self-contradictory as written, and all three are
-cheap to close inside this document.
-
-### Trigger check
-
-Fires: creates a new module (`obsidian_schemas/timeline_entry.py`); touches >3 files in different concerns
-(`timeline_entry.py`, `repositories/person.py`, `name_gate.py`, `scripts/lint_vault.py`,
-`tests/fixture_vault.py` + the corpus); establishes a new persistent read contract over vault bytes (the
-marker grammar); cross-system integration (a door four repos call, an accessor a fifth is parked on);
-effort > 1 day. Review run in full.
-
-### What verified clean
-
-Every premise this reader could re-run at HEAD `bc2f11e` holds. **P1** — no module under
-`obsidian_schemas/**` defines an entry kind, marker grammar or render; `body_sections.py:1-24` is
-documented entity-agnostic with entity knowledge deferred to the repository layer, so A2's rejection is
-correct on the module's own stated contract. **P2** — `person.py:1502` is literally
-`if deduplicate_key and deduplicate_key in content` over the whole note including frontmatter; the key and
-the written entry are unrelated arguments. **P3** — `person.py:1543-1545` prepends. **P4** — `^### |<!-- `
-over `tests/fixtures/vault/` returns zero matches across the corpus, so the planted-fixture posture (D6)
-and AC-2's "nothing here is sampled" are forced, not chosen. **P5/P6** —
-`tests/fixtures/vault/@Morvette Harkwell.md:16` carries `introduced_by: "Voxleaf"`, declared at
-`fixture_vault.py:320-326`; `Person` is `extra="allow"` (`models.py:34-40`); the entity arm hands the whole
-projection to the gate with `whole_record=True` (`writer.py:229-233`, `:252-253`); the gate is DECLARE-only
-(`name_gate.py:22-29`). **P7** — `scripts/lint_vault.py:814-834` is the live prose-parsing specimen, and
-it is report-only. **P8** — exactly six `gate_write` call sites, matching the list in AC-3(b).
-
-**Fit / boundaries.** A leaf module importing `errors` only mirrors `name_gate.py:14-20`'s discipline and
-keeps the gate's import graph acyclic. **Determinism boundary:** correct and it is the design's best move —
-the counterparty and day are already mechanically present in the marker slot, so the accessor reads them
-rather than having a reader (regex or LLM) infer them from prose; D1 states that as a rule so nobody
-"improves" it later. **Reversibility:** additive module, additive overload, report-only detectors, one gate
-rule; the only sticky step is the `CORPUS_DIGEST` regeneration, which is one line. **D3's inverted trade**
-is argued honestly and it is not novel in this tree — `person.py:1238-1244` already ships the identical
-asymmetry for WI-032 (whole-record re-serialization refuses, the three DELTA arms stay open), so the
-retired-key ban lands on an established precedent rather than inventing one. **D4** is right:
-`_refuse`'s rule 2 (`name_gate.py:174-186`) exists precisely to keep a note-derived person name out of the
-refusal, and the key is a constant that identifies the fault completely.
-
-### Blocking issues
-
-**1 — The Intent promises ONE definition; the Approach ships a SECOND copy and never says so.**
-`## Intent` says the vocabulary "lives in the library every writer already installs", and
-`## Problem / Motivation` says "`TimelineEntry` RELOCATES from HAL9000 ... so the library owns the
-vocabulary and HAL9000 imports it". Nothing in `## Approach`, in AC-1..AC-4, or in the `## Write Targets`
-fences performs or schedules that cutover. `## Dependencies` states "HAL9000's WI-058 door and WI-077
-router become importers rather than owners" as a future fact with no owner, no work item and no acceptance
-criterion, and precondition 3 *measures* consumers rather than moving them. `### What this item does NOT do`
-enumerates five absences and omits this one — which is the WI-144 shape the role asks me to scan for: the
-document is buildable two ways, and a builder reading the Intent could reasonably believe the item is not
-done until HAL9000 imports.
-
-The durable outcome as scoped is two implementations of one grammar in two repos, with the library's copy
-pinned by a byte-parity test against a capture of the other frozen at one HEAD. That capture cannot detect
-drift: if HAL9000 adds a kind or changes the heading grammar tomorrow, AC-1(a) stays green (it compares
-against the frozen file), and AC-2's tests stay green too because they plant entries with the *library's
-own* renderer — so the accessor could silently return `[]` against real HAL9000 bytes with a green floor.
-This is LESSONS #4 verbatim, including its named scar: "exocortex keeping its own copy of the name-prefix
-regexes that won't inherit fixes to the canonical validator", and the rule it carries — "when you're about
-to write a second implementation, the work is to route to the first, not to copy it."
-
-Library-first sequencing is a legitimate answer; leaving the second half unnamed is not. Concretely, and
-all of it inside this document (no other repo is touched):
-(i) add the cutover to `### What this item does NOT do` in the same voice as the other five;
-(ii) mint the HAL9000 cutover as a named follow-up with a stated re-entry condition, in the same ruling —
-the conductor mints it exactly as the three preconditions are conductor-committed — rather than leaving it
-as a sentence in `### Dependencies`;
-(iii) state what stands guard in the window between the two: precondition 1 already pins a 40-hex HEAD, so
-say in `## Approach` that the capture's HEAD is the staleness anchor and name who re-runs it, or accept in
-writing that divergence is undetected until the cutover lands.
-
-**2 — AC-1(a)'s oracle is not executable against the precondition as that precondition is specified.**
-AC-1(a) requires `render()` output to be byte-identical to "the corresponding rendered sample committed in
-`docs/wi-033-hal9000-timeline-entry-capture.md`", read from the file and "never a literal re-typed into the
-test". To construct the entry whose render is compared, the test needs that sample's INPUTS — kind, text,
-`when`, discriminator. Precondition 1's `why` asks only for "at least one RENDERED OUTPUT SAMPLE per kind,
-produced by running that code". `when` is injectable and appears in both the heading and the marker's day
-slot, so without a pinned `when` no sample is reproducible at all, and the builder is forced into exactly
-the re-typed literal the criterion forbids — the failure landing AFTER the conductor's commit pause, which
-is the expensive place for it.
-
-Two further clauses of the same gap: the capture's `why` declares no machine-readable form (the test must
-parse this document, so the fence/table shape is part of the contract, as `lint-vault-live-baseline.md`'s
-declared headings already are for WI-026); and AC-1(a) sweeps "every kind in the declared table", which is
-the LIBRARY's table, while the capture holds HAL9000's — so a kind the library declares and HAL9000 never
-rendered makes the criterion unsatisfiable by construction. Amend precondition 1's `why` to require
-input→output PAIRS in a named machine-readable shape with `when` pinned per sample, and state in AC-1(a)
-which side's table governs the sweep.
-
-**3 — AC-2(e)'s boundary scan excludes the one directory where the second copy has already appeared, and
-where this item is about to add marker-reading code.** AC-2(e) asserts "a derived scan over
-`obsidian_schemas/**` finds the marker regex defined in exactly one module". But P7's existing specimen is
-in `scripts/lint_vault.py:816`, not under `obsidian_schemas/**`, and AC-4(b)'s new `intro_by_without_marker`
-detector — which must recognise a well-formed marker — lands in that same file. `lint_vault` already
-imports from the library at `scripts/lint_vault.py:38-60` (including `body_sections` and `gate_write`), so
-importing the marker regex is available and cheap. As written, a builder who writes a second marker regex in
-`scripts/lint_vault.py` satisfies AC-2(e) and violates the Intent in the same commit. Widen the scan to
-`scripts/**` as well, phrased to permit an IMPORT and forbid a re-definition.
-
-### Non-blocking notes for the spec-writer
-
-- `IntroRecord`'s third field is named three times ("source", "source marker") in `## Approach` and AC-2's
-  `desc`, but no clause pins its value — AC-2's stated oracle checks only counterparty and day, so a build
-  that ships it as `None` is green. Either pin it or drop it from the tuple.
-- AC-4(d) asserts silence "as a set equality against the corpus's existing issue baseline". The committed
-  baseline in this tree is `docs/lint-vault-live-baseline.md` (`tests/test_lint_vault_fix_rules.py:113`),
-  which is the LIVE-vault bracket, not a fixture-corpus issue set. Name the artifact or the derivation the
-  set equality is taken against, or the clause has no referent.
-- AC-3(b) drives "each [arm] that can carry a person frontmatter delta". `writer.py:494` is
-  `gate_write({}, declared_type=None, whole_record=False)` — a call site that structurally cannot carry one.
-  Worth one clause saying the derived set is filtered rather than leaving a reader to wonder whether the
-  sweep is incomplete.
-- `## Problem / Motivation` cites `repositories/person.py:1371-1415` for `append_to_timeline`; the method is
-  at `:1452-1557`, as the sharpened paragraph below it correctly says. Stale line range in the older half.
-
-### Prior art (outside view)
-
-Not a constraint-compensation item: nothing here works around a subtracted capability. The shape — one
-library owning a serialization vocabulary that every service imports, with the consuming services cut over
-in a following change — is the ordinary answer (a shared schema package), and the standard practice this
-item is missing is exactly the one finding 1 names: the world pairs "publish the library" with a scheduled
-consumer cutover and a drift check, it does not leave the original implementation in place indefinitely
-behind a frozen snapshot test.
-
-```verdict
-gate: architect
-verdict: REVISE
-date: 2026-09-28
-model: claude-opus-5
-note: The Intent promises one definition of the vocabulary but nothing in the Approach, the ACs or the preconditions cuts HAL9000 over, leaving two copies with a frozen-snapshot parity test that cannot detect drift (LESSONS #4); AC-1(a)'s oracle is unexecutable because precondition 1 captures outputs without the inputs or the pinned `when` that produced them; AC-2(e)'s one-copy scan excludes `scripts/`, where the existing prose-parser specimen lives and where AC-4's new marker-reading detector lands.
-targets: AC-1, AC-2, AC-4, #intent, #approach, #write-targets
-prior: none
-basis: original
-findings: 3/7
-```
-
-## Architectural Review — 2026-09-28 (round 2)
-
-**Recommendation: REVISE — return to exploration.** All three of round 1's blocking findings are CLOSED,
-and the folds are better than the remedies I asked for. One new blocking issue, and it lives in the fold:
-AC-1(a2) — this round's new material — machine-checks a reading of "declared kind table" that
-`## Approach` and A1 contradict, which leaves the write door buildable two ways with different live
-consequences. It is one or two sentences to close.
-
-### Trigger check
-
-Unchanged from round 1 and still firing: new module, >3 files in different concerns, a new persistent read
-contract over vault bytes, cross-system integration, effort > 1 day. Review run in full.
-
-### Round 1's findings, re-read
-
-**Finding 1 — CLOSED, and overtaken.** I asked for three things and the document does all three, plus one
-I did not ask for. (i) `### What this item does NOT do` now opens with the cutover in the same voice as the
-other five (`:377-380`). (ii) The follow-up is minted as its own section with a scope, a home, an owner and
-a verbatim three-clause re-entry condition (`:329-346`) — and, better than a paragraph, **precondition 4**
-(`:458-462`) makes the mint an ACT the drive pauses for, so the item cannot reach its criteria frame while
-the second half is still a sentence. (iii) The window's guard is stated three times and, crucially, stated
-as what it *is not*: `HAL9000_PARITY_ANCHOR` is "a pin, not a monitor", asserted by **AC-1(a3)**, with
-drift during the window "accepted in writing, not mitigated". **D7** records all three options and why (b)
-was taken. The role's own blocking condition on a deferred option — that the deferral mint its probe item
-in the same ruling or be written as REJECT — is satisfied by the D7 + precondition 4 pair.
-
-**Finding 2 — CLOSED.** Precondition 1's `why` now requires INPUT→OUTPUT PAIRS with `when` pinned per
-sample, in a declared machine-readable shape (one `yaml` fence per sample under a `## Parity samples`
-heading, keys `kind`/`text`/`when`/`discriminator`/`rendered`) — and it names the precedent correctly:
-`tests/test_lint_vault_fix_rules.py:113` is indeed `docs/lint-vault-live-baseline.md`, parsed by declared
-headings. AC-1(a) now reads BOTH sides from the file and lets the CAPTURE's sample set govern the sweep,
-with **AC-1(a2)** asserting the two tables coincide — which is the right answer to the unsatisfiable-by-
-construction half of the finding.
-
-**Finding 3 — CLOSED, and grounded by a premise that did not exist last round.** AC-2(e) now scans
-`obsidian_schemas/**` AND `scripts/**`, permits an IMPORT, forbids a RE-DEFINITION, and names
-`scripts/lint_vault.py`'s new detector as the specific file the clause is about. **P9** is newly MEASURED
-and I re-ran it: grep for `<!--` or `-->` over every `.py` in the tree returns zero matches, so the scan
-starts from zero and `intro_not_symmetric`'s prose regex falls outside the predicate by construction
-rather than by exemption — which is a cleaner closure than the exemption I would have accepted.
-
-**All four non-blocking notes taken.** `IntroRecord.source` is pinned to the verbatim marker bytes with a
-stated failure mode (AC-2); AC-4(d)'s baseline is now a same-run second computation with the wrong referent
-explicitly disowned; AC-3(b)'s filter is asserted as a set equality; the stale `append_to_timeline` range
-in `## Problem / Motivation` is corrected to `:1452-1557`.
-
-### What verified clean this round
-
-Everything the folds newly assert, re-run at HEAD `bc2f11e`. **P9** — zero `<!--`/`-->` in any `.py`
-(above). **P8 / AC-3(b)'s arm list** — exactly six `gate_write` call sites, matching the document
-verbatim: `writer.py:252`, `:385`, `:443`, `:494`, `base.py:728`, `person.py:1270`. **AC-3(b)'s excluded
-set** — `writer.py:494` is literally `gate_write({}, declared_type=None, whole_record=False)`, with
-`:477-493` explaining why, so the equality the clause asserts is true and the other five all take a real
-delta (`:386` and `:444` pass `frontmatter.get("type")`, `base.py:729` passes `self.type_name`,
-`person.py:1270` the projection). The derivation to extend exists — `tests/derivations.py:1054`
-`gate_call_declarations` and `:1027` `_declaration_class` — so "derived rather than hand-listed" is
-buildable, not aspirational. **AC-2(e)'s instrument** — `tests/derivations.py:185` `python_files_under(*roots)`
-is parameterized over roots by design (`:188-196`), so the widened scan needs no new walker.
-**AC-4(b)'s import is cheap** — `scripts/lint_vault.py:38-60` already imports `body_sections`, `gate_write`,
-`identifier` and `vault_io` from the library. **AC-3(c)'s swap is sound and complete** — `Person` declares
-no `manager` field, `docs/vault-fixtures.md:279` names `manager:` and `introduced_by:` as co-equal members
-of the undeclared-key class, the manifest declaration is the single `undeclared={"introduced_by": "Voxleaf"}`
-at `tests/fixture_vault.py:325`, and `docs/vault-shape-census.md` never names the key — so the swap costs
-the note, the manifest line and one `CORPUS_DIGEST`, exactly as claimed, with no census row to chase.
-**WI-034's handoff doc agrees** — `docs/wi033-slug-handoff-intro-by-intro-to.md:23,27` states the same two
-slugs, the same `{kind}:{day}:{counterparty}` key and the same "never by parsing the sentence" rule, so the
-fold in ruling §2 leaves nothing contradicting it in this tree.
-
-**Prior art, re-asked of the fold.** D7(b) is the standard shape (publish the shared schema package, cut
-consumers over in a following change) and the follow-up now supplies the scheduled cutover the world pairs
-it with. The one half the world also buys — a standing drift check — is deliberately declined in writing
-rather than overlooked, which is the option I offered last round; see the first non-blocking note.
-
-### Blocking issue
-
-**1 — "Declared kind table" means two different write doors, and this round's fold machine-checks one of
-them while `## Approach` states the other.** Three places say the module holds **kind-SLUG validation** — a
-PATTERN over an open set: `## Problem / Motivation:19` ("the kind-slug validation"), A1 (`:222`, "kind-slug
-and discriminator validation"), `## Approach:404` ("its kind-slug and discriminator validation"), and
-precondition 1's `grounds:440` ("kind-slug rule"). But AC-1's `desc` requires "a declared kind table", and
-**AC-1(a2)** — new this round — asserts that table "equals the set of kinds the capture holds, as a SET
-EQUALITY", with "a kind the library declares that HAL9000 never rendered is RED". AC-2 then iterates that
-same table as its sweep space. Nothing in the document says whether a kind that satisfies the slug rule but
-is absent from the table is ACCEPTED or REFUSED, and the two answers are different doors:
-
-- *Closed table (an enum that refuses an unlisted kind).* Then AC-1(a2)'s `why` is true as written — "this
-  item introduces no library-only kind" really is enforced — but the library becomes STRICTER than the code
-  it is relocating: `TimelineEntry` refuses any kind the capture's author did not sample, and post-cutover
-  a HAL9000 call that writes today raises. It also contradicts the item's own named consumer:
-  example-of-done 3 (`:519-524`) promises "orchestrator or any new writer that installs this library"
-  can build a `TimelineEntry` and hand it to the door, which a table frozen to HAL9000's sampled kinds
-  forbids for anything new.
-- *Open slug rule (the table is only the parity/sweep universe).* Then the prose is right, nothing is
-  over-refused — but AC-1(a2) polices a constant that gates no write, and its `why`'s claim to enforce
-  rather than trust is false; the only real guard left on kinds is the accessor's filter, which AC-2(a)
-  already covers independently.
-
-This is the WI-144 shape: the item is buildable two ways, and the reading the fold's own justification
-presumes is the one the Approach text denies. It matters now rather than at build time because AC-1(a2) is
-machine-checked and the criteria frame is about to be signed.
-
-*Second clause, same root — parity is pinned for RENDER only, and the item's own standard is broader.*
-`### Constraints discovered:356` states "byte parity with HAL9000 is the meaning of 'relocate'", and
-precondition 1 captures HAL9000's kind-slug validation and forgery guard as SOURCE. But no criterion pins
-the library's REFUSAL SET against it: **AC-1(c)** states the library's own rules independently (empty,
-whitespace-only, or key-separator-bearing discriminators refused), and a capture whose samples are all
-valid inputs cannot detect a library that refuses an input HAL9000 accepts. AC-1(a2) does exactly this job
-for the kind set; the analogous assertion for the validation surface is absent.
-
-*Remedy, all of it inside this document.* (i) State in `## Approach` and in AC-1's `desc` which door the
-kind table is — closed-and-refusing, or an open slug rule with the table as the parity universe — and make
-AC-1(a2)'s `why` match the answer. (ii) If closed, say what a new writer's new kind costs (an entry in the
-table plus, presumably, a capture sample it cannot have) so example-of-done 3 stays true. (iii) Add one
-clause to AC-1(c), or one line to precondition 1's `why`, pinning the refusal surface: the capture declares
-HAL9000's kind-slug and discriminator rules, and the library's are asserted to be no STRICTER than them —
-or state in writing that refusal parity is out of scope and the cutover item owns it, as D7 already does
-for drift.
-
-### Non-blocking notes for the spec-writer
-
-- **The declined drift check is declined against this project's own pattern, and one line should say why.**
-  D7 accepts that HAL9000's drift is undetected because "the floor cannot reach another repo (WI-031 clause
-  (v))" — correct about the FLOOR. But AC-4's `why` argues, in this same document, that "the linter is the
-  only standing instrument over live data" precisely because the hermetic floor cannot watch the vault: a
-  report-only tool OUTSIDE the floor is this tree's established answer to exactly this shape of blindness.
-  The symmetric instrument here is a `scripts/`-resident parity re-check that re-runs the capture and diffs
-  against `HAL9000_PARITY_ANCHOR` — the cutover item's first act, made runnable on demand instead of only
-  once. I am not re-opening finding 1 over this (accepting the window in writing was the option I offered,
-  and the item took it); but the asymmetry between the two paragraphs is worth one sentence, either
-  adopting the instrument or naming why the vault case and the repo case differ.
-- **The undeclared route past AC-3 is unstated.** AC-3(a) scopes the refusal to "a `person`-declared
-  payload" and AC-3(d) exempts `company` and `book`. The five driven arms derive `declared_type` from the
-  note's own `type:` (`writer.py:386`, `:444`) or the repository's (`base.py:729`), so a person note
-  missing `type:` reaches the gate UNDECLARED — and `name_gate.py:364-368` documents that an undeclared
-  write introducing no `name:` falls THROUGH to the person body. Both placements of the new rule satisfy
-  every AC-3 clause as written, so say which: in the person body (undeclared writes covered too) or keyed
-  on `declared_type == PERSON_TYPE` (undeclared exempt).
-- **Two doc sentences describe the key as a legitimate specimen after AC-3(c) retires it.**
-  `docs/vault-fixtures.md:279` and `docs/vault-fixtures-rounds.md:1498` both offer "a `manager:` or
-  `introduced_by:` key" as the undeclared-key example. They stay literally true (both are named), but the
-  first is the fixture corpus's own documentation and one word there keeps a later reader from re-planting
-  a key the gate now refuses.
-- **P5's incidental detail, for the swap's author.** The retired key's fixture value is `"Voxleaf"`, which
-  is also the corpus's company stem (`@Voxleaf Ltd.md`, `tests/fixture_vault.py:367`). Nothing depends on
-  it, but if the swapped `manager:` value is chosen fresh rather than carried over, keep it a name the
-  identifier index cannot resolve, for the same reason the note declares no `shape_classes`.
-
-```verdict
-gate: architect
-verdict: REVISE
-date: 2026-09-28
-model: claude-opus-5
-note: All three round-1 findings closed and the folds exceed what I asked; one new blocking issue in the fold itself — "declared kind table" is a closed refusing enum in AC-1(a2) (new this round) and an open kind-SLUG rule in `## Approach`, A1 and precondition 1, which are two different write doors with different post-cutover consequences, and the same root leaves the library's refusal surface unpinned against HAL9000's while the item's stated meaning of "relocate" is byte parity.
-targets: AC-1, AC-3, #approach
-prior: held
-basis: folded-material
-findings: 1/4
-```
-
-## Architectural Review — 2026-09-28 (round 3)
-
-**Recommendation: PROMOTE to architected.** Round 2's blocking finding is CLOSED in both of its clauses,
-and closed in the direction the code supports rather than the direction that was cheapest to write. The
-write door is now stated once, ruled once (**D8**) and made FALSIFIABLE once (**AC-1(a4)**'s planted
-out-of-table kind) — which is the difference between a document that says which reading it means and one a
-build can only satisfy one way. Nothing structural is left open. My one remaining finding is a
-test-assertion reification the spec-writer takes in place; it is recorded below as non-blocking for a
-reason I state rather than assert.
-
-### Trigger check
-
-Unchanged from rounds 1 and 2 and still firing: a new module (`obsidian_schemas/timeline_entry.py`); >3
-files in different concerns (`timeline_entry.py`, `repositories/person.py`, `name_gate.py`,
-`scripts/lint_vault.py`, `tests/fixture_vault.py` + the corpus); a new persistent read contract over vault
-bytes (the marker grammar); cross-system integration (a door four repos call, an accessor a fifth is parked
-on); effort > 1 day. Review run in full.
-
-### Round 2's finding, re-read
-
-**Clause 1 — the two write doors — CLOSED, and closed the right way.** **D8** rules the OPEN SLUG RULE as
-the door and demotes `PARITY_KINDS` to a parity/sweep universe that gates nothing, on three grounds I agree
-with and would have argued in the same order: this item RELOCATES rather than tightens; a closed table
-locks out example-of-done 3's "any new writer that installs this library"; and the closed reading buys no
-parity for new kinds, it merely forbids them. I re-grepped the document for the contradictory phrasing:
-every live occurrence of "declared kind table" is now inside D8, inside this fold's own narrative, or
-inside rounds 1–2's archived review text. The four normative surfaces agree — AC-1's `desc` ("an OPEN
-kind-SLUG RULE as the write door ... GATES NO WRITE"), A1, the `## Approach` paragraph, and precondition
-1's `grounds`. And crucially the reading is not merely STATED: **AC-1(a4)** plants a slug-valid kind absent
-from the table and asserts it constructs, renders and round-trips, so a closed-enum build is RED. That is
-the planted discriminant P4 forces (the corpus has zero entries, so nothing on disk can tell the doors
-apart), and it is what I would have asked for had the fold only written prose.
-
-**Clause 2 — the unpinned refusal surface — CLOSED, and closed in the only direction that can break a
-caller.** Precondition 1 gains **part 3**: a `## Validation boundary` section of INPUT→VERDICT pairs with a
-declared per-probe key shape, produced by RUNNING HAL9000's validation rather than by reading its regex —
-which is LESSONS #19/#26 applied at capture time, and is the same discipline part 2 already carried for the
-render samples. **AC-1(c2)** then asserts the ACCEPT direction only, with the loose direction declined IN
-WRITING and routed to the cutover item exactly as D7 routes drift. Restricting the assertion to
-over-refusal is the correct asymmetry and the document argues it correctly: over-refusal is the failure
-this item can CAUSE (its first victim post-cutover is HAL9000's own caller), under-refusal cannot break a
-caller that works today, and the library's own guards are pinned independently by AC-1(c).
-
-**Round 2's four non-blocking notes all taken.** The D7 addendum answers the drift-check asymmetry rather
-than absorbing it, and the answer is right on its own terms: the vault is this library's OWN data domain
-with an unbounded window and a standing instrument already in place, while HAL9000's source is another
-project's code behind a window ONE scheduled item closes — and a checker here reading a sibling repo's
-absolute path would re-open the out-of-tree path dependency WI-031 clause (v) closed. AC-3(a)'s placement
-is now a measured fact (**P10**) rather than a build-time coin flip. AC-3(c) folds in the corpus
-documentation update. D3 picks the swapped `manager:` value fresh, as a name the identifier index cannot
-resolve.
-
-### What verified clean this round
-
-Only the newly asserted material; rounds 1–2 verified the rest at the same HEAD.
-
-**P10 — verified, and it is the sharpest new premise in the fold.** `gate_write`'s prologue reads exactly
-as claimed. `name_gate.py:359-360` is `if "name" in introduced and declared_type is None` — it speaks ONLY
-to `name:`. `name_gate.py:373` is `if declared_type is not None and declared_type != PERSON_TYPE:`,
-returning `dict(introduced)` at `:398`, and the comment at `:364-368` states verbatim that the `is not
-None` half is load-bearing precisely so "an UNDECLARED write that introduces identifiers but NO `name:`
-must fall THROUGH and normalize exactly as a declared one". The person body opens at `:400`. So AC-3(a)'s
-ruling — the rule lands in the person body, NOT keyed on `declared_type == PERSON_TYPE` — is the placement
-that covers a person note missing its `type:` while keeping AC-3(d)'s company/book exemption for free. Both
-placements satisfied every other AC-3 clause, which is exactly why naming it was worth a premise.
-
-**AC-3(c)'s documentation clause — verified, and correctly scoped to one of the two files round 2 named.**
-`docs/vault-fixtures.md:279` does offer "a `manager:` or `introduced_by:`" as the undeclared-key example
-and is in scope. `docs/vault-fixtures-rounds.md` is NOT, and the fold is right to leave it: that drawer is
-declared "byte-for-byte, append-only and never rewritten" by `docs/vault-fixtures.md:3761`, so editing it
-would violate a shipped invariant to fix a sentence that stays literally true.
-
-**AC-1(a4) and AC-2's instruments exist.** `tests/derivations.py:185` `python_files_under(*roots)` is still
-the parameterized walker AC-2(e)'s widened scan needs, and `:1054` `gate_call_declarations` is still the
-derivation AC-3(b)'s arm sweep extends — so both "derived rather than hand-listed" clauses remain
-buildable rather than aspirational.
-
-### Review
-
-**Fit.** A leaf module importing `errors` only matches `name_gate.py:14-20`'s discipline and keeps the
-gate's import graph acyclic; A2's rejection of `body_sections.py` still stands on that module's own stated
-entity-agnostic contract (`body_sections.py:6-9`). The report-only detector posture matches WI-026's and
-WI-032's shipped precedent, and D3's inverted trade lands on an established asymmetry
-(`person.py:1238-1244`) rather than inventing one.
-
-**Duplication.** This is the dimension the item exists to serve, and AC-2(e) is now the predicate that
-enforces it: one DEFINITION of the marker grammar, imports everywhere else, over `obsidian_schemas/**` AND
-`scripts/**`. P9 makes the scan start from zero, so `intro_not_symmetric`'s prose regex
-(`scripts/lint_vault.py:814-834`) falls outside the predicate by construction rather than by exemption.
-
-**Boundaries.** The WI-185 seam question is answered rather than worked around: the counterparty and day
-already survive into the marker slot, so the accessor reads structure instead of reconstructing it, and D1
-freezes that as a rule. The one place structure IS discarded — `append_to_timeline`'s unrelated
-string-and-key arguments (P2) — is fixed at the door by AC-1(d)/(e), which is the rule applied where it
-bites.
-
-**Determinism boundary.** Correct, and unchanged from round 1: nothing mechanical is handed to a judgement
-channel. The day and counterparty come from slots; the prose is never read, by rule and by AC-2(d)'s
-assertion.
-
-**Reversibility.** Additive module, additive overload, three report-only detectors, one gate rule. The one
-sticky step remains the `CORPUS_DIGEST` regeneration, paid once. The un-undoable half is the one this item
-does NOT do — and D7 keeps it that way deliberately.
-
-**Generalization.** D8 is where this dimension was actually decided, and it went the right way: the door
-generalizes (any slug-valid kind works immediately), while the PARITY CLAIM stays bounded to captured bytes
-and grows only when the capture grows. That split — an open mechanism with a narrow, falsifiable claim — is
-the shape that avoids both over-fitting to HAL9000's sampled kinds and over-claiming parity nobody measured.
-
-**Cost & maintenance.** The recurring cost is one capture artifact whose staleness is machine-anchored
-(AC-1(a3)) and whose re-run is the named first act of a minted follow-up. That is cheaper than the standing
-cross-repo checker the item declines, and the decline is now argued from ownership rather than from
-convenience.
-
-**Build vs extend vs integrate.** Extend, and the alternatives are recorded with their trigger predicates
-(A2–A6). Nothing external is pulled in.
-
-**Prior art (outside view).** Re-asked of the round-3 fold. The shape — publish a shared schema package,
-cut consumers over in a following change, pin the publisher against captured bytes in the interim — is the
-ordinary industry answer, and after round 1's fold this item now carries the scheduled cutover the world
-pairs it with (D7 + precondition 4). The one half the world also buys, a standing drift check, is declined
-IN WRITING with a stated ownership argument and the runnable form recorded for the holder of the second
-copy. That satisfies the role's blocking condition on a deferred option: the deferral mints its probe item
-in the same ruling rather than leaving a re-entry condition floating. Not a constraint-compensation item —
-nothing here builds machinery around a subtracted capability.
-
-### Notes (non-blocking) for the spec-writer
-
-- **AC-1(c2)'s set equality needs one reification, or it is RED by this document's own premises.** The
-  clause asserts "the set of capture-ACCEPTED inputs the library refuses equals exactly that enumerated
-  guard set". But the `-->`/`<!--` forgery guard is HAL9000's — `## Problem / Motivation` and precondition
-  1 part 1 both describe it as part of what RELOCATES from there — so the capture will record HAL9000
-  REFUSING the forgery probes, which puts them outside "capture-ACCEPTED" on the left while the enumerated
-  guard classes name them on the right. Read literally, the equality cannot hold. The operative intent is
-  already stated in the same sentence ("so any other over-refusal is RED"), which is the ⊆ direction, and
-  AC-1(c) independently pins that the library DOES refuse every guard member — so the fix is to reify the
-  right-hand side as *the guard-class probes the capture records as ACCEPTED*, or to state the clause as a
-  subset with AC-1(c) carrying the other direction. **Why this is not blocking, stated rather than
-  assumed:** unlike round 1's finding 2 (which forced a re-typed literal — a wrong ORACLE that would ship
-  green) and round 2's finding (two different write DOORS — a different shipped system), neither reading
-  here ships a wrong library. The charitable reification is correct behaviour; the literal one is a red
-  test at test-writing time, the cheap place, before any conductor commit and with no precondition change
-  on either path. The criteria frame is explicitly DRAFT until Dave signs it, and this is precisely the
-  surface the spec-writer refines in place.
-- **AC-1(a2)'s "the set of kinds the capture holds" is loose by one word.** The capture will hold kinds in
-  BOTH sections after precondition 1 part 3, and part 3 deliberately probes "a kind HAL9000's slug rule
-  accepts that no sample renders" — which must NOT be in `PARITY_KINDS`, or (a2)'s own "a member with no
-  sample is RED" fires. Three surrounding statements disambiguate it correctly (AC-1(a) parses the
-  `## Parity samples` section; D8 says "a committed byte-parity SAMPLE"), so this is wording, not design:
-  say "the kinds the `## Parity samples` section holds".
-- **One corner AC-3 leaves unstated, and it is the mirror of the route P10 closes.** Writing the rule into
-  the person body means an UNDECLARED write on a note that is semantically a company would also be refused
-  for carrying `introduced_by` — it falls through `:373` exactly as an undeclared person write does. The
-  live exposure is nil (the five driven arms all derive a declaration: `writer.py:386`, `:444`,
-  `base.py:729`), and the trade is the right one — covering the undeclared person route matters more than
-  exempting an undeclared company one for a key nothing may carry. Worth one clause in AC-3(d) so a reader
-  does not discover it as an inconsistency with that clause's company/book exemption.
-- **Nothing in this round re-opens D7.** The window between the library half and the cutover remains
-  accepted in writing, precondition 4 remains the act that makes the mint real, and `HAL9000_PARITY_ANCHOR`
-  remains a pin rather than a monitor — all three stated as what they are NOT, which is why I am not
-  raising them again.
-
-```verdict
-gate: architect
-verdict: PROMOTE
-date: 2026-09-28
-model: claude-opus-5
-note: Round 2's finding is closed in both clauses and closed structurally rather than in prose — D8 rules the write door OPEN and AC-1(a4) plants the out-of-table kind that makes a closed-enum build RED, while precondition 1 part 3 plus AC-1(c2) pin the refusal surface in the only direction that can break a caller; P10 re-verified at `name_gate.py:359-400`, and the one residual finding is a test-assertion reification in AC-1(c2) that cannot ship a wrong system under either reading, so it is a spec-writer note rather than a fourth round.
-```
-
-## AC Red-Team — 2026-09-28
-
-Attacked the DRAFT AC set (AC-1 – AC-4) fresh, reading `## Intent`, `### Examples of done`,
-`## Problem / Motivation`, the 2026-09-28 `## Ruling`, and the Exploration Notes before the criteria,
-per the role's Step 2. Three architect rounds have already hardened this document on fit, duplication,
-boundaries and the write-door design; my pass is the lens they don't run — could a builder satisfy each
-AC while doing as little real work as possible, or while honestly misreading it, and would satisfying it
-mean the Intent was actually served?
-
-### What I attacked and what held
-
-- **AC-1(a)/(a2)/(a3)/(a4)** — the parity sweep is a genuine external oracle: both inputs and expected
-  output are read from a committed precondition file, never a literal retyped into the test, and the
-  open-vs-closed kind-table question is machine-checked by a planted out-of-table kind (a4) rather than
-  merely asserted in prose — a closed-enum build is RED. Held.
-- **AC-1(b)** — fixture space is `PARITY_KINDS` iterated plus the planted kind, never a hand list; the
-  per-member oracle is the entry's own field values, not a totality stub, so a wrong-but-self-consistent
-  build (the WI-280/WI-212 shape) mismatches instead of agreeing with itself. Held.
-- **AC-1(c)/(c2)** — forgery and validation-boundary refusal are pinned in the one direction that can
-  break a caller (no stricter than HAL9000, ACCEPT direction only). I independently re-read round 3's own
-  non-blocking note on the guard-set equality's literal wording (the forgery guard is HAL9000's own, so it
-  can't sit on both the "capture-accepted" side and the enumerated-exception side as literally phrased) and
-  concur with the architect's read: charitably reified it is correct behaviour, the literal reading is a
-  red test at write-time rather than a wrong shipped system, and the criteria frame is still explicitly
-  DRAFT. Not material on its own — not raised as a separate finding here.
-- **AC-2(a)** — the sweep plants `intro-to`, legacy `intro`, and the out-of-table kind specifically to
-  catch a `"intro" in kind` substring implementation. Held — a cheapest-wrong build mismatches the stated
-  per-member oracle.
-- **AC-3(a)/(b)** — the gate-rule placement is a measured fact (P10), not a coin flip, and the arm sweep
-  is derived with the excluded arm named as a set equality rather than left to trust. Held.
-- **AC-4** — positive detection ((a)-(c), on a planted vault) and negative silence ((d), on the frozen
-  corpus) are asserted separately, so a no-op implementation of the three detectors fails (a)-(c) rather
-  than sliding through on (d)'s trivially-empty-corpus baseline. Held.
-
-### Finding
-
-**AC-2 — MATERIAL. Nothing plants a second person, so nothing proves `introduced_by(person)` is scoped
-to that person's own note rather than to the vault at large.**
-
-AC-2's `desc` plants "one entry per member on **one** person note" and its oracle covers kind-filtering
-(a), plurality/order within that one note (b), the markerless narrowing arm (c), and silence on other
-channels (d) — every dimension of *what* is on the note, none of *whose* note it is. Example of done 1
-repeats the same single-person shape. Nowhere in AC-2, its `why`, or the examples does a second person
-note carrying its OWN distinct `intro-by` entry (a different counterparty, a different day) get planted,
-and nowhere is it asserted that calling the accessor on person A excludes person B's record.
-
-Failure scenario: implement `introduced_by(person)` to glob every note under the vault for `intro-by`
-markers (or to read a fixed/first note) instead of loading `person`'s own body via `parse_body_sections`
-and reading only its `## Timeline`. Against AC-2's own fixture — a vault containing exactly one person
-note with any `intro-by` data — that implementation returns exactly the one record the oracle expects,
-and every clause (a)-(e) plus example 1 goes green, because the vault never contains a second person's
-entry to wrongly include or a first person's entry to wrongly exclude. Shipped against the live vault —
-over a thousand person notes, each with its own `## Timeline` — `introduced_by(@Alice)` could silently
-return `@Bob`'s introducer, or the union of everyone's `intro-by` records, with this criterion fully
-satisfied throughout and `## Intent`'s "who introduced this person" answered for the wrong person.
-
-This is the same shape AC-2(a) already defends against on the KIND axis — planting `intro-to`, legacy
-`intro` and the out-of-table kind specifically because a corpus with only one member can't discriminate a
-substring match from a correct filter (P4's WI-286 reasoning) — applied to the PERSON axis the accessor's
-own first argument selects on, for which the criterion never plants a second member.
-
-What would have to change: plant at least two person notes in the temp vault, each carrying its own
-`intro-by` entry with a different counterparty and day, and add a clause asserting `introduced_by` on one
-returns only that person's record — never the other's alone, and never the union.
-
-```verdict
-gate: ac-red-team
-verdict: REVISE
-date: 2026-09-28
-model: claude-sonnet-5
-note: AC-2 plants intro-by data on only one person note, so nothing asserts `introduced_by(person)` reads that person's own `## Timeline` rather than the whole vault — a build that globs all notes for `intro-by` markers passes every clause and could silently cross-attribute introductions in production.
-targets: AC-2
-prior: none
-basis: original
-findings: 1/1
-```
 
 ## Architectural Review — 2026-09-28 (round 4)
 
@@ -1502,4 +2065,236 @@ ac_hash_AC-2: 6535ee8af9f4
 ac_hash_AC-3: c198dfc5612c
 ac_hash_AC-4: f9d4f2dffcaf
 artifact: docs/spec-reviews/WI-033-dave-review-2026-09-28.md
+```
+
+## Data Audit — 2026-09-28
+
+**Recommendation: PROMOTE to specced**
+
+### Trigger check
+
+**Class 1 AND Class 2, both firing, and the item is unusually premise-heavy for this tree.**
+
+*Class 1 (data-distribution / field-presence).* Four quantified or existence claims about live data are
+load-bearing: the population an unconditional `introduced_by` ban could brick is EMPTY; legacy `[intro]`
+entries number 86 with only 22 marker-bearing (the 22/86 rate is what makes AC-2(c)'s narrowing arm honest
+rather than convenient); the legacy heading grammars are three, in the proportion 43 / 38 / 5 (AC-4(a)
+plants all three because a detector written against one would be silent on nearly half the corpus); and
+the three new detectors have an expected live yield (86 / 0 / 0).
+
+*Class 2 (rule-effect-against-existing-corpus).* Three of the four criteria introduce a rule whose
+correctness depends on its effect against what exists TODAY, not only on hypothesised inputs: the gate's
+retired-key refusal (AC-3) runs against every note any arm writes; the three `lint_vault` detectors (AC-4)
+run against the whole live vault and the whole frozen corpus; and the marker-anchored dedupe narrowing
+(AC-1(d)/(e)) changes a door six production call sites reach. The item also rests on a fourth premise class
+this gate treats as Class 1 by analogy — an EXTERNAL CONTRACT, HAL9000's shipped renderer and validator,
+whose bytes are the meaning of the word "relocate" (`### Constraints discovered`).
+
+*Universal quantifier present,* so the counterexample hunt below is owed and run: `## Intent` quantifies
+over "**every** timeline entry **any writer** puts on a vault note" and over "**any** consumer".
+
+### Premises, and where each is grounded
+
+Every premise is grounded in a COMMITTED artifact this document declares in `## Write Targets`, or in this
+tree at HEAD `133c27a`. Nothing load-bearing rests on a recollection. Listed with what I did to it.
+
+**Re-run by this gate, in-tree, at this HEAD** (Read / Grep / Glob only — no shell, no live vault, and the
+floor is hermetic by WI-031 clause (v), so the live half is read from the committed census and never
+re-measured):
+
+- **P1 — the vocabulary exists nowhere here.** `**/timeline_entry*.py` over the whole tree → **no files**.
+  So "relocates INTO the library" is a genuine addition and AC-2(e)'s one-definition scan starts from zero.
+- **P4 — the frozen corpus contains ZERO timeline entries.** `^### |<!-- ` over
+  `tests/fixtures/vault/` → **0 matches across 0 files**. This is the premise that GOVERNS every other
+  criterion: the corpus cannot tell a right accessor from a wrong-but-present one, so sampling is not an
+  option that exists and every discriminating member — both kinds and both PERSONS — is necessarily planted
+  (WI-286). Re-verified rather than taken from three architect rounds, because if it had drifted, AC-2's
+  entire fixture posture would be wrong.
+- **P5 / AC-3(c) — exactly one fixture carrier, and the swap has a real referent.** `introduced_by` over
+  `**/*.md` → exactly one note under `tests/fixtures/vault/` (`@Morvette Harkwell.md`); the manifest
+  declaration is the single `undeclared={"introduced_by": "Voxleaf"}` at `tests/fixture_vault.py:325`; and
+  `docs/vault-fixtures.md:279` does read "a `manager:` or `introduced_by:` key", so AC-3(c)'s
+  documentation clause points at text that exists and the `manager:` swap is the corpus's own co-equal
+  specimen rather than a new invention.
+- **P8 — one rule lands in one place.** Exactly six `gate_write(` call sites, matching AC-3(b) verbatim:
+  `writer.py:252`, `:385`, `:443`, `:494`, `repositories/base.py:728`, `repositories/person.py:1270`.
+  `writer.py:494` is literally `gate_write({}, declared_type=None, whole_record=False)`, so AC-3(b)'s
+  excluded-set EQUALITY is true as stated and the other five are all driven.
+- **P9 — the scan population is zero, so "exactly one definition" is a claim about a file that does not
+  exist yet.** `<!--` / `-->` over every `*.py` in the tree → **zero matches**; `introduced_by` over every
+  `*.py` → **one hit**, the fixture manifest line above. So nothing under `obsidian_schemas/**` or
+  `scripts/**` defines the marker grammar today, `intro_not_symmetric`'s prose regex falls outside AC-2(e)'s
+  predicate by construction rather than by exemption, and AC-3's refusal has no existing in-package reader
+  to break.
+- **The derived instruments both criteria lean on exist.** `tests/derivations.py:185 python_files_under`
+  (parameterized over roots, so AC-2(e)'s widened `obsidian_schemas/** + scripts/**` scan needs no new
+  walker) and `tests/derivations.py:1054 gate_call_declarations` (the derivation AC-3(b)'s arm sweep
+  extends). Both "derived rather than hand-listed" clauses are buildable, not aspirational.
+
+**Grounded by committed precondition, read end-to-end and checked for internal consistency against the
+criteria that consume it:**
+
+- **Precondition 1 — `docs/wi-033-hal9000-timeline-entry-capture.md` (the external contract).** This is
+  the strongest artifact of the four and it clears the bar the role sets for an external premise: every
+  `rendered` block and every `verdict` was produced by RUNNING HAL9000's code under HAL9000's own venv, not
+  by reading it, and the generator is reproduced verbatim so a re-run is one command. It carries part 1
+  (verbatim source with line ranges), part 2 (**six INPUT→OUTPUT parity samples** across five kinds, each
+  with `when` PINNED as an ISO string, `discriminator` explicit-`null` where absent, and `rendered` as a
+  literal block scalar), part 3 (**29 INPUT→VERDICT probes** over `kind` / `text` / `discriminator`), and
+  the 40-hex staleness anchor `d54430da9547a93525c6cc1b20cf781c9a63f82e` that AC-1(a3) machine-checks and
+  D7's cutover re-entry condition diffs against. AC-1(a)'s oracle is therefore EXECUTABLE — both sides read
+  from the file, no literal re-typed — which is what round 1's finding 2 was about.
+- **Precondition 2 — `docs/wi-033-intro-corpus-baseline.md` (the live distribution).** Counts and shapes
+  only, no note name and no identifier, with the literal predicates declared, the command given, the
+  machine-readable YAML snapshot and the verbatim JSON output both present, and `census.py` appended
+  verbatim. The numbers: **5664 markdown files scanned, 1314 person notes, 0 undecodable**;
+  **`introduced_by` frontmatter carriers = 0**; legacy `intro` **86 entries, 22 well-formed markers**,
+  grammars **43 `Month D, YYYY` / 38 ISO-with-time / 5 bare ISO**; `intro-by` **1 entry, 1 marked, on 1
+  note**; `intro-to` **0**; every timeline heading found sits inside a `## Timeline` section and **no marker
+  anywhere carries a kind different from its own heading** (`marker_kind_mismatch_by_kind` all zero). Every
+  number the ruling asserted in prose is now a dated, re-runnable snapshot, and they AGREE — the ruling's
+  86 / 22 / 43 / 38 / 5 and its "readback: `^introduced_by:` = 0" all reproduce.
+- **Precondition 3 — `docs/wi-033-consumer-audit.md` (the rule's blast radius).** The estate-wide sweep the
+  WI-032 scar demands: 36 repos under `~/Workspaces` plus `~/.claude/skills` and `~/.claude/agents`, one
+  literal pattern sweep per repo with a 40-hex HEAD and dirty count each, every production hit read at its
+  call site, and the load-bearing column present — whether a call passes a dedupe key that DISAGREES with
+  the marker it writes. Result: **six production `append_to_timeline` call sites, all passing a `str`**, so
+  the typed overload has ZERO callers on the day and the marker-anchored narrowing touches no live call;
+  three of the six pass a prose key while writing NO marker and are named as the ones that must not be
+  migrated blindly; **`introduced_by` as a frontmatter key has ZERO readers and ZERO writers in code
+  estate-wide**. It also CORRECTS a claim this document had carried: exocortex's WI-006 is email ingestion,
+  not parked relationship edges, and the measured waiting consumers are HAL9000 WI-078 and orchestrator
+  WI-194. That correction is already folded into `## Problem / Motivation` and `### Dependencies`.
+- **Precondition 4 — `docs/wi-033-hal9000-cutover-followup.md` (the second half is an act).** Records a
+  performed mint: **HAL9000 WI-082**, `docs/timeline-entry-cutover-to-library.md`, stage `idea`, through
+  workshop's locked mint CLI with the readback pasted (`next_id` advanced to 83), plus the one-line scope,
+  D7's three re-entry clauses verbatim, and the drift-window command a later reader can run. Disclosed
+  honestly: the mint lives in HAL9000's WORKING TREE, uncommitted there, and committing it is HAL9000's act.
+  That is a real residual but not this gate's axis — the id exists and cannot be re-issued.
+
+### Counterexample hunt (WI-293) — the Intent's two universals
+
+**Domain enumerated:** every writer that puts a `### …` entry into a vault note's `## Timeline`, and every
+reader of "who introduced this person", across the whole estate. **Predicate that enumerated it:**
+precondition 3's per-repo sweep — the literal
+`append_to_timeline|append_timeline_entry|TimelineEntry|timeline_entry|/timeline|## Timeline|introduced_by|introduced-by|intro-by|intro-to|\[intro\]|deduplicate_key`
+pattern over 36 repos plus `~/.claude/skills` and `~/.claude/agents`, with every production hit read at its
+call site rather than inferred from the grep line, widened per repo where the first sweep was thin. I could
+not re-run that sweep (no shell, and other repos are out of this spawn's scope), so I read its site tables
+and cross-repo reading in full and hunted them for members the universal is FALSE about by design, at each
+member's own declared granularity rather than by its filename. **Three classes found. All three are
+dispositioned — but two of the three are dispositioned in the PRECONDITION and not in this document.**
+
+- **Class A — the SECOND timeline door, `section-append`, and its four hand-composing callers.**
+  `routers/entities.py:350` reaches `append_to_body_section` with `section` as a VARIABLE, so any HTTP
+  client may hand-compose a `### …` entry into `Timeline` without touching the renderer at all. Its callers
+  are instruction-driven, not code: orchestrator `roles/enricher.yaml:108-116`,
+  `~/.claude/skills/new-person/SKILL.md:103-109`, `~/.claude/agents/scheduler.md:171-177`,
+  personal-assistant `channels/obsidian.md:100-104`. All four write KINDLESS month or `Month D, YYYY`
+  headings with no marker. *Disposition:* a NAMED EXCLUSION — `## Approach` and `### What this item does NOT
+  do` already state that `append_to_body_section` is untouched, and precondition 3's cross-repo reading
+  item 4 names this class explicitly as "a hole in the 'one vocabulary' claim" and states the behavioural
+  requirement (`parse_markers()` / `introduced_by()` must return nothing for them; the three new checks
+  must not flag them). AC-4(d) and AC-2(d) assert exactly that silence on planted equivalents.
+- **Class B — writers that never reach either library primitive.** HAL9000 `backend/core/writer.py:120-150`
+  (raw `open r+`, five callers, heading `### YYYY-MM-DD HH:MM:SS [<type>]`, kinds including `intro`);
+  exocortex `ingestion/stages/company.py:300-346` (raw `write_text`, company notes); orchestrator
+  `bin/batch-contact-context.py:256` (regex splice); and **this tree's own**
+  `scripts/lint_vault.py:1176-1192` fixer, which APPENDS a fifth heading shape to the end of `## Timeline`.
+  *Disposition:* a NAMED EXCLUSION, same referent — precondition 3 item 4 counts the linter's fixer as the
+  fifth shape and requires the new detectors not to flag it; AC-4(d)'s both-directions silence is where that
+  lands.
+- **Class C — the highest-volume writer is kindless and must STAY on the loose path.** exocortex
+  `ingestion/stages/note.py:375` writes a kindless `### Month D, YYYY` meeting line for every transcript
+  and every attendee, deduping on a bare meeting stem matched WHOLE-FILE. *Disposition:* a DECLARED OUTCOME
+  CLASS rather than an exclusion — AC-1(f) pins the string+key path byte-for-byte INCLUDING its whole-file
+  substring looseness precisely because this caller depends on it, and precondition 3's cross-repo reading
+  item 2 states that migrating it to the typed path without a marker would duplicate a meeting line on every
+  hourly re-run. The three retired `[intro]` writers (HAL9000 `routers/introductions.py:433`,
+  `skills/introductions_skill.py:134`, `backend/chat/commands/introduction_commands.py:88,93`) belong to the
+  same class and are dispositioned the same way, plus A5 and `legacy_intro_entry`.
+
+**On the kind axis the hunt was already run, by precondition 1, and it found a member.** Enumerating
+HAL9000's renderer by CODE PRODUCER yields four kinds; the live census yields seven kinds on disk. The
+capture dispositions each difference rather than filing it in the biggest bucket: `merge` (3 on disk, in
+this renderer's exact shape with a well-formed marker, **no code producer anywhere in the estate** — an
+ad-hoc HTTP-door caller) is ADMITTED to `PARITY_KINDS` with a sample whose `text` is declared synthetic;
+`meeting` (1) and `email` (1) are EXCLUDED BY NAME with a stated reason — bare-ISO headings, no marker, a
+pre-WI-058 writer's shape and not this renderer's. That is the shape this rule asks for, done before I got
+here.
+
+**Nothing found on the person axis that the AC red-team had not already found and the round-4 fold not
+already closed** (AC-2(a2)'s both-directions plus invariance-to-removal assertions). I re-read that fold
+against P4 and agree it is forced: a corpus with zero entries can supply a second PERSON no more than a
+second KIND, so planting is the only instrument available.
+
+### Rule-effect against the current corpus (the Class-2 half, stated as numbers)
+
+- **The gate's unconditional refusal (AC-3):** live colliding population **0** carriers over 5664 files /
+  1314 person notes, and **0** readers or writers of the key in code estate-wide. So D3's "the population is
+  emptied rather than exempted" is true by MEASUREMENT on both halves — live by precondition 2, fixture by
+  the one-note re-key AC-3(c) performs — and the DELTA doctrine's objection (P6) is void by measurement
+  rather than by argument. Re-verified in-tree that the fixture carrier is exactly one note and one manifest
+  line, so the swap's cost is what D3 claims.
+- **The three detectors (AC-4):** expected live yield `legacy_intro_entry` **86**,
+  `intro_by_without_marker` **0**, `retired_key_introduced_by` **0**. The zeros are not vacuous — the first
+  is zero because the single live `intro-by` entry IS marked, which is the same fact that makes AC-2(c)'s
+  narrowing arm a real population claim (22/86) rather than a hypothetical. Over the frozen corpus all three
+  are silent by construction (P4: no entries at all; AC-3(c): no `introduced_by` after the swap), which is
+  why AC-4(d) correctly derives its baseline in the same run instead of pointing at
+  `docs/lint-vault-live-baseline.md`, which is the LIVE bracket.
+- **The dedupe narrowing (AC-1(d)/(e)):** **zero** live callers affected on landing — all six production
+  sites pass a `str` and stay on the unchanged path. The three key/marker-disagreeing sites are named, and
+  their latent migration hazard is recorded in precondition 3 rather than discovered later.
+- **Refusal parity (AC-1(c2)), and this is a data fact only the capture could settle.** Round 3 and the
+  red-team both flagged that the guard-set EQUALITY reads as unsatisfiable if the left side is taken over
+  all guard classes. The capture's 29 probes resolve it in the accept direction: HAL9000 itself REFUSES a
+  delimiter-bearing `kind` (slug regex) and a delimiter-bearing `discriminator`, so those are not
+  capture-ACCEPTED and cannot sit on the left. The capture-ACCEPTED inputs the library deliberately refuses
+  are therefore exactly **five** — `text` containing `-->`, `text` containing `<!--`, and a discriminator
+  that is empty, whitespace-only, or `:`-bearing — which is precisely AC-1(c)'s enumerated guard set. The
+  reification round 3 asked for is not merely available; the capture names its five members. I record them
+  here so the spec-writer does not have to re-derive the equality's left-hand side.
+
+### Residuals — disclosed, neither blocking, each with the predicate that would close it
+
+Two, which is at the role's cap of OPEN questions and deliberately under it: neither governs a criterion,
+and neither can make the built thing wrong.
+
+1. **"All 86 legacy `[intro]` entries are OUTBOUND" is the one live claim precondition 2 does not carry.**
+   Ruling §2 and A5 rest on it ("not one is an introduced-by fact", so the legacy kind buys the accessor
+   nothing and rewriting them is a separate migration), but the census is counts-and-shapes only by design,
+   so the DIRECTION split stands on the ruling's same-day hand read of all 86 rather than on a re-runnable
+   predicate. Why it is not blocking: no acceptance criterion reads it — AC-2's `[intro]`-yields-nothing
+   assertion is planted and true by rule whichever direction the live entries face, and AC-4(a) reports all
+   86 regardless, so any inbound stragglers are VISIBLE in the linter rather than silently lost. What it
+   would change if false is the VALUE of a deferred migration (A5), which is a later, separately-bracketed
+   decision. The closing predicate is counts-only and fits precondition 2's own no-identifier rule: split
+   the 86 by body prose, `^Introduced by ` versus `^Introduced to `, and report the two counts. Worth
+   running at build-start re-grounding (WI-022), not worth a round here.
+2. **HAL9000 WI-082's mint is uncommitted in HAL9000's working tree.** Precondition 4 says so itself. The id
+   is issued and `next_id` advanced, so the id cannot be re-used and the record in this tree's HEAD is
+   truthful; committing it is HAL9000's act on Dave's word. Named so a later reader does not mistake it for
+   a clean two-repo state.
+
+### Conclusion
+
+Both trigger classes fire, and every load-bearing premise is grounded against real data by a predicate a
+later reader can re-run: the external contract by a capture produced by RUNNING HAL9000's code at a pinned
+40-hex HEAD with input→output and input→verdict pairs; the live distribution by a dated counts-only census
+with its script appended verbatim; the blast radius by an estate-wide sweep that CORRECTED one of this
+document's own claims rather than confirming it; and the second half of the relocation by a performed mint
+with an id. I re-ran the six in-tree premises the criteria bind to (P1, P4, P5, P8, P9 and both derived
+instruments) at this HEAD and all six hold. The counterexample hunt over the Intent's universals found
+three false-by-design writer classes, all already dispositioned — two of them in precondition 3 rather than
+in this document's own `### What this item does NOT do`, which is thin but is a disposition in a committed
+artifact this document declares, not an absence. No premise is contradicted by the data; the one live claim
+that lacks a re-runnable predicate governs a deferred migration's value and no criterion.
+
+```verdict
+gate: data-premise
+verdict: PROMOTE
+date: 2026-09-28
+model: claude-opus-5
+note: Class 1 and Class 2 both fire and both are grounded — precondition 1 pins HAL9000's contract with six input→output render samples and 29 input→verdict probes produced by RUNNING its code at a 40-hex HEAD (which also settles AC-1(c2)'s guard set at exactly five capture-accepted members), precondition 2 turns every prose number into a dated counts-only census (5664 files, 1314 person notes, introduced_by carriers 0, legacy intro 86/22 marked, grammars 43/38/5, intro-by 1, intro-to 0), precondition 3 sweeps 36 repos and finds all six live append_to_timeline callers pass a str so the narrowing breaks nothing on landing, precondition 4 records a performed mint (HAL9000 WI-082); I re-ran P1/P4/P5/P8/P9 and both derived instruments in-tree at HEAD 133c27a and all hold, and the counterexample hunt over `## Intent`'s "every writer" found three false-by-design classes (the section-append door's four hand-composing callers, four raw-file writers including this tree's own linter fixer, and exocortex's kindless high-volume meeting writer) all already dispositioned as named exclusions or as AC-1(f)'s declared outcome class; the two residuals — the 86-entries-all-outbound direction split is not in the census, and WI-082's mint is uncommitted in HAL9000's tree — govern no criterion and are recorded with the counts-only predicate that closes the first at build-start re-grounding.
 ```
