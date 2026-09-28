@@ -1,5 +1,37 @@
 # Session Log
 
+## 2026-09-28 — WI-033 ruling landed (introduced_by retired, accessor reads `intro-by` only); WI-034 folded; one-note vault repair
+
+- **Cold start** all as the 09-27 handoff predicted: floor 716, linter `--enforce` 0 errors, tree clean and
+  in sync, no escalations, no live drive, factory-v14.
+- **Dave's question:** *"Can we move the legacy 'introduced-by' all together and if there was a value add it
+  as a timeline entry?"* Audit BEFORE answering (live vault): ONE note carried a stored `introduced_by`
+  frontmatter key (`@Andy Shovel.md`, `'[[Sam Tucker]]'`, surviving on `extra="allow"` — the model never
+  declared it); 86 legacy `[intro]` headings, ALL outbound "Introduced to [[X]]" (zero are introduced-by
+  facts), 22 with a dedupe marker, three heading date grammars; zero `intro-by`/`intro-to` headings.
+  Recommendation: convert the one note, leave the 86 alone, accessor reads `intro-by` only, report-only lint
+  detector for the legacy kind, gate refuses the frontmatter key. Dave: *"proceed with your recommendation"*.
+- **Vault repair (2026-09-28, Dave's go, dry-run first, both doors, readback):** the HTTP timeline door
+  carries no `when` by design, so the backdated entry went through HAL9000's in-process
+  `core.timeline_entry.append_timeline_entry` (HAL9000 venv, `backend_fastapi` cwd): `intro-by` on Andy
+  Shovel dated to the note's own `first_interaction` 2025-11-10 ("day not recorded" disclosed in the text),
+  discriminator `Sam Tucker`, `appended=True`, key `intro-by:2025-11-10:Sam Tucker`. The key was removed
+  through `vault_io` under `note_lock` with a stamp precondition; `write_frontmatter` round-trip and raw line
+  removal produced the IDENTICAL one-line delta (asserted before the write). Readback: `^introduced_by:` in
+  the vault = 0; HAL9000's GET no longer serves the key; the entry and marker read back from the file. The
+  entry sits at the top of the section (the primitive prepends), above December 2025 — disclosed, not fixed.
+  Pre-existing corruption noticed on the same note and NOT touched: `(dave@davewascha.com)## Notes` glued on
+  one line and a duplicated `## Notes` heading.
+- **Docs:** `## Ruling — 2026-09-28` appended to WI-033 (`docs/timeline-entry-relocation.md`) in Dave's
+  words + the audit + three numbered rulings (field retired + gate refusal; accessor `intro-by` only,
+  `intro-to` mirror, `[intro]` not a source, WI-077 slugs/slot; the 86 stay, report-only detector).
+  **WI-034 FOLDED into WI-033**: status line, stage `parked` (pipeline has no closed stage — the WI-006
+  precedent), dropped from `queue_order` under `work_items_lock`, state regenerated with `--fix`; linter
+  `--enforce` 0 errors (246 warnings, the +1 unrelated to the edited docs). `queue_order` → WI-033, WI-030,
+  WI-028, WI-025, WI-009, WI-011.
+- **Next:** hand-launch WI-033 from `idea` on factory-v14 (full factory); the spec-writer reads the ruling
+  section as the premise correction.
+
 ## 2026-09-26 (evening) → 09-27 — WI-032 SHIPPED idea→done and the live vault migrated; WI-034 minted
 
 ### WI-032 (typed WhatsApp identifier lists + storable write door + migration) — ~19 hours wall-clock

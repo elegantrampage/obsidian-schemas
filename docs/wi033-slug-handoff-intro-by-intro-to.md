@@ -3,16 +3,20 @@ id: WI-034
 title: 'WI-033 slug handoff: the accessor reads intro-by / intro-to (+ counterparty
   slot), not [intro]'
 project: obsidian-schemas
-stage: idea
+stage: parked
 created: 2026-09-27
-last_touched: 2026-09-27
-stage_changed: 2026-09-27
+last_touched: 2026-09-28
+stage_changed: 2026-09-28
 touched_by: session
 tags: []
 depends_on: []
 ---
 
 # WI-033 slug handoff — the timeline accessor reads `intro-by` / `intro-to`, not `[intro]`
+
+**Status: FOLDED into WI-033 (2026-09-28, Dave's word: "proceed with your recommendation").** Its whole
+content is WI-033's `## Ruling — 2026-09-28` §2 (`docs/timeline-entry-relocation.md`); the spec-writer
+reads it there. Stage is `parked` because the pipeline has no closed stage; there is nothing to build here.
 
 ## Problem / Motivation
 
