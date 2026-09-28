@@ -1483,3 +1483,23 @@ date: 2026-09-28
 model: claude-sonnet-5
 note: Round-1's AC-2 finding (person axis undiscriminated) is closed — the fold plants a second person note with a differing counterparty/day/source, asserts scoping in both directions on both people, and adds an invariance-to-removal run, which together kill both the union build and the read-one-fixed-note build; independently re-verified every code citation the fold leans on (models.py:53, parser.py:250-252, body_sections.py:39, person.py:1489-1493/1502/1543-1545, name_gate.py:359-400) plus P1/P9 by fresh grep, all holding, and a fresh sweep of AC-1/AC-3/AC-4 found nothing new.
 ```
+
+## AC Sign-off
+
+```verdict
+gate: ac-signoff
+verdict: PROMOTE
+date: 2026-09-28
+reviewer: dave
+channel: conversational
+signed_at: 2026-09-28T10:52:08+01:00
+provenance: verified
+signoff_escalation: ESC-WI-033-exploring-awaiting-ac-signoff-3326b5a4
+ac_hash: a2bb3913f2c8
+intent_hash: beab28f263a8
+ac_hash_AC-1: c6ef8476f351
+ac_hash_AC-2: 6535ee8af9f4
+ac_hash_AC-3: c198dfc5612c
+ac_hash_AC-4: f9d4f2dffcaf
+artifact: docs/spec-reviews/WI-033-dave-review-2026-09-28.md
+```
