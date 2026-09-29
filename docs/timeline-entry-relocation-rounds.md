@@ -553,3 +553,483 @@ basis: original
 findings: 1/1
 ```
 
+
+## Threat Model — 2026-09-29
+
+**Recommendation: PROMOTE to threat-modeled**, with ONE required mitigation (M1) declared below and
+landed by the conveyor's D8 rule on Task 2.
+
+Cold-start read at HEAD `be6e2fe`. Carry-forward read in full before reviewing: the architect's round-4
+PROMOTE, the AC red-team's round-2 PROMOTE, the `ac-signoff` fence (`ac_hash a2bb3913f2c8` — `## Intent`
+and all four criteria are FROZEN), and the data-premise PROMOTE. The 2026-09-28 threat-model round timed
+out at the gate's flat timeout and persisted nothing into this document, so this is a first round with no
+fold to re-read; I derived every finding from the spec and the tree rather than from a recollection of
+it. Every `file:line` below was READ at its cited symbol this round.
+
+### Trigger check
+
+Five of the nine triggers fire; the review is run in full.
+
+- **External input.** The typed door's `text` and `discriminator` originate, in the item's own motivating
+  flow, in an INBOUND third-party introduction (`## Problem / Motivation`), and both new readers
+  (`parse_markers`, `parse_entries`) run over untrusted vault bytes — 5,664 files
+  (`docs/wi-033-intro-corpus-baseline.md`), into which HAL9000's `routers/entities.py:350` HTTP door and
+  four instruction-driven writers can author arbitrary body content (the data-premise hunt's Class A).
+- **Persistence.** Every write lands in a vault note through `vault_io`.
+- **Trust-boundary crossing.** The one the item names itself (§1.4): the PROSE channel (`text`) and the
+  MACHINE channel (the marker) are rendered into one contiguous block in one note.
+- **Filesystem operations on user-owned files.** The accessor resolves a path and reads a note; the door
+  writes one.
+- **Access-control modification, weak sense.** `gate_write` — the package's one semantic write gate —
+  gains a refusal arm (§4).
+
+Not firing: no secrets, credentials, tokens or OAuth scopes anywhere in the item; no MCP scope; no
+outbound API call and no network at all (§8.2, and the floor is hermetic by WI-031 clause (v)); no
+external message.
+
+### STRIDE review
+
+**Spoofing.** The marker is an UNAUTHENTICATED channel and the accessor's answer is only as trustworthy
+as the writer that authored the bytes. Anyone who can write the vault — including a reachable HAL9000
+`routers/entities.py:350` client hand-composing a body section, and every raw-string caller of
+`append_to_timeline`, which AC-1(f) deliberately preserves — can plant
+`<!-- intro-by:{day}:{name} -->` and make `introduced_by()` assert an introducer that never existed.
+This is not a boundary the item breaches: the vault is a trusted store on Dave's own filesystem and the
+grammar was never an authentication mechanism. Two things make it an acceptable residual rather than a
+gap: the item is a RELOCATION of a claim HAL9000 already publishes, so no new authority is minted; and
+`IntroRecord.source` is pinned to the verbatim bytes on the page (§1.3, AC-2), so a consumer that
+disagrees with the accessor has the exact substring to audit rather than a reconstructed claim. No
+mitigation required.
+
+**Tampering.** This is where the one material finding sits, and it is M1 below. Everything else on this
+axis verified clean. The typed branch's dedupe reads and writes inside ONE `note_lock` with
+`precondition=_stamp` (`obsidian_schemas/repositories/person.py:1498-1546`), so the check-then-write gap
+is closed by the stamp, not by a check — the TOCTOU shape does not exist here. The accessor's unlocked
+read is sanctioned by `vault_io.read_note:641-663` in its own contract and `write_note` is atomic, so a
+concurrent writer yields old bytes or new bytes and never torn ones. The forgery guards of §1.4 close
+the marker channel COMPLETELY for the fields they cover: `kind` cannot carry `:` or a delimiter (the
+slug rule), and `discriminator` is refused for `-->`, `<!--`, `\n`, `\r`, emptiness and the `:`
+separator — so no value a caller supplies can mint a second marker or re-split an existing key.
+
+The gap is that the guards cover the MARKER channel and not the SECTION channel, which this item newly
+depends on. `text` is accepted by HAL9000 on nothing but `isinstance(str) and text.strip()`
+(`docs/wi-033-hal9000-timeline-entry-capture.md:97`), and the capture's probe set records a multi-line
+`text` as ACCEPTED (`:412-418`). So a `text` containing a line `## Notes` is legal at both doors, and
+because `render` prepends the whole block immediately after the heading
+(`obsidian_schemas/repositories/person.py:1543-1545`), that injected line TERMINATES the span — the
+section delimiter is `^## (.+)$` under `re.MULTILINE`
+(`obsidian_schemas/body_sections.py:SECTION_HEADING_PATTERN:36`), and `parse_body_sections` keys an
+`OrderedDict` by heading text, so an injected duplicate `## Timeline` heading additionally shadows the
+real span. Three consumers this item builds read through exactly that span and all three go quiet
+together: the accessor (§3 step 3), the marker-anchored dedupe (§2 branch 2, AC-1(e)) and both new
+detectors (§5). The effect is not a crash but a SILENT NARROWING — every older `intro-by` entry on that
+note disappears from `introduced_by()`, `intro_by_without_marker` does not report them because they are
+outside the span it scans, and the dedupe stops matching so the same event appends without limit. The
+item's own §1.4 rationale is that "the machine channel must not be writable from the prose channel";
+the section heading is the second machine channel and it is currently writable from `text`. A related
+and milder shape — an injected `### … [intro-by]` line, which re-attributes a marker to a forged entry
+in `parse_entries` and suppresses the `intro_by_without_marker` report — is closed by the same guard.
+Live exposure today is nil (precondition 3: all six production callers pass a `str` and stay on the
+unchanged branch, so the typed door has zero callers on the day), which is why this is a mitigation to
+fold rather than a reason to bounce the spec; the first typed caller is HAL9000 post-cutover, on the
+inbound-introduction path where the counterparty string is third-party-supplied.
+
+**Repudiation.** No gap. Every refusal on both new paths is LOUD and raises — the gate arm
+(`obsidian_schemas/name_gate.py` section 3c) and `TimelineEntryRefusal`, both `LoudFailError` leaves, so
+`except LoudFailError` still means "this package refused" and every absorbing handler names the leaf
+(`obsidian_schemas/errors.py:NameGateRefusal:106-143`). The door's existing INFO/WARNING logging is
+unchanged. `retired_key_introduced_by` at ERROR is the standing record for a key that lands by
+hand-edit, in the tool Dave actually runs — which is the only instrument over live data, since the floor
+cannot reach the vault. Nothing security-relevant happens silently.
+
+**Information disclosure.** Verified in place, and the design is already stricter than it needs to be.
+`TimelineEntryRefusal` declares no `__init__` and passes NO note-derived value to the constructor (§1.4);
+its `pattern` is a module-level source literal set as an attribute AFTER construction, so it reaches no
+message and no traceback. That is enforced rather than asserted: `bounded_message` refuses any reason
+outside `REASONS` with `from None` suppression (`obsidian_schemas/errors.py:177-196`), and the item adds
+exactly one new enumerated literal. The gate arm's `refused_value` carries the constant key
+`"introduced_by"` and never the key's value (D4), which is correct because at that arm the value is a
+person's name — the exact case `_refuse`'s rule 2 exists for
+(`obsidian_schemas/name_gate.py:174-192`). `retired_key_introduced_by`'s message names the key and never
+its value (§5), which is TIGHTER than the shipped sibling `stem_name_divergence`, whose message already
+renders a stored person name (`scripts/lint_vault.py:466-473`) — so no new class of content enters the
+report. `IntroRecord.source` returns bytes the caller could already read from the note it named. One
+forward-looking note for consumers, non-blocking and outside this tree: `IntroRecord.introducer` is an
+attacker-influenceable string returned VERBATIM, so a consumer rendering it into HTML (HAL9000 serves
+this over HTTP) escapes it as it would any vault-derived string; the library correctly does not
+sanitize on a consumer's behalf.
+
+**Denial of service.** No realistic vector. Both new patterns are line-anchored under `re.MULTILINE`
+with no nested quantifier — `MARKER_PATTERN`'s `(?P<discriminator>.+)` backtracks linearly from the end
+of one line, and `HEADING_PATTERN`'s lazy `(?P<date>.+?)` advances one position at a time against a
+literal, so neither is a ReDoS shape even on a hostile single-line note. The readers are total: §1.3
+rules that a malformed day yields no `Marker` and raises nothing, which is the correct direction for a
+scan over 5,664 untrusted files and is the deliberate, justified departure from the loud-fail idiom. The
+linter's new arms sit after the `read_error` and `parse_error` guards, both of which `continue`
+(`scripts/lint_vault.py:378-397`), so an undecodable note cannot enter them, and `VaultFile.body` is a
+non-optional `str` bound to the raw text even on a parse error (`:116`, `:180`) — so there is no `None`
+body to crash the new arms on. The self-inflicted availability risk — the gate's unconditional refusal
+making a note that regains the key unwritable — is already surfaced in `## Risk Analysis` with the right
+answer (the population is EMPTIED, measured at 0 live carriers over 5,664 files and one fixture note
+re-keyed, so no exemption arm exists to widen) and needs nothing from me. No rate limit, quota or cost
+ceiling is owed: nothing here calls a paid or remote service.
+
+**Elevation of privilege.** No gap, and the one question worth asking resolved cleanly on a read. The
+accessor turns a `Person` into a file read, and a `Person` can be hand-constructed by a consumer from
+untrusted input — so I checked whether a crafted `name` can escape the vault. It cannot, on both legs of
+§3 step 1: `_resolve_write_target` returns a path only when `candidate.resolve().is_relative_to(
+self.vault_path.resolve())` (`obsidian_schemas/repositories/base.py:406-414`), and `get_file_path` is a
+dict lookup into `self._file_map` over notes the repository already loaded
+(`base.py:379-390`) — neither joins a caller string onto a path, so `../` is inert at both. Mirroring
+the door's own two-step (R5) is therefore also the containment-preserving choice, not just the
+provenance-consistent one. Nothing is interpolated into a shell, a query or a path; the capture parser
+uses `yaml.safe_load` and not `yaml.load` (§11.1), which is the right call and is worth keeping through
+the fold; the gate arm grants no new capability and only refuses; and the three detectors are
+report-only with `auto_fixable` at its default, so none of them can reach `apply_fixes`.
+
+### Mitigations verified in place
+
+1. **Marker-channel forgery closed at construction** — §1.4 guards 1–4, pinned by AC-1(c) and enumerated
+   as a set equality by AC-1(c2), on inputs HAL9000 itself accepts
+   (`docs/wi-033-hal9000-timeline-entry-capture.md:400-404`: HAL9000 accepts a `text` of
+   `<!-- forged -->` today). The relocation closes an open forgery hole rather than inheriting one.
+2. **Refusals carry no note-derived content** — §1.4 and D4, enforced by `bounded_message`'s enumerated
+   reasons (`obsidian_schemas/errors.py:177-188`) and by `_refuse`'s rules 1–3
+   (`obsidian_schemas/name_gate.py:160-192`).
+3. **Fail-closed on the write path, total on the read path** — validation is in `__post_init__`, so a
+   refusal fires before the object the door receives exists (`## Edge Cases`, Partial failure), and
+   AC-3(b) asserts NO FILE CHANGED at all five driven gate arms.
+4. **Path containment on the new read** — `base.py:406-414` and `base.py:379-390`, as above.
+5. **Atomicity and lock discipline unchanged** — one `note_lock` spanning read/dedupe/write with a stamp
+   precondition (`person.py:1498-1546`); the accessor's unlocked read is sanctioned and non-torn
+   (`vault_io.py:641-663`).
+6. **Untrusted-byte readers raise nothing and build nothing** — §1.3, §8.4, with the linter's triage
+   order preserved by placement (`scripts/lint_vault.py:378-397`) and asserted by AC-4(f).
+
+### Required mitigation
+
+```mitigation
+kind: required
+id: M1
+desc: TimelineEntry refuses a `text` carrying a line that matches `^#{2,3} `, because a markdown heading in the prose channel truncates or shadows the `## Timeline` span that the accessor (§3), the marker-anchored dedupe (AC-1(e)) and both new detectors (§5) all read through, silently hiding every older entry from all three; the guard refuses no probe the capture records as accepted, so AC-1(c2)'s set equality and the signed criteria frame are unmoved.
+landed: Task 2
+```
+
+**Why this lands on Task 2 and needs no re-signature.** Task 2 builds §1.4's guard table, and its
+`verify:` already points at Task 3's capture-driven check, so the fold carries the oracle with it. The
+compatibility argument is the load-bearing half and I checked it rather than assuming it: AC-1(c2) is a
+set equality over the probes the capture records as ACCEPTED (R1's reified form — capture `accept`
+probes filtered by this document's guard predicates), and NO accept-probe carries a `^## ` or `^### `
+line: the only multi-line text probe is `'line one\n\nline two'`
+(`docs/wi-033-hal9000-timeline-entry-capture.md:412-418`). A fifth guard therefore adds no member to
+either side of the equality and leaves the assertion green, so the mitigation is a §1.4 table row plus a
+clause in Task 3's check — it does not touch a frozen fence and must not be folded by editing one. The
+predicate itself is not invented here: `^#{2,3} ` is the body boundary §1.3 already declares for
+`parse_entries`, so the module gains no second grammar.
+
+### Notes (non-blocking)
+
+- **The honesty invariant has a residual hole that M1 does not close: an `intro-by` entry that is ALREADY
+  outside a `## Timeline` span** — written through the raw-string branch AC-1(f) preserves, or hand-edited
+  in Obsidian — is invisible to the accessor AND to `intro_by_without_marker`, which only scans inside
+  the span. I am not requiring a mitigation because the exposure is MEASURED at zero: precondition 2
+  reports that every timeline heading found in the live vault sits inside a `## Timeline` section, and
+  that census predicate is re-runnable. Worth the cutover item's attention if the typed door ever gains a
+  caller before that measurement is refreshed.
+- **`IntroRecord.introducer` is attacker-influenceable and returned verbatim** — a consumer rendering it
+  into HTML must escape it. Correctly not the library's job; recorded so the two waiting consumers
+  (HAL9000 WI-078, orchestrator WI-194) inherit the fact rather than discover it.
+- **The window D7 accepts in writing has a security reading as well as a drift reading.** Until the
+  cutover lands, HAL9000's own door keeps accepting a `text` that forges a marker
+  (`capture:400-404`) — so the forgery guard protects only callers that route through this library. That
+  is the correct sequencing and the right scope; it is simply worth stating that the hole does not close
+  estate-wide until HAL9000 WI-082 ships.
+- **Two OPEN security questions is the role's cap; I am at zero.** Both of the above are observations
+  with stated dispositions, not open questions.
+
+```verdict
+gate: threat-modeler
+verdict: PROMOTE
+date: 2026-09-29
+model: claude-opus-5
+note: The design's security posture is sound and six mitigations verified in place on a read (marker-forgery guards that close a hole HAL9000 itself still has, content-free refusals enforced by bounded_message, fail-closed writes, path containment at both legs of the accessor's resolution, unchanged lock/stamp discipline, total non-raising readers) — the one material finding is that §1.4 guards the MARKER channel but not the SECTION channel, so a capture-accepted `text` carrying a `## ` line truncates or shadows the `## Timeline` span that the accessor, the marker-anchored dedupe and both new detectors all read through, silently hiding every older entry from all three; that is a mitigation to fold (M1, Task 2), not a spec gap, because live exposure is nil today (all six production callers stay on the string branch) and the guard refuses no capture-accepted probe, so AC-1(c2)'s set equality and the signed criteria frame are unmoved.
+```
+
+
+## Adversarial Review — 2026-09-29
+
+**Recommendation: PROMOTE (injection axis only)** — no planted steering found. This is the injection-hunter's
+narrow question, not a second spec review: the spec-reviewer's standing verdict on this document is REVISE
+on three concrete blocking findings, and nothing here overrides, softens or substitutes for it.
+
+Cold-start read of the whole document, line 1 to its last line, including every prior gate's prose and
+verdict fence, plus the four committed precondition artifacts (`docs/wi-033-hal9000-timeline-entry-capture.md`,
+`docs/wi-033-intro-corpus-baseline.md`, `docs/wi-033-consumer-audit.md`, `docs/wi-033-hal9000-cutover-followup.md`)
+and the archived rounds file `docs/timeline-entry-relocation-rounds.md`, which the archive pointer says holds
+settled rounds.
+
+**What I hunted, and what came back.**
+
+- **Text arguing for a verdict, or addressed to a gate.** A pattern sweep over the item doc, the rounds
+  archive, the four preconditions and Dave's review artifact for approval-steering phrasing (pre-approval
+  claims, "do not block", "ignore prior", verdict-emission instructions, system-prompt talk) returned only
+  legitimate `verdict:` fence lines: the architect, ac-red-team, ac-signoff, data-premise and threat-modeler
+  PROMOTEs and the spec-reviewer REVISE in this document, one in the archive, and one inside Dave's
+  review artifact. The imperative-mood text in `docs/wi-033-consumer-audit.md` is verbatim grep output
+  quoting other projects' agent instructions as consumer evidence, addressed to those agents, and inert
+  here.
+- **Spec-shaped sections whose effect is to steer.** `## Ruling`, `## Design` §0 (the five reifications), D7's
+  declined drift checker, D8, the M1 fold and the Risk Analysis all argue for their own design, which is the
+  calibrated "spec making its own case" and not an injection. §0's claim that the M1 fold leaves the signed
+  frame unmoved is a substantive argument with a re-runnable predicate, and the spec-reviewer independently
+  re-derived it from the capture's own probes rather than taking it on the modeler's narrative.
+- **Prior PROMOTEs that read as steered.** The architect, red-team, data-premise and threat-modeler notes each
+  cite code they re-read and premises they re-ran, and their reasoning is decorrelated from one another
+  (each found something the previous round missed). The one gate that returned REVISE, the spec-reviewer, did
+  so on findings that point at real pins and would be odd output from a steered chain. The verdict history
+  shows independent judgement, not a uniform lean.
+- **The `writes` fence naming another item's tracked document (WI-245).** `docs/vault-fixtures.md` is WI-016's
+  document and is declared as `kind: precondition`, not as a builder write. The spec states in three places
+  (§6, the fence's `why`, and `## Write Targets`' extension note) that the caged builder is NOT its author, that
+  the edit replaces prose and would be refused at the merge boundary, that WI-016's signed AC-5 fence at
+  `:1434` is out of scope and must not be touched, and that the conductor commits it before the build. That is a
+  disclosed, narrowly-scoped, conductor-owned precondition and not a build-authored cross-doc authorization.
+  I still flag it for the human who lands it: land only the one sentence at `:279` and nothing else in that
+  file, per the fence's own text.
+- **The quoted and captured material.** The capture, corpus baseline and cutover record are machine-shaped
+  artifacts (YAML fences, verbatim source, command output) whose `verdict:` keys are HAL9000
+  accept/refuse probe results and not gate verdicts. I found no embedded instruction in them.
+
+**Honest limit, carried.** I read the same bytes the other gates did and could be fooled the same way; my
+value is a different model and a narrower question. The document is unusually self-referential (long, densely
+cross-cited, with several rounds of folds), which is the shape in which a plant would hide, so I read the fold
+records and the archive pointer specifically for text that changes what a gate should do rather than what the
+system does. None does.
+
+```verdict
+gate: injection-hunter
+verdict: PROMOTE
+date: 2026-09-29
+model: claude-sonnet-5-5
+note: No planted steering anywhere in the item doc, its archived rounds, the four committed preconditions or Dave's review artifact — verdict-shaped lines are only genuine gate fences, the prior PROMOTEs cite re-run evidence and the spec-reviewer independently returned REVISE on real pins, and the one cross-doc `writes` fence (docs/vault-fixtures.md) is a disclosed conductor-owned precondition and not a build-authored merge authorization; this clears the injection question only and leaves the spec-reviewer's three blocking findings standing.
+```
+
+
+## Threat Model — 2026-09-29 (round 2)
+
+**Recommendation: PROMOTE to threat-modeled**, with the SAME one required mitigation (M1) re-emitted
+below — unchanged in what it requires, still landed on Task 2.
+
+Round 2, cold-start at HEAD `be6e2fe` with the working tree carrying the spec-writer's 2026-09-29 fold of
+the spec review's three blocking findings. Carry-forward read in full before reviewing: my own round-1
+section, the `## Mitigation Folds` record, the spec review's REVISE, the injection-hunter's PROMOTE, and
+behind those the architect's round 4, the AC red-team's round 2, the `ac-signoff` fence
+(`ac_hash a2bb3913f2c8`) and the data-premise PROMOTE. Round 1's single finding is CLOSED, and I found it
+closed by re-reading the design surfaces rather than by taking the fold record's word. Every `file:line`
+I newly lean on was READ at its symbol this round.
+
+### Trigger check
+
+Unchanged and still firing — five of nine: external input (`text`/`discriminator` originate in an inbound
+third-party introduction; both new readers run over 5,664 untrusted vault files), persistence (every write
+lands in a note through `vault_io`), trust-boundary crossing (the prose channel and the machine channels
+rendered into one contiguous block), filesystem operations on user-owned files, and access control in the
+weak sense (`gate_write` gains a refusal arm). Still not firing: no secrets, credentials, tokens or OAuth
+scopes; no MCP scope; no network at all; no external message. Review run in full.
+
+### Round 1's finding, re-read
+
+**CLOSED, and closed as a write-door refusal rather than as a sentence.** Guard 5 is in the validation
+table at `## Design` §1.4 with the two silent effects named (an injected `## `-prefixed line TERMINATES
+the `## Timeline` span; an injected duplicate `## Timeline` heading SHADOWS it), it is written in Task 2
+and not deferred to a later one, and Task 3's clause (c3) ships four claimed shapes, five near-misses and
+the span-loss CONSEQUENCE itself by string surgery outside the door — which is the WI-235 form rather than
+a refusal count. Two properties I re-derived rather than inherited:
+
+- **The predicate really does cover every shape the three consumers route on.** `SECTION_HEADING_PATTERN`
+  is `re.compile(r'^## (.+)$', re.MULTILINE)` (`obsidian_schemas/body_sections.py:36`, read this round),
+  and `^#{2,3} ` covers it, covers `HEADING_PATTERN`, and covers `parse_entries`' own body boundary —
+  which is the same constant by construction, so the door refuses precisely the line the reader treats as
+  a boundary. §1.1's restatement of the bound as a strict SUPERSET rather than an exact union is the
+  security-correct direction: a superset over-refuses two inert shapes (a title-less `## ` line, a
+  kind-less `### ` line) and under-refuses nothing, so the coverage claim guard 5 rests on is now true as
+  written instead of true-in-effect. The `# ` / `#### ` complement is genuinely outside all four patterns
+  (each needs a space at a fixed offset that a third or fifth `#` occupies), so neither truncates a span
+  nor forges an entry and neither is refused.
+- **Guard 5 still adds a PREDICATE and no MEMBER to AC-1(c2)'s equality, and I enumerated the capture
+  myself rather than reading §0 R1's claim about it.** The 29 probes at
+  `docs/wi-033-hal9000-timeline-entry-capture.md:293-467` accept five `text` values
+  (`Met for coffee`, `see --> here`, `<!-- forged -->`, the `Introduced by [[…]] via gmail` sentence, and
+  the one multi-line probe `'line one\n\nline two'` at `:413-417`); none carries a `^#{2,3} ` line. The
+  capture-ACCEPTED inputs this library refuses are therefore exactly `text` = `see --> here`, `text` =
+  `<!-- forged -->`, and `discriminator` = `''`, `'   '`, `a:b` — five, before and after the fold. So the
+  signed frame is unmoved on a read, and M1 remains a table row plus a check clause rather than anything
+  that needs a re-signature.
+
+### What this round's new material does to the security posture
+
+The fold touched eight surfaces. Seven are security-neutral or security-positive, and I say which is
+which rather than waving at the set: §0 R6 / §6 / Task 7's narrowing of the `docs/vault-fixtures.md`
+oracle from a whole-file absence pin to a positive, section-scoped read is a test-oracle change with no
+threat surface (and it is strictly stronger — a deletion of the sentence now fails); Task 12's narrowing
+drops no security check, since all four of this item's AC checks, including AC-1(c), AC-1(c2), AC-3(b) and
+AC-4(f), remain its obligation; §1.3's `_compose_key` / `Marker.key` / `dedupe_probe` reconciliation makes
+the door's dedupe comparand single and live, and the two forms it reconciles are equivalent on the read
+side (`MARKER_PATTERN` admits only `<!-- {key} -->`, so `source` and `key` are in bijection for any marker
+the reader yields) — no collision path is opened or closed; `get_section` named as one import addition,
+the `:113` re-anchoring to `baseline_sections:1518` / `fenced_blocks:1550`, and §9's `CORPUS_PINNED_ISSUES`
+row are all buildability, not security.
+
+**The eighth is security-relevant and the fold moves it the right way.** Task 2 now owns the edit to
+`tests/test_name_gate.py:124` in the same task that adds the `REASONS` member, and §9 carries
+`obsidian_schemas/errors.py:REASONS:152` as a third countable corpus. `REASONS` is not an incidental
+count: it is the information-disclosure choke point of the whole error hierarchy. `bounded_message`
+refuses any reason outside the set and does so `from None`, with the comment at
+`obsidian_schemas/errors.py:183-188` stating that the suppression exists because the refusal fires
+"while a note-content-bearing original is in flight" — so the enumeration is what keeps a composed,
+content-bearing string from having a constructor to enter. The pin over it is deliberate and is an
+EQUALITY (`assert len(REASONS) == 16` at `tests/test_name_gate.py:124`, with the comment at `:121-122`
+declaring the equality the right pin). Before the fold that RED had no owner and would have surfaced at
+the last task; now the obligation is stated as a predicate (the set grows by exactly one and every pin
+over it moves with it) with the target value named, and the new leaf's own hierarchy assertions land in
+the same check — including that a non-member reason is refused as a BARE `ValueError` outside the
+hierarchy. That extends mitigation 2's enforcement to `TimelineEntryRefusal` instead of leaving it
+asserted only for `NameGateRefusal`. The one new reason literal,
+`"a timeline entry field this package refuses"`, is a constant carrying no note-derived content, and it
+is per-DOOR rather than per-guard with `pattern` distinguishing the faults — so guard 5 adds no message
+surface either.
+
+### STRIDE re-read — deltas only
+
+Rounds are cheap to pad and I am not padding: the five axes round 1 verified clean verified clean again
+on the same reads and I record only what the fold changed.
+
+**Tampering.** Round 1's gap is closed at the write door by guard 5 and the door is now TOTAL over the
+generator §1.4's field sweep declares — `text` is the only input that can introduce a line, since
+`KIND_PATTERN` admits `[a-z0-9_-]` only and the discriminator is refused for `\n`/`\r` and renders inside
+a line where a `## ` is inert. The lock discipline is untouched by the fold: one `note_lock` spanning
+read, dedupe and write with `precondition=_stamp` (`obsidian_schemas/repositories/person.py:1498-1546`),
+so the check-then-write gap is closed by the stamp and the TOCTOU shape still does not exist. The
+reconciled dedupe comparand does not widen what a hostile note can suppress — a false dedupe hit still
+requires the exact marker line to be present inside the span, which is the contract.
+
+**Information disclosure.** Strengthened, per the section above; nothing weakened. `refused_value` still
+carries the constant key and never a person's name (D4, `obsidian_schemas/name_gate.py:_refuse:174-192`),
+and the detector messages still name the key and the heading and never a stored value.
+
+**Spoofing, Repudiation, Denial of service, Elevation of privilege.** Unchanged and unchallenged by the
+fold. The marker remains an unauthenticated channel over a trusted store with `IntroRecord.source` pinned
+to the bytes on the page as the audit route; every refusal on both new paths is loud; both patterns are
+line-anchored with no nested quantifier and the readers are total over 5,664 files; and the accessor's
+path resolution is contained on both legs (`repositories/base.py:406-414`'s `is_relative_to` check and
+`:379-390`'s dict lookup — neither joins a caller string onto a path).
+
+### Mitigations verified in place
+
+The standing set, re-verified this round. 1. Marker-channel forgery closed at construction (§1.4 guards
+1–4, pinned by AC-1(c) and enumerated as a set equality by AC-1(c2), on inputs HAL9000 itself accepts —
+`capture:401-403` accepts a `text` of `<!-- forged -->` today, so the relocation closes an open hole
+rather than inheriting one). 2. Refusals carry no note-derived content (§1.4, D4), enforced by
+`bounded_message`'s enumerated reasons and its `from None` suppression
+(`obsidian_schemas/errors.py:177-188`) and by `_refuse`'s rules 1–3 — and now extended to the new leaf by
+Task 2's assertions. 3. Fail-closed on the write path, total on the read path (validation in
+`__post_init__`, so a refusal fires before the object the door receives exists; AC-3(b) asserts NO FILE
+CHANGED at all five driven arms). 4. Path containment on the new read (`base.py:406-414`, `:379-390`).
+5. Atomicity and lock discipline unchanged (`person.py:1498-1546`; the accessor's unlocked read sanctioned
+and non-torn, `vault_io.py:641-663`). 6. Untrusted-byte readers raise nothing and build nothing (§1.3,
+§8.4), with the linter's triage order preserved by placement (`scripts/lint_vault.py:378-397`) and
+asserted by AC-4(f). 7. The section channel closed at the write door — M1, folded into §1.1, §1.4 guard 5,
+Task 2 and Task 3 clause (c3) since my round 1, and re-emitted below because a later declaration
+supersedes an earlier one and silence would leave the set unstated.
+
+### Required mitigation
+
+```mitigation
+kind: required
+id: M1
+desc: TimelineEntry refuses a `text` carrying a line that matches `^#{2,3} `, because a markdown heading in the prose channel truncates or shadows the `## Timeline` span that the accessor (§3), the marker-anchored dedupe (AC-1(e)) and both new detectors (§5) all read through, silently hiding every older entry from all three; the guard refuses no probe the capture records as accepted, so AC-1(c2)'s set equality and the signed criteria frame are unmoved.
+landed: Task 2
+```
+
+Re-emitted byte-identically because what the mitigation REQUIRES has not moved — §1.1's restatement of
+the pattern's bound as a strict superset strengthens the coverage claim the guard rests on and changes no
+requirement — and `landed: Task 2` is still the task that writes the guard.
+
+### Notes (non-blocking)
+
+- **The `REASONS` pin must move as an EQUALITY, not be loosened.** The only way Task 2's new obligation
+  goes wrong on a security axis is a builder under cap pressure satisfying
+  `tests/test_name_gate.py:124` by rewriting `== 16` as `>= 16` or deleting it, which would silently
+  retire the size bound on the enumeration that keeps composed, note-content-bearing strings out of the
+  hierarchy. Not a required mitigation, because the document already names the target value (`17`),
+  Scope Boundary bounds the edit to exactly that line plus assertions inside the existing check, and §9
+  states the obligation as the predicate. Recorded so the reviewer who reads the diff knows which of the
+  two legal-looking edits is the wrong one.
+- **The honesty invariant's residual is unchanged and still not closed by M1**: an `intro-by` entry
+  ALREADY outside a `## Timeline` span — hand-edited, or written through the raw-string branch AC-1(f)
+  preserves — is invisible to the accessor AND to `intro_by_without_marker`, which only scans inside the
+  span. Still not requiring a mitigation: the exposure is MEASURED at zero (precondition 2 reports every
+  live timeline heading sitting inside a `## Timeline` section) and the predicate is re-runnable. Worth
+  the cutover item's attention if the typed door gains a caller before that measurement is refreshed.
+- **`IntroRecord.introducer` is attacker-influenceable and returned verbatim** — a consumer rendering it
+  into HTML must escape it. Correctly not the library's job; recorded so HAL9000 WI-078 and orchestrator
+  WI-194 inherit the fact rather than discover it.
+- **The D7 window's security reading stands.** Until HAL9000 WI-082 ships, HAL9000's own door keeps
+  accepting a `text` that forges a marker (`capture:401-403`), so the forgery guards protect only callers
+  routing through this library. Correct sequencing and ruled scope; the hole does not close estate-wide
+  until the cutover.
+- **Two OPEN security questions is the role's cap; I am at zero.** All four notes above are observations
+  with stated dispositions.
+
+```verdict
+gate: threat-modeler
+verdict: PROMOTE
+date: 2026-09-29
+model: claude-opus-5
+note: Round 1's one finding is CLOSED and I re-derived the closure rather than inheriting it — guard 5 lands in §1.1/§1.4/Task 2/Task 3(c3), `^#{2,3} ` covers `SECTION_HEADING_PATTERN` (`body_sections.py:36`, read this round), `HEADING_PATTERN` and `parse_entries`' shared boundary while the `# `/`#### ` complement is genuinely outside all of them, and I enumerated the capture's 29 probes myself to confirm the five capture-accepted refusals are unmoved (no accept-probe carries a `^#{2,3} ` line, the only multi-line one being `'line one\n\nline two'` at capture:413-417), so AC-1(c2) and the signed frame stay green; of the spec-review fold's eight surfaces seven are security-neutral or strictly stronger and the eighth is security-POSITIVE — Task 2 now owns the `len(REASONS) == 16` → `17` equality pin and the new leaf's hierarchy assertions, which extends the information-disclosure choke point (`bounded_message`'s enumerated reasons with `from None` suppression, `errors.py:177-188`) to `TimelineEntryRefusal` instead of leaving it asserted for `NameGateRefusal` alone; M1 re-emitted byte-identically on Task 2, six prior mitigations re-verified in place, zero open security questions.
+```
+
+
+## Adversarial Review — 2026-09-29 (round 2)
+
+**Recommendation: PROMOTE (injection axis only)** — no planted steering found. This is the narrow injection
+question, not a third spec review: the spec-reviewer's standing round-2 verdict is REVISE on two concrete
+blocking findings (Task 7's wrap-sensitive phrase, Task 3's selector contract), and nothing here overrides,
+softens or substitutes for it.
+
+Cold-start re-read after the 2026-09-29 spec-review fold, with the material added since my round 1 read
+closely: the `## Mitigation Folds` record, the threat modeler's round 2, the spec-reviewer's round 2, and the
+fold's new surfaces (§0 R6, Task 12's narrowing, the `REASONS` obligation and §9 rows).
+
+- **Text arguing for a verdict or addressed to a gate.** Two sweeps over the item doc, the rounds archive and
+  the four committed preconditions (approval-steering phrasing; text addressed to a reviewer, gate or agent,
+  or declaring a verdict already settled) returned nothing beyond the genuine `verdict:` fences of the
+  architect, red-team, sign-off, data-premise, threat-modeler and spec-reviewer rounds. Every fence sits at a
+  gate's own section end, and each `gate:` matches the section that carries it.
+- **The fold's new material.** R6, the `REASONS` pin obligation and Task 12's narrowing are substantive
+  design and test-oracle argument with re-runnable predicates. The threat modeler's note that the `REASONS`
+  pin must move as an equality is a warning to the diff reviewer, not steering of a gate. The spec-reviewer
+  reached its REVISE by re-reading files the fold cited and finding real defects, which is not what a steered
+  chain produces; the verdict series (REVISE, PROMOTE, REVISE) shows independent judgement.
+- **The `writes` fence naming another item's tracked document (WI-245).** Unchanged from round 1: the
+  `docs/vault-fixtures.md` edit is a disclosed, conductor-owned precondition, not a build-authored merge
+  authorization. The fold narrowed the oracle that reads it (positive, section-scoped) without adding a
+  builder write. I repeat the flag for whoever lands it: land only the one sentence and drop nothing else
+  into that file.
+- **Quoted and captured material.** The capture and baseline artifacts remain machine-shaped output whose
+  `verdict:` keys are HAL9000 accept/refuse probe results, not gate verdicts. Nothing embedded in them
+  addresses a gate.
+
+**Honest limit, carried.** I read the same bytes the other gates did and could be fooled the same way; my
+value is a different model and a narrower question. The document is long and densely cross-cited, and I read
+the fold-added material specifically for text that changes what a gate should do rather than what the system
+does. None does.
+
+```verdict
+gate: injection-hunter
+verdict: PROMOTE
+date: 2026-09-29
+model: claude-sonnet-5-5
+note: Re-read after the spec-review fold finds no planted steering in the item doc, its rounds archive or the four committed preconditions — verdict-shaped lines are only genuine gate fences, the fold-added material (R6, the REASONS pin obligation, Task 12's narrowing) is ordinary spec argument with re-runnable predicates, the spec-reviewer's REVISE-PROMOTE-REVISE series reflects independent judgement on real defects, and the one cross-doc writes fence stays a disclosed conductor-owned precondition; this clears the injection question only and leaves the spec-reviewer's two blocking findings standing.
+```
+

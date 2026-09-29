@@ -276,7 +276,7 @@ which names a person or an organisation, so the reconciliation instruction would
 the rule's own authority. They are kept and the keeping is now DECLARED: clause 2 states them as a
 deliberate over-constraint with its reason, so a later reader preserves them instead of pruning them.
 Separately, `model_config = ConfigDict(extra="allow", ...)` (`:31-32`, read here) means a specimen may
-carry frontmatter keys no model declares — a `manager:` or `introduced_by:` on a schema-drift or
+carry frontmatter keys no model declares — a `manager:` on a schema-drift or
 forward-compatibility note — which every enumeration over DECLARED fields misses by construction;
 clause 3 makes any manifest-declared value for an undeclared key an identity position by DEFAULT, with
 no manifest flag to opt out, because a builder-settable exemption is the escape hatch this criterion

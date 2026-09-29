@@ -1,7 +1,7 @@
 {
   "project": "obsidian-schemas",
   "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
-  "last_scanned": "2026-09-28T12:01:52Z",
+  "last_scanned": "2026-09-29T09:08:46Z",
   "next_id": 35,
   "items": [
     {
@@ -2803,11 +2803,11 @@
     {
       "id": "WI-033",
       "title": "TimelineEntry relocates into the library, with a derived introduced_by accessor",
-      "stage": "specced",
+      "stage": "building",
       "file": "docs/timeline-entry-relocation.md",
       "created": "2026-09-26",
-      "last_touched": "2026-09-28",
-      "stage_changed": "2026-09-28",
+      "last_touched": "2026-09-29",
+      "stage_changed": "2026-09-29",
       "tags": [],
       "involvement": null,
       "round_budget": null,
@@ -2829,6 +2829,20 @@
           "to": "specced",
           "at": "2026-09-28",
           "by": "porter",
+          "forced": false
+        },
+        {
+          "from": "specced",
+          "to": "ready",
+          "at": "2026-09-29",
+          "by": "session",
+          "forced": false
+        },
+        {
+          "from": "ready",
+          "to": "building",
+          "at": "2026-09-29",
+          "by": "session",
           "forced": false
         }
       ],
@@ -2870,6 +2884,27 @@
           "date": "2026-09-28",
           "model": "claude-opus-5",
           "note": "Class 1 and Class 2 both fire and both are grounded \u2014 precondition 1 pins HAL9000's contract with six input\u2192output render samples and 29 input\u2192verdict probes produced by RUNNING its code at a 40-hex HEAD (which also settles AC-1(c2)'s guard set at exactly five capture-accepted members), precondition 2 turns every prose number into a dated counts-only census (5664 files, 1314 person notes, introduced_by carriers 0, legacy intro 86/22 marked, grammars 43/38/5, intro-by 1, intro-to 0), precondition 3 sweeps 36 repos and finds all six live append_to_timeline callers pass a str so the narrowing breaks nothing on landing, precondition 4 records a performed mint (HAL9000 WI-082); I re-ran P1/P4/P5/P8/P9 and both derived instruments in-tree at HEAD 133c27a and all hold, and the counterexample hunt over `## Intent`'s \"every writer\" found three false-by-design classes (the section-append door's four hand-composing callers, four raw-file writers including this tree's own linter fixer, and exocortex's kindless high-volume meeting writer) all already dispositioned as named exclusions or as AC-1(f)'s declared outcome class; the two residuals \u2014 the 86-entries-all-outbound direction split is not in the census, and WI-082's mint is uncommitted in HAL9000's tree \u2014 govern no criterion and are recorded with the counts-only predicate that closes the first at build-start re-grounding."
+        },
+        "spec-reviewer": {
+          "gate": "spec-reviewer",
+          "verdict": "PROMOTE",
+          "date": "2026-09-29",
+          "model": "claude-opus-5",
+          "note": "Round 2's two findings are CLOSED and I verified each by reading the target files at the granularity the oracle consumes \u2014 \u00a712 Rule 1 now spells the selector in its own terms with `baseline_sections:1518` named as a raising discipline rather than a transplant (confirmed: it raises on any heading outside its declared table, and the capture carries `## Part 1` at :57 and again at :587 inside the Appendix's python fence plus `## Appendix` at :470), and Rule 2 makes every phrase oracle whitespace-normalized (confirmed: docs/vault-fixtures.md:279-280 still splits the corrected sentence at a line break, so a literal test would be RED against a correct conductor edit). The threat model's M2 is folded ONE LEVEL UP as required rather than as a clause \u2014 \u00a712 gains Rule 3, dimension (vii) answered per span for all four spans, and the level below it swept and declared with its one unguarded member (Task 7's emptied-population absence scan) closed by a member pin \u2014 and I re-counted the accounting at source instead of taking it from the fold: six line-start yaml fences in `## Parity samples`, twenty-nine in `## Validation boundary`, thirty-five in the file, the other four python, seventy-eight strictly alternating delimiters so the whole-file toggle walk is well-formed, and an injected `## ` line is not a fence line so a truncated span is RED while the whole-file count is unmoved. `fenced_blocks:1550` does discard the info string at :1554-1559, making `select_fenced_blocks`' PAIRS deviation load-bearing and earning its WI-235 battery. Both fold records are complete and fresh, both `desc` values byte-identical to round 3's mitigation fences, and I found each `design`/`work` quote where it claims to be and read the surrounding text. All twelve bar checks pass: the signed frame is unedited with R7 classified non-drifting, every task carries one well-formed verify and none orders the floor, Write-Targets coverage re-extracted per task with no path added or missing, six counting walls ship their shapes and near-misses, and `tests/test_loud_fail_harness.py`'s `six` dict is a required subset so the two new derivations move no wall. The arc \u2014 original, then folded material, then \u00a712's own sweep \u2014 is a ladder climbing toward the machinery, and I looked specifically for a fourth-level finding on the accounting's expression rather than emitting one: it is position-free, count-pin-free, RED on either span's truncation inside or outside a fence, and it moves with the re-run capture D7 schedules. Three non-blocking notes, none able to ship a wrong library."
+        },
+        "threat-modeler": {
+          "gate": "threat-modeler",
+          "verdict": "PROMOTE",
+          "date": "2026-09-29",
+          "model": "claude-opus-5",
+          "note": "M1 re-read and STILL CLOSED on the surfaces themselves (\u00a71.1's pattern, \u00a71.4's guard 5 with both silent effects, Task 2, Task 3(c3)) and re-emitted byte-identically on Task 2; of the fold's new material \u00a712 is security-neutral-to-positive on every axis I could check \u2014 Rule 2 can only false-RED, Rule 1's helpers take TEXT not paths so no file I/O enters tests/derivations.py and no `ast` moves, the RAISE messages quote conductor-committed headings and never vault bytes, Task 12's narrowing drops no security check, and AC-1(a3)'s SET-singleton HEAD read is strictly stronger than the first match. The one new finding is the FAIL-DIRECTION dimension \u00a712's next-level sweep did not turn: it declares span truncation would \"redden this item\" uniformly, and I checked that per span rather than per section \u2014 true for `## Exploration Notes` (the PRESENT half fails), `## Counts` (one-fence assertion) and `## Parity samples` (AC-1(a2)'s set equality, incidentally), but FALSE for `## Validation boundary`, where the non-vacuity clauses catch only a TOTAL loss and a partial truncation leaves AC-1(c2)'s equality satisfied over a subset \u2014 silently retiring the anti-widening ratchet \u00a71.4, R1 and Risk Analysis row 2 all name as what stops the over-refusal exception being widened, on a regeneration D7 has already scheduled as the cutover item's first act. That is M2 on Task 3, a mitigation to fold rather than a spec gap: the guards themselves stay pinned by AC-1(c) and (c3) so it is a ratchet loss not a guard loss, safe_dump's block-scalar indentation keeps the condition unlikely, and the closing shape is one derived assertion I measured against the capture's own bytes (six yaml fences in the sample span, twenty-nine in the probe span, thirty-five in the file, the other four fences `python`) rather than prescribed by reference \u2014 with the caveat that `fenced_blocks:1550` discards the info string at `:1554-1559`, which the whole-file leg needs. Seven prior mitigations re-verified in place, zero open security questions."
+        },
+        "injection-hunter": {
+          "gate": "injection-hunter",
+          "verdict": "PROMOTE",
+          "date": "2026-09-29",
+          "model": "claude-sonnet-5-5",
+          "note": "Re-read after the threat model's round-3 M2 fold finds no planted steering in the item doc \u2014 pattern sweeps for approval-steering and gate-addressed imperatives come back empty, the thirteen line-start gate/verdict keys are all genuine fences at their own gate's section end, the fold-added material (M2 record, \u00a712 Rule 3 and dimension (vii), R7, Task 3's completeness clause) is ordinary spec argument with re-runnable predicates independently re-counted by two other gates, and the one cross-doc writes fence (docs/vault-fixtures.md) is unchanged as a disclosed conductor-owned precondition; this clears the injection question only."
         }
       },
       "verdicts": [
@@ -2910,6 +2945,49 @@
           "date": "2026-09-28",
           "model": "claude-opus-5",
           "note": "Class 1 and Class 2 both fire and both are grounded \u2014 precondition 1 pins HAL9000's contract with six input\u2192output render samples and 29 input\u2192verdict probes produced by RUNNING its code at a 40-hex HEAD (which also settles AC-1(c2)'s guard set at exactly five capture-accepted members), precondition 2 turns every prose number into a dated counts-only census (5664 files, 1314 person notes, introduced_by carriers 0, legacy intro 86/22 marked, grammars 43/38/5, intro-by 1, intro-to 0), precondition 3 sweeps 36 repos and finds all six live append_to_timeline callers pass a str so the narrowing breaks nothing on landing, precondition 4 records a performed mint (HAL9000 WI-082); I re-ran P1/P4/P5/P8/P9 and both derived instruments in-tree at HEAD 133c27a and all hold, and the counterexample hunt over `## Intent`'s \"every writer\" found three false-by-design classes (the section-append door's four hand-composing callers, four raw-file writers including this tree's own linter fixer, and exocortex's kindless high-volume meeting writer) all already dispositioned as named exclusions or as AC-1(f)'s declared outcome class; the two residuals \u2014 the 86-entries-all-outbound direction split is not in the census, and WI-082's mint is uncommitted in HAL9000's tree \u2014 govern no criterion and are recorded with the counts-only predicate that closes the first at build-start re-grounding."
+        },
+        {
+          "gate": "spec-reviewer",
+          "verdict": "REVISE",
+          "date": "2026-09-29",
+          "model": "claude-opus-5",
+          "targets": "Task 2, Task 12, Task 7, AC-3, #write-targets, #design",
+          "prior": "none",
+          "basis": "original",
+          "findings": "3/9",
+          "note": "Task 2 adds a member to errors.py:REASONS while tests/test_name_gate.py:124 pins that population's SIZE by equality (`assert len(REASONS) == 16`, deliberate per its own comment) \u2014 the pin is in no \u00a79 row, `REASONS` is absent from \u00a79's conscious-pin sweep whose declared corpora are only the lint check-id set and the fixture corpus, the file is in no `writes` fence and no task owns the edit, and `## Verification`'s derived Regression paragraph asserts that very module stays green while filing it under name_gate.py rather than under errors.py, which its own sweep predicate reaches; Task 12's verify step is the whole project floor (WI-314), which is the drive's obligation and is also where finding 1's RED lands with no authorised remedy; and Task 7/AC-3(c) orders a whole-file absence pin over `docs/vault-fixtures.md` \u2014 another item's splitter-mutable tracked document \u2014 naming neither WI-278 arm nor the one-line coupling declaration it gives AC-1's capture read. Everything else verified clean: all 33 symbol citations re-read for the property each claim asserts, the five-member guard set and M1's zero-member addition enumerated from the capture's own 29 probes, `PARITY_KINDS` equal to the sample kinds, the anchor equal to the capture's HEAD, the AC frame byte-identical to the signed artifact with all five \u00a70 reifications classified non-drifting, and D9's fixture-pool tokens confirmed in NAME_POOL."
+        },
+        {
+          "gate": "spec-reviewer",
+          "verdict": "REVISE",
+          "date": "2026-09-29",
+          "model": "claude-opus-5",
+          "targets": "Task 7, Task 3, #design",
+          "prior": "held",
+          "basis": "folded-material",
+          "findings": "2/5",
+          "note": "Round 1's three findings are all CLOSED and I verified each against the code rather than the fold's account (the `REASONS` size pin at tests/test_name_gate.py:124 is now owned by Task 2 with a write target, three \u00a79 rows and a re-swept sixteen-module Regression row I re-ran; Task 12 drops the floor and its three pins are each discharged by a standing check I confirmed consumes them; AC-3(c)'s oracle is now positive and section-scoped). Both new findings land in the fold's own material and are one class \u2014 a textual oracle prescribed against a markdown file whose bytes were not read at the granularity the oracle needs. Task 7 asserts the phrase \"a `manager:` on a schema-drift or forward-compatibility note\" is PRESENT, but docs/vault-fixtures.md is hard-wrapped and that sentence spans :279-280, so after the conductor's one-sentence deletion the phrase still contains a newline and the literal test is RED, with the builder unable to edit the file and the conductor never told the wrapping is load-bearing (the ABSENCE half is contiguous on :279 and fine, which is what hides it). And Task 3 prescribes the `baseline_sections:1518` selector, which I read at its symbol: it is a TOTAL heading parse that raises on any heading outside its declared table, while the capture carries `## Part 1` at :57 and again at :587 inside the Appendix's python fence plus `## Appendix` at :470 \u2014 so a faithful copy raises before reaching a yaml fence, and Task 7's narrower wording of the same instrument is the reading that works, leaving the builder to pick between two tasks. Everything else verified clean: all citations re-read for the property each asserts, REASONS confirmed to carry exactly one size pin tree-wide, the containment wall confirmed to permit a second `vault` binding from the one door, the signed frame byte-identical with R6 classified non-drifting, and the M1 fold's two quotes confirmed faithful where they claim to be."
+        },
+        {
+          "gate": "threat-modeler",
+          "verdict": "PROMOTE",
+          "date": "2026-09-29",
+          "model": "claude-opus-5",
+          "note": "M1 re-read and STILL CLOSED on the surfaces themselves (\u00a71.1's pattern, \u00a71.4's guard 5 with both silent effects, Task 2, Task 3(c3)) and re-emitted byte-identically on Task 2; of the fold's new material \u00a712 is security-neutral-to-positive on every axis I could check \u2014 Rule 2 can only false-RED, Rule 1's helpers take TEXT not paths so no file I/O enters tests/derivations.py and no `ast` moves, the RAISE messages quote conductor-committed headings and never vault bytes, Task 12's narrowing drops no security check, and AC-1(a3)'s SET-singleton HEAD read is strictly stronger than the first match. The one new finding is the FAIL-DIRECTION dimension \u00a712's next-level sweep did not turn: it declares span truncation would \"redden this item\" uniformly, and I checked that per span rather than per section \u2014 true for `## Exploration Notes` (the PRESENT half fails), `## Counts` (one-fence assertion) and `## Parity samples` (AC-1(a2)'s set equality, incidentally), but FALSE for `## Validation boundary`, where the non-vacuity clauses catch only a TOTAL loss and a partial truncation leaves AC-1(c2)'s equality satisfied over a subset \u2014 silently retiring the anti-widening ratchet \u00a71.4, R1 and Risk Analysis row 2 all name as what stops the over-refusal exception being widened, on a regeneration D7 has already scheduled as the cutover item's first act. That is M2 on Task 3, a mitigation to fold rather than a spec gap: the guards themselves stay pinned by AC-1(c) and (c3) so it is a ratchet loss not a guard loss, safe_dump's block-scalar indentation keeps the condition unlikely, and the closing shape is one derived assertion I measured against the capture's own bytes (six yaml fences in the sample span, twenty-nine in the probe span, thirty-five in the file, the other four fences `python`) rather than prescribed by reference \u2014 with the caveat that `fenced_blocks:1550` discards the info string at `:1554-1559`, which the whole-file leg needs. Seven prior mitigations re-verified in place, zero open security questions."
+        },
+        {
+          "gate": "spec-reviewer",
+          "verdict": "PROMOTE",
+          "date": "2026-09-29",
+          "model": "claude-opus-5",
+          "note": "Round 2's two findings are CLOSED and I verified each by reading the target files at the granularity the oracle consumes \u2014 \u00a712 Rule 1 now spells the selector in its own terms with `baseline_sections:1518` named as a raising discipline rather than a transplant (confirmed: it raises on any heading outside its declared table, and the capture carries `## Part 1` at :57 and again at :587 inside the Appendix's python fence plus `## Appendix` at :470), and Rule 2 makes every phrase oracle whitespace-normalized (confirmed: docs/vault-fixtures.md:279-280 still splits the corrected sentence at a line break, so a literal test would be RED against a correct conductor edit). The threat model's M2 is folded ONE LEVEL UP as required rather than as a clause \u2014 \u00a712 gains Rule 3, dimension (vii) answered per span for all four spans, and the level below it swept and declared with its one unguarded member (Task 7's emptied-population absence scan) closed by a member pin \u2014 and I re-counted the accounting at source instead of taking it from the fold: six line-start yaml fences in `## Parity samples`, twenty-nine in `## Validation boundary`, thirty-five in the file, the other four python, seventy-eight strictly alternating delimiters so the whole-file toggle walk is well-formed, and an injected `## ` line is not a fence line so a truncated span is RED while the whole-file count is unmoved. `fenced_blocks:1550` does discard the info string at :1554-1559, making `select_fenced_blocks`' PAIRS deviation load-bearing and earning its WI-235 battery. Both fold records are complete and fresh, both `desc` values byte-identical to round 3's mitigation fences, and I found each `design`/`work` quote where it claims to be and read the surrounding text. All twelve bar checks pass: the signed frame is unedited with R7 classified non-drifting, every task carries one well-formed verify and none orders the floor, Write-Targets coverage re-extracted per task with no path added or missing, six counting walls ship their shapes and near-misses, and `tests/test_loud_fail_harness.py`'s `six` dict is a required subset so the two new derivations move no wall. The arc \u2014 original, then folded material, then \u00a712's own sweep \u2014 is a ladder climbing toward the machinery, and I looked specifically for a fourth-level finding on the accounting's expression rather than emitting one: it is position-free, count-pin-free, RED on either span's truncation inside or outside a fence, and it moves with the re-run capture D7 schedules. Three non-blocking notes, none able to ship a wrong library."
+        },
+        {
+          "gate": "injection-hunter",
+          "verdict": "PROMOTE",
+          "date": "2026-09-29",
+          "model": "claude-sonnet-5-5",
+          "note": "Re-read after the threat model's round-3 M2 fold finds no planted steering in the item doc \u2014 pattern sweeps for approval-steering and gate-addressed imperatives come back empty, the thirteen line-start gate/verdict keys are all genuine fences at their own gate's section end, the fold-added material (M2 record, \u00a712 Rule 3 and dimension (vii), R7, Task 3's completeness clause) is ordinary spec argument with re-runnable predicates independently re-counted by two other gates, and the one cross-doc writes fence (docs/vault-fixtures.md) is unchanged as a disclosed conductor-owned precondition; this clears the injection question only."
         }
       ],
       "acceptance_criteria": [

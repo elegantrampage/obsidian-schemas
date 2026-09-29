@@ -2,14 +2,14 @@
 id: WI-033
 title: TimelineEntry relocates into the library, with a derived introduced_by accessor
 project: obsidian-schemas
-stage: specced
+stage: building
 created: 2026-09-26
-last_touched: 2026-09-28
-stage_changed: 2026-09-28
+last_touched: 2026-09-29
+stage_changed: 2026-09-29
 touched_by: session
 tags: []
 depends_on: []
-transitions: ["idea>exploring@2026-09-28@session", "exploring>specced@2026-09-28@porter"]
+transitions: ["idea>exploring@2026-09-28@session", "exploring>specced@2026-09-28@porter", "specced>ready@2026-09-29@session", "ready>building@2026-09-29@session"]
 ---
 
 # TimelineEntry relocates into the library, with a derived introduced_by accessor
@@ -21,7 +21,6 @@ Settled gate rounds for this item live in `docs/timeline-entry-relocation-rounds
 this item has already advanced past, byte-for-byte, append-only, never rewritten. READ ON DEMAND
 ONLY: each gate's latest standing round is still in this document, so nothing needed to advance this
 item is in the drawer. Open it only to read a settled round's full reasoning.
-
 
 ## Problem / Motivation
 
@@ -462,7 +461,9 @@ gains **part 3** — a declared `## Validation boundary` section of INPUT→VERD
 HAL9000's code, including its boundary cases — and **AC-1(c2)** asserts the direction that can actually break
 a post-cutover caller: the library is NO STRICTER, i.e. every input the capture records HAL9000 ACCEPTING, the
 library accepts. The one exception class is enumerated and asserted as a SET EQUALITY (the `<!--`/`-->`
-forgery inputs and the empty / whitespace-only / key-separator discriminators of AC-1(c)) so a build cannot
+forgery inputs and the empty / whitespace-only / key-separator discriminators of AC-1(c); the threat
+model's M1 added a FIFTH guard predicate on 2026-09-29 — a `text` line matching `^#{2,3} ` — which adds
+no MEMBER to either side, because no capture-accepted probe carries that shape, §0 R1) so a build cannot
 widen "deliberate guard" into an excuse for any other over-refusal. The LOOSE direction — the library
 accepting something HAL9000 refuses — is OUT OF SCOPE in writing: it cannot break a caller that works today,
 the library's own guards are pinned independently by AC-1(c), and validating on HAL9000's behalf is the
@@ -515,8 +516,9 @@ library's module** — HAL9000 keeps its own `backend_fastapi/core/timeline_entr
 minted in D7 lands, so for that window two implementations of one grammar exist and the only thing
 holding them together is the pinned parity anchor (D7 says what that does and does not detect); **it does not
 narrow the set of kinds any writer may use** — `PARITY_KINDS` is a parity universe that gates no write (D8),
-so this item ships no closed kind enum and adds no refusal HAL9000 does not already have beyond the four
-guards AC-1(c) names and AC-1(c2) enumerates as an equality; **it does not validate on HAL9000's behalf** —
+so this item ships no closed kind enum and adds no refusal HAL9000 does not already have beyond the five
+guards §1.4 names — the four AC-1(c) enumerates and M1's structural-line guard, which refuses nothing the
+capture records HAL9000 accepting; **it does not validate on HAL9000's behalf** —
 where the library ends up LOOSER than HAL9000's rule, that is out of scope in writing (D8) and is the cutover
 item's business, exactly as drift is; it does
 not rewrite the 86 legacy entries (A5); it does not change or remove `intro_not_symmetric` (P7 — it is
@@ -557,8 +559,11 @@ population rather than to a list a builder chose. Nothing in `TimelineEntry.__in
 `dedupe_key` or `parse_markers` reads it; AC-1(a4) plants a slug-valid kind absent from it and asserts the
 round trip, so the open reading is machine-checked rather than merely written down. Parity is pinned on BOTH
 surfaces in the direction that can break a caller: RENDER bytes by AC-1(a), and REFUSAL by AC-1(c2) — the
-library is no STRICTER than the INPUT→VERDICT boundary precondition 1's part 3 captures, with its four
-deliberate guards enumerated as a set equality so the exception cannot be widened. Being LOOSER than HAL9000
+library is no STRICTER than the INPUT→VERDICT boundary precondition 1's part 3 captures, with its five
+deliberate guards (§1.4 — the fifth is M1's, folded 2026-09-29, and refuses no captured-accepted input)
+enumerated as a set equality so the exception cannot be widened — over a probe population asserted to have
+been read WHOLE, which is M2, folded 2026-09-29 (§12 Rule 3, §0 R7): an equality over a silently narrowed
+probe set holds over any subset and retires the ratchet while the floor stays green. Being LOOSER than HAL9000
 is out of scope in writing; the cutover item owns it, as it owns drift.
 
 `PersonRepository.append_to_timeline` grows a typed overload that derives both
@@ -592,6 +597,76 @@ below was READ at its cited symbol this round; the preconditions were read end t
 `criteria` fences and `## Intent` are FROZEN by the `ac-signoff` fence (`ac_hash a2bb3913f2c8`) and are
 not touched by this spec — see §0.
 
+**Revised 2026-09-29 after the spec review's three blocking findings, at HEAD `be6e2fe`.** Where each
+landed, so a re-reader does not have to diff. **Finding 1** (`errors.py:REASONS` grows by one while
+`tests/test_name_gate.py:124` pins its SIZE by equality, owned by nobody) → §9 gains a wall row for the
+pin, a second row for the two walls that already sweep that file, and a THIRD countable corpus in the
+conscious-pin sweep — which also names `CORPUS_PINNED_ISSUES:809`, the reviewer's zero-cost note of the
+same class; Task 2 owns the edit in the SAME task that adds the member and declares a second `verify:`
+check; `tests/test_name_gate.py` is a declared write target; Task 11 RUNS the four predicates over it; and
+`## Verification`'s Regression enumeration for `errors.py` is RE-SWEPT (it named four modules and the
+sweep returns sixteen, with two of the four wrong). **Finding 2** (Task 12's verify was the whole project
+floor, WI-314) → Task 12 keeps the pin accounting and this item's own four AC checks and drops the floor
+run, with each pin re-read now discharged by a standing check rather than a hand reading; Task 1's
+baseline capture is unchanged and stays informational. **Finding 3** (AC-3(c)'s oracle was a whole-file
+absence pin over another item's splitter-mutable document, WI-278) → §0 R6, §6 and Task 7 narrow it to a
+POSITIVE, section-scoped read, and `## Verification` carries the one-line coupling declaration beside
+AC-1's. The six non-blocking notes are taken too: `:113` re-anchored to `baseline_sections:1518` +
+`fenced_blocks:1550` (§10, §11.1, Task 3); §1.3 and §2 reconciled on ONE dedupe comparand
+(`dedupe_probe`); `_compose_key` + `Marker.key` added so the key grammar is spelled once (§1.2, §1.3, Task
+3(b)); `get_section` named as one addition to `lint_vault.py`'s existing import list (§5);
+`STRUCTURAL_LINE_PATTERN`'s bound restated as a strict SUPERSET with its extra members declared inert
+(§1.1); and `CORPUS_PINNED_ISSUES` named in the pin sweep. No signed fence is edited — §0 is where the
+oracle reification lives.
+
+**Revised again 2026-09-29 after the spec review's ROUND 2, whose two blocking findings the reviewer
+named as ONE CLASS — and they are closed as a class (WI-226), not as two cases.** The generator: *a
+check this plan orders derives a textual oracle from a markdown file the conductor commits and the caged
+builder cannot edit, stated BY REFERENCE — to a shipped symbol, or to a phrase quoted from the
+sentence's sense rather than the file's bytes — without anyone having read the target at the granularity
+the oracle consumes.* The whole surface is enumerated at source in the new **§12** (four oracles over
+three files, one of which — AC-3(c)'s live-half read of `docs/wi-033-intro-corpus-baseline.md` — this
+sweep ADDED, since no earlier draft treated it as an oracle at all), closed by two rules made total over
+it, and its next level swept and declared. Where each finding landed: **finding 1** (Task 7's PRESENT
+phrase spans the hard wrap at `docs/vault-fixtures.md:279-280`, so a literal substring test is RED
+against a correct conductor edit) → §12 Rule 2 — *every* phrase oracle compares whitespace-normalized
+text against a whitespace-normalized phrase — restated in Task 7, §0 R6, §6 and `## Verification`'s
+reader 2, with the precondition fence now quoting the file's own bytes, naming the exact deletion, and
+saying in writing that the conductor is NOT asked to re-wrap. **Finding 2** (Task 3 prescribed
+`baseline_sections:1518`, a TOTAL parse that raises on the capture's three undeclared headings, one of
+them the `## Part 1` echo at `:587` inside the Appendix's `python` fence) → §12 Rule 1 — the selector is
+spelled in its own terms as `select_sections(text, names)` and `baseline_sections` is named as the
+RAISING DISCIPLINE to copy rather than a function to transplant — restated in Task 3, Task 7 (which
+imports the same helper), §10, §11.1 and reader 1. The next level is swept in §12 and two dimensions it
+returned are folded rather than left: AC-1(a3)'s HEAD read becomes a SET-singleton assertion (the
+capture declares the same 40-hex four times, so "the first match" would be green on a capture declaring
+two), and Rule 1's deliberate fence-unawareness is declared as a MEASURED residual in both coupling
+declarations rather than argued away. The three non-blocking notes are taken too: the `REASONS` pin's
+adjacent comment at `tests/test_name_gate.py:121-122` is admitted into Task 2's bounded edit (§9's row,
+Task 2, `## Scope Boundary`, the write-target fence); the "key" paraphrase is reconciled against the
+file's bytes in §6, §0 R6 and the precondition fence; and the fenced-`## ` residual is recorded with its
+measurement. No signed fence is edited this round either.
+
+**Revised a third time 2026-09-29, folding the threat model's round-3 required mitigation M2 — and the
+finding lands inside the previous round's own fold, which is why it is closed one LEVEL up rather than as
+a clause.** M2's substance: §12's next-level sweep declared that a truncated span "would redden this item"
+uniformly, and that is false for `## Validation boundary`, where a PARTIAL truncation leaves AC-1(c2)'s
+guard-set equality satisfied over a subset and silently retires the anti-widening ratchet §1.4, R1 and
+`## Risk Analysis` row 2 all name. Where it landed: **§12 gains RULE 3** — every oracle derived from a
+selected span either fails on a truncation by construction (and this document names the assertion that
+does it) or carries an explicit completeness assertion, which for the capture's two spans is the
+whole-file `yaml`-fence accounting — plus **dimension (vii) FAIL DIRECTION**, answered per span for all
+four selected spans, and **the level BELOW (vii)** swept and declared: nine run-time-derived populations
+this plan quantifies over, of which eight were already non-vacuous and the ninth, Task 7's
+emptied-population absence scan, is closed in this same edit by a member pin. **Task 3** asserts the
+accounting before any sample or probe is read; **§0 gains R7**; §12's fence-extraction paragraph and
+Task 3 now require the ONE deviation the mechanism turns on — `select_fenced_blocks` RETAINS the info
+string, which `fenced_blocks:1550` discards at `:1554-1559`, read at its symbol this round — and Task 3's
+WI-235 battery is extended to that helper's reach, which is what Rule 3's accounting now rests on. Rule 3
+is asserted, not merely written, and no signed fence is edited this round either: the accounting adds no
+member to either side of AC-1(c2)'s equality, it asserts that the population both sides are drawn FROM was
+read whole.
+
 ### §0 — Where this spec's refinements live, and why not in the fences
 
 `hash_section` freezes the WHOLE body of `## Intent` and `## Acceptance Criteria`, nested `###`
@@ -600,6 +675,8 @@ they include the section's `**DRAFT — not frozen.**` preamble and all of `### 
 byte of that span is a signed artifact now, the preamble's own sentence included — it is left
 byte-identical deliberately, and the `ac-signoff` fence beneath it is the operative status. One
 consequence governs this whole section: **the five residual notes rounds 3 and 4 left for the spec-writer
+— plus R6, the spec review's 2026-09-29 finding 3, and R7, the threat model's round-3 finding M2, both on
+a signed clause's ORACLE rather than on its text —
 are resolved HERE, in unsigned prose the builder reads, rather than by editing a signed fence.** A
 within-spirit edit would invalidate the signature and buy a re-sign for text that changes no behaviour;
 the builder executes `## Design` and `## Implementation Plan`, so a resolution stated here is binding
@@ -610,13 +687,23 @@ it reifies and the reifications are asserted, not merely written.
   clause cannot hold: the `-->`/`<!--` guard is HAL9000's own, so those probes sit on the capture's
   REFUSE side and cannot appear in "capture-ACCEPTED". The operative form, and the one the builder
   implements: **both sides are derived from the capture, and the right-hand side is the capture's
-  `accept` probes FILTERED by this document's four guard predicates** (§1.4) — never a typed list. The
+  `accept` probes FILTERED by this document's guard predicates** (§1.4, now FIVE of them — M1 added the
+  fifth) — never a typed list. The
   assertion is `{p for p in accept_probes if library_refuses(p)} == {p for p in accept_probes if
   guarded(p)}`, with a non-vacuity assertion that the second set is non-empty. At the capture's HEAD that
   set has exactly FIVE members and the data-premise gate already named them (`text` containing `-->`,
   `text` containing `<!--`, and a discriminator that is empty, whitespace-only or `:`-bearing); five is
   recorded here as INFORMATIONAL and is never a pinned count, because a re-run capture may probe more
   boundary values and the filter is what makes the clause survive that.
+  **The FILTER is what makes M1 free of a re-signature, and the point is worth being exact about since
+  the two counts coincide.** The guard PREDICATE list grew from four to five; the filtered SET's
+  membership did not move, because no probe the capture records as ACCEPTED carries a line matching
+  `^#{2,3} ` — the only multi-line `text` probe is `'line one\n\nline two'`
+  (`docs/wi-033-hal9000-timeline-entry-capture.md:413-418`), and that was read at its lines this round,
+  not inherited from the threat model's narrative. So both sides of the equality hold exactly the same
+  five probes after the fold as before it, AC-1(c2) stays green as SIGNED, and the builder registers the
+  fifth predicate in the filter for REACH (a sixth guard added later against a capture that does probe
+  the shape must show up on both sides, which a four-predicate filter would hide).
 - **(R2) AC-1(a2)'s "the set of kinds the capture holds" means the `## Parity samples` section's kinds
   (round 3 note 2, round 4 note 3).** The `## Validation boundary` section deliberately probes
   `kind: deal-closed` — a slug-valid kind no sample renders — which must NOT be in `PARITY_KINDS` or
@@ -647,6 +734,49 @@ it reifies and the reifications are asserted, not merely written.
   `obsidian_schemas/repositories/person.py:append_to_timeline:1489-1493` — so
   `append_to_timeline(p, e)` followed by `introduced_by(p)` cannot read a different note than the one
   just written. §3 states it; §5's Edge Cases carry the refusal.
+- **(R6) AC-3(c)'s `docs/vault-fixtures.md` clause is asserted POSITIVELY and SECTION-SCOPED, never as a
+  whole-file absence pin (spec review 2026-09-29, finding 3).** The signed clause asks that the sentence at
+  `docs/vault-fixtures.md:279` "is updated to name `manager:` alone". The earlier draft's oracle for it was
+  the absence of the phrase `` `introduced_by:` `` from that whole file outside its `criteria` fences —
+  which is the WI-278 failure shape twice over: it pins a LIVE population's shape over another item's
+  6,200-line tracked document, and it would have been satisfied by DELETING the sentence outright. The
+  operative form, which Task 7 implements: select that file's `## Exploration Notes` section by the same
+  `select_sections` helper AC-1 uses over the capture (§12 Rule 1), then assert the CORRECTED sentence is
+  PRESENT in it and the stale two-key phrase is ABSENT from that same selected text. This is strictly
+  STRONGER than the absence pin (a deletion now fails it), it is narrower (the section, not the file), and
+  it needs no rolled `criteria`-fence scan at all: WI-016's signed AC-5 fence at `:1434` lives under
+  `## Acceptance Criteria`, a different section, so the heading selection excludes it STRUCTURALLY rather
+  than by a predicate no leaf in this tree declares. Measured this round rather than assumed: the string
+  `introduced_by` occurs in that file exactly TWICE — `:279` (inside `## Exploration Notes`, spanning
+  `:83-1119`) and `:1434` (inside the signed fence). The one-line WI-278 coupling declaration rides with it
+  in `## Verification`, beside AC-1's.
+  **Two further reifications of the same clause, added 2026-09-29 after the spec review's round 2, and
+  both are about the clause's ORACLE rather than its promise.** First, **both comparisons run over
+  whitespace-NORMALIZED text** (`" ".join(s.split())` on the selected section and on each phrase alike),
+  because `docs/vault-fixtures.md` hard-wraps and the corrected sentence spans `:279-280` — so a literal
+  substring test would be RED against a correct conductor edit, in a file the builder cannot touch. §12
+  Rule 2 states it as a rule over every phrase oracle in the item rather than as a patch to this one.
+  Second, the signed clause PARAPHRASES the target sentence as "a `manager:` or `introduced_by:` key",
+  and the file's actual bytes carry no "key": they read "a `manager:` or `introduced_by:` on a
+  schema-drift or forward-compatibility note". The signed text names the right sentence and asks for the
+  right change — `manager:` alone — and the OPERATIVE phrases are the file's own bytes, quoted verbatim
+  in Task 7, in §6 and in the precondition fence. The paraphrase is carried in two further places and
+  both are correctly left alone: AC-3's own signed `desc`, which may not be edited, and the data-premise
+  gate's round record (`## Data Audit — 2026-09-28`, "does read …"), which is another gate's append-only
+  section — its substance is right (the sentence exists and names both keys) and only its last word is a
+  gloss. Neither reification weakens the criterion: one makes a
+  correct edit pass that would otherwise fail, the other makes the test quote the file rather than the
+  paraphrase.
+- **(R7) AC-1(c2)'s equality is asserted over a population read WHOLE (threat model round 3, M2).** The
+  clause and R1's reified form both quantify over "the capture's `accept` probes", and that set is
+  DERIVED from a selected markdown span — so the promise is only as good as the selection. A partial
+  truncation of `## Validation boundary` leaves the equality true over a SUBSET, which retires the
+  anti-widening ratchet the clause exists to BE while the floor stays green; the non-vacuity assertions
+  R1 already carries catch a TOTAL loss only. The operative form, which Task 3 implements and §12 Rule 3
+  states as a rule over every selected span in the item: the probe span's COMPLETENESS is asserted first,
+  by the whole-file `yaml`-fence accounting, before any probe is read. This adds no member to either side
+  of the equality — it asserts that the population both sides are drawn FROM was read whole — so no
+  re-signature is owed, exactly as M1's fifth predicate owed none (R1's own argument, one level out).
 
 ### §1 — The new leaf module `obsidian_schemas/timeline_entry.py`
 
@@ -674,6 +804,7 @@ HEADING_PATTERN = re.compile(rf"^### (?P<date>.+?) \[(?P<kind>{_KIND_BODY})\] *$
 MARKER_PATTERN = re.compile(
     rf"^<!-- (?P<kind>{_KIND_BODY}):(?P<day>\d{{4}}-\d{{2}}-\d{{2}}):(?P<discriminator>.+) -->$",
     re.MULTILINE)
+STRUCTURAL_LINE_PATTERN = re.compile(r"^#{2,3} ", re.MULTILINE)
 ```
 
 `KIND_PATTERN` is HAL9000's, verbatim from the capture's part 1
@@ -682,6 +813,28 @@ door. `MARKER_PATTERN`'s shape is the capture's `render` output read back: `<!--
 line, `(?P<discriminator>.+)` non-empty. `HEADING_PATTERN` is date-AGNOSTIC — it captures the date text
 and never parses it, which is the whole of why the three legacy heading grammars (43 `Month D, YYYY` /
 38 ISO-with-time / 5 bare ISO, `docs/wi-033-intro-corpus-baseline.md`) cost this item nothing.
+
+`STRUCTURAL_LINE_PATTERN` has exactly TWO readers and they are deliberately the same constant: §1.4's
+guard 5 (M1) on the write door, and `parse_entries`' body boundary on the read side (§1.3). Sharing it is
+the point — the door refuses precisely the line the reader treats as a boundary, so the two cannot drift
+apart, and the module gains no second grammar. Nothing else consults it: not `render`, not `dedupe_key`,
+not `parse_markers`, not the accessor. Its bound is DERIVED rather than chosen, and the derivation is a
+STRICT SUPERSET rather than an exact union — stated precisely because the earlier wording claimed the
+union and that claim is false: `^#{2,3} ` COVERS every line-anchored markdown-heading pattern this item's
+readers route on — `body_sections.py`'s section delimiter `^## (.+)$`
+(`obsidian_schemas/body_sections.py:SECTION_HEADING_PATTERN:36`, read this round), this module's own
+`HEADING_PATTERN` (`^### … [kind]`), and `parse_entries`' body boundary — and it additionally matches two
+shapes NEITHER reader accepts: a title-less `## ` line (`^## (.+)$` needs a non-empty title) and a
+kind-less `### ` line (`HEADING_PATTERN` needs a ` [kind]` suffix). **Those extra members are INERT and
+their refusal is harmless**, and the property that matters is stated as the falsifiable one: every shape a
+reader routes on IS refused (coverage, which is what closes the generator), and the two extra members cost
+nothing because nobody may plausibly need a bare `## ` line inside an entry's prose. The complement is
+declared with it, because a guard that refuses more than its readers route on is an over-refusal AC-1(c2)
+would have to carry: `# ` and `#### ` match NONE of the three reader patterns AND none of
+`^#{2,3} ` (`^## (.+)$` needs a space at offset 2, which `####` does not supply; `^#{2,3} ` likewise), so
+neither truncates a span nor forges an entry, and neither is refused. The two inert extra members move
+NEITHER side of AC-1(c2)'s equality, for the same reason guard 5 as a whole does not: no probe the capture
+records as ACCEPTED carries a `^#{2,3} ` line at all (R1).
 
 Two properties of these patterns are DECLARED rather than discovered, because each bounds the module's
 reach and a later reader must be able to falsify the claim:
@@ -715,6 +868,10 @@ class Marker(NamedTuple):
     discriminator: str   # VERBATIM from the discriminator slot
     source: str          # the verbatim marker line, exactly as it appears on the page
 
+    @property
+    def key(self) -> str:
+        return _compose_key(self.kind, self.day, self.discriminator)   # §1.3
+
 class Entry(NamedTuple):
     kind: str                  # the heading's kind slot
     date_text: str             # the heading's date text, UNPARSED
@@ -734,6 +891,7 @@ and its record type from one module and no second dataclass declares the same th
 #### §1.3 Functions, and the bytes
 
 ```python
+def _compose_key(kind: str, day: date, discriminator: str) -> str
 def render(entry: TimelineEntry) -> str
 def dedupe_key(entry: TimelineEntry) -> Optional[str]
 def dedupe_probe(entry: TimelineEntry) -> Optional[str]
@@ -751,11 +909,26 @@ consumer. `%B` stays, so both sides remain locale-sensitive in exactly the same 
 locale moves both identically, and the corpus on disk is English. AC-1(a) proves the equality against the
 capture's own six samples.
 
-`dedupe_key` is `f"{kind}:{when:%Y-%m-%d}:{discriminator}"`, `None` when there is no discriminator,
+**The key grammar is spelled in exactly ONE expression, `_compose_key`, and every other route to a key
+delegates to it.** `_compose_key(kind, day, discriminator)` is `f"{kind}:{day:%Y-%m-%d}:{discriminator}"`,
 discriminator VERBATIM (no slug, no case-fold — the capture's own rule, "or `Sören Winter` and
-`Søren Winter` would collide"). `dedupe_probe` is the delimited form `f"<!-- {key} -->"`, `None` when the
-key is: it is the ONE string the door's dedupe test uses, so a key that is passed can never fail to be
-the key that was embedded.
+`Søren Winter` would collide"). `dedupe_key(entry)` is `_compose_key(entry.kind, entry.when.date(),
+entry.discriminator)`, `None` when there is no discriminator. `Marker.key` (§1.2) is
+`_compose_key(self.kind, self.day, self.discriminator)`. `dedupe_probe(entry)` is the delimited form
+`f"<!-- {dedupe_key(entry)} -->"`, `None` when the key is.
+
+Stating the single composer is not tidiness — it is what makes the one-definition promise LITERAL where
+AC-2(e)'s scan cannot reach. The key format carries no `<!--`/`-->` delimiter, so a second spelling of
+`{kind}:{day}:{disc}` at the door or in a test is outside AC-2(e)'s predicate by construction and NO check
+in this item would catch it. `_compose_key` closes that gap by construction instead.
+
+`dedupe_probe` is the ONE string the door's dedupe test compares, and §2 branch 2 says so in the same
+terms: the door's test is `any(m.source == dedupe_probe(entry) for m in parse_markers(timeline))`, because
+`Marker.source` is the verbatim `<!-- {key} -->` line the same `render` emits. A key that is passed can
+therefore never fail to be the key that was embedded. `Marker.key` exists for the READING side — it is what
+AC-1(b)'s "`dedupe_key(entry)` equals that marker's reconstructed key" asserts against, and because both
+sides go through `_compose_key` the assertion tests the round trip rather than two copies of one grammar
+agreeing.
 
 `parse_markers` is a flat `MARKER_PATTERN.finditer` in DOCUMENT ORDER, which is newest-first for stored
 entries (P3: `append_to_timeline` prepends). It yields a `Marker` only when the day slot parses through
@@ -766,7 +939,9 @@ refuses loudly (§1.4), and a READER over arbitrary vault bytes must not let one
 scan — `lint_vault` walks 5,664 files.
 
 `parse_entries` is the heading-anchored reader the linter needs: `HEADING_PATTERN.finditer` for the
-heading, the body running to the next `^#{2,3} ` line (the census's own body definition), and
+heading, the body running to the next line matching `STRUCTURAL_LINE_PATTERN` — the `^#{2,3} ` the
+census itself used as its body definition, written once in §1.1 and shared with guard 5 so the
+"one grammar" claim is literal rather than approximate — and
 `marker` = the FIRST `Marker` that `parse_markers` returns over that body, or `None`. It calls
 `parse_markers` rather than re-matching, so "well-formed" is ONE predicate in this module and
 `intro_by_without_marker` reports exactly the entries the accessor cannot see. It exists so
@@ -776,7 +951,7 @@ heading, the body running to the next `^#{2,3} ` line (the census's own body def
 newline, since `$` is zero-width. Stated because AC-2 pins `source` byte-for-byte against "the marker
 substring present in that note's own text".
 
-#### §1.4 Validation — HAL9000's rules, plus exactly four declared guards
+#### §1.4 Validation — HAL9000's rules, plus exactly FIVE declared guards
 
 Reproduced from HAL9000 (capture part 1), refusing on the same inputs:
 
@@ -786,8 +961,17 @@ Reproduced from HAL9000 (capture part 1), refusing on the same inputs:
 | `text` | not a `str`, or empty after `.strip()` |
 | `discriminator` | not a `str` and not `None`; or contains `-->`, `<!--`, `\n` or `\r` |
 
-The library's FOUR OWN guards — the complete set of inputs HAL9000 accepts and the library refuses, which
-is the enumerated exception AC-1(c2) asserts as an equality:
+The library's FIVE OWN guards — the complete set of inputs HAL9000 accepts and the library refuses, which
+is the enumerated exception AC-1(c2) asserts as an equality (guard 5 is M1's, folded 2026-09-29; it adds
+a PREDICATE to that filter and no MEMBER to either side of the equality, because no capture-accepted
+probe carries the shape — see R1). **That equality is the ANTI-WIDENING RATCHET over this set, so its
+probe population is asserted to have been read WHOLE — M2, folded 2026-09-29 (§12 Rule 3, §0 R7).** The
+set equality holds over any SUBSET of the `accept` probes, so a probe span silently narrowed by a
+truncating `## ` line would retire the ratchet with the floor green and let a sixth guard land one case at
+a time; Task 3 therefore asserts the span's completeness by the capture's whole-file `yaml`-fence
+accounting before it reads a probe. Guard BEHAVIOUR is pinned twice more, independently of the probe span
+— AC-1(c) asserts each of the five raises with its named pattern, and Task 3's (c3) ships guard 5's reach
+as fixtures — which is why a narrowed span would be a ratchet loss rather than a guard loss:
 
 1. `text` contains `-->` — it would terminate the comment the entry's own marker opens.
 2. `text` contains `<!--` — it would forge a second marker through the prose channel, which is the one
@@ -798,6 +982,45 @@ is the enumerated exception AC-1(c2) asserts as an equality:
 4. `discriminator` contains `:` — the key separator. `parse_markers` still READS such a marker off disk
    (the pattern takes the rest of the line), so nothing on disk becomes invisible; what is refused is
    MINTING a new key that a consumer splitting on `:` reads as a different kind/day/counterparty triple.
+5. **`text` contains a line matching `STRUCTURAL_LINE_PATTERN` (`^#{2,3} `) — a markdown heading in the
+   prose channel truncates or shadows the `## Timeline` span that the accessor (§3), the marker-anchored
+   dedupe (§2 branch 2) and both new detectors (§5) all read through, so it would silently hide every
+   older entry on that note from all three.** The line may be the text's first (the render puts it
+   immediately after the heading) or follow any `\n` inside it, so the test is the MULTILINE pattern over
+   the whole string and never `text.startswith`. This is M1, and it is the same rule as guards 1 and 2
+   applied to the second machine channel: §1.4's own rationale is that the machine channel must not be
+   writable from the prose channel, and the section heading is a machine channel this item newly depends
+   on. Two effects, both silent rather than loud, are what make it a refusal: an injected `## Anything`
+   TERMINATES the span, and an injected duplicate `## Timeline` SHADOWS it, since `parse_body_sections`
+   keys an `OrderedDict` by heading text; an injected `### {date} [{kind}]` re-attributes a marker to a
+   forged entry in `parse_entries` and suppresses the `intro_by_without_marker` report that is the
+   accessor's honesty invariant.
+
+**The rule total behind guard 5, and the sweep of the next level, DECLARED (WI-226).** Guard 5 is not
+"the heading case" — closing one line grammar would leave the next one as the next round's finding. The
+GENERATOR is: *a line-anchored structural pattern this item's readers route on, writable from the prose
+channel because `render` places `text` verbatim on its own lines inside the note body.* Enumerated at
+source, the surface is closed by the guard set rather than case by case:
+
+- **Members — every line-anchored pattern in play, and the guard that owns each.** The marker line
+  (`MARKER_PATTERN`) is owned by guards 1–2, which are SUBSTRING-wide and therefore strictly stronger
+  than a line-anchored test. The section delimiter (`^## (.+)$`) and the entry heading (`^### … [kind]`)
+  are owned by guard 5, whose pattern is their union (§1.1). There is no third grammar: `parse_markers`,
+  `parse_entries` and `get_section` are the only readers this item builds or newly depends on, and §1.1
+  declares every pattern they use.
+- **Next level — the FIELD dimension: which inputs can introduce a line at all.** Swept rather than
+  assumed, and the answer is exactly one. `text` is rendered verbatim and is the only multi-line field.
+  `kind` cannot: `KIND_PATTERN` admits `[a-z0-9_-]` only, so no `#`, no space, no newline. `discriminator`
+  cannot: HAL9000's own rule refuses `\n` and `\r`, so it can never open a line, and it renders INSIDE
+  the marker line where a `## ` is inert. `when` is a `datetime` rendered through `strftime`. So the
+  write door is TOTAL over this generator once `text` is guarded — that is the claim, and it is the one
+  Task 3 makes falsifiable rather than merely stated.
+- **Next level again — the READ side, declared as an accepted residual rather than closed.** A note that
+  ALREADY carries such a line (hand-edited in Obsidian, or written through the raw-string branch AC-1(f)
+  deliberately preserves) is outside any write guard, and the readers must stay total and non-raising
+  (§1.3) rather than grow a repair. The exposure is MEASURED at zero, not argued: precondition 2 reports
+  every timeline heading in the live vault sitting inside a `## Timeline` section, and that predicate is
+  re-runnable. `intro_by_without_marker` is the standing instrument if it ever stops being zero.
 
 The guard is on CONSTRUCTION only. Stating that split matters: the library is stricter than HAL9000 at
 the write door and exactly as permissive as the census at the read door.
@@ -807,9 +1030,12 @@ Refusals raise `TimelineEntryRefusal`, a new leaf of `LoudFailError` added to
 `__init__` — the hierarchy's one constructor is what bounds the message — and carrying a `pattern`
 attribute set AFTER construction, exactly as `NameGateRefusal.pattern` is. It needs ONE new member in
 `errors.py:REASONS:152`, because `bounded_message` refuses any reason that is not an enumerated literal
-(`errors.py:bounded_message:177-188`): `"a timeline entry field this package refuses"`. The refusal
+(`errors.py:bounded_message:177-188`): `"a timeline entry field this package refuses"`. That ONE member
+covers guard 5 as well — the reason is per-DOOR, not per-guard, and `pattern` is what distinguishes the
+faults. The refusal
 `pattern` values are module-level literals in `timeline_entry.py` — `KIND_PATTERN_KEY = "kind_not_a_slug"`,
-`TEXT_EMPTY_KEY`, `TEXT_FORGERY_KEY`, `DISCRIMINATOR_TYPE_KEY`, `DISCRIMINATOR_FORGERY_KEY`,
+`TEXT_EMPTY_KEY`, `TEXT_FORGERY_KEY`, `TEXT_STRUCTURAL_LINE_KEY` (guard 5), `DISCRIMINATOR_TYPE_KEY`,
+`DISCRIMINATOR_FORGERY_KEY`,
 `DISCRIMINATOR_EMPTY_KEY`, `DISCRIMINATOR_SEPARATOR_KEY` — following WI-032's precedent exactly
 (`name_gate.py:WHATSAPP_PATTERN:90`: the gate's OWN literal, never a `NameValidator` branch record). No
 note-derived value reaches the constructor; the refused VALUE is not passed at all, because at this door
@@ -849,9 +1075,14 @@ Flow, with every branch named:
    `BOTH_ENTRY_AND_KEY_KEY`. The typed path derives the key; a caller supplying a second one is asking
    the door to disagree with itself, which is the defect AC-1(d) exists to close.
 2. **A `TimelineEntry`** — `rendered = render(entry)`, `probe = dedupe_probe(entry)`. Dedupe is
-   MARKER-ANCHORED: inside the lock, read the note, split the fence
-   (`person.py:_split_frontmatter_fence:96`), take `get_section(body, "Timeline")`, and skip iff any
-   `Marker` that `parse_markers` returns over THAT SPAN has a key equal to `dedupe_key(entry)`. Not a
+   MARKER-ANCHORED and compares exactly ONE string, `probe`: inside the lock, read the note, split the
+   fence (`person.py:_split_frontmatter_fence:96`), take `get_section(body, "Timeline")`, and skip iff
+   `any(m.source == probe for m in parse_markers(timeline))` — `Marker.source` being the verbatim
+   `<!-- {key} -->` line the same `render` emits (§1.3), so `probe` is live in the flow and is the only
+   comparand. Written this way rather than as a `Marker.key == dedupe_key(entry)` comparison because
+   `dedupe_probe` is §1.3's declared door string and a second comparand here is the disagreement this
+   branch exists to remove; the two forms are equivalent by construction, since both compose through
+   `_compose_key`. Not a
    substring test at all: a `## Notes` line quoting the key verbatim is outside the span, and a quoted
    key inside the span that is not a well-formed marker line does not match. A `None` key — an entry with
    no discriminator — means NO DEDUPE (the capture's own rule: a free-text note has no event identity, and
@@ -861,7 +1092,12 @@ Flow, with every branch named:
    (`obsidian_schemas/body_sections.py:get_section:137`), which is what AC-1(e)'s span wording and
    AC-2(a2)'s `parse_body_sections` wording both name.
 3. **A `str`** — byte-for-byte today's behaviour, INCLUDING the whole-file substring dedupe at
-   `person.py:1502`. That looseness is load-bearing for a live caller: precondition 3's cross-repo
+   `person.py:1502`. **§1.4's guards, guard 5 (M1) included, are on `TimelineEntry` CONSTRUCTION, so
+   this branch is unguarded by design and not by omission:** it takes a string nobody typed, exactly as
+   it does today, and narrowing it would change six live callers AC-1(f) exists to leave alone. The
+   residual is the modeler's own first non-blocking note and is measured at zero (precondition 2: every
+   live timeline heading sits inside a `## Timeline` section); `intro_by_without_marker` is what would
+   make it visible. That looseness is load-bearing for a live caller: precondition 3's cross-repo
    reading item 2 records exocortex's kindless meeting writer
    (`ingestion/stages/note.py:375`) deduping on a bare meeting stem matched whole-file, and narrowing it
    would duplicate a meeting line on every hourly re-run. AC-1(f)'s "keeps working unchanged" is this
@@ -991,7 +1227,13 @@ All three read the LIBRARY's grammar. `scripts/lint_vault.py` adds
 `from obsidian_schemas.timeline_entry import (INTRO_BY_KIND, LEGACY_INTRO_KIND, parse_entries)` beside
 the library imports it already carries (`lint_vault.py:38-60` imports `body_sections`, `gate_write`,
 `identifier` and `vault_io`), and `RETIRED_PERSON_KEY` from `obsidian_schemas.name_gate`. The two
-timeline detectors call `parse_entries(get_section(vf.body, "Timeline") or "")`. The script defines NO
+timeline detectors call `parse_entries(get_section(vf.body, "Timeline") or "")` — and **`get_section` is
+ONE NAME ADDED to the `from obsidian_schemas.body_sections import (...)` list the script already carries
+at `lint_vault.py:38-43`**, which today imports `ENTITY_BODY_CONFIG`, `ensure_sections_exist`,
+`get_expected_sections` and `parse_body_sections` but not `get_section` (read this round). Said explicitly
+because the alternative spelling `parse_body_sections(vf.body).get("Timeline")` would work identically and
+a builder guessing between them is a builder guessing; the import is chosen so §2, §3 and §5 all reach the
+span through the same one call. The script defines NO
 pattern of its own and no delimiter literal — AC-2(e)'s scan asserts exactly that, and the IMPORT is
 asserted by OBJECT IDENTITY (`lint_vault.parse_entries is timeline_entry.parse_entries`), which proves
 the import rather than a spelling of it.
@@ -1027,9 +1269,12 @@ clause (`NAME_POOL - id_tokens == ∅`) is unaffected in both directions.
 that file is an extracted token that must be in `PROSE_ALLOWLIST` (`fixture_vault.py:615`) unless it is
 an identity token. Re-wording the comment is a ratchet paid for nothing; only the dict literal moves.
 
-**`docs/vault-fixtures.md:279` is a CONDUCTOR-COMMITTED PRECONDITION, not a builder write.** The
-sentence "a `manager:` or `introduced_by:` on a schema-drift or forward-compatibility note" must read
-`manager:` alone (AC-3(c)). That file is ANOTHER item's tracked work-item document (WI-016, `id: WI-016`
+**`docs/vault-fixtures.md:279` is a CONDUCTOR-COMMITTED PRECONDITION, not a builder write.** The file's
+bytes at `:279-280` read "a `manager:` or `introduced_by:` on a schema-drift or forward-compatibility
+note" — quoted from the file rather than from AC-3(c)'s paraphrase, which renders it "a `manager:` or
+`introduced_by:` key"; there is no "key" in the sentence, and the test quotes the bytes (§0 R6). It must
+read `manager:` alone, i.e. the substring `` or `introduced_by:` `` is deleted and nothing else moves
+(AC-3(c)). That file is ANOTHER item's tracked work-item document (WI-016, `id: WI-016`
 in its frontmatter), and since WI-245 the merge boundary admits a declared cross-doc edit only when it is
 **additive prose outside every fence**. This edit REPLACES prose, so a caged builder's write to it is
 refused at the merge boundary — the failure WI-245 says costs a conductor hand-landing plus a relaunch.
@@ -1037,10 +1282,27 @@ Declared instead as a fifth `kind: precondition` fence in `## Write Targets`. Tw
 rather than a hope: the same sentence is also inside WI-016's SIGNED AC-5 fence at `:1434`, which is
 **not** in scope and must not be touched (moving a typed parse of another item's doc is exactly what the
 merge rule forbids, and it is another item's signed criterion); and the PRE-DRIVE floor check (WI-156 /
-WI-164) is clean — no test in this tree reads `:279`'s prose, so the doc edit participates in no
+WI-164) is clean — no test in this tree reads `:279`'s prose TODAY, so the doc edit participates in no
 bijection or symmetry invariant and needs no atomic landing with the builder's re-key. AC-3(c)'s own
 check is what makes the edit verifiable at all, since a precondition probe reads presence and the file is
 already in HEAD.
+
+**And that check's ORACLE is a positive, section-scoped, WRAP-INSENSITIVE read — never a whole-file
+absence pin and never a literal substring test (§0 R6, §12).** Task 7 selects this file's
+`## Exploration Notes` section (which spans `:83-1119` and holds `:279`) with the same
+`select_sections` helper Task 3 writes, NORMALIZES the selected text and each phrase through
+`" ".join(s.split())`, then asserts inside that section only: the corrected phrase PRESENT, the stale
+two-key phrase ABSENT. The normalization is what makes the PRESENT half executable at all — the file
+hard-wraps and the corrected sentence spans `:279-280`, so the phrase contains a newline in the file no
+matter how the paragraph is filled, and re-wrapping is deliberately NOT asked of the conductor (§12 Rule
+2). Three further properties make this the right arm and each is measured rather than argued. It is STRONGER: an absence pin passes when the sentence is deleted
+outright, which is the opposite of what AC-3(c) asks for. It is NARROWER: `introduced_by` occurs in that
+file exactly twice — `:279` and `:1434` — and `:1434` sits under `## Acceptance Criteria`, so the heading
+selection excludes WI-016's signed fence STRUCTURALLY and the test rolls no `criteria`-fence scan, a
+predicate no leaf in this tree declares. And it is DURABLE against the machine that mutates this corpus:
+the archive-split leaf rewrites gate-ROUND sections (`docs/vault-fixtures.md:3761` declares the drawer),
+not `## Exploration Notes`, so somebody else's correct ship no longer reddens this item. The one-line
+WI-278 coupling declaration lives in `## Verification` beside AC-1's.
 
 ### §7 — Configuration
 
@@ -1069,7 +1331,10 @@ gated behind a flag, because a report-only detector's cost is a line of output.
 4. **Trust boundary.** Vault bytes are UNTRUSTED input, and this item adds two readers of them
    (`parse_markers`, `parse_entries`) plus one accessor. Neither reader raises on hostile bytes; neither
    is used to build a path, a command or a write. The WRITE side is where validation lives, and it is
-   total over the three fields (§1.4). Nothing is interpolated into a shell, a query or an error message.
+   total over the three fields (§1.4) AND over the one generator by which the prose channel could write
+   a machine channel — the marker delimiters (guards 1–2) and the heading line (guard 5, M1), `text`
+   being the only field that can introduce a line at all. Nothing is interpolated into a shell, a query
+   or an error message.
 5. **`PARITY_KINDS` and `HAL9000_PARITY_ANCHOR` are only as true as the capture**, which freezes HAL9000
    at one HEAD. Drift in HAL9000's own copy during the window between this item and the minted cutover
    (HAL9000 WI-082) is UNDETECTED by this tree's floor — accepted in writing by D7, not mitigated.
@@ -1082,7 +1347,10 @@ DERIVED, not remembered: the population was found by sweeping `tests/` for modul
 files they did not name at authoring time — i.e. every module that calls
 `tests/derivations.py:python_files_under:185` over `PACKAGE_ROOT` / `TESTS_ROOT` / `SCRIPTS_ROOT`, plus
 the two markdown/corpus sweeps that reach files by `rglob` and `iterdir`. **This census is a FLOOR
-measured on 2026-09-28 and never a total** — this derivation has under-reached at its reading step every
+measured on 2026-09-28, RE-RUN and grown by three rows on 2026-09-29, and never a total** — the 09-29
+rows (`REASONS`' size pin, `__all__`'s membership pins, and the two walls that already sweep
+`tests/test_name_gate.py`) are the proof of the sentence that follows, since each was reachable by the
+09-28 derivation and none was named: this derivation has under-reached at its reading step every
 time it has been run in this factory, which is why Task 11 RUNS each predicate on the files' FINAL text
 rather than reasoning about which shapes match, and why anything the run returns that this table does not
 name is NAMED in the Build Log and satisfied, never worked around and never satisfied by narrowing the
@@ -1090,7 +1358,7 @@ wall.
 
 | Wall (its own shipped predicate) | What it requires of this item's files |
 | --- | --- |
-| `modules_using_ast` == `{"tests/derivations.py"}` — asserted from `tests/test_fixture_vault.py:1383`, `test_name_gate_wall.py:1136`, `test_lint_vault_fix_rules.py:1957`, `test_loud_fail_harness.py:103` | NO new file may import or use `ast`. Both new derivations live in `tests/derivations.py`; the new test modules call them and never parse source themselves. |
+| `modules_using_ast` == `{"tests/derivations.py"}` — asserted from `tests/test_fixture_vault.py:1383`, `test_name_gate_wall.py:1136`, `test_lint_vault_fix_rules.py:1957`, `test_loud_fail_harness.py:103` | NO new file may import or use `ast`. All FOUR additions to `tests/derivations.py` live there — `gate_call_sites` (Task 6), `marker_grammar_sites` (Task 10), and `select_sections` + `select_fenced_blocks` (Task 3, neither of which touches `ast` at all and so cannot move this equality either way); the new test modules call them and never parse source themselves. |
 | `skip_reason_literal_sites(…, SKIP_REASONS)` == `{base.py, tests/test_fixture_vault.py}` — `test_fixture_vault.py:1392`, `test_lint_vault_fix_rules.py:1963`, `test_whatsapp_migration.py:968`, `test_provenance_write_seam.py:1857` | No new file may hand-type a skip-reason literal. None does. |
 | `frontmatter_write_arms(PACKAGE_ROOT, SCRIPTS_ROOT)` — `test_company_name_contract.py:621`, `test_lint_vault_fix_rules.py:1971` (`apply_fixes` == exactly one arm) | The typed overload writes a BODY through `vault_io`, introducing no frontmatter write arm; the gate arm adds none. |
 | `character_class_strip_sites` == `[]` and `address_splitting_implementations` == `set()` over package+scripts — `test_address_splitter.py:102`, `test_lint_vault_fix_rules.py:1987` | `timeline_entry.py` must not roll a negated-character-class strip and must not parse an address. It does neither. |
@@ -1102,14 +1370,42 @@ wall.
 | `test_lint_vault_fix_rules.py:288` — the five-clause containment wall over that module's OWN source | Task 9's additions there take their vault from `_temp_vault(root)`, bind it to the identifier `vault`, name no live-path token outside that door, and construct no repository. |
 | `test_lint_vault_fix_rules.py:822` — `len(pinned) == 7` over `auto_fixable_emitter_checks + GARBAGE_CHECKS` | The three new checks are NOT auto-fixable, so the pin stays at 7. It is re-read rather than edited (Task 12), and it is the evidence for AC-4(e). |
 | `test_lint_vault_fix_rules.py:1703-1708,1775` — `CENSUS_SHAPE_TO_RULE` and `docs/lint-vault-live-baseline.md`'s §1/§4 rows bound to the auto-fixable rule set | Unmoved for the same reason: a report-only rule owes the live baseline no row. This is why report-only is not merely ruling §3's preference but the only arm buildable inside a hermetic cage. |
+| **`tests/test_name_gate.py:124` — `assert len(REASONS) == 16`, an EQUALITY pin over `obsidian_schemas/errors.py:REASONS:152`, declared deliberate by its own comment at `:121-122` ("REASONS is a FROZEN population, so equality is the right pin"). The module imports `REASONS` from `obsidian_schemas.errors` directly (`tests/test_name_gate.py:24-25`), so the pin sits in a check — `test_name_gate_refusal_is_a_loud_fail_leaf_carrying_a_pattern:109` — that never calls the declaring symbol.** | Task 2 adds ONE member to `REASONS`, so this pin MOVES to `17` IN THE SAME TASK — together with the two numbers in its own comment at `:121-122` ("fifteen … sixteen" → "sixteen … seventeen"), which is inside the bounded edit rather than beside it, since a comment that outlives its assertion is the next reader's wrong premise — and `TimelineEntryRefusal`'s own leaf assertions land beside `NameGateRefusal`'s in that check. `tests/test_name_gate.py` is a declared `## Write Targets` path for exactly this obligation — this is WI-202's founding shape (a pin in a file the sweep reached, in a function that never names the declaring symbol), and the whole point of naming it here is that the floor otherwise finds it at the LAST task with nothing owning the edit. |
+| `tests/test_name_gate.py:156` — `"NameGateRefusal" in obsidian_schemas.__all__`, over `obsidian_schemas/__init__.py` | MEMBERSHIP, not size: no pin anywhere counts `__all__`'s length (swept below), so Task 2's additions to `__all__` move NOTHING and this row needs naming but no edit. |
+| **The two walls that already SWEEP `tests/test_name_gate.py`, now that Task 2 edits it.** Found by the same derivation, keyed on the act rather than on a declaring symbol: `tests/test_name_gate_wall.py:TOUCHED_TEST_FILES:1029` names it at `:1033` and feeds `_check_the_ast_capability_stays_single_homed` inside `test_wall_membership_is_closed_by_running_each_walls_predicate:1057`; `tests/test_fixture_vault.py:_item_test_modules:1315` names it at `:1323` and feeds `test_the_fixture_vault_files_close_their_wall_memberships_by_running_each_predicate:1353`, which RUNS `modules_using_ast`, `check_module`, `NO_ARG_CONSTRUCTION` / `_scanned_markdown_files` and the declared pytest `python_files` globs over it. | FOUR requirements of Task 2's edit, all satisfiable and each stated so Task 11's RUN can falsify it: (1) the edit must name no `ast` capability — `modules_using_ast` is a set EQUALITY whose universe these lists grow, and a new member would redden it; (2) it must add NO new top-level `def test_` — `check_module` is a `def <name>(` SUBSTRING scan that raises on anything but exactly one match tree-wide, so the new assertions go INSIDE `test_name_gate_refusal_is_a_loud_fail_leaf_carrying_a_pattern:109` rather than into a sibling check; (3) it must construct no repository with no argument (`NO_ARG_CONSTRUCTION`); (4) the file keeps its `test_*.py` name, so the collection globs are unmoved. Note what these two lists are NOT: they are the FROZEN touched-file lists of WI-021 and WI-016 respectively, so this item joins neither — it inherits their predicates' verdicts over a file they already grade. |
 
-**The conscious-pin sweep (WI-229).** The countable corpora this item touches are the lint check-id set
-and the frozen fixture corpus. Their declaring symbols are
-`tests/derivations.py:auto_fixable_emitter_checks`, `auto_fixable_branch_checks`,
-`scripts/lint_vault.py:CATEGORY_ORDER` and `tests/fixture_vault.py:NOTES` / `CORPUS_DIGEST`. Reading
-every file those symbols reach at FILE granularity returns the pins named in the last three rows above,
-plus `CORPUS_DIGEST` itself. The obligation is stated as a predicate and never as a number: **the
-auto-fixable rule set does not change, and the digest changes exactly once.**
+**The conscious-pin sweep (WI-229).** THREE countable corpora, not two — the earlier draft named only the
+first two and finding 1 of the 2026-09-29 spec review is what the omission cost:
+
+1. **The lint check-id set.** Declaring symbols `tests/derivations.py:auto_fixable_emitter_checks`,
+   `auto_fixable_branch_checks`, `scripts/lint_vault.py:CATEGORY_ORDER`. Reading every file those reach at
+   FILE granularity returns `test_lint_vault_fix_rules.py:822`'s `len(pinned) == 7` and
+   `:1703-1708,1775`'s `CENSUS_SHAPE_TO_RULE` / baseline rows — both rows above.
+2. **The frozen fixture corpus.** Declaring symbols `tests/fixture_vault.py:NOTES` / `CORPUS_DIGEST`.
+   FILE-granularity reading returns `CORPUS_DIGEST` itself AND
+   `tests/test_lint_vault_fix_rules.py:CORPUS_PINNED_ISSUES:809` — a hardcoded per-note issue-COUNT pin
+   whose own comment at `:802-808` binds it explicitly to `CORPUS_DIGEST` ("The figure is a property of
+   bytes pinned by CORPUS_DIGEST, so it moves only when that digest does"). Task 7 moves that digest, so the
+   pin is IN the sweep's reach and is named here rather than left to the floor. Read: the re-key changes no
+   `meeting_missing_from_timeline` count on any of its five notes, so it is UNMOVED and needs no edit —
+   which is what makes clause (2)'s predicate below checkable rather than merely asserted.
+3. **`obsidian_schemas/errors.py:REASONS:152`, the enumerated-reason set.** Declaring symbol `REASONS`
+   itself; Task 2 adds one member because `bounded_message` refuses any non-enumerated reason
+   (`errors.py:bounded_message:177-188`). Swept by grepping the declaring symbol over the whole tree and
+   then reading every file it reaches at FILE granularity: the ONLY size pin is
+   `tests/test_name_gate.py:124`, and the only other references are the membership assertion at `:123`
+   (unmoved — it names a different literal), `bounded_message`'s own guard, and four prose mentions in
+   `errors.py`, `vault_io.py:97` and `name_gate.py:70`/`:174` that count nothing. No derived population of
+   `LoudFailError` leaves exists anywhere in `tests/` (checked: the only `issubclass(..., LoudFailError)` is
+   `test_name_gate.py:114`, and the one source-derived class sweep, `test_loud_fail_load.py:97-101`, is over
+   `base_repository_subclasses` and not over error leaves), so the new leaf joins no counted set.
+4. **`obsidian_schemas/__init__.py:__all__`** is swept for completeness and is NOT a counted corpus: the
+   only assertions over it are membership (`tests/test_name_gate.py:156`; `tests/test_fixture_vault.py:905`,
+   `:913` are over `repositories.__all__`, a different object). Task 2's additions move nothing.
+
+The obligations are stated as predicates and never as numbers: **the auto-fixable rule set does not
+change; the digest changes exactly once and every pin bound to it is re-read; and the enumerated-reason set
+grows by exactly one, with every pin over it moving with it in the same task.**
 
 ### §10 — Pattern consistency
 
@@ -1119,25 +1415,51 @@ is `whatsapp_not_storable` (`lint_vault.py:475-503`); the gate arm's placement a
 the accessor's note resolution is `append_to_timeline:1489-1493`; the new check modules' shape — the
 interpreter shim first, one `def test_*` calling `_check_*` helpers, the containment wall defined first
 where the module drives the linter — is `tests/test_stem_name_divergence_detector.py`; the capture-parsing
-test's shape is `tests/test_lint_vault_fix_rules.py:113`'s declared-headings parse of
-`docs/lint-vault-live-baseline.md`. The one deviation from a shipped pattern is §1.3's non-raising
-reader, justified there.
+test's shape is `tests/test_lint_vault_fix_rules.py:baseline_sections:1518` for its RAISING DISCIPLINE
+ONLY — a selector that finds nothing is RED, never an empty dict — and NOT as a function to transplant,
+because it is a TOTAL parse of `docs/lint-vault-live-baseline.md`'s five declared headings that raises on
+any heading outside its table, which the capture carries three of (§12 Rule 1 states the contract this
+item's own `select_sections` implements instead); plus
+`tests/test_lint_vault_fix_rules.py:fenced_blocks:1550` (the triple-backtick blocks of one section, in
+order), whose SHAPE is copied with one declared deviation — the info string is RETAINED, because that
+function discards it at `:1554-1559` and both the `yaml`-only filter and §12 Rule 3's accounting need it.
+Both are corrected from the earlier `:113`, which is only that
+module's `BASELINE` path constant and gives a builder nothing to model. And the two new `docs/**` readers' coupling
+declarations follow the shipped `CORPUS_COUPLING:` docstring convention at module granularity
+(`tests/test_fixture_vault.py:3`) and at check granularity
+(`tests/test_lint_vault_fix_rules.py:1639`). The one deviation from a shipped pattern is §1.3's
+non-raising reader, justified there.
 
 ### §11 — Mechanics a builder would otherwise have to guess
 
 Four, each with the shipped thing to copy rather than a description:
 
-1. **Parsing the capture.** Select the section by its declared `## ` heading, take every fenced block
-   whose info string is `yaml` inside that section, and `yaml.safe_load` each one — the capture was
-   produced with `yaml.safe_dump`, so the round trip is exact and the `rendered` block scalar's single
-   trailing newline is the renderer's own. `yaml` is importable because the interpreter shim re-execs
-   under the project interpreter (§8.3); under the conveyor's bare `-S` interpreter it is not, which is
-   the whole reason the shim is the module's first statement. Shape to copy:
-   `tests/test_lint_vault_fix_rules.py:113` and its declared-headings parse of
-   `docs/lint-vault-live-baseline.md`.
+1. **Parsing the capture.** Select the section by its declared `## ` heading through this item's own
+   `select_sections` helper (§12 Rule 1, whose contract is written out in full there and in Task 3), take
+   every fenced block whose info string is `yaml` inside that section, and `yaml.safe_load` each one — the
+   capture was produced with `yaml.safe_dump`, so the round trip is exact and the `rendered` block
+   scalar's single trailing newline is the renderer's own. `yaml` is importable because the interpreter
+   shim re-execs under the project interpreter (§8.3); under the conveyor's bare `-S` interpreter it is
+   not, which is the whole reason the shim is the module's first statement. Shapes to copy, by SYMBOL,
+   and what each is copied FOR — the distinction is load-bearing:
+   `tests/test_lint_vault_fix_rules.py:baseline_sections:1518` supplies the RAISING DISCIPLINE (a
+   selector that finds nothing is RED, never an empty dict) and is NOT transplanted, because it is a
+   total parse that raises `unnumbered section heading` on any `## ` line outside its own declared table
+   and the capture carries three such lines (`## Part 1` at `:57` and at `:587`, `## Appendix` at
+   `:470`); `tests/test_lint_vault_fix_rules.py:fenced_blocks:1550` returns one section's fenced blocks
+   in order and is the SHAPE copied, into `tests/derivations.py` as `select_fenced_blocks(section_text)`
+   beside `select_sections`, so Tasks 3 and 7 share one copy and the shipped helper is not re-homed (§12
+   says why that second spelling is accepted rather than removed) — **with the one deviation §12 states:
+   the INFO STRING IS RETAINED**, because `fenced_blocks` discards it (the opening line is consumed by the
+   triple-backtick branch at `:1554-1559` and never appended), so a copy taken as written could not
+   satisfy the "whose info string is `yaml`" filter this very bullet asks for, nor express Rule 3's
+   whole-file accounting. The helper returns `(info, block)` pairs and consumers filter on
+   `info == "yaml"`. (Not `:113`: that is the module's
+   `BASELINE` path constant, and a builder who opens it finds a `Path` binding.)
 2. **Planting source files for the two WI-235 batteries.** `tests/support.py:temp_dir` for the scratch
    root, plus a four-line local `_plant_source(root, name, source)` that writes `root/name` and returns
-   the path — the shape `tests/test_lint_vault_fix_rules.py:_plant_source:352` already carries. The
+   the path — the shape `tests/test_lint_vault_fix_rules.py:_plant_source:586` already carries (read at
+   its symbol this round; the `:352` this document previously carried was a CALL SITE, not the def). The
    planted file is handed to the DERIVATION; the test itself never parses source, because `ast` is
    single-homed to `tests/derivations.py` (§9, row 1).
 3. **Planting vault notes.** For the accessor and gate checks a plain temp directory plus
@@ -1150,6 +1472,241 @@ Four, each with the shipped thing to copy rather than a description:
    in `tests/test_lint_vault_fix_rules.py` the containment wall's clause (v) asserts that module
    constructs none at all — so AC-4's check reaches the linter through `lint_vault`'s own entry points and
    never through a repository.
+
+### §12 — Every textual oracle over a committed markdown file: its contract in its own terms, and the bytes it was measured against
+
+Written 2026-09-29 after the spec review's ROUND 2. Both of that round's findings were one class and the
+reviewer said so; this section closes the class rather than the two instances (WI-226).
+
+**THE GENERATOR, named at source.** *A check this plan orders derives a TEXTUAL oracle from a markdown
+file the conductor commits and the caged builder cannot edit, and the oracle is stated BY REFERENCE — to
+a shipped symbol, or to a phrase quoted from the sentence's sense rather than from the file's bytes —
+without anyone having read the target at the GRANULARITY the oracle actually consumes.* Both findings
+arrived exactly that way: Task 3 named `tests/test_lint_vault_fix_rules.py:baseline_sections:1518` as the
+selector without reading what that TOTAL parse does to a file carrying undeclared headings, and Task 7
+named a phrase without reading that the file is hard-wrapped and the sentence spans a line break. The
+damage shape is the same in both and is worse than an ordinary RED: **the two halves sit on opposite
+sides of the cage.** The builder owns the assertion and cannot touch the file; the conductor owns the
+file and was never told which of its incidental properties — a wrap column, an extra heading — were
+load-bearing. So the surface is enumerated and closed with three rules that are TOTAL over it, and the
+incidental properties are named as NOT load-bearing in writing. (Rules 1 and 2 close the two findings that
+named the generator; **Rule 3 closes the FAIL-DIRECTION dimension the first sweep of this section's next
+level did not turn** — the threat model's round-3 finding, M2, which landed inside this section's own
+material and is the reason this list is three rules rather than two.)
+
+**MEMBERS — the whole surface, enumerated by predicate rather than recalled.** Predicate: *a check this
+plan orders that opens a `docs/**` file at run time and derives an oracle from its text.* It returns
+FOUR oracles over THREE files:
+
+| # | Task / clause | File | What the oracle consumes |
+| --- | --- | --- | --- |
+| 1 | Task 3 — AC-1(a), (a2), (b), (c2) | `docs/wi-033-hal9000-timeline-entry-capture.md` | the `yaml` fences of `## Parity samples` and of `## Validation boundary` |
+| 2 | Task 3 — AC-1(a3) | the same file | the 40-hex HEAD the capture declares |
+| 3 | Task 7 — AC-3(c), doc clause | `docs/vault-fixtures.md` | one phrase PRESENT and one phrase ABSENT inside `## Exploration Notes` |
+| 4 | Task 7 — AC-3(c), live-half clause | `docs/wi-033-intro-corpus-baseline.md` | `introduced_by_frontmatter_carriers` from the `## Counts` section's one `yaml` fence |
+
+Row 4 is what the sweep ADDED: AC-3(c) says the live half is "the committed count … read by the test as
+a premise rather than re-measured", which is a machine read of a committed markdown file and therefore a
+member of this exact class, and no earlier draft treated it as one. It is stated here so it takes the
+same three rules as the other three rather than being invented at build time.
+
+**RULE 1 — THE SECTION SELECTOR IS SPELLED IN ITS OWN TERMS, AND `baseline_sections` IS A DISCIPLINE TO
+COPY, NEVER A FUNCTION TO TRANSPLANT.** ONE helper, written once in `tests/derivations.py` (Task 3) and
+IMPORTED by the other reader (Task 7) — the tree's shared home for test-side derivations, chosen so this
+item does not spell a markdown selector twice, which is the duplication this section exists to prevent.
+Its contract:
+
+> `select_sections(text, names) -> dict[str, str]`. For each NAME in `names`, find the lines of `text`
+> for which `line.rstrip() == name` — an exact, line-start, whole-line match. RAISE if a name matches
+> ZERO lines or MORE THAN ONE. A section's text runs from the line after its heading to the line before
+> the next line whose `line.startswith("## ")` is true, **whatever that heading is** — or to end of file.
+> Every `## ` line the `names` list does not mention is IGNORED as a selection candidate and HONOURED as
+> a boundary.
+
+Three things are true of that contract and each was measured this round rather than assumed:
+
+- **A total parse RAISES on the capture, so the transplant reading is unbuildable.** `baseline_sections`
+  walks every `line.startswith("## ")` and raises `unnumbered section heading` for any heading outside
+  its declared `BASELINE_HEADINGS` table (`tests/test_lint_vault_fix_rules.py:1528-1536`) and
+  `duplicate section ordinal` on a repeat (`:1537-1538`). It is correct for
+  `docs/lint-vault-live-baseline.md`, a five-section machine artifact whose every heading is declared.
+  The capture is not that shape: its line-start `## ` headings are
+  `## Part 1 — source (verbatim, with line ranges)` (`:57`), `## Parity samples` (`:223`),
+  `## Validation boundary` (`:290`), `## Appendix — the generator, verbatim` (`:470`), and
+  **`## Part 1 — source (verbatim, with line ranges)` a SECOND time at `:587`** — that one at line start
+  INSIDE the Appendix's `python` fence, where the generator's own triple-quoted literal emits the
+  heading. A faithful copy of `baseline_sections` therefore sees four unmatched headings and one
+  duplicate and raises before it reaches a single `yaml` fence. What is worth copying from it is the
+  RAISING DISCIPLINE — a selector that finds nothing is RED, never an empty dict — which Rule 1 carries.
+- **The two NAMED headings are each unique at line start, so the narrow reading is total over what it
+  needs.** Measured: `^## Parity samples$` occurs once (`:223`) and `^## Validation boundary$` once
+  (`:290`). `## Exploration Notes` occurs once in `docs/vault-fixtures.md` (`:83`) and `## Counts` once
+  in `docs/wi-033-intro-corpus-baseline.md` (`:56`). The duplicate the file DOES carry is on a heading
+  no `names` list mentions, which is precisely the case Rule 1 ignores.
+- **The spans are exact, because no line-start `## ` sits inside any span this item selects.** Measured
+  per file: in the capture, the next line-start `## ` after `:223` is `:290` and after `:290` is `:470`,
+  so the two selected spans are `:224-289` and `:291-469` and neither contains a `## ` line at all — every
+  rendered entry heading inside them is `### `, which `startswith("## ")` does not match (it requires a
+  space at offset 2). In `docs/vault-fixtures.md` the next line-start `## ` after `:83` is `## Approach`
+  at `:1120`, so the selected span is `:84-1119` and holds `:279`. In
+  `docs/wi-033-intro-corpus-baseline.md` the next after `:56` is `## Verbatim output` at `:117`, so the
+  span is `:57-116` and holds exactly one fenced block, the `yaml` one at `:61-115`.
+  **Rule 1 is deliberately fence-UNAWARE**, exactly as the tree's one shipped section selector
+  (`baseline_sections`) is, and the residual that buys is DECLARED rather than hidden: a line-start `## `
+  introduced inside a fence anywhere in a selected span would truncate that span early. **What that
+  truncation DOES is Rule 3's subject, and it is NOT uniform across the spans** — the earlier draft of
+  this bullet said such a line "would redden this item", which is true of three of the four selected
+  spans and FALSE of the probe span, where a PARTIAL truncation leaves AC-1(c2)'s set equality satisfied
+  over a subset of the `accept` probes (the threat model's round-3 finding, M2; dimension (vii) below
+  answers it per span). The measurements above are what say there is no such line today, they
+  ride in the coupling declarations in `## Verification`, and a fence-aware boundary is deliberately not
+  built — it would be a second markdown grammar this tree does not have, for a case measured at zero
+  across all three files and all four selected spans. Rule 3 is what makes the residual's realization
+  LOUD rather than resting on that measurement alone.
+
+Fence extraction inside a selected span is `fenced_blocks:1550`'s own shape — toggle on any line whose
+`startswith("```")` is true, blocks in order — which is safe on all three spans for the same measured
+reason: the `rendered` and `value` block scalars are indented two spaces, so no line inside a fence
+begins a fence (measured over `## Parity samples`' six fences and `## Validation boundary`'s probes). The
+`yaml` blocks are then `yaml.safe_load`ed; the capture was produced with `yaml.safe_dump`, so the round
+trip is exact.
+**ONE deviation from a verbatim copy, and it is load-bearing: the INFO STRING IS RETAINED.**
+`fenced_blocks:1550` DISCARDS it — the opening fence line is consumed by the triple-backtick
+`startswith` branch at `:1554-1559` and never appended to the block — so a copy taken as written cannot
+tell a `yaml` fence from a `python` one, while §11.1 and Task 3 both ask for "every fenced block whose
+info string is `yaml`" and Rule 3's whole-file leg cannot be expressed without it. So the helper returns
+`(info, block)` PAIRS — `select_fenced_blocks(section_text) -> list[tuple[str, str]]`, `info` being the
+opening fence line with its leading backticks and surrounding whitespace stripped (`""` for a fence
+opened with no info string) — and every consumer filters on `info == "yaml"`. That discard was read in
+the shipped function's own control flow this round rather than inherited from any account of it.
+It rides in `tests/derivations.py` beside `select_sections`, as `select_fenced_blocks(section_text)`,
+for the same reason the selector does: TWO readers need it (Tasks 3 and 7) and neither may spell it
+twice. The SHIPPED `fenced_blocks:1550` stays exactly where it is and is not re-homed — it is
+`tests/test_lint_vault_fix_rules.py`'s own private helper, and moving another item's module member is
+work this item has no reason to do. So there are two spellings of a four-line fence walk in the tree
+after this item and that is DECLARED rather than glossed: the alternative is editing a module Task 9
+only appends to, and §12's one-definition argument is about the oracles THIS item ships, not a
+tree-wide de-duplication it was not asked for.
+
+**RULE 2 — EVERY PHRASE ORACLE COMPARES WHITESPACE-NORMALIZED TEXT AGAINST A WHITESPACE-NORMALIZED
+PHRASE, SO NO ASSERTION DEPENDS ON A WRAP COLUMN.** Both sides go through `" ".join(s.split())` before
+the containment test — the selected section's text and the phrase alike. This is not a convenience; it
+is what makes the oracle STATEABLE at all. `docs/vault-fixtures.md` hard-wraps at ~100 columns and the
+sentence AC-3(c) is about spans `:279-280`:
+
+    carry frontmatter keys no model declares — a `manager:` or `introduced_by:` on a schema-drift or
+    forward-compatibility note — which every enumeration over DECLARED fields misses by construction;
+
+(an indented block, so the two lines above are the file's bytes and not this document's wrapping.)
+After the conductor's one-sentence edit (delete `` or `introduced_by:` `` and nothing else), the phrase
+`` a `manager:` on a schema-drift or forward-compatibility note `` still CONTAINS THE NEWLINE — it ends
+`:279` at "or" and resumes `:280` at "forward-compatibility" — so a literal substring test is RED against
+a correct edit. Re-wrapping to the file's own fill moves the break to a different word; it does not
+remove it. The only wrapping under which a literal test passes is a deliberate line JOIN nothing asks the
+conductor to perform. Normalizing both sides removes the dependency by construction, and it is stated as
+a RULE rather than a patch to one assertion because the ABSENCE half is contiguous on `:279` TODAY — the
+defect is one-sided, which is exactly what hid it, and the next phrase anyone adds inherits the fix.
+
+**And the incidental properties are declared NOT load-bearing, in the place the conductor reads.** The
+precondition fence for `docs/vault-fixtures.md` in `## Write Targets` says it in its own terms: the edit
+is a deletion of `` or `introduced_by:` `` on `:279` and nothing else, the conductor is NOT obliged to
+re-wrap, re-flow or preserve any column, and no assertion in this item depends on where the line breaks
+fall. Same for the capture: nothing here pins its heading count, its wrap, its probe count or the position
+of any section. What it DOES require of the capture is two structural properties, stated so a conductor
+regenerating it at the cutover is not left to discover them — the two named headings exist exactly once
+each at line start, and **every `yaml` fence in the file sits inside one of those two sections** (Rule 3's
+accounting is that sum). A regenerated capture may hold any number of samples and probes; it may not park
+a `yaml` fence in a third section, and its Appendix's `python` fence may not contain a line-start
+triple-backtick.
+
+**RULE 3 — A SELECTED SPAN'S COMPLETENESS IS ASSERTED, NOT ASSUMED, WHEREVER A TRUNCATED SELECTION WOULD
+LEAVE AN ASSERTION GREEN OVER A NARROWED POPULATION (the threat model's round-3 finding, M2).** Rule 1
+declares fence-unawareness as a measured residual; Rule 3 is what makes that residual's realization LOUD.
+Stated over the whole member set rather than over the one span that failed it:
+*every oracle this item derives from a selected span either FAILS on a truncation of that span by construction — and this document names the assertion that does it — or carries an explicit completeness assertion, and for the capture's two spans the completeness assertion is the whole-file accounting: the number of `yaml`-info fences `select_fenced_blocks` returns over `## Parity samples` PLUS the number it returns over `## Validation boundary` EQUALS the number it returns over the whole file's text, with all three counts asserted non-zero.*
+
+Why that expression and not another — each property counted against the capture's own bytes this round
+rather than taken from the finding's narrative. It is **position-free** and **count-pin-free**: no literal
+is typed, so it says nothing about where the two sections sit or how many probes they hold. It **moves
+with a re-run capture**, which D7 has already scheduled as HAL9000 WI-082's first act — both sides grow
+together when the regenerated capture probes more boundary values, which is precisely why R1 refuses a
+pinned probe count. And it is **RED on a truncation of EITHER span whether the truncating `## ` line sits
+inside a fence or outside one**: an injected `## ` line is not a fence line, so the whole-file count is
+unmoved while the truncated span's count drops. Counted at source: the capture's line-start `yaml` fences
+are SIX inside `## Parity samples` (`:225`, `:236`, `:247`, `:258`, `:269`, `:279`) and TWENTY-NINE inside
+`## Validation boundary` (`:292` through `:462`), thirty-five in the file and none anywhere else — Part
+1's three fences (`:61`, `:173`, `:181`) and the Appendix's one (`:474`, closed at `:603`, with the
+`## Part 1` echo at `:587` inside it) are `python`. So the accounting is exact today, and the one further
+measurement the whole-file leg needs is also true today: no line-start triple-backtick sits inside any
+fence in the file, so the toggle walk over the whole text is well-formed. Should a future capture's
+Appendix ever carry one, the walk desynchronizes and the equality BREAKS — a false RED, never a silent
+pass — which is why that is declared here rather than closed with a second markdown grammar.
+
+What Rule 3 requires of the other two selected spans is that this document SAY which assertion fails on a
+truncation, and dimension (vii) below does. Neither is given an accounting: adding an assertion where the
+existing one already fails is cost with no coverage.
+
+**NEXT LEVEL — the dimensions swept, and what the sweep FOUND.** Closing "the selector" and "the phrase"
+would leave the next dimension as the next round's finding, so the axes an oracle over committed markdown
+can turn on are enumerated and each is answered above or answered here: (i) HEADING SELECTION — Rule 1,
+plus the measured uniqueness of all four named headings; (ii) SPAN BOUNDARY — Rule 1's "any `## ` line",
+plus the measured absence of a fenced `## ` inside every selected span, declared as a residual rather
+than closed; (iii) LINE WRAPPING through a quoted phrase — Rule 2, total over both halves and over any
+phrase added later; (iv) FENCE EXTRACTION — `fenced_blocks:1550`'s shape, with the measured two-space
+indentation of every block scalar that could otherwise forge a fence; (v) TOKEN EXTRACTION FROM PROSE,
+which is oracle #2 and is the one axis neither rule reaches, so it gets its own derivation: the capture
+declares its 40-hex HEAD FOUR times (`:7`, `:59`, `:171`, `:179`), all the same value, so AC-1(a3)'s
+oracle is **the SET of 40-hex tokens in the whole file (matched with non-hex boundaries, as
+`tests/test_lint_vault_fix_rules.py:_HEX40:1515` does), asserted to be a SINGLETON, with
+`HAL9000_PARITY_ANCHOR` asserted equal to its one member** — never "the first match", which would be
+green against a capture that declared two different HEADs, and never a pinned occurrence count, which a
+re-run capture legitimately moves. (vi) ENCODING and line endings are not a dimension here: all three
+files are committed UTF-8 with `\n` endings and are read through `Path.read_text()`, and no oracle is
+anchored to `$` or to a line end. **(vii) FAIL DIRECTION — the dimension this sweep's FIRST pass did not
+turn**, added after the threat model's round 3 named it, and answered PER SPAN rather than per section
+because per-section is exactly where the uniformity claim broke. `## Exploration Notes` (oracle 3) cannot
+be narrowed silently: a truncation before `:279` drops the sentence and the PRESENT half fails, and a
+truncation after it leaves both halves answering over the bytes they are about, because `introduced_by`
+occurs in that file exactly twice and the second occurrence (`:1434`) is outside the span either way.
+`## Counts` (oracle 4) fails because Task 7 asserts the span yields EXACTLY ONE `yaml` fence before
+reading it, so a truncated span yields zero and RAISES. `## Parity samples` (oracle 1's sample half) fails
+on AC-1(a2)'s set equality against the frozen five-member `PARITY_KINDS` — INCIDENTAL protection, named as
+such rather than relied on, since a capture that legitimately grew a sixth kind would move the constant
+with it and nothing says (a2) owns the span's completeness. And `## Validation boundary` (oracle 1's
+refusal half, AC-1(c2)) does NOT fail on a PARTIAL truncation: the non-vacuity clauses catch a TOTAL loss,
+but `{p in accept if library_refuses(p)} == {p in accept if guarded(p)}` holds over any SUBSET of the
+probes, so a truncation dropping some-but-not-all of the five guarded accept probes retires the
+anti-widening ratchet §1.4, R1 and `## Risk Analysis` row 2 all name, while the floor stays green. Rule 3
+closes that, over both capture spans in one expression.
+
+**AND THE LEVEL BELOW (vii), swept and DECLARED — because a fold that closes only the current level leaves
+the next level as the next round's finding (WI-226).** Generalize the generator one notch: a markdown span
+is only one POPULATION an assertion quantifies over, so the defect shape is *an assertion of the form
+`∀p∈P …` or `{p∈P : f(p)} == {p∈P : g(p)}` whose P is DERIVED at run time, which a silently shrunken P
+satisfies vacuously or narrowly.* Sweep predicate: every assertion this plan orders whose quantified
+population is computed rather than typed. It returns NINE, each answered here instead of at build time.
+(1) AC-1(c2)'s `accept` probes — closed by Rule 3. (2) AC-1(a2)'s sample set — closed by Rule 3
+non-incidentally, and by the frozen-constant equality incidentally. (3) AC-1(b)'s iterated `PARITY_KINDS`
+— the population is the module's own constant plus a planted member, and (a2) binds that constant to the
+capture's samples, so (1) and (2) carry it. (4) Task 6's drive table asserted TOTAL
+(`covered ∪ excluded == gate_call_sites(files)`) — non-vacuous by MEMBER pins: the excluded set is asserted
+to equal exactly one NAMED site and the other five are each driven through a named public door, so a
+shrunken site set is RED on a missing member rather than green. (5) Task 10's `marker_grammar_sites`
+module-set equality — a shrunken universe yields an EMPTY module set, which is `!=` the asserted singleton;
+it fails by construction. (6) Task 9's AC-4(d) `(note, rule_id)` set equality — both sides are computed in
+the SAME run over a digest-frozen corpus, and `CORPUS_DIGEST` plus
+`test_fixture_vault_is_frozen_and_materialized_by_byte_copy` pin the population itself. (7) Task 11's
+wall-membership RUN — already carries "a non-vacuity assertion first that the universe actually reaches
+the new files". (8) The three WI-235 batteries (Tasks 3, 6, 10) — each drives PLANTED shapes the test
+itself composes, so the population is the test's own literal and cannot shrink. (9) **Task 7's
+emptied-population scan — the one member this sweep found UNGUARDED, closed in the same edit.** "No file
+under `tests/fixtures/vault/` and no `NoteSpec.undeclared` key in `tests/fixture_vault.py:NOTES` names
+`introduced_by`" is an ABSENCE over two walked populations, and a walk that returns nothing satisfies it
+vacuously — the same shape as a truncated span, one level up. Task 7 now pins both populations by the
+MEMBER that matters before asserting the absence: the file walk is asserted to REACH
+`@Morvette Harkwell.md` and that note's text to carry `manager: "Oskaline Thrandell"`, and the `NOTES` walk
+to reach that note's own `NoteSpec` with `undeclared` carrying `manager`. A member pin rather than a size
+pin, because the corpus is a population WI-016 is entitled to grow.
 
 ## Verified Diagnosis
 
@@ -1251,10 +1808,16 @@ shape. Each was re-run this round with Read/Grep at HEAD `133c27a`.
   No message carries note content, and no refusal is chained to a foreign exception except through
   `chainable_cause`. *Test:* AC-1(c), AC-3(a).
 - **Trust boundary crossings.** *Case:* hostile vault bytes reaching the marker readers; a caller forging
-  a marker through the `text` channel. *Decision:* the readers are regex matchers over text, build no
-  path and execute nothing; the forgery channel is closed at construction by guards 1 and 2 of §1.4.
-  *Reasoning:* the machine channel (the marker) must not be writable from the prose channel (the text),
-  which is the one crossing this item creates. *Test:* AC-1(c), AC-1(c2).
+  a marker through the `text` channel; a caller TRUNCATING or SHADOWING the `## Timeline` span through
+  the same channel with a markdown heading (M1). *Decision:* the readers are regex matchers over text,
+  build no path and execute nothing; the marker channel is closed at construction by guards 1 and 2 of
+  §1.4 and the SECTION channel by guard 5, which together are total over the generator — `text` is the
+  only field that can introduce a line (§1.4's field sweep). *Reasoning:* the machine channels (the
+  marker, and the heading the accessor, the dedupe and both detectors route on) must not be writable from
+  the prose channel, which is the one crossing this item creates; both effects of the unguarded case are
+  SILENT narrowings rather than errors, which is what makes a refusal the right instrument.
+  *Test:* AC-1(c), AC-1(c2), and Task 3's clause (c3) for the claimed shapes, the near-misses and the
+  span-loss consequence.
 - **A kind nobody captured.** *Case:* a new writer builds `TimelineEntry(kind="deal-closed", …)`.
   *Decision:* it constructs, renders and round-trips; the library makes no byte-parity CLAIM about it;
   the accessor returns no record for it and does not raise. *Reasoning:* D8 — this item relocates and
@@ -1264,6 +1827,19 @@ shape. Each was re-run this round with Read/Grep at HEAD `133c27a`.
   identically and parity is preserved; the on-disk corpus is English. *Reasoning:* pinning a month table
   in the library would make it DIFFER from the code it is relocating — the one thing §1 must not do.
   *Test:* AC-1(a) proves the equality under the build environment's own locale.
+- **A committed oracle file whose selected span silently TRUNCATES (M2).** *Case:* a later, correct ship
+  introduces a line-start `## ` inside a fenced block in one of the four `docs/**` spans this item selects,
+  so §12 Rule 1's fence-unaware boundary ends the span early. *Decision:* RED in every case, and the
+  assertion that makes it RED is named per span (§12 dimension (vii)): the capture's two spans by the
+  whole-file `yaml`-fence accounting Task 3 asserts before it reads a sample or a probe (§12 Rule 3),
+  `## Exploration Notes` by its PRESENT phrase failing, `## Counts` by its exactly-one-`yaml`-fence clause
+  raising. NOT by a fence-aware boundary, which is declined deliberately. *Reasoning:* a truncation is an
+  oracle NARROWING and not an error, so the failure that matters is the one that would stay GREEN —
+  AC-1(c2)'s set equality holds over any SUBSET of the `accept` probes, so a partial truncation of the probe
+  span would retire the anti-widening ratchet §1.4 and `## Risk Analysis` row 2 name while the floor passes.
+  The accounting is preferred over a pinned count because the cutover re-runs the capture and legitimately
+  probes more boundary values; both sides move together. *Test:* AC-1's check (the accounting clause),
+  AC-3's check (the exactly-one-fence clause).
 
 OPEN: None.
 
@@ -1280,41 +1856,160 @@ lands and may be done in any order; Tasks 9–12 come last.
   Log before any file is edited; no later check asserts them as literals.
   verify: baseline — the pre-edit floor count, CORPUS_DIGEST and the len(pinned)==7 reading are recorded in the Build Log; no later check pins them (WI-238).
 
-- [ ] **Task 2 — The leaf module, its refusal leaf and the package exports.** Create
-  `obsidian_schemas/timeline_entry.py` exactly as §1 specifies: `_KIND_BODY` and the three patterns
-  (§1.1), the four types (§1.2), the five functions (§1.3), the validation table and the four guards with
+- [ ] **Task 2 — The leaf module, its refusal leaf and the package exports, with the prose channel
+  unable to write either machine channel (M1).** Create
+  `obsidian_schemas/timeline_entry.py` exactly as §1 specifies: `_KIND_BODY`, the three patterns and
+  `STRUCTURAL_LINE_PATTERN` (§1.1), the four types plus `Marker.key` (§1.2), the SIX functions
+  (§1.3 — `_compose_key` is the FIRST of them and is the single spelling of the `{kind}:{day}:{disc}`
+  grammar: `dedupe_key` and `Marker.key` both delegate to it, so no second copy of the key format exists
+  anywhere in the module, at the door or in a test, which matters because the key carries no `<!--`/`-->`
+  delimiter and is therefore outside AC-2(e)'s scan by construction), the validation
+  table and the FIVE guards with
   their pattern literals (§1.4), `PARITY_KINDS`, `HAL9000_PARITY_ANCHOR` and the three kind constants
-  (§1.5). Add `TimelineEntryRefusal` to `obsidian_schemas/errors.py` beside `NameGateRefusal`, declaring
+  (§1.5). **Guard 5 is M1 and is written in this task, not a later one:** `TimelineEntry.__post_init__`
+  refuses a `text` containing a line matching `STRUCTURAL_LINE_PATTERN` (`^#{2,3} `, tested MULTILINE
+  over the whole string — never `startswith`) with `pattern` `TEXT_STRUCTURAL_LINE_KEY`, because such a
+  line truncates or shadows the `## Timeline` span the accessor, the marker-anchored dedupe and both new
+  detectors all read through. `STRUCTURAL_LINE_PATTERN` has exactly two readers — this guard and
+  `parse_entries`' body boundary (§1.3), deliberately the same constant so door and reader cannot drift
+  — and `# `/`#### ` are outside it by construction (§1.1). Add
+  `TimelineEntryRefusal` to `obsidian_schemas/errors.py` beside `NameGateRefusal`, declaring
   no `__init__` and carrying `pattern: Optional[str] = None`, plus ONE new member in `REASONS`:
-  `"a timeline entry field this package refuses"`. Export all of §3's names from
-  `obsidian_schemas/__init__.py` and add each to `__all__`. **Verify:** Task 3's check is the oracle;
-  this task is done when the module imports under the project interpreter and the new leaf is
-  constructible.
-  verify: test_timeline_entry_reproduces_hal9000_render_and_validation_boundary
+  `"a timeline entry field this package refuses"` (one member for the whole door, guard 5 included).
+  Export all of §3's names from
+  `obsidian_schemas/__init__.py` and add each to `__all__`.
+  **THE COUNT PIN OVER `REASONS` MOVES IN THIS TASK, NOT A LATER ONE (§9's third countable corpus).**
+  `tests/test_name_gate.py:124` is `assert len(REASONS) == 16`, an EQUALITY pin its own comment at
+  `:121-122` declares deliberate, sitting inside
+  `test_name_gate_refusal_is_a_loud_fail_leaf_carrying_a_pattern:109` — a check that never calls the
+  declaring symbol, which is why the sweep has to name it. Edit it to `17` in the SAME task that adds the
+  member, and add `TimelineEntryRefusal`'s own leaf assertions to that check beside `NameGateRefusal`'s,
+  mirroring the four it already makes: a leaf of `LoudFailError` DIRECTLY and not of `NoteParseError`
+  (`:114-115`), `"__init__" not in TimelineEntryRefusal.__dict__` (`:119`), the new reason literal is a
+  `REASONS` member and a non-member reason is refused as a BARE `ValueError` outside the hierarchy
+  (`:130-138`), and `pattern` defaults to `None` on both the class and an instance (`:127-128`). The
+  obligation is the predicate, never the number: **the enumerated-reason set grows by exactly one and
+  every pin over it moves with it.** §9's sweep records that `tests/test_name_gate.py:124` is the ONLY size
+  pin over `REASONS` in the tree and that `__all__` carries membership assertions only, so nothing else
+  moves. **The pin's own adjacent comment moves with it and is IN the bounded edit**, not a "while I'm
+  here" touch: `tests/test_name_gate.py:121-122` reads "REASONS is a FROZEN population, so equality is
+  the right pin: fifteen members before this item, sixteen after", which is wrong in both halves the
+  moment the number moves. Update those two numbers (and only those) so the comment still says what the
+  assertion beneath it does; leave the first sentence — the reason equality is the right pin — as it is. **Verify:** Task 3's check is the oracle for the module — its clause (c3) is guard 5's; the second
+  named check is the pin and the new leaf's hierarchy assertions. This task is done when the module imports
+  under the project interpreter, the new leaf is constructible, and both checks are green.
+  verify: test_timeline_entry_reproduces_hal9000_render_and_validation_boundary test_name_gate_refusal_is_a_loud_fail_leaf_carrying_a_pattern
 
 - [ ] **Task 3 — The parity and validation-boundary check, driven by the committed capture.** Create
-  `tests/test_timeline_entry.py` (interpreter shim first, per §8.3) defining
+  `tests/test_timeline_entry.py` (interpreter shim first, per §8.3; module docstring carrying a
+  `CORPUS_COUPLING:` line in the shipped form — `tests/test_fixture_vault.py:3` and
+  `tests/test_ac_interpreter.py:23` are the models — naming the two heading names and the declared keys it
+  pins in `docs/wi-033-hal9000-timeline-entry-capture.md` and the property it consumes, per
+  `## Verification`'s reader-1 declaration) defining
   `test_timeline_entry_reproduces_hal9000_render_and_validation_boundary`, which parses
   `docs/wi-033-hal9000-timeline-entry-capture.md` — the `## Parity samples` and `## Validation boundary`
-  sections, one `yaml` fence per record, exactly as `tests/test_lint_vault_fix_rules.py:113` parses
-  `docs/lint-vault-live-baseline.md` by declared headings — and asserts, with every oracle read from the
+  sections, one `yaml` fence per record.
+  **THE SELECTOR IS SPELLED IN ITS OWN TERMS, NOT BY TRANSPLANT (§12, RULE 1).** Write
+  `select_sections(text, names)` in `tests/derivations.py` — the tree's one home for shared test-side
+  derivations, and the reason Task 7's check can import the SAME helper instead of a second copy (a
+  markdown selector spelled twice is the very duplication §12 exists to prevent; it uses no `ast`, so
+  §9's single-homing row is unmoved). Its contract: for each NAME, find the lines whose `line.rstrip()`
+  EQUALS it — exact, line-start, whole-line — and RAISE if a name matches zero lines or more than one;
+  the section's text runs from the line after its heading to the line before the next line whose
+  `line.startswith("## ")` is true (whatever heading that is) or to end of file; every `## ` line the
+  `names` list does not mention is IGNORED as a selection candidate and HONOURED as a boundary.
+  `tests/test_lint_vault_fix_rules.py:baseline_sections:1518` is the RAISING DISCIPLINE to copy — a
+  selector that finds nothing must be RED, never an empty dict — and NOT a function to transplant: it is
+  a TOTAL parse that raises on any heading outside its own declared table (`:1528-1536`), and this
+  capture carries three headings no `names` list mentions — `## Part 1 — source (verbatim, with line
+  ranges)` at `:57` and AGAIN at `:587` inside the Appendix's `python` fence, and
+  `## Appendix — the generator, verbatim` at `:470` — so a faithful copy would raise before reaching a
+  single `yaml` fence. `tests/test_lint_vault_fix_rules.py:fenced_blocks:1550` IS the shape to copy for
+  the per-section fence walk (toggle on any `line.startswith("```")`, blocks in order), applied to one
+  selected section's text — copied into `tests/derivations.py` as `select_fenced_blocks(section_text)`
+  beside `select_sections`, again so Task 7 imports it rather than spelling it a third time; the shipped
+  `fenced_blocks` is left exactly where it is (§12 says why). **With ONE deviation from a verbatim copy,
+  and it is load-bearing: RETAIN THE INFO STRING.** `fenced_blocks` discards it — the opening fence line
+  is consumed by the triple-backtick branch at `:1554-1559` and never appended to the block — so
+  `select_fenced_blocks` returns `(info, block)` PAIRS, `info` being the opening fence line with its
+  leading backticks and surrounding whitespace stripped (`""` for a fence opened with no info string).
+  Both consumers filter on `info == "yaml"`, and §12 Rule 3's whole-file accounting cannot be expressed
+  without it — the capture's four `python` fences are exactly what the accounting must exclude.
+  `yaml.safe_load` each `yaml` block.
+  **Ship the WI-235 battery for `select_sections` too — its REACH is exactly what both of the spec
+  review's round-2 findings turned on, and a selector that "works on the capture" says nothing about it.**
+  Drive plain in-test strings through the derivation ITSELF, never a re-implementation: the CLAIMED
+  shapes — a named heading selected; a `## ` heading the `names` list does not mention IGNORED as a
+  candidate but HONOURED as a boundary (the `## Part 1` / `## Appendix` case); a named heading whose span
+  runs to end of file; a duplicate of a heading that is NOT named, which must NOT raise (the `:587` echo
+  case). Then the NEAR-MISSES it must not match, each asserted: `### Foo` is neither a selection
+  candidate nor a boundary; an indented `  ## Foo` is neither; `## Foo bar` does not satisfy the name
+  `## Foo` (whole-line equality, not prefix — this is the one place it deliberately differs from
+  `baseline_sections`, which matches by prefix because its artifact's headings carry qualifiers). And the
+  RAISING discipline asserted in both directions: a name matching zero lines RAISES, and a name matching
+  two lines RAISES.
+  **Ship the SAME battery for `select_fenced_blocks`, whose reach now carries §12 Rule 3's accounting.**
+  Drive plain in-test strings through that derivation ITSELF: a text holding one `yaml` fence and one
+  `python` fence, asserted to return two `(info, block)` pairs whose infos are `"yaml"` and `"python"` in
+  that order and whose bodies contain NEITHER delimiter line; a fence opened with no info string, asserted
+  to yield `info == ""`; two consecutive fences, asserted to yield two blocks in order. Then the
+  near-miss: an INDENTED triple-backtick line, which the toggle must NOT treat as a delimiter (the shipped
+  shape is `line.startswith`, never `line.strip().startswith`), asserted by the block count it does not
+  change. The info string is the whole reason this helper deviates from `fenced_blocks:1550`, so it is
+  asserted rather than assumed. Then assert, with every oracle read from the
   file and NO literal re-typed into the test:
   (a) for every sample, `render(TimelineEntry(kind=…, text=…, when=datetime.fromisoformat(…),
   discriminator=…))` is byte-identical to that sample's `rendered` block;
   (a2) `PARITY_KINDS == {s["kind"] for s in samples}` — the `## Parity samples` section's kinds, per R2;
-  (a3) `HAL9000_PARITY_ANCHOR` equals the 40-hex HEAD the capture declares, read out of the capture's own
-  prose and asserted to match `^[0-9a-f]{40}$`;
+  (a3) `HAL9000_PARITY_ANCHOR` equals the 40-hex HEAD the capture declares — and the oracle is the SET,
+  never the first match (§12, dimension (v)): collect every 40-hex token in the WHOLE file with non-hex
+  boundaries on both sides (`tests/test_lint_vault_fix_rules.py:_HEX40:1515` is the shape), assert the
+  set is a SINGLETON, and assert `HAL9000_PARITY_ANCHOR` equals its one member. The capture declares the
+  same HEAD four times (`:7`, `:59`, `:171`, `:179`), so "the first match" would be green against a
+  capture that declared two DIFFERENT HEADs; the singleton assertion is what makes that RED. Pin no
+  occurrence count — a re-run capture legitimately moves it;
   (a4) a PLANTED slug-valid kind absent from `PARITY_KINDS` (`deal-closed`) constructs, renders and
   round-trips, and `PARITY_KINDS` is asserted not to be consulted — the planted kind's own round trip is
   the discriminant;
   (b) for every member of `PARITY_KINDS` iterated (never a hand list) plus the planted kind,
   `parse_markers(render(entry))` returns exactly one `Marker` whose `kind`, `day` and `discriminator`
-  equal the entry's, and `dedupe_key(entry)` equals that marker's reconstructed key;
-  (c) each of §1.4's guards raises `TimelineEntryRefusal` with the pattern this document names;
+  equal the entry's, and `dedupe_key(entry) == marker.key` — the `Marker.key` property §1.2 declares,
+  which composes through the same `_compose_key` as `dedupe_key`, so the assertion tests the RENDER →
+  PARSE round trip rather than two hand-kept copies of the `{kind}:{day}:{disc}` grammar agreeing with
+  each other. Also assert `marker.source == dedupe_probe(entry)`, the ONE string §2 branch 2's dedupe
+  compares, so the door's comparand is pinned here rather than only described;
+  (c) each of §1.4's five guards raises `TimelineEntryRefusal` with the pattern this document names;
   (c2) R1's reified equality — the set of `accept` probes the library REFUSES equals the set of `accept`
-  probes matching this document's four guard predicates, with that second set asserted non-empty, and
-  every `accept` probe outside it asserted to CONSTRUCT.
-  Non-vacuity first: assert the sample set and the probe set are non-empty and that the probes carry both
+  probes matching this document's five guard predicates, with that second set asserted non-empty, and
+  every `accept` probe outside it asserted to CONSTRUCT. Registering the fifth predicate in the filter is
+  what keeps the two sides derived rather than hand-kept; it adds no member here, and R1 says why;
+  (c3) GUARD 5's REACH, SHIPPED AS FIXTURES RATHER THAN INFERRED FROM A REFUSAL COUNT (WI-235, M1) —
+  drive every shape this document CLAIMS the guard covers through the module's own construction, each
+  asserted to raise `TimelineEntryRefusal` with `TEXT_STRUCTURAL_LINE_KEY`: a `text` whose FIRST line is
+  `## Notes`; one whose SECOND line is (`"ok\n## Notes"`, the `startswith` discriminant); a duplicate
+  `## Timeline`; and an `### {date} [intro-by]` entry-heading line. Then the NEAR-MISSES the predicate
+  must NOT match, each asserted to CONSTRUCT and render: `# h1`, `#### h4`, a `#` mid-line
+  (`"see # here"`), an indented `"  ## x"`, and the capture's own multi-line accept probe read from the
+  file (`'line one\n\nline two'`) — the last is the direct proof that (c2)'s equality is unmoved.
+  Then the CONSEQUENCE the guard exists to prevent, asserted rather than argued, and built WITHOUT the
+  door so the guard cannot suppress its own demonstration: compose a body holding `## Timeline` followed
+  by two rendered entries, record `len(parse_markers(get_section(body, "Timeline")))` as the oracle the
+  test itself holds (WI-149 — never a literal `2`), then splice the line `## Notes` between the two
+  entries by plain string surgery and assert the same expression now returns strictly fewer markers; do
+  the same with a spliced duplicate `## Timeline` line for the shadowing half. This is what makes a
+  build that drops guard 5 RED on the DAMAGE rather than only on a missing raise;
+  **COMPLETENESS FIRST, THEN NON-VACUITY (§12 RULE 3, M2).** Before any assertion above reads a sample or
+  a probe, assert the WHOLE-FILE ACCOUNTING over the capture: the number of `yaml`-info fences
+  `select_fenced_blocks` returns over the selected `## Parity samples` text PLUS the number it returns over
+  the selected `## Validation boundary` text EQUALS the number it returns over the whole file's text, with
+  all three counts asserted non-zero — so a span truncated by a line-start `## ` introduced inside a fence
+  is RED rather than green over a narrowed population. Type NO literal count and pin no occurrence figure:
+  a re-run capture legitimately probes more boundary values and both sides of the accounting move with it
+  (R1's own reason for refusing a probe count). This is the clause that keeps AC-1(c2)'s set equality from
+  being satisfied over a SUBSET of the `accept` probes — the non-vacuity clauses below do not catch that,
+  because they catch a TOTAL loss only and the equality holds over any subset — and it is therefore what
+  holds the anti-widening ratchet `## Risk Analysis` row 2 names. THEN non-vacuity: assert the sample set
+  and the probe set are non-empty and that the probes carry both
   verdict values, so a fence reader that finds nothing is RED rather than green. **Verify:** the check
   raises when any sample's bytes are altered by one space (observe by hand-mutating a copy of the parsed
   dict in a scratch run, then revert).
@@ -1377,12 +2072,51 @@ lands and may be done in any order; Tasks 9–12 come last.
   comment left byte-identical, and the `CORPUS_DIGEST` regeneration using the command
   `tests/fixture_vault.py:24-25` documents. Add to Task 6's check the derived scan AC-3(c) names: no file
   under `tests/fixtures/vault/` and no `NoteSpec.undeclared` key in `tests/fixture_vault.py:NOTES` names
-  `introduced_by` afterwards; the swapped value's extracted tokens are all in `NAME_POOL`; and
-  `docs/vault-fixtures.md` (the conductor-committed precondition) names `manager:` alone in the sentence
-  at its undeclared-key example, asserted by the absence of the phrase `` `introduced_by:` `` outside
-  that file's `criteria` fences. Read the committed live zero from
-  `docs/wi-033-intro-corpus-baseline.md` as a premise; never re-measure a vault. **Verify:** as declared
-  — the corpus walls and the gate check together.
+  `introduced_by` afterwards; and the swapped value's extracted tokens are all in `NAME_POOL`.
+  **PIN BOTH WALKED POPULATIONS BY THEIR ONE LOAD-BEARING MEMBER BEFORE ASSERTING THE ABSENCE (§12's
+  level-below-(vii) sweep, member 9).** An absence over a walked population is satisfied VACUOUSLY by a
+  walk that returns nothing — the same defect shape as a truncated span, one level up — so assert FIRST
+  that the file walk REACHES `tests/fixtures/vault/@Morvette Harkwell.md` and that that note's text carries
+  `manager: "Oskaline Thrandell"`, and that the `NOTES` walk reaches that note's own `NoteSpec` with
+  `undeclared` carrying `manager`. A MEMBER pin and never a size pin: the corpus is a population WI-016 is
+  entitled to grow, so a count would be somebody else's ratchet.
+  **THE `docs/vault-fixtures.md` CLAUSE IS A POSITIVE, SECTION-SCOPED, WRAP-INSENSITIVE READ — NOT A
+  WHOLE-FILE ABSENCE PIN AND NOT A LITERAL SUBSTRING TEST (§0 R6, §12, WI-278).** Select that file's
+  `## Exploration Notes` section with the SAME `select_sections(text, names)` helper Task 3 adds to
+  `tests/derivations.py` (§12 Rule 1: exact whole-line heading match, RAISE on zero or more than one,
+  span to the next line-start `## ` whatever it is) — IMPORTED, never re-written here, so the two
+  readers cannot drift. Then **normalize the selected text AND each phrase the same way,
+  `" ".join(s.split())`**, and assert over THAT SECTION'S NORMALIZED TEXT ONLY, nothing else in the file:
+  (i) the corrected phrase `` a `manager:` on a schema-drift or forward-compatibility note `` is PRESENT
+  — which a deletion of the sentence fails, where the absence pin would have passed; and (ii) the stale
+  phrase `` a `manager:` or `introduced_by:` `` is ABSENT from the same normalized text.
+  **The normalization is load-bearing and is not optional (§12 Rule 2):** the file hard-wraps at ~100
+  columns and the target sentence spans `:279-280`, so after the conductor's one-sentence deletion the
+  corrected phrase still contains a NEWLINE (it ends `:279` at "or" and resumes `:280` at
+  "forward-compatibility") and a literal `in` test is RED against a correct edit — while the ABSENCE
+  half is contiguous on `:279` today and would have passed, which is what hides the defect. Do not
+  "fix" this by asking the conductor to re-wrap: nothing in the precondition asks for it, re-wrapping
+  only moves the break to a different word, and no assertion in this item may depend on a wrap column.
+  The section selection is what keeps WI-016's SIGNED AC-5 fence at `:1434` out of reach — it sits under
+  `## Acceptance Criteria` — so the test rolls NO `criteria`-fence scan and pins no predicate this tree
+  has no leaf for. **The live half of AC-3(c) takes the same three rules (§12, oracle #4):** read
+  `introduced_by_frontmatter_carriers` from the ONE `yaml` fence of
+  `docs/wi-033-intro-corpus-baseline.md`'s `## Counts` section, selected by the same `select_sections`
+  and walked by the same `select_fenced_blocks` Task 3 homes in `tests/derivations.py` — both IMPORTED —
+  and assert it is `0`: a premise READ, never a vault re-measured. Assert the section yields EXACTLY ONE
+  `yaml`-info fence first — the info string `select_fenced_blocks` retains (§12) — so a capture that grew a
+  second block is RED rather than silently taking the first. That one assertion is also what makes this
+  oracle FAIL on a truncated span rather than narrow silently, which is why §12 dimension (vii) gives it no
+  accounting of its own.
+  The one-line coupling declaration lives in `## Verification` beside AC-1's AND in the
+  code: add a `CORPUS_COUPLING:` line to
+  `test_the_write_gate_refuses_the_retired_introduced_by_key`'s own docstring in the shipped CHECK-granular
+  form (`tests/test_lint_vault_fix_rules.py:1639` and `tests/test_whatsapp_migration.py:1114` are the
+  models), naming BOTH `docs/**` reads this check makes — the ONE heading and the ONE phrase it pins in
+  `docs/vault-fixtures.md`, and the ONE heading and ONE key it pins in
+  `docs/wi-033-intro-corpus-baseline.md` — and the property each consumes, exactly as
+  `## Verification`'s reader 2 states them.
+  **Verify:** as declared — the corpus walls and the gate check together.
   verify: test_no_corpus_note_carries_a_live_identifier test_fixture_vault_is_frozen_and_materialized_by_byte_copy test_the_write_gate_refuses_the_retired_introduced_by_key
 
 - [ ] **Task 8 — The three detectors.** Add §5's three arms to `scripts/lint_vault.py:check_structural`
@@ -1431,21 +2165,39 @@ lands and may be done in any order; Tasks 9–12 come last.
   from §9's table (`modules_using_ast`, `skip_reason_literal_sites`, `frontmatter_write_arms`,
   `character_class_strip_sites`, `address_splitting_implementations`, `NO_ARG_CONSTRUCTION` over the
   edited corpus note, and the pytest collection globs) and assert the answer each wall requires, with a
-  non-vacuity assertion first that the universe actually reaches the new files. In the same check, call
+  non-vacuity assertion first that the universe actually reaches the new files. **`tests/test_name_gate.py`
+  is in that file set** (Task 2 edits it, §9's new inbound row), so the run includes its four stated
+  requirements: `modules_using_ast` returns it NOT; `check_module` on every `def test_` name in it resolves
+  to exactly one module; `NO_ARG_CONSTRUCTION` finds nothing; and the declared pytest globs still collect
+  it. Those are the predicates
+  `tests/test_name_gate_wall.py:test_wall_membership_is_closed_by_running_each_walls_predicate:1057` and
+  `tests/test_fixture_vault.py:test_the_fixture_vault_files_close_their_wall_memberships_by_running_each_predicate:1353`
+  already run over that file from their own items' frozen lists — this check calls them on the FINAL text
+  so a violation surfaces here rather than in somebody else's module. In the same check, call
   `tests/test_ac_interpreter.py:check_module` on all four of this item's AC check names and assert each
   resolves to exactly one module — the conveyor's own discovery rule, which raises on a duplicate name.
   Anything the run returns that §9's table did not name is NAMED in the Build Log and satisfied there,
   never by narrowing a wall. **Verify:** as declared.
   verify: test_the_wi033_files_close_their_wall_memberships_by_running_each_predicate
 
-- [ ] **Task 12 — Floor green, and the pins re-read rather than edited.** Run the floor command. Confirm
-  it is GREEN with a case count no lower than Task 1's baseline, and confirm by reading that
-  `tests/test_lint_vault_fix_rules.py:822` still reads `len(pinned) == 7`, that
-  `CENSUS_SHAPE_TO_RULE`'s value set still equals the derived auto-fixable set, and that
-  `docs/lint-vault-live-baseline.md` needed no edit. Record the final count and all three pin readings in
-  the Build Log. **Verify:** a hand-run of the floor command; `pipeline-runners.yaml` declares no
-  `commands:` block, so there is no registered `command_id` to name.
-  verify: hand-run — the floor command is not a registered command_id (pipeline-runners.yaml declares no commands block), so the whole-suite run plus three pin re-reads is an act recorded in the Build Log.
+- [ ] **Task 12 — This item's own checks green, and the pins re-read rather than edited.** **The whole
+  project floor is NOT this task's obligation (WI-314) and is deliberately not ordered here:** the
+  drive-end floor and the battery at every cap-bind already own it, so a plan task that runs it spends a
+  build window per attempt on a run the builder can neither shorten nor fix, and converts any unrelated
+  red into this item's build-attempt cap. What this task owns is what it can actually fix — this item's
+  own four AC checks green, plus the pin accounting, each discharged by a STANDING check rather than by a
+  hand read: `tests/test_lint_vault_fix_rules.py:822`'s `len(pinned) == 7` is asserted by
+  `test_every_write_causing_detector_fires_exactly_on_its_declared_subjects:818`;
+  `CENSUS_SHAPE_TO_RULE`'s value-set equality against the derived auto-fixable set AND
+  `docs/lint-vault-live-baseline.md`'s §1/§4 rows are asserted by
+  `test_the_live_vault_baseline_is_committed_shaped_and_agrees_with_the_census:1634` (`:1698-1710`), which
+  also proves the baseline document needed no edit; and §9's third corpus is asserted by
+  `test_name_gate_refusal_is_a_loud_fail_leaf_carrying_a_pattern:109`, whose `REASONS` pin Task 2 moved.
+  Read `tests/test_lint_vault_fix_rules.py:CORPUS_PINNED_ISSUES:809` and confirm it needed no edit (§9's
+  sweep: the re-key moves no `meeting_missing_from_timeline` count). Record in the Build Log: the six
+  named checks' results and the `CORPUS_PINNED_ISSUES` reading. No number is asserted anywhere here — Task
+  1's baseline stays informational (WI-238) and nothing pins it. **Verify:** as declared.
+  verify: test_timeline_entry_reproduces_hal9000_render_and_validation_boundary test_introduced_by_reads_only_this_persons_intro_by_markers test_the_write_gate_refuses_the_retired_introduced_by_key test_lint_vault_reports_the_intro_legacy_shapes_and_never_repairs_them test_every_write_causing_detector_fires_exactly_on_its_declared_subjects test_the_live_vault_baseline_is_committed_shaped_and_agrees_with_the_census
 
 ## Write Targets
 
@@ -1462,14 +2214,28 @@ WI-245 the merge boundary admits a declared edit to another item's tracked docum
 additive prose outside every fence, and AC-3(c)'s edit REPLACES prose), and the builder's own write
 targets follow it. Every builder path below sits inside this project's declared `write_authority`
 (`obsidian_schemas/**`, `tests/**`, `scripts/**`, `docs/**`); nothing in the plan writes the project
-root, `bin/**` or `state/**`, and no task's verify command writes anything at all — Task 12's floor
-command and every check are read-only over the tree (WI-238).
+root, `bin/**` or `state/**`, and no task's verify command writes anything at all — every task's verify
+is a named check or a read, all read-only over the tree (WI-238), and no task orders the whole project
+floor (WI-314; Task 12's narrowing).
+
+**Extended again 2026-09-29** after the spec review's finding 1: `tests/test_name_gate.py` is added as a
+builder write target. It is not a "while I'm here" edit — Task 2 adds a member to
+`obsidian_schemas/errors.py:REASONS:152` and that module's `:124` pins the set's SIZE by equality, so the
+edit is owed by construction. §9 names the pin, its check and the predicate it discharges.
+
+**Round 2 of the spec review, 2026-09-29, added NO path.** Its two findings were oracle-shape defects
+(§12), not new write surfaces: `select_sections` and `select_fenced_blocks` land in
+`tests/derivations.py`, already declared for
+Tasks 6 and 10 — that fence's `why` now names them — and everything else this round moved is prose in
+sections the builder reads. The precondition fence for `docs/vault-fixtures.md` is unchanged in KIND and
+PATH; only its `why` gained the file's own bytes, the exact deletion, and the explicit statement that
+re-wrapping is not asked for.
 
 ```writes
 kind: precondition
 path: docs/wi-033-hal9000-timeline-entry-capture.md
 grounds: Whether the library's relocated renderer, kind-slug rule, marker grammar and dedupe contract reproduce HAL9000's shipped ones — byte-for-byte on what they RENDER and no stricter on what they REFUSE — including WI-077's two intro kinds and its `{kind}:{day}:{counterparty}` key format
-why: "Relocate" means byte parity or it means nothing — 22 marker-bearing legacy entries and every WI-077 entry are already on disk, and a renderer that differs by one space stops round-tripping them while every hermetic test stays green. The caged builder cannot read HAL9000, and this reader's answer from there would have no HEAD to pin a re-run to, so the bytes must be IN the tree. Contents, part 1 — verbatim source of `backend_fastapi/core/timeline_entry.py` (the `TimelineEntry` class, its render, the kind-slug validation, the `-->`/`<!--` forgery guard, the dedupe-by-discriminator contract) and the two kind constants plus the key format from `routers/introduce.py` (`OBSERVED_KIND_ON_INTRODUCEE`, `OBSERVED_KIND_ON_INTRODUCER`, WI-077 note 6); each with a 40-hex HEAD, path and line range. Contents, part 2, and this is the half a source dump does not give — PARITY SAMPLES, which are INPUT→OUTPUT PAIRS and not outputs alone: an output whose inputs are absent is not reproducible, and a builder handed one is forced into exactly the re-typed literal AC-1(a) forbids. Shape, declared so the test can parse it deterministically rather than guessing (the precedent is `docs/lint-vault-live-baseline.md`, whose declared headings `tests/test_lint_vault_fix_rules.py:113` already parses): a single `## Parity samples` section holding one fenced block per sample, each a YAML code fence (info string `yaml`) with exactly the keys `kind`, `text`, `when` (a pinned absolute timestamp, because `when` is injectable and feeds BOTH the heading and the marker's day slot, so an unpinned sample reproduces nothing), `discriminator` (explicit `null` where the shipped call passes none), and `rendered` (a YAML block scalar holding the verbatim bytes that code emitted for those inputs). One sample per kind HAL9000 renders, INCLUDING the legacy `intro` kind, produced by RUNNING that code and not by reading it. Contents, part 3, and this is the surface render samples structurally cannot reach (D8) — THE VALIDATION BOUNDARY, as INPUT→VERDICT pairs: a `## Validation boundary` section holding one `yaml` fence per probe with exactly the keys `field` (`kind`, `text` or `discriminator`), `value` (the literal probe string; explicit `null` where the probe is an absent discriminator) and `verdict` (the literal `accept` or `refuse`), produced by RUNNING HAL9000's validation on that value and not by reading its regex. Every sample here is a VALID input, so a capture of samples alone cannot detect a library that REFUSES an input HAL9000 accepts — a divergence invisible to this tree's hermetic floor and visible only after the cutover, when the caller it breaks is HAL9000's own. Probe both verdicts and include, at minimum: a kind HAL9000's slug rule accepts that no sample renders; a kind it refuses (uppercase, a space, an empty string); a discriminator that is absent, empty, whitespace-only, and one containing the `:` key separator; and a kind, a text and a discriminator each containing `-->` and `<!--`. AC-1(c2) reads every pair and asserts the library is NO STRICTER in the ACCEPT direction, with the four deliberate over-refusals enumerated in AC-1(c) asserted as a set EQUALITY so the exception cannot be widened; the loose direction is out of scope by D8. Also declare, in prose beside the samples, the 40-hex HEAD once as the artifact's staleness anchor — AC-1(a) asserts the module's `HAL9000_PARITY_ANCHOR` equals it, and D7's cutover re-entry condition diffs against it. Precedents: `docs/wi-024-consumer-audit.md`, `docs/wi-029-consumer-audit.md`.
+why: "Relocate" means byte parity or it means nothing — 22 marker-bearing legacy entries and every WI-077 entry are already on disk, and a renderer that differs by one space stops round-tripping them while every hermetic test stays green. The caged builder cannot read HAL9000, and this reader's answer from there would have no HEAD to pin a re-run to, so the bytes must be IN the tree. Contents, part 1 — verbatim source of `backend_fastapi/core/timeline_entry.py` (the `TimelineEntry` class, its render, the kind-slug validation, the `-->`/`<!--` forgery guard, the dedupe-by-discriminator contract) and the two kind constants plus the key format from `routers/introduce.py` (`OBSERVED_KIND_ON_INTRODUCEE`, `OBSERVED_KIND_ON_INTRODUCER`, WI-077 note 6); each with a 40-hex HEAD, path and line range. Contents, part 2, and this is the half a source dump does not give — PARITY SAMPLES, which are INPUT→OUTPUT PAIRS and not outputs alone: an output whose inputs are absent is not reproducible, and a builder handed one is forced into exactly the re-typed literal AC-1(a) forbids. Shape, declared so the test can parse it deterministically rather than guessing (the precedent is `docs/lint-vault-live-baseline.md`, whose declared headings `tests/test_lint_vault_fix_rules.py:113` already parses): a single `## Parity samples` section holding one fenced block per sample, each a YAML code fence (info string `yaml`) with exactly the keys `kind`, `text`, `when` (a pinned absolute timestamp, because `when` is injectable and feeds BOTH the heading and the marker's day slot, so an unpinned sample reproduces nothing), `discriminator` (explicit `null` where the shipped call passes none), and `rendered` (a YAML block scalar holding the verbatim bytes that code emitted for those inputs). One sample per kind HAL9000 renders, INCLUDING the legacy `intro` kind, produced by RUNNING that code and not by reading it. Contents, part 3, and this is the surface render samples structurally cannot reach (D8) — THE VALIDATION BOUNDARY, as INPUT→VERDICT pairs: a `## Validation boundary` section holding one `yaml` fence per probe with exactly the keys `field` (`kind`, `text` or `discriminator`), `value` (the literal probe string; explicit `null` where the probe is an absent discriminator) and `verdict` (the literal `accept` or `refuse`), produced by RUNNING HAL9000's validation on that value and not by reading its regex. Every sample here is a VALID input, so a capture of samples alone cannot detect a library that REFUSES an input HAL9000 accepts — a divergence invisible to this tree's hermetic floor and visible only after the cutover, when the caller it breaks is HAL9000's own. Probe both verdicts and include, at minimum: a kind HAL9000's slug rule accepts that no sample renders; a kind it refuses (uppercase, a space, an empty string); a discriminator that is absent, empty, whitespace-only, and one containing the `:` key separator; and a kind, a text and a discriminator each containing `-->` and `<!--`. AC-1(c2) reads every pair and asserts the library is NO STRICTER in the ACCEPT direction, with the four deliberate over-refusals enumerated in AC-1(c) asserted as a set EQUALITY so the exception cannot be widened; the loose direction is out of scope by D8. Also declare, in prose beside the samples, the 40-hex HEAD once as the artifact's staleness anchor — AC-1(a) asserts the module's `HAL9000_PARITY_ANCHOR` equals it, and D7's cutover re-entry condition diffs against it. TWO STRUCTURAL PROPERTIES THE CHECK RELIES ON, named here rather than left as incidental (§12 Rules 1 and 3, M2), and BOTH HOLD OF THE FILE AS ALREADY COMMITTED — measured this round, so no conductor act is owed now and this is written for whoever REGENERATES it at the cutover: each of `## Parity samples` and `## Validation boundary` occurs exactly ONCE at line start, and every `yaml` fence in the file sits inside one of those two sections (today: six and twenty-nine, thirty-five in the file, the other four fences `python` — Part 1's three and the Appendix's one). A regenerated capture may hold any number of samples and probes, and neither count is pinned; what it may not do is park a `yaml` fence in a third section, or let its Appendix's `python` fence contain a line-start triple-backtick. Nothing else about the file is load-bearing: not its wrap, not its heading count, not the position of any section. Precedents: `docs/wi-024-consumer-audit.md`, `docs/wi-029-consumer-audit.md`.
 ```
 
 ```writes
@@ -1496,7 +2262,7 @@ why: The Intent promises ONE definition of the vocabulary; this item, scoped to 
 ```writes
 kind: precondition
 path: docs/vault-fixtures.md
-why: Task 7 / AC-3(c) — the conductor commits this one-sentence edit, because the caged builder cannot be its author. The file is ANOTHER item's tracked work-item document (`id: WI-016`), and since WI-245 the merge boundary admits a declared cross-doc edit only when it is ADDITIVE PROSE outside every fence; AC-3(c)'s edit REPLACES prose at `:279` ("a `manager:` or `introduced_by:` key" must read `manager:` alone), so a caged write to it is refused at the merge boundary and costs a conductor hand-landing plus a relaunch. The edit is ONE sentence and nothing else: the same phrase inside WI-016's SIGNED AC-5 `criteria` fence at `:1434` is explicitly OUT of scope and must not be touched — moving a typed parse of another item's document is what the merge rule forbids, and that fence is another item's signed criterion. Checked against the PRE-DRIVE floor (WI-156, WI-164): no test in this tree reads `:279`'s prose and the file participates in no bijection or symmetry invariant the floor enforces, so this lands independently of the builder's fixture re-key and no atomic landing is required. Presence alone is not the evidence — the file is already in HEAD, so the WI-156 probe is trivially satisfied and AC-3(c)'s own check is what makes the edit verifiable.
+why: Task 7 / AC-3(c) — the conductor commits this one-sentence edit, because the caged builder cannot be its author. The file is ANOTHER item's tracked work-item document (`id: WI-016`), and since WI-245 the merge boundary admits a declared cross-doc edit only when it is ADDITIVE PROSE outside every fence; AC-3(c)'s edit REPLACES prose at `:279`, so a caged write to it is refused at the merge boundary and costs a conductor hand-landing plus a relaunch. THE EDIT, IN THE FILE'S OWN BYTES, so no reader has to re-derive it: `:279-280` currently read "a `manager:` or `introduced_by:` on a schema-drift or forward-compatibility note" (AC-3(c)'s `desc` paraphrases this as "a `manager:` or `introduced_by:` key" — the word "key" is not in the file; the bytes above are the target). DELETE the substring `` or `introduced_by:` `` from `:279` and change NOTHING else. WHAT IS NOT ASKED FOR, stated because the earlier draft's oracle silently depended on it: the conductor is NOT obliged to re-wrap, re-flow or re-join the paragraph, and NO assertion in this item depends on where the line breaks fall — Task 7's two phrase tests run over whitespace-NORMALIZED text (§12 Rule 2), which is what makes a hard-wrapped sentence spanning `:279-280` testable at all. The same phrase inside WI-016's SIGNED AC-5 `criteria` fence at `:1434` is explicitly OUT of scope and must not be touched — moving a typed parse of another item's document is what the merge rule forbids, and that fence is another item's signed criterion. Checked against the PRE-DRIVE floor (WI-156, WI-164): no test in this tree reads `:279`'s prose and the file participates in no bijection or symmetry invariant the floor enforces, so this lands independently of the builder's fixture re-key and no atomic landing is required. Presence alone is not the evidence — the file is already in HEAD, so the WI-156 probe is trivially satisfied and AC-3(c)'s own check is what makes the edit verifiable.
 ```
 
 ```writes
@@ -1531,7 +2297,7 @@ why: Task 8 — the three report-only detectors in `check_structural`, reading t
 
 ```writes
 path: tests/derivations.py
-why: Tasks 6 and 10 — `gate_call_sites` and `marker_grammar_sites`, the single home of `ast` in this tree.
+why: Tasks 6 and 10 — `gate_call_sites` and `marker_grammar_sites`, the single home of `ast` in this tree; plus Task 3's `select_sections(text, names)` and `select_fenced_blocks(section_text)` (§12 Rule 1), homed here so Tasks 3 and 7 import ONE markdown-section selector and ONE fence walk instead of spelling each twice. `select_fenced_blocks` returns `(info, block)` PAIRS — the one declared deviation from `fenced_blocks:1550`, which discards the info string at `:1554-1559` — because both readers filter on `info == "yaml"` and §12 Rule 3's whole-file accounting (M2) cannot be expressed without it. Neither uses `ast`, so §9's single-homing row is unmoved.
 ```
 
 ```writes
@@ -1552,6 +2318,11 @@ why: Tasks 6 and 7 — AC-3's gate refusal, the derived arm sweep and the emptie
 ```writes
 path: tests/test_lint_vault_fix_rules.py
 why: Task 9 — AC-4's check, added to the module that already owns the containment door and the planting helpers.
+```
+
+```writes
+path: tests/test_name_gate.py
+why: Task 2 — the `len(REASONS) == 16` equality pin at `:124` moves to 17 because Task 2 adds one member to `errors.py:REASONS`, its own adjacent comment's two numbers at `:121-122` move with it, and `TimelineEntryRefusal`'s leaf assertions land beside `NameGateRefusal`'s in the same check (§9's third countable corpus).
 ```
 
 ```writes
@@ -1592,20 +2363,49 @@ A typed entry plus a `deduplicate_key` raises rather than silently preferring on
 frontmatter fence is broken raises `FrontmatterParseError`. An undecodable note is reported once as
 `unreadable_note` and by none of the three new checks.
 
-**The counting walls ship their claimed shapes as fixtures (WI-235).** Three checks in this item have a
-COUNT as their oracle, and each ships its claimed match-shapes through the wall's OWN predicate plus a
-near-miss the predicate must not match: AC-2(e)'s "exactly one definition of the grammar" drives five
+**The counting walls ship their claimed shapes as fixtures (WI-235).** SIX oracles in this item have a
+COUNT or a matcher's reach behind them, and each ships its claimed match-shapes through the wall's
+OWN predicate plus a
+near-miss the predicate must not match. The fifth and sixth were both added 2026-09-29 — the fifth after
+the spec review's round 2, the sixth when the threat model's round-3 mitigation M2 made a second helper's
+reach load-bearing. Fifth:
+**`select_sections`' reach** — the markdown section selector §12 Rule 1 defines, whose claimed shapes
+(a named heading selected; an unnamed `## ` ignored as a candidate but honoured as a boundary; a span
+running to EOF; a duplicate of an UNNAMED heading not raising) and near-misses (`### Foo`, an indented
+`  ## Foo`, `## Foo bar` against the name `## Foo`) are driven through the derivation itself in Task 3,
+with the RAISE asserted in both directions. It earns the battery because the two findings this round
+closed were both about a selector's or a matcher's reach over a file nobody read at that granularity,
+and "it parses the capture" is satisfied identically by a selector that honours the rules above and by
+one that honours almost none of them. Sixth: **`select_fenced_blocks`' reach, and specifically its INFO
+STRING** — §12 Rule 3's whole-file accounting is a `yaml`-versus-`python` discrimination over the capture's
+thirty-nine fences, and the shipped `fenced_blocks:1550` this helper copies DISCARDS the info string
+(`:1554-1559`), so "the accounting holds on the capture" says nothing about whether the discrimination
+works. Its claimed shapes (a `yaml` fence and a `python` fence in one text returning their two infos in
+order with neither delimiter line in either body; a fence opened with no info string returning `""`; two
+consecutive fences returning two blocks in order) and its near-miss (an INDENTED triple-backtick line,
+which `line.startswith` must not treat as a delimiter) are driven through the derivation itself in Task 3.
+The other four: AC-2(e)'s "exactly one definition of the grammar" drives five
 planted source shapes through `marker_grammar_sites` (Task 10); AC-3(b)'s "the excluded set is exactly
 one site" drives four planted call shapes, aliased import included, through `gate_call_sites` (Task 6);
 AC-4(d)'s "silent over the frozen corpus" is a SET EQUALITY of `(note, rule_id)` pairs computed twice in
-the same run rather than a zero, so a new issue that displaces an old one cannot cancel out (Task 9).
-Mutate-and-observe is used as the complementary half only — Task 3's one-space mutation — and never as
-the proof.
+the same run rather than a zero, so a new issue that displaces an old one cannot cancel out (Task 9); and
+M1's guard 5 — whose oracle is otherwise a refusal COUNT, satisfied identically by a predicate that
+reaches every claimed heading shape and by one that reaches almost none — drives four claimed shapes and
+five near-misses through the module's own construction, plus the span-loss consequence itself, in Task
+3's clause (c3). Mutate-and-observe is used as the complementary half only — Task 3's one-space mutation
+— and never as the proof.
 
-**The delta assertion captures its baseline first (WI-238).** Task 1 records the pre-edit floor count,
-the pre-edit `CORPUS_DIGEST` and the pre-edit `len(pinned)` reading in the Build Log before any file is
-edited. Task 12 asserts only PROPERTIES — GREEN, a count no lower than the baseline, and three pins
-re-read as unchanged — never a hardcoded number.
+**The delta assertion captures its baseline first (WI-238) — and no plan task asserts on it (WI-314).**
+Task 1 records the pre-edit floor count, the pre-edit `CORPUS_DIGEST` and the pre-edit `len(pinned)`
+reading in the Build Log before any file is edited, and that recording is INFORMATIONAL: nothing in the
+plan pins it. Task 12 was narrowed on 2026-09-29 to drop the whole-floor run it previously ordered — the
+floor is the DRIVE's obligation (the drive-end run and the battery at every cap-bind), and a plan task
+that orders it spends a build window per attempt on a run the builder cannot shorten while converting any
+unrelated red into this item's build-attempt cap. What Task 12 asserts now is this item's own four AC
+checks plus two STANDING checks that carry the pin accounting
+(`test_every_write_causing_detector_fires_exactly_on_its_declared_subjects` for `len(pinned) == 7`,
+`test_the_live_vault_baseline_is_committed_shaped_and_agrees_with_the_census` for
+`CENSUS_SHAPE_TO_RULE`'s value set and the live baseline's rows) — properties, never numbers.
 
 **Integration: the downstream consumers precondition 3 measured, none of which this item moves.** All six
 live `append_to_timeline` call sites pass a `str` and stay on the unchanged branch, so the typed overload
@@ -1628,8 +2428,29 @@ for `obsidian_schemas/name_gate.py` — `tests/test_name_gate.py`, `tests/test_n
 `tests/test_provenance_write_seam.py`, `tests/test_write_target_seam_wall.py`,
 `tests/test_identity_endgame.py`, `tests/test_concurrent_access.py`,
 `tests/test_whatsapp_jid_storage.py`, `tests/test_whatsapp_migration.py`; for
-`obsidian_schemas/errors.py` and `obsidian_schemas/__init__.py` — `tests/test_loud_fail_parse.py`,
-`tests/test_loud_fail_load.py`, `tests/test_loud_fail_write.py`, `tests/test_loud_fail_harness.py`; for
+`obsidian_schemas/errors.py` — **RE-SWEPT 2026-09-29, because the earlier paragraph named a SAMPLE of
+four `tests/test_loud_fail_*.py` modules and that is precisely how finding 1's pin was missed.** The
+predicate is "modules under the resolved test root that NAME this path" — for this file, the spelling
+`obsidian_schemas.errors` — and it returns SIXTEEN: `tests/test_name_gate.py` (the one carrying the
+`REASONS` size pin, and now a declared write target), `tests/test_name_gate_wall.py`,
+`tests/test_name_gate_refusals.py`, `tests/test_name_gate_identifiers.py`,
+`tests/test_name_gate_delta_rule.py`, `tests/test_loud_fail_parse.py`, `tests/test_loud_fail_write.py`,
+`tests/test_writer.py`, `tests/test_repositories.py`, `tests/test_concurrent_access.py`,
+`tests/test_provenance_write_seam.py`, `tests/test_phone_normalization.py`, `tests/test_fixture_vault.py`,
+`tests/test_whatsapp_write_door.py`, `tests/test_whatsapp_migration.py`,
+`tests/test_whatsapp_jid_storage.py`. Two corrections ride with the re-sweep: `tests/test_loud_fail_load.py`
+does NOT name `obsidian_schemas.errors` (it names the package, so it belongs to the row below) and
+`tests/test_loud_fail_harness.py` names NEITHER (it is a `tests/derivations.py` consumer, covered by that
+row) — the old paragraph asserted both. For
+`obsidian_schemas/__init__.py` — the same predicate over `from obsidian_schemas import` /
+`import obsidian_schemas` returns `tests/test_name_gate.py`, `tests/test_loud_fail_parse.py`,
+`tests/test_loud_fail_load.py`, `tests/test_loud_fail_write.py`, `tests/test_writer.py`,
+`tests/test_repositories.py`, `tests/test_concurrent_access.py`, `tests/test_provenance_write_seam.py`,
+`tests/test_write_target_seam_wall.py`, `tests/test_wi126_body_preservation.py`,
+`tests/test_whatsapp_migration.py`, `tests/test_vault_path_required.py`,
+`tests/test_resolve_or_create.py`, `tests/test_identity_index.py`, `tests/test_identity_endgame.py`,
+`tests/test_fixture_vault.py`, `tests/test_company_name_contract.py`, plus the two non-check helpers
+`tests/derivations.py` and `tests/record_identity_golden.py`, which discharge by importing cleanly; for
 `scripts/lint_vault.py` — `tests/test_lint_vault_fix_rules.py`, `tests/test_lint_vault_fix_gate.py`,
 `tests/test_stem_name_divergence_detector.py`, `tests/test_write_routing.py`; for
 `tests/derivations.py` — every module in §9's table, since each imports from it; for
@@ -1638,9 +2459,14 @@ for `obsidian_schemas/name_gate.py` — `tests/test_name_gate.py`, `tests/test_n
 `tests/test_vault_path_required.py`, and every module that materializes the corpus
 (`tests/test_lint_vault_fix_rules.py`, `tests/test_stem_name_divergence_detector.py`,
 `tests/test_whatsapp_migration.py`, `tests/test_whatsapp_write_door.py`,
-`tests/test_whatsapp_jid_storage.py`, `tests/test_provenance_write_seam.py`). The list is a SWEEP's
-output at 2026-09-28 and the obligation is the whole floor being GREEN, not this enumeration being
-complete.
+`tests/test_whatsapp_jid_storage.py`, `tests/test_provenance_write_seam.py`); and for the path this
+document ADDED on 2026-09-29, `tests/test_name_gate.py` — the predicate returns TWO modules, both of
+which name it in a list and RUN their predicates over its text, so the edit is not free and §9's new
+inbound row states what each requires: `tests/test_name_gate_wall.py:TOUCHED_TEST_FILES:1029` (member at
+`:1033`) and `tests/test_fixture_vault.py:_item_test_modules:1315` (member at `:1323`). Its own three
+checks staying green is carried by Task 2's second named check and Task 12's re-read. The list is a
+SWEEP's output at 2026-09-29 and the obligation is the whole floor being GREEN, not this enumeration being
+complete — the floor belongs to the DRIVE (WI-314), not to a plan task.
 
 **No incident replay is owed (WI-173).** This is not an incident-class item: nothing broke in production
 and this spec asserts no live failure. The four diagnostic claims in `## Verified Diagnosis` are about
@@ -1649,16 +2475,97 @@ single stored `introduced_by` value — was already converted and read back by t
 (ruling §1) before this item. No incident is manufactured to satisfy the check, and no plan task drains
 live state.
 
-**A corpus fixture derives or freezes (WI-278 analogue).** AC-1's check reaches into `docs/**` at run
-time, which in this tree is the artifact class WI-031 clause (v) keeps out of the floor's path. It takes
-the FROZEN-BYTES arm: `docs/wi-033-hal9000-timeline-entry-capture.md` is a conductor-committed,
-machine-shaped artifact whose fences are the oracle, selected by its DECLARED headings
-(`## Parity samples`, `## Validation boundary`) exactly as `tests/test_lint_vault_fix_rules.py:113`
-selects `docs/lint-vault-live-baseline.md`'s — never by a glob, a size, a position or a live population's
-shape. The coupling is DECLARED here in one line so the next reader can falsify it: **AC-1's check pins
-those two heading names and the five/three declared keys per fence, and consumes the property that every
-`rendered` block and every `verdict` was produced by RUNNING HAL9000's code at
-`HAL9000_PARITY_ANCHOR`.**
+**A corpus fixture derives or freezes (WI-278 analogue).** This item ships TWO check modules that read
+`docs/**` at run time — the artifact class WI-031 clause (v) keeps out of the floor's path — across
+THREE files and FOUR oracles, enumerated by predicate in `## Design` §12. Each names its arm and its
+coupling in one falsifiable line, and every one of them takes §12's three rules: the section selector is
+spelled in its own terms and RAISES rather than returning empty (Rule 1), every phrase comparison
+runs over whitespace-normalized text (Rule 2), and every span-derived oracle either FAILS on a truncation
+of its span by construction — with the assertion that does it NAMED — or asserts that span's completeness
+(Rule 3, the threat model's M2; the capture's two spans take the whole-file `yaml`-fence accounting, the
+other two spans are answered by dimension (vii)). Both modules join
+`tests/test_corpus_fixture_coupling.py`'s derived population the moment they land.
+
+*Reader 1 — AC-1's capture read (Task 3). FROZEN-BYTES arm.*
+`docs/wi-033-hal9000-timeline-entry-capture.md` is a conductor-committed, machine-shaped artifact whose
+fences are the oracle, selected by its DECLARED headings (`## Parity samples`, `## Validation boundary`)
+— never by a glob, a size, a position or a live population's shape. The selection is `select_sections`
+(§12 Rule 1), which copies `tests/test_lint_vault_fix_rules.py:baseline_sections:1518`'s RAISING
+discipline and NOT its total-parse behaviour: that function raises on any heading outside its own
+declared table, and this capture carries `## Part 1` at `:57` and again at `:587` inside the Appendix's
+`python` fence plus `## Appendix` at `:470`, so a transplant would raise before reaching a fence.
+The coupling, in one line: **AC-1's check pins those two heading names and the five/three declared keys
+per fence, and consumes the property that every `rendered` block and every `verdict` was produced by
+RUNNING HAL9000's code at `HAL9000_PARITY_ANCHOR`.** Two measurements ride with it as the declaration's
+own disclosure, because §12 Rule 1 is deliberately fence-UNAWARE: each named heading occurs EXACTLY ONCE
+at line start, and neither selected span (`:224-289`, `:291-469`) contains a line-start `## ` line at
+all, so the spans are exact today and a fenced `## ` introduced inside one later would truncate it — the
+named residual, measured at zero, not a closed case. **What that truncation now COSTS is bounded by an
+assertion rather than by the measurement alone (§12 Rule 3, M2):** this check asserts the whole-file
+accounting — the `yaml`-info fence count of `## Parity samples` plus that of `## Validation boundary`
+equals the file's own — BEFORE it reads a sample or a probe, so a truncation of either span is RED instead
+of leaving AC-1(c2)'s guard-set equality green over a subset of the `accept` probes. The accounting pins no
+number: a re-run capture that probes more boundary values moves both sides together. Its own residual,
+measured and disclosed for the same reason: the whole-file leg is a toggle walk, so it needs no line-start
+triple-backtick to sit inside any fence in the file, which holds today (the Appendix's `python` fence at
+`:474-603` carries none) and whose violation is a false RED, never a silent pass.
+AC-1(a3)'s HEAD read is the fourth oracle's sibling
+and takes §12 dimension (v)'s derivation: the SET of 40-hex tokens in the file is asserted to be a
+singleton (it holds four identical occurrences today) rather than the first match being taken.
+
+**Where the declaration LIVES in the code, not only here (the shipped convention).** Every module in this
+tree that reads a file it did not author carries a `CORPUS_COUPLING:` line in its docstring naming what it
+pins and what property it consumes — `tests/fixture_vault.py:3`, `tests/test_fixture_vault.py:3`,
+`tests/test_ac_interpreter.py:23`, `tests/test_company_name_contract.py:15`,
+`tests/test_identity_endgame.py:10`, and at CHECK granularity where only one leg reads a corpus
+(`tests/test_lint_vault_fix_rules.py:1639`, `tests/test_whatsapp_migration.py:1114`). Both readers below
+carry one in the same form: `tests/test_timeline_entry.py`'s at MODULE granularity (the whole module rests
+on the capture) and Task 7's at CHECK granularity inside
+`test_the_write_gate_refuses_the_retired_introduced_by_key` (only that clause reads `docs/**`). Tasks 3
+and 7 order it. There is no wall enforcing the marker in this tree — `tests/test_corpus_fixture_coupling.py`
+is workshop's, not this project's — so this is pattern consistency and reviewer-legible disclosure, which
+is exactly what WI-278's third arm asks for.
+
+*Reader 2 — AC-3(c)'s two reads (Task 7). NARROWED, then DECLARED (§0 R6, added 2026-09-29 after the
+spec review's finding 3; its ORACLE made wrap-insensitive and its second file named after round 2's
+findings).* Neither WI-278 arm is fully available for the `docs/vault-fixtures.md` half: the sentence
+is prose in another item's tracked document, so there is no callable to probe and no frozen-bytes artifact
+to carry. The draft's oracle — the absence of `` `introduced_by:` `` from that whole file outside its
+`criteria` fences — was the failure shape the rule exists for, and worse, a deletion of the sentence would
+have SATISFIED it. So the assertion is narrowed to the nearest available approximation of the derive arm
+and then declared: it selects the `## Exploration Notes` section with the same `select_sections` helper
+reader 1 uses (§12 Rule 1 — RAISING on a missing or duplicated heading, so a selector that finds nothing
+is RED), normalizes whitespace on both sides (§12 Rule 2), and asserts POSITIVELY inside that section
+only. The coupling, in one line: **Task 7's check pins ONE heading name (`## Exploration Notes`) and the
+presence of ONE whitespace-normalized phrase inside it
+(`` a `manager:` on a schema-drift or forward-compatibility note ``) plus that phrase's stale two-key
+predecessor's absence from the same normalized text, and it consumes the property that
+`docs/vault-fixtures.md`'s undeclared-key example names the key the gate still permits.** And the same
+check makes a SECOND `docs/**` read, which round 2's sweep named as a member of the same class rather
+than leaving it to build time — **it pins ONE heading name (`## Counts`) and ONE key
+(`introduced_by_frontmatter_carriers`) in the one `yaml` fence of
+`docs/wi-033-intro-corpus-baseline.md`, and consumes the property that the fence is a dated snapshot of
+the live vault produced by the committed census command, read as AC-3(c)'s premise and never
+re-measured.** What that buys, stated so the next reader can weigh it: the archive-split leaf rewrites
+GATE-ROUND `##` sections (`docs/vault-fixtures.md:3761` declares the drawer, and
+`docs/vault-fixtures-rounds.md` exists) and not `## Exploration Notes`, so the pinned section is not the
+splitter's target; and anything else anyone adds anywhere in that 6,200-line file — including a new
+round, a retrospective, or a second mention of the retired key — no longer reddens this item, which the
+whole-file pin could not survive. The residual the durability argument does NOT cover, disclosed here
+rather than discovered later: §12 Rule 1 is fence-unaware, so a line-start `## ` introduced inside a
+fenced block anywhere in `:84-1119` would truncate the selected span early.
+MEASURED at zero — the next line-start `## ` after `:83` is `## Approach`
+at `:1120` — and the same measurement holds for `## Counts`'s span (`:57-116`, next heading
+`## Verbatim output` at `:117`). A fence-aware boundary is declined deliberately (§12): it would be a
+second markdown grammar for a case measured at zero across all three files. **And what each of these two
+spans DOES on a truncation is stated rather than assumed uniform (§12 dimension (vii), M2), because that
+assumption is exactly what round 3 falsified for a third span.** `## Exploration Notes` cannot be narrowed
+silently: a truncation before `:279` drops the sentence and the PRESENT half FAILS, while a truncation
+after it leaves both halves answering over the bytes they are about, since `introduced_by` occurs in that
+file exactly twice and `:1434` is outside the span either way. `## Counts` RAISES, because this check
+asserts the span yields exactly ONE `yaml` fence before reading it. So neither needs a completeness
+accounting, and neither is given one — an assertion added where the existing one already fails is cost with
+no coverage.
 
 ## Scope Boundary
 
@@ -1677,7 +2584,19 @@ live-vault write. Four further absences this spec adds, named so a builder does 
   three detectors join `check_structural` (§5). The `--category` CLI vocabulary is unchanged.
 - **No auto-fix, and therefore no edit to `apply_fixes`, `FixOutcome`, `DECLINE_GUARDS`,
   `docs/lint-vault-live-baseline.md` or the `len(pinned) == 7` pin.** Those are re-read, never edited
-  (Task 12).
+  (Task 12), and each re-read is discharged by a STANDING check rather than by a hand reading.
+- **No whole-floor run ordered by a plan task (WI-314).** Task 12 asserts this item's own four AC checks
+  plus the two standing checks carrying the pin accounting. The floor is the DRIVE's obligation; a task
+  that ordered it would convert any unrelated red into this item's build-attempt cap.
+- **Exactly ONE edit to `tests/test_name_gate.py`, and it is bounded.** Task 2 moves
+  `len(REASONS) == 16` to `17`, updates the two numbers in that pin's own adjacent comment at `:121-122`
+  ("fifteen … sixteen" → "sixteen … seventeen", the sentence's first half untouched) so the comment does
+  not outlive its assertion, and adds `TimelineEntryRefusal`'s hierarchy assertions INSIDE the existing
+  `test_name_gate_refusal_is_a_loud_fail_leaf_carrying_a_pattern`. The comment IS inside the bound — a
+  literal reading that forbade it would leave the file asserting one number and explaining a different
+  one. No new `def test_` in that module (the
+  `check_module` uniqueness wall), no `ast`, no repository construction, and none of its other two checks
+  touched — §9's inbound row states all four requirements and Task 11 RUNS them.
 - **No second timeline door.** `append_to_body_section` is untouched, and the `section`-as-a-variable
   route through it (`routers/entities.py` in HAL9000, per precondition 3) stays exactly as loose as it is
   today; this item makes its output VISIBLE through the linter rather than refusing it.
@@ -1707,7 +2626,7 @@ holds it.
 | Risk | Likelihood | Impact | What holds it |
 | --- | --- | --- | --- |
 | **The gate's unconditional refusal bricks a live note.** A note that regains `introduced_by` by hand-edit becomes unwritable through `save` until the key is deleted — D3's deliberately INVERTED trade against the name gate's stored-dirty ruling. | Low: the live carrier population is 0 over 5,664 files and the key has zero writers estate-wide (preconditions 2 and 3). | One note's writes refuse loudly until a one-line hand fix. | The population is EMPTIED rather than exempted (D3), so there is no exemption arm to widen; the remedy is one line; `retired_key_introduced_by` names the note as an ERROR in the tool Dave runs; the refusal is loud and nothing is written (AC-3(b)). |
-| **The library refuses an input HAL9000 accepts, and the first victim is HAL9000's own caller — after the cutover, when this tree's floor no longer watches it.** The four guards of §1.4 are deliberate over-refusals. | Low for `text` (a note name or a rendered sentence containing `-->` or `<!--`), very low for the discriminator cases (a counterparty name that is empty, whitespace or contains `:`). | A HAL9000 write that succeeds today would raise post-cutover. | The guard set is pinned as a SET EQUALITY against the capture's `accept` probes (AC-1(c2), R1), so the exception cannot be widened one case at a time; each guard has a stated reason (§1.4); the refusal is LOUD, never a silent drop; and the cutover item's first act re-runs the capture and diffs it, which is where a newly-diverging input surfaces. |
+| **The library refuses an input HAL9000 accepts, and the first victim is HAL9000's own caller — after the cutover, when this tree's floor no longer watches it.** The five guards of §1.4 are deliberate over-refusals. | Low for `text` (a note name or a rendered sentence containing `-->` or `<!--`), very low for the discriminator cases (a counterparty name that is empty, whitespace or contains `:`), and lower still for M1's guard 5 (a `text` whose own line opens `## ` or `### ` — a sentence does not, and the one multi-line probe the capture accepts does not). | A HAL9000 write that succeeds today would raise post-cutover. | The guard set is pinned as a SET EQUALITY against the capture's `accept` probes (AC-1(c2), R1), so the exception cannot be widened one case at a time — and since M2 the PROBE SET ITSELF is pinned WHOLE, because an equality over a silently narrowed population retires this ratchet while the floor stays green: Task 3 asserts the `## Validation boundary` span's completeness by the whole-file `yaml`-fence accounting before reading a probe (§12 Rule 3, §0 R7), which matters because the cutover re-runs the capture. Each guard also has a stated reason (§1.4); guard behaviour is pinned twice more independently of the probe span (AC-1(c) per-guard, Task 3(c3)'s reach fixtures); the refusal is LOUD, never a silent drop; and the cutover item's first act re-runs the capture and diffs it, which is where a newly-diverging input surfaces. |
 | **The parity pin goes stale silently.** `HAL9000_PARITY_ANCHOR` freezes HAL9000 at one HEAD; drift in its copy during the window is invisible to this tree's hermetic floor. | Certain to be possible; the window is bounded by one scheduled item. | The accessor could return `[]` against real HAL9000 bytes with a green floor. | Accepted in writing, not mitigated (D7). What exists: the anchor is machine-checked against the capture (AC-1(a3)), so a re-run is one diff; the cutover is a MINTED item with an id (HAL9000 WI-082, precondition 4) whose re-entry condition is that diff; and `intro_by_without_marker` makes an unreadable on-disk entry visible in the linter even if the grammars diverge. |
 
 **Rollback.** Every change is additive except one line of the fixture corpus. Reverting the commit
@@ -2297,4 +3216,1128 @@ verdict: PROMOTE
 date: 2026-09-28
 model: claude-opus-5
 note: Class 1 and Class 2 both fire and both are grounded — precondition 1 pins HAL9000's contract with six input→output render samples and 29 input→verdict probes produced by RUNNING its code at a 40-hex HEAD (which also settles AC-1(c2)'s guard set at exactly five capture-accepted members), precondition 2 turns every prose number into a dated counts-only census (5664 files, 1314 person notes, introduced_by carriers 0, legacy intro 86/22 marked, grammars 43/38/5, intro-by 1, intro-to 0), precondition 3 sweeps 36 repos and finds all six live append_to_timeline callers pass a str so the narrowing breaks nothing on landing, precondition 4 records a performed mint (HAL9000 WI-082); I re-ran P1/P4/P5/P8/P9 and both derived instruments in-tree at HEAD 133c27a and all hold, and the counterexample hunt over `## Intent`'s "every writer" found three false-by-design classes (the section-append door's four hand-composing callers, four raw-file writers including this tree's own linter fixer, and exocortex's kindless high-volume meeting writer) all already dispositioned as named exclusions or as AC-1(f)'s declared outcome class; the two residuals — the 86-entries-all-outbound direction split is not in the census, and WI-082's mint is uncommitted in HAL9000's tree — govern no criterion and are recorded with the counts-only predicate that closes the first at build-start re-grounding.
+```
+
+## Mitigation Folds — 2026-09-29
+
+The current set, restated in place. TWO `kind: required` mitigations stand in the latest speaking
+`## Threat Model` round (2026-09-29, round 3) — M1, re-emitted byte-identically on Task 2, and M2, new on
+Task 3 — and both are folded below.
+
+**M1.** The substance landed in the SAME edit as
+this record (WI-142): `## Design` §1.1 declares `STRUCTURAL_LINE_PATTERN` with its bound derived and its
+complement named, §1.4 carries it as guard 5 plus the rule total and the next-level sweep the generator
+demanded (WI-226), Task 2 writes it, and Task 3's new clause (c3) ships the claimed match-shapes and the
+near-misses through the module's own construction (WI-235) rather than resting on a refusal count.
+*Restated 2026-09-29* after the spec review: the `work:` value is re-quoted from Task 2's current text,
+which gained the `REASONS` pin obligation and a second `verify:` check name. Nothing about the mitigation
+moved — §1.1's derivation is now stated as a strict SUPERSET rather than an exact union (the reviewer's
+non-blocking note), which STRENGTHENS the coverage claim guard 5 rests on and adds no member to either
+side of AC-1(c2)'s equality.
+*Re-verified after the spec review's ROUND 2, and the record is unchanged because nothing it quotes
+moved.* That round's two findings were both textual oracles over committed markdown (Task 7's phrase,
+Task 3's selector) and are closed in the new §12; neither touches guard 5, `STRUCTURAL_LINE_PATTERN`,
+§1.4 or Task 3's clause (c3). The `work:` value below was re-read against Task 2's CURRENT bytes this
+round: Task 2's guard-5 paragraph and its Verify sentence are byte-identical to the quote, and this
+round's only Task 2 edit — admitting the `REASONS` pin's adjacent comment at
+`tests/test_name_gate.py:121-122` into the bounded edit — sits in a DIFFERENT paragraph the quote does
+not reach. So the record stands as written rather than being re-cut.
+
+```fold
+id: M1
+desc: TimelineEntry refuses a `text` carrying a line that matches `^#{2,3} `, because a markdown heading in the prose channel truncates or shadows the `## Timeline` span that the accessor (§3), the marker-anchored dedupe (AC-1(e)) and both new detectors (§5) all read through, silently hiding every older entry from all three; the guard refuses no probe the capture records as accepted, so AC-1(c2)'s set equality and the signed criteria frame are unmoved.
+design: `text` contains a line matching `STRUCTURAL_LINE_PATTERN` (`^#{2,3} `) — a markdown heading in the prose channel truncates or shadows the `## Timeline` span that the accessor (§3), the marker-anchored dedupe (§2 branch 2) and both new detectors (§5) all read through, so it would silently hide every older entry on that note from all three.
+landed: Task 2
+work: Guard 5 is M1 and is written in this task, not a later one: `TimelineEntry.__post_init__` refuses a `text` containing a line matching `STRUCTURAL_LINE_PATTERN` (`^#{2,3} `, tested MULTILINE over the whole string — never `startswith`) with `pattern` `TEXT_STRUCTURAL_LINE_KEY`, because such a line truncates or shadows the `## Timeline` span the accessor, the marker-anchored dedupe and both new detectors all read through; `STRUCTURAL_LINE_PATTERN` has exactly two readers — this guard and `parse_entries`' body boundary (§1.3), deliberately the same constant so door and reader cannot drift — and `# `/`#### ` are outside it by construction (§1.1). Verify: Task 3's check is the oracle for the module — its clause (c3) is guard 5's; the second named check is the `REASONS` pin and the new leaf's hierarchy assertions, and this task is done when the module imports under the project interpreter, the new leaf is constructible, and both checks are green, verify: test_timeline_entry_reproduces_hal9000_render_and_validation_boundary test_name_gate_refusal_is_a_loud_fail_leaf_carrying_a_pattern
+```
+
+**What the M1 fold does NOT claim, stated because the modeler's own round already names the residual.** The
+guard is on the WRITE door and is total there over its generator (§1.4's field sweep: `text` is the only
+input that can introduce a line). A note that ALREADY carries such a line — hand-edited, or written
+through the raw-string branch AC-1(f) preserves — remains invisible to the accessor and to
+`intro_by_without_marker`, exactly as the modeler's first non-blocking note records; the exposure is
+measured at zero by precondition 2 and the re-runnable predicate, not the fold, is what keeps it honest.
+
+**M2, folded 2026-09-29, substance in the SAME edit as this record (WI-142).** The finding lands inside the
+previous round's own fold — §12's next-level sweep declared a truncated span would "redden this item"
+uniformly, and that is FALSE for `## Validation boundary`, where a PARTIAL truncation leaves AC-1(c2)'s
+guard-set equality satisfied over a subset and silently retires the anti-widening ratchet §1.4, R1 and
+`## Risk Analysis` row 2 all name. So it is closed one LEVEL up rather than as a clause (WI-226): §12 gains
+**RULE 3** — every oracle derived from a selected span either fails on a truncation by construction, with
+this document naming the assertion that does it, or carries an explicit completeness assertion — plus
+**dimension (vii) FAIL DIRECTION** answered per span for all four selected spans, and **the level BELOW
+(vii)** swept and declared (nine run-time-derived populations this plan quantifies over; eight were already
+non-vacuous and the ninth, Task 7's emptied-population absence scan, is closed in this same edit by a member
+pin). Task 3 asserts the accounting before any sample or probe is read; §0 gains **R7**; §1.4 and
+`## Risk Analysis` row 2 now say that the ratchet's population is pinned whole; and the ONE byte-level
+mechanism the modeler named is folded rather than left to build time — `select_fenced_blocks` RETAINS the
+info string, because `fenced_blocks:1550` discards it at `:1554-1559` (read at its symbol this round) and
+the whole-file leg must tell the capture's thirty-five `yaml` fences from its four `python` ones. That
+retention's own reach is shipped as the sixth WI-235 battery in Task 3, since the accounting now rests on
+it. The counts behind the expression were re-counted at source this round rather than carried: six
+line-start `yaml` fences in `## Parity samples`, twenty-nine in `## Validation boundary`, thirty-five in the
+file, the other four `python` — and no literal count is typed into the check, so a re-run capture that
+probes more boundary values moves both sides together.
+
+```fold
+id: M2
+desc: Task 3 asserts the COMPLETENESS of the `## Validation boundary` span it selects from the capture, so a truncated selection is RED rather than green over a narrowed probe set; today's non-vacuity clauses catch only a TOTAL loss, and a partial one leaves AC-1(c2)'s guard-set equality satisfied over a subset, silently retiring the anti-widening ratchet §1.4, R1 and Risk Analysis row 2 all name as what stops the over-refusal exception being widened one case at a time.
+design: every oracle this item derives from a selected span either FAILS on a truncation of that span by construction — and this document names the assertion that does it — or carries an explicit completeness assertion, and for the capture's two spans the completeness assertion is the whole-file accounting: the number of `yaml`-info fences `select_fenced_blocks` returns over `## Parity samples` PLUS the number it returns over `## Validation boundary` EQUALS the number it returns over the whole file's text, with all three counts asserted non-zero.
+landed: Task 3
+work: COMPLETENESS FIRST, THEN NON-VACUITY (§12 RULE 3, M2). Before any assertion above reads a sample or a probe, assert the WHOLE-FILE ACCOUNTING over the capture: the number of `yaml`-info fences `select_fenced_blocks` returns over the selected `## Parity samples` text PLUS the number it returns over the selected `## Validation boundary` text EQUALS the number it returns over the whole file's text, with all three counts asserted non-zero — so a span truncated by a line-start `## ` introduced inside a fence is RED rather than green over a narrowed population. Type NO literal count and pin no occurrence figure: a re-run capture legitimately probes more boundary values and both sides of the accounting move with it (R1's own reason for refusing a probe count). This is the clause that keeps AC-1(c2)'s set equality from being satisfied over a SUBSET of the `accept` probes — the non-vacuity clauses below do not catch that, because they catch a TOTAL loss only and the equality holds over any subset — and it is therefore what holds the anti-widening ratchet `## Risk Analysis` row 2 names. Verify: the check raises when any sample's bytes are altered by one space (observe by hand-mutating a copy of the parsed dict in a scratch run, then revert), verify: test_timeline_entry_reproduces_hal9000_render_and_validation_boundary
+```
+
+**What the M2 fold does NOT claim.** The accounting pins the two spans of ONE file — the capture. It says
+nothing about `docs/vault-fixtures.md`'s or `docs/wi-033-intro-corpus-baseline.md`'s spans, and those are
+deliberately given no accounting: dimension (vii) states which assertion in each already FAILS on a
+truncation (the PRESENT phrase, and the exactly-one-`yaml`-fence clause), and adding an assertion where the
+existing one already fails is cost with no coverage. And the accounting's own residual is declared rather
+than closed: the whole-file leg is a toggle walk, so it needs no line-start triple-backtick inside any fence
+in the file — true today (the Appendix's `python` fence at `:474-603` carries none), and its violation is a
+false RED, never a silent pass.
+
+## Spec Review — 2026-09-29
+
+**Recommendation: REVISE — return to spec writer (gaps to fix)**
+
+Cold-start read at HEAD `be6e2fe`, from line 1, in full. Rulings on record: D3's inverted stored-dirty
+trade, D7's accepted drift window and declined standing cross-repo checker, D8's open slug door with
+`PARITY_KINDS` gating nothing, and §0's five reifications of the signed frame — each is a scope boundary I
+route against and none is re-litigated below. This is the first spec-review round on this item; the
+architect, AC red-team, data-premise and threat-model rounds carried forward from the document and from
+`docs/timeline-entry-relocation-rounds.md` were read before I read the spec.
+
+This is a strong document. The three findings below are all in the same narrow place — the INBOUND wall /
+pin accounting around the files the item edits, and the shape of the tasks that close it — not in the
+design, which I could not fault.
+
+### Citation verification
+
+Every `file:line` and symbol-anchored citation in `## Design`, `## Verified Diagnosis`, `## Implementation
+Plan`, `§9` and `## Write Targets` was read at its cited location this round. All resolve and all quote
+accurately. Spot-list of the load-bearing ones confirmed: `person.py:append_to_timeline:1452`,
+`:1489-1493`, `:1499`, `:1502` (whole-file substring), `:1512-1537` (the string-insertion accommodation and
+its round-trip warning), `:1543-1545` (prepend), `person.py:_split_frontmatter_fence:96`, `person.py:61`
+(`get_section` already imported), `person.py:1270-1271`; `body_sections.py:4-9`,
+`:SECTION_HEADING_PATTERN:36`, `:parse_body_sections:39`, `:get_section:137`; `name_gate.py:14-20`,
+`:22-29`, `:31-36`, `:_refuse:174-192`, `:gate_write:359-360`, `:364-368`, `:373`, `:398`, `:400`,
+`:WHATSAPP_PATTERN:90`, `3b` at `:437-446`, section 4 at `:448`; `errors.py:NameGateRefusal:106`,
+`:122-128`, `:130-134`, `:REASONS:152`, `:bounded_message:177-188`; `models.py:34-35`, `:45-53`, `:53`,
+`:56+`; `vault_io.py:read_note:641`; `writer.py:252`, `:385`, `:443`, `:494` (literally
+`gate_write({}, declared_type=None, whole_record=False)`, inside `roundtrip_file:463` — so AC-3(b)'s
+excluded-set equality and Task 6's `writer.py:roundtrip_file` anchor are both true as stated);
+`lint_vault.py:38-60`, `:check_structural:366`, `:378-397`, `:399`, `:466-473`, `:475-503`,
+`:check_timeline:740-745`, `:816`, `VaultFile.body` at `:116`/`:180`; `derivations.py:python_files_under:185`,
+`:gate_call_declarations:1054`, `:_import_aliases:890`, `:_resolves_to:908`, `:modules_using_ast:632`,
+`:frontmatter_write_arms:979`, `:skip_reason_literal_sites:1585`, `:character_class_strip_sites:1486`,
+`:address_splitting_implementations:1338`; `fixture_vault.py:21-25`, `:44`, `:62-83`, `:320-326`, `:323-324`,
+`:325`, `:353-359`, `:367`, `:NAME_POOL:591`, `:PROSE_ALLOWLIST:615`; `test_fixture_vault.py:_identity_text:994`,
+`:1027-1036`, `:reach_files:386`, `:1353`, `:1383`, `:1392`, `:1414`; `test_lint_vault_fix_rules.py:252`,
+`:288`, `:586`, `:818-822`, `:1703-1710`, `:1775`; `test_ac_interpreter.py:check_module:95-106`;
+`test_stem_name_divergence_detector.py:38-40`; `pipeline-runners.yaml` (`seed_deps: [.venv]`,
+`write_authority` = the four trees, no `commands:`, no `ac_runner:` — §8.3 is exactly right).
+
+I also re-read the code for the PROPERTY each claim asserts rather than for the symbol's existence, per the
+injected audit's own floor. Four results worth recording because they are the ones a wrong reading would
+have shipped:
+
+- **§1.3's `%-d` substitution is byte-identical.** `capture:150-167` is
+  `f"### {entry.when.strftime('%B %-d, %Y')} [{entry.kind}]\n"`, and `%-d` is the no-pad day, which is
+  `.day`. `%B` stays on both sides, so the locale note in `## Edge Cases` is correct rather than convenient.
+- **AC-1(c2)'s guard set really has exactly five members, and M1 adds none.** I enumerated the capture's 29
+  probes myself (14 `kind` / 7 `text` / 8 `discriminator`). The capture-ACCEPTED inputs this library
+  refuses are `text` = `see --> here` and `<!-- forged -->`, and `discriminator` = `''`, `'   '`, `a:b` —
+  five, exactly §0 R1's list. No accepted probe carries a `^#{2,3} ` line (the only multi-line one is
+  `'line one\n\nline two'`, `capture:413-417`), so guard 5 adds a predicate and no member. M1's
+  no-re-signature argument holds on a read, not on the modeler's narrative.
+- **`PARITY_KINDS` equals the sample kinds.** Six samples across `{intro, intro-by, intro-to, note, merge}`
+  (`capture:223-289`), and `HAL9000_PARITY_ANCHOR` equals the capture's declared HEAD at `capture:7`. R2's
+  reification is the only satisfiable reading — `## Validation boundary` deliberately probes `deal-closed`.
+- **The kind bound agrees.** `KIND_PATTERN` is `^[a-z][a-z0-9_-]{0,31}$` verbatim (`capture:62`), and the
+  capture probes a 32-char kind ACCEPT and a 33-char kind REFUSE, so §1.1's 32-character bound is HAL9000's
+  own and not a tightening.
+
+Precondition 2's numbers all reproduce in the artifact (5664 files, 1314 person notes,
+`introduced_by_frontmatter_carriers: 0`, legacy `intro` 86 with 22 marked, grammars 43/38/5, `intro-by` 1,
+`intro-to` 0, `inside_timeline_section_by_kind` total, `marker_kind_mismatch_by_kind` all zero). All five
+declared precondition paths are present in git HEAD. `docs/vault-fixtures.md:279` still reads "a `manager:`
+or `introduced_by:` on a schema-drift or forward-compatibility note", so the fifth precondition's edit is
+correctly still pending at the conductor's pause and `:1434`'s signed fence is untouched.
+
+### Bar check
+
+Walked every check of `docs/spec-quality-bar.md` (the doc's own list is the count). Checks 1, 2, 3, 4, 6,
+7, 8, 9, 10, 11 and 12 are satisfied; Check 5 fails on two counts (findings 1 and 2), and Check 6's
+WI-278 clause fails on one (finding 3).
+
+Recorded because each was a live risk on this item and each came back clean:
+
+- **Check 12 (AC drift).** The four `criteria` fences and `## Intent` are byte-identical to the frozen
+  bytes in `docs/spec-reviews/WI-033-dave-review-2026-09-28.md`, preamble included, and I classified all
+  five of §0's reifications against the taxonomy independently. None is strength-weakening (R1 keeps the
+  set EQUALITY and adds a non-vacuity assertion; the signed four-predicate reading and the built
+  five-predicate reading produce the same five probes on both sides, so the clause is green as SIGNED),
+  none is an actor-swap, none narrows scope (R2 picks the only satisfiable of two readings — a member with
+  no sample is RED either way), none swaps an oracle weaker, and R3/R4/R5 are additive statements that
+  widen coverage rather than except an original. No escalation owed.
+- **Check 11.** All four `## Verified Diagnosis` claims re-read and each artifact supports its specific
+  claim, not merely the code's existence.
+- **Check 4.** Thirteen edge-case categories resolved with Case/Decision/Reasoning, each carrying a named
+  test. `OPEN: None`.
+- **Check 3's WI-226 ruling sweep for M1.** The guard-5 ruling is stated on `## Design` §1.1, §1.4, the
+  `## Approach` paragraph, Task 2, Task 3 clause (c3), `## Edge Cases`' trust-boundary decision,
+  `## Risk Analysis` row 2, `### What this item does NOT do`, §8.4 and the fold record. No surface still
+  asserts the four-guard behaviour. This is the most complete ruling sweep I have read on this item.
+- **Write-Targets coverage (per-task extraction).** I extracted every task's targets and they are all
+  declared, and every declared path has a task: T2 → `timeline_entry.py`/`errors.py`/`__init__.py`;
+  T3, T4, T11 → `tests/test_timeline_entry.py`; T4, T5 → `repositories/person.py`; T5, T10 →
+  `tests/test_introduced_by_accessor.py`; T6 → `name_gate.py`; T6, T10 → `tests/derivations.py`; T6, T7 →
+  `tests/test_retired_key_gate_rule.py`; T7 → `fixture_vault.py` + `@Morvette Harkwell.md`; T8 →
+  `scripts/lint_vault.py`; T9 → `tests/test_lint_vault_fix_rules.py`. No task's verify command writes
+  anything. The one absent target is finding 1's, and it is absent because no task names the work at all.
+- **Fold record M1.** `desc` is verbatim against the latest speaking `## Threat Model` round. I found both
+  quotes where they claim to be and read the surrounding text: `design` is §1.4's guard-5 sentence
+  faithfully, and `work` is Task 2's guard-5 paragraph faithfully. The mitigation is genuinely satisfied —
+  Task 2 writes the guard and Task 3(c3) ships four claimed shapes, five near-misses and the span-loss
+  consequence itself, which is the WI-235 form rather than a refusal count.
+- **D9's fixture-pool constraint.** `Oskaline` and `Thrandell` are both existing `NAME_POOL` members
+  (`fixture_vault.py:595`, `:598`), and the PAIR "Oskaline Thrandell" is no corpus note's name, stem, alias
+  or title (grep over the tree), so it resolves to nothing and needs no census row. `Voxleaf` stays used by
+  `@Voxleaf Ltd.md`, so the non-vacuity clause is unaffected. This was the most likely place for the
+  fixture re-key to go wrong and the spec got it right.
+
+### Blocking issues
+
+1. **Task 2 adds a member to `errors.py:REASONS`, and `tests/test_name_gate.py:124` pins that population's
+   SIZE by equality — the pin is named nowhere, the file is not a declared write target, and no task owns
+   the edit.** §1.4 and Task 2 both require "ONE new member in `REASONS`"
+   (`"a timeline entry field this package refuses"`), because `bounded_message` refuses any non-enumerated
+   reason. `tests/test_name_gate.py:124` is literally `assert len(REASONS) == 16`, with the comment at
+   `:121-122` declaring the pin deliberate: *"REASONS is a FROZEN population, so equality is the right pin:
+   fifteen members before this item, sixteen after."* That module imports `REASONS` from
+   `obsidian_schemas.errors` directly (`tests/test_name_gate.py:24-25`). So the moment Task 2 lands, this
+   check is RED — and the document is wrong about it in three places at once:
+   - §9's wall table names no row for `errors.py` or `REASONS`.
+   - §9's conscious-pin sweep declares the countable corpora this item touches to be "the lint check-id set
+     and the frozen fixture corpus" and states the obligation as "the auto-fixable rule set does not change,
+     and the digest changes exactly once." `REASONS` is a third countable corpus this item alters, with a
+     hardcoded count pin over it, and it is absent from that sweep.
+   - `## Verification`'s derived Regression enumeration lists `tests/test_name_gate.py` among the modules
+     that "must still pass" — filed under `obsidian_schemas/name_gate.py`, not under
+     `obsidian_schemas/errors.py`, whose row returns only the four `tests/test_loud_fail_*.py` modules. The
+     sweep's own predicate ("modules that name each `## Write Targets` path") reaches this module for
+     `errors.py`; the paragraph asserts it stays green, and as specced it cannot.
+
+   This is WI-202's founding shape exactly: a pin in a file the sweep reached, sitting in a function that
+   never calls the declaring symbol, missed, and surfacing as floor RED at the last task with nothing in
+   the document naming the work as owed. **Concrete fix:** add `tests/test_name_gate.py` as a `writes`
+   fence; give Task 2 (or Task 12) the explicit obligation to move `len(REASONS) == 16` to `17` and to add
+   the new leaf's own assertions beside `NameGateRefusal`'s; add a `§9` row for `errors.py:REASONS` naming
+   that pin; widen `§9`'s conscious-pin sweep to declare `REASONS` (and `obsidian_schemas/__init__.py`'s
+   `__all__`, whose pins I checked are membership-only — `tests/test_name_gate.py:156` — so it needs naming
+   but no edit); and correct the Regression paragraph's `errors.py` row. State the obligation as a
+   predicate, per the rule: *the enumerated-reason set grows by exactly one and every pin over it moves with
+   it.*
+
+2. **Task 12's verify step is the project's whole floor (WI-314).** Task 12 is "Run the floor command.
+   Confirm it is GREEN with a case count no lower than Task 1's baseline", and its declaration is
+   `verify: hand-run — … the whole-suite run plus three pin re-reads is an act recorded in the Build Log.`
+   A whole-floor run is the DRIVE's obligation — the drive-end floor and the battery-at-every-cap-bind
+   already own it — so the most a plan's last task may order is the item's OWN checks green. As written the
+   task spends a build window per attempt on a run the builder can neither shorten nor fix, and it converts
+   any unrelated red into this item's build-attempt cap. It also compounds finding 1: the `REASONS` RED
+   arrives here, inside a task whose only remedy is a file the plan never authorised.
+
+   **Concrete fix:** keep Task 12, drop the floor run from it, and narrow it to what it can actually own —
+   the three pin RE-READS (`tests/test_lint_vault_fix_rules.py:822` still reads `len(pinned) == 7`,
+   `CENSUS_SHAPE_TO_RULE`'s value set still equals the derived auto-fixable set,
+   `docs/lint-vault-live-baseline.md` needed no edit) plus this item's own four AC checks green, declared as
+   those check names rather than as `hand-run`. Task 1's baseline capture stays exactly as it is: WI-238
+   asks for precisely that earlier task, and a baseline recording is not a floor assertion.
+
+3. **Task 7 / AC-3(c) orders a fixture that reads the live `docs/**` corpus at run time and the spec names
+   neither WI-278 arm nor the coupling (WI-278).** The assertion is that
+   "`docs/vault-fixtures.md` … names `manager:` alone in the sentence at its undeclared-key example,
+   asserted by the absence of the phrase `` `introduced_by:` `` outside that file's `criteria` fences."
+   That is a whole-file ABSENCE pin over another item's tracked work-item document — one the archive-split
+   leaf rewrites on ordinary ships (that same file declares its own drawer at
+   `docs/vault-fixtures.md:3761`, and `docs/vault-fixtures-rounds.md` exists). It neither derives what it
+   needs from the corpus's own code nor carries frozen bytes, and no leaf in this tree declares "text
+   outside `criteria` fences", so the test rolls its own fence scan over a live population's shape. The
+   failure mode is the one the rule exists for: green on the day it ships, RED weeks later on somebody
+   else's entirely correct ship — and this item is the one that would be blamed.
+
+   The document is otherwise scrupulous here: `## Verification`'s WI-278 paragraph declares the FROZEN-BYTES
+   arm for AC-1's read of the capture in one falsifiable line. This second `docs/**` reader has no such
+   line. **Concrete fix:** either narrow the assertion to a POSITIVE read of the `:279` sentence inside its
+   own `## `-delimited section (derived by the same declared-heading selection AC-1 uses, not a whole-file
+   scan), or keep the absence pin and add the one-line coupling declaration beside AC-1's, naming the
+   predicate it pins (whole-file phrase absence outside `criteria` fences in
+   `docs/vault-fixtures.md`) and the property it consumes.
+
+### Non-blocking notes
+
+- **`tests/test_lint_vault_fix_rules.py:113` is the `BASELINE` path constant, not the declared-headings
+  parse the spec points a builder at.** §10, §11.1, Task 3 and AC-4(d) all cite `:113` as "its
+  declared-headings parse of `docs/lint-vault-live-baseline.md`". The shape to copy is
+  `baseline_sections` (`:1518`) plus `fenced_blocks` (`:1550`). Re-anchor to those symbols; a builder who
+  opens `:113` finds a `Path` binding and has to hunt.
+- **§1.3 and §2 disagree about which string the door's dedupe compares.** §1.3 says `dedupe_probe` "is the
+  ONE string the door's dedupe test uses"; §2 branch 2 binds `probe = dedupe_probe(entry)` and then skips
+  "iff any `Marker` … has a key equal to `dedupe_key(entry)`", leaving `probe` dead in the flow as written.
+  Both readings behave identically, so nothing wrong can ship — but the reconciling implementation is worth
+  naming outright: `any(m.source == dedupe_probe(entry) for m in parse_markers(timeline))`, since
+  `Marker.source` is the canonical `<!-- {key} -->` line the same renderer emits.
+- **Nothing in §1.3 returns "the key of a `Marker`", yet §2 and AC-1(b) both need one.** AC-1(b) asserts
+  "`dedupe_key(entry)` equals that marker's reconstructed key", so as specced the `{kind}:{day}:{disc}`
+  grammar gets re-spelled at the door AND in the test. A `Marker.key` property (or the `source ==
+  dedupe_probe` route above) keeps the one-definition promise literal rather than approximate. It is
+  outside AC-2(e)'s predicate either way — the key format carries no delimiter — which is exactly why no
+  check would catch it.
+- **§5 has the detectors call `get_section(vf.body, "Timeline")` but `scripts/lint_vault.py:38-43` imports
+  `parse_body_sections` and not `get_section`.** One name to add to an existing import list; say so, or
+  spell the call as `parse_body_sections(vf.body).get("Timeline")`.
+- **`STRUCTURAL_LINE_PATTERN`'s bound is a strict SUPERSET of its readers' patterns, not "the exact
+  union".** `^#{2,3} ` matches a bare `## ` or `### ` line, which `SECTION_HEADING_PATTERN` (`^## (.+)$`,
+  needs a non-empty title) and `HEADING_PATTERN` (needs ` [kind]`) both reject. Immaterial to AC-1(c2) —
+  no capture-accepted probe carries either shape, so neither side of the equality moves — and immaterial to
+  the guard's purpose, since refusing a title-less heading line is harmless. But §1.1 states the claim as
+  falsifiable and it is false as written; call it a superset whose extra members are inert, and the
+  `# `/`#### ` complement argument (which I verified IS correct) survives unchanged.
+- **§9's conscious-pin sweep does not name `tests/test_lint_vault_fix_rules.py:CORPUS_PINNED_ISSUES:809`.**
+  It is a hardcoded per-note issue-count pin over the frozen corpus whose own comment at `:802-808` binds
+  it to `CORPUS_DIGEST` — which Task 7 moves. I checked it: the re-key changes no
+  `meeting_missing_from_timeline` count, so it is unmoved and needs no edit. Naming it is what makes the
+  sweep's "the digest changes exactly once" predicate checkable rather than asserted. Same class as
+  finding 1, at zero cost.
+
+### Carried-forward notes
+
+- **Architect round 4, note 1 (provenance-less `Person`)** — CLOSED by §0 R5 and §3 step 1 (mirror the
+  door's two-step, refuse third). Verified the mirrored expression matches `person.py:1489-1493`.
+- **Architect round 4, note 2 (anchored dedupe must be a READ)** — CLOSED by §0 R4 and §2 branch 4.
+- **Architect round 4, note 3 / round 3 notes 1–2 (AC-1(c2)'s guard-set RHS; AC-1(a2)'s "kinds the capture
+  holds")** — CLOSED by §0 R1 and R2, and I verified both reifications against the capture's own bytes
+  rather than against the notes.
+- **Threat modeler, note 1 (an `intro-by` entry ALREADY outside a `## Timeline` span is invisible to both
+  the accessor and `intro_by_without_marker`)** — STILL OPEN as a deliberately accepted residual, recorded
+  in §1.4's next-level sweep, in the fold record's "what the fold does NOT claim", and in `## Edge Cases`.
+  Re-deferred because the exposure is measured at zero by precondition 2's re-runnable predicate and the
+  standing instrument is named; the closing act belongs to whoever refreshes that measurement, and the
+  typed door has zero callers until HAL9000 WI-082.
+- **Threat modeler, note 2 (`IntroRecord.introducer` is attacker-influenceable and returned verbatim, so a
+  consumer rendering it into HTML must escape it)** — STILL OPEN and correctly out of this tree. Re-deferred
+  because the library must not sanitize on a consumer's behalf; it is recorded for HAL9000 WI-078 and
+  orchestrator WI-194 to inherit.
+- **Threat modeler, note 3 (the D7 window has a security reading: HAL9000's own door keeps accepting a
+  marker-forging `text` until the cutover)** — STILL OPEN by D7's standing ruling. Re-deferred as ruled
+  scope, not as a gap.
+- **Data-premise residual 1 ("all 86 legacy `[intro]` entries are OUTBOUND" has no re-runnable
+  predicate)** — STILL OPEN, governs no criterion. Re-deferred with the closing predicate already named
+  (split the 86 by `^Introduced by ` versus `^Introduced to `, counts only), to be run at build-start
+  re-grounding rather than bought as a round here.
+- **Data-premise residual 2 (HAL9000 WI-082's mint is uncommitted in HAL9000's working tree)** — STILL
+  OPEN and outside this tree. Re-deferred: the id is issued and `next_id` advanced, so precondition 4's
+  record in this tree's HEAD is truthful; committing it is HAL9000's act.
+
+```verdict
+gate: spec-reviewer
+verdict: REVISE
+date: 2026-09-29
+model: claude-opus-5
+targets: Task 2, Task 12, Task 7, AC-3, #write-targets, #design
+prior: none
+basis: original
+findings: 3/9
+note: Task 2 adds a member to errors.py:REASONS while tests/test_name_gate.py:124 pins that population's SIZE by equality (`assert len(REASONS) == 16`, deliberate per its own comment) — the pin is in no §9 row, `REASONS` is absent from §9's conscious-pin sweep whose declared corpora are only the lint check-id set and the fixture corpus, the file is in no `writes` fence and no task owns the edit, and `## Verification`'s derived Regression paragraph asserts that very module stays green while filing it under name_gate.py rather than under errors.py, which its own sweep predicate reaches; Task 12's verify step is the whole project floor (WI-314), which is the drive's obligation and is also where finding 1's RED lands with no authorised remedy; and Task 7/AC-3(c) orders a whole-file absence pin over `docs/vault-fixtures.md` — another item's splitter-mutable tracked document — naming neither WI-278 arm nor the one-line coupling declaration it gives AC-1's capture read. Everything else verified clean: all 33 symbol citations re-read for the property each claim asserts, the five-member guard set and M1's zero-member addition enumerated from the capture's own 29 probes, `PARITY_KINDS` equal to the sample kinds, the anchor equal to the capture's HEAD, the AC frame byte-identical to the signed artifact with all five §0 reifications classified non-drifting, and D9's fixture-pool tokens confirmed in NAME_POOL.
+```
+
+## Spec Review — 2026-09-29 (round 2)
+
+**Recommendation: REVISE — return to spec writer (gaps to fix)**
+
+Cold-start read at HEAD `be6e2fe` with the working tree's 2026-09-29 fold, from line 1, in full.
+Rulings on record: D3's inverted stored-dirty trade, D7's accepted drift window and declined standing
+cross-repo checker, D8's open slug door with `PARITY_KINDS` gating nothing, §0's six reifications of the
+signed frame, and round 1's own disposition of Task 1 (a baseline capture is not a floor assertion, WI-238)
+— each is a scope boundary I route against and none is re-litigated below.
+
+Round 1's three findings are all CLOSED, and I found each closed by re-reading the surfaces and the code
+rather than by reading the fold's account of itself. Both findings below land in the material the fold
+ADDED, and they are one class: **a textual oracle prescribed against a markdown file whose actual bytes
+were not read at the granularity the oracle needs.** Neither is in the design, which I again could not
+fault.
+
+### Citation verification
+
+Every `file:line` and symbol-anchored citation in `## Design`, `§9`, `## Implementation Plan`,
+`## Verification` and `## Write Targets` was read at its cited location this round, and read for the
+PROPERTY each claim asserts rather than for the symbol's existence. All resolve; all quote accurately.
+The ones this round's fold newly depends on, confirmed:
+
+- `tests/test_name_gate.py:124` is literally `assert len(REASONS) == 16`, inside
+  `test_name_gate_refusal_is_a_loud_fail_leaf_carrying_a_pattern:109`, with the deliberate-equality
+  comment at `:121-122` and the direct import at `:24-25`. §9's new row and Task 2's obligation are exact.
+- **§9's "the ONLY size pin over `REASONS` in the tree" re-run, not accepted.** Grepping `REASONS` over
+  every `*.py` returns `:124` as the one size pin; every other hit is `SKIP_REASONS` (a different object),
+  the membership assertion at `:123`, `errors.py:152`/`:181-182`'s own guard, or prose. Confirmed.
+- `tests/test_name_gate_wall.py:TOUCHED_TEST_FILES:1029` names `tests/test_name_gate.py` at `:1033` and
+  feeds `_check_the_ast_capability_stays_single_homed` from
+  `test_wall_membership_is_closed_by_running_each_walls_predicate:1057`;
+  `tests/test_fixture_vault.py:_item_test_modules:1315` names it at `:1323` and feeds `:1353`, whose own
+  docstring states the `def <name>(` substring rule §9's requirement (2) rests on. Both rows exact.
+- **The `errors.py` Regression re-sweep is right and the old paragraph was wrong.** Running the
+  paragraph's own predicate — modules under `tests/` naming `obsidian_schemas.errors` — returns exactly
+  the SIXTEEN modules now listed, and `test_loud_fail_load.py` / `test_loud_fail_harness.py` are correctly
+  absent.
+- `tests/test_lint_vault_fix_rules.py`: `baseline_sections:1518`, `fenced_blocks:1550`,
+  `CORPUS_PINNED_ISSUES:809` (with its `CORPUS_DIGEST`-binding comment at `:802-808`),
+  `test_every_write_causing_detector_fires_exactly_on_its_declared_subjects:818` carrying
+  `len(pinned) == 7` at `:822` and consuming `CORPUS_PINNED_ISSUES` through
+  `_check_the_corpus_is_a_false_positive_floor:832`,
+  `test_the_live_vault_baseline_is_committed_shaped_and_agrees_with_the_census:1634`, and the five
+  containment clauses at `:287-336`. Task 12's "discharged by a STANDING check rather than a hand
+  reading" is true of all three pins.
+- The containment wall does NOT forbid a second `vault` binding — clause (iii) requires every binding's
+  source to be `_temp_vault` (`:304`) — so §9's row and Task 9's additions agree with the shipped
+  predicate.
+- `obsidian_schemas/body_sections.py:SECTION_HEADING_PATTERN:36`, `:parse_body_sections:39`,
+  `:get_section:137`; `person.py:append_to_timeline:1452`, `:1489-1493`, `:1499`, `:1502`, `:1507`,
+  `:1512-1537`, `:1543-1545`, and `get_section` already imported at `person.py:61`;
+  `scripts/lint_vault.py:38-43` importing `ENTITY_BODY_CONFIG`/`ensure_sections_exist`/
+  `get_expected_sections`/`parse_body_sections` and NOT `get_section`;
+  `lint_vault.py:check_structural:366` with the `read_error`/`parse_error` `continue` guards at
+  `:378-397` and `no_frontmatter` at `:399-400`, and `VaultFile.frontmatter`/`.body` non-optional at
+  `:115-116` — so §5's stated position is executable exactly as written.
+- `CORPUS_COUPLING:` exists in the six shipped forms §10 names, at module granularity
+  (`fixture_vault.py:3`, `test_fixture_vault.py:3`, `test_ac_interpreter.py:23`,
+  `test_company_name_contract.py:15`, `test_identity_endgame.py:10`) and at check granularity
+  (`test_lint_vault_fix_rules.py:1639`, `test_whatsapp_migration.py:1114`).
+- `docs/vault-fixtures.md`: `## Exploration Notes` occurs exactly once (`:83`) and its span runs to
+  `## Approach` at `:1120`, so `:279` is inside it; `introduced_by` occurs in that file exactly TWICE,
+  `:279` and `:1434`; `:1434` is AC-5's `desc` under `## Acceptance Criteria` (`:1387`) and carries the
+  same two-key phrase, so §0 R6's structural-exclusion argument is correct and load-bearing rather than
+  decorative. The fifth precondition's edit is correctly still pending.
+
+### Bar check
+
+Walked every check of `docs/spec-quality-bar.md` (the doc's own list is the count). Checks 1, 2, 4, 7, 8,
+9, 10, 11 and 12 are satisfied. Check 3 and Check 6's WI-278 clause fail on findings 1 and 2; Check 5's
+build-runner-dry-run clause fails on both, since each leaves the builder a judgment call whose wrong
+branch is RED against a file the cage cannot edit.
+
+Recorded because each was a live risk and each came back clean:
+
+- **Check 12 (AC drift).** The four `criteria` fences and `## Intent` are still byte-identical to the
+  frozen bytes; §0 gained R6 and I classified it independently against the taxonomy. R6 is not
+  strength-weakening — it replaces a whole-file ABSENCE pin with a POSITIVE section-scoped presence plus
+  absence, which a deletion of the sentence now fails and the old oracle would have passed — not an
+  actor-swap, not scope-narrowing in the criterion's sense (the criterion asks the sentence be UPDATED;
+  the narrower oracle asserts more of that), and not an oracle-swap weaker. R1's five-predicate filter
+  over the same five probes is unchanged. No escalation owed.
+- **Check 3's WI-226 ruling sweep, run for all three of this round's folds.** Task 12's narrowing is
+  stated in Task 12, `## Verification` and `## Scope Boundary`; the `REASONS` obligation in §9's table,
+  §9's third corpus, Task 2, Task 11, `## Write Targets` and the Regression paragraph; R6's oracle in §0,
+  §6, Task 7 and `## Verification`'s reader 2. I hunted for a surface still asserting a pre-fold
+  behaviour and found none.
+- **Write-Targets coverage (per-task extraction, re-run from scratch).** Every task's targets are
+  declared and every declared path has a task, `tests/test_name_gate.py` now included. No verify command
+  writes anything, and no plan task orders the whole floor.
+- **Verify-declaration shape.** All twelve canonical tasks carry exactly one well-formed `verify:`; every
+  check-arm name resolves to a real or plan-created check; Task 1's `baseline` and its reason are
+  in-bounds; no `cmd:` arm is used, correctly, since `pipeline-runners.yaml` registers none.
+- **Fold record M1.** `desc` is verbatim against the latest speaking `## Threat Model` round; I found
+  `design` in §1.4 and `work` in Task 2 and read the surrounding text, and both quotes are faithful. The
+  re-quote after the fold is accurate to Task 2's current bytes.
+- **§9's third corpus and `CORPUS_PINNED_ISSUES`.** Both named, and the claim that the re-key moves no
+  `meeting_missing_from_timeline` count is true — that detector reads Timeline-versus-attendees, not
+  frontmatter keys, and `@Morvette Harkwell.md`'s pinned figure of 2 is untouched by an undeclared-key
+  rename.
+
+### Blocking issues
+
+1. **Task 7's PRESENT assertion names a phrase that does not exist as a contiguous substring, because
+   `docs/vault-fixtures.md` is hard-wrapped and the sentence spans a line break — and whether it ever
+   becomes contiguous depends on a re-wrap nobody has been asked for.** Task 7 orders: assert the phrase
+   `` a `manager:` on a schema-drift or forward-compatibility note `` is PRESENT in the selected section.
+   The file's bytes at `docs/vault-fixtures.md:279-280` are:
+
+   > `carry frontmatter keys no model declares — a `manager:` or `introduced_by:` on a schema-drift or`
+   > `forward-compatibility note — which every enumeration over DECLARED fields misses by construction;`
+
+   Deleting `` or `introduced_by:` `` — which is the whole of the precondition's instruction, and the
+   instruction correctly says the edit is "ONE sentence and nothing else" — leaves
+   `` a `manager:` on a schema-drift or `` at the end of `:279` and `forward-compatibility note` at the
+   start of `:280`. The named phrase therefore contains a newline in the file and a literal substring test
+   is RED. Re-wrapping the paragraph to the file's ~100-column fill moves the break to a different word;
+   it does not remove it. The only wrapping under which the assertion passes is a deliberate line JOIN
+   that nothing in §6, §0 R6, Task 7 or the precondition fence asks the conductor to perform.
+
+   This is worse than an ordinary RED because the two halves sit on opposite sides of the cage: the
+   builder owns the assertion and cannot touch the file, the conductor owns the file and is not told the
+   wrapping is load-bearing, and the builder's only in-cage remedies are to weaken a spec-prescribed
+   oracle or to burn attempts. Note the ABSENCE half is fine — `` a `manager:` or `introduced_by:` `` is
+   contiguous on `:279` today — so the defect is one-sided and easy to miss by reading only the stale
+   phrase.
+
+   **Concrete fix (one clause, and it closes the class rather than the case):** state that both tests run
+   over the selected section's text with runs of whitespace collapsed to a single space
+   (`" ".join(section.split())`), with the two phrases normalized the same way — or, equivalently, drop
+   the sentence-shaped phrases and assert the two tokens: `` `manager:` `` PRESENT and `` `introduced_by:` ``
+   ABSENT within the selected section. Either is wrap-insensitive by construction and neither can be
+   satisfied by deleting the sentence.
+
+2. **Task 3 prescribes a selector shape that RAISES by construction on the very file it is pointed at.**
+   Task 3 says the capture's two sections are selected "by the same declared-heading selection
+   `tests/test_lint_vault_fix_rules.py:baseline_sections:1518` uses … (RAISING on a missing, duplicate or
+   unmatched heading rather than returning an empty dict)". I read `baseline_sections` at its symbol: it
+   is a TOTAL parse that walks every `line.startswith("## ")`, raises `unnumbered section heading` on any
+   heading outside its declared table (`:1528-1536`), and raises `duplicate section ordinal` on a repeat
+   (`:1537-1538`). It is correct for `docs/lint-vault-live-baseline.md`, a five-section machine artifact
+   whose every heading is declared.
+
+   `docs/wi-033-hal9000-timeline-entry-capture.md` is not that shape. Its line-start `## ` headings are
+   `## Part 1 — source (verbatim, with line ranges)` (`:57`), `## Parity samples` (`:223`),
+   `## Validation boundary` (`:290`), `## Appendix — the generator, verbatim` (`:470`) and
+   **`## Part 1 — source (verbatim, with line ranges)` a second time at `:587`** — the latter at line
+   start INSIDE the Appendix's `python` fence, where the generator's own triple-quoted literal emits the
+   heading. `baseline_sections` is fence-unaware by design, so a faithful copy of it sees four unmatched
+   headings and one duplicate and raises before it ever reaches a `yaml` fence. The two declared headings
+   themselves are each present exactly once at line start, so the NARROW reading — locate only the named
+   headings, ignore every other `## ` line, raise iff a named heading is absent or occurs more than once —
+   works, and Task 7's own wording ("match the heading text exactly, RAISE if it is missing or
+   duplicated") is already that narrow reading with "unmatched" dropped. Two tasks, two readings, one
+   shipped symbol that implements the wrong one: the builder picks, and one of the two picks is RED
+   against a conductor-committed file it cannot edit.
+
+   This is the same class as finding 1 and it arrived the same way — last round's non-blocking note asked
+   for a better symbol to copy, the fold supplied one, and the supplied symbol's actual behaviour was not
+   checked against the target file's actual headings.
+
+   **Concrete fix:** state the selector's contract in Task 3 in its own terms rather than by reference —
+   *locate each NAMED heading by exact line-start match, raise if it is absent or occurs more than once,
+   take its text to the next line-start `## `, and ignore every heading the section list does not name* —
+   and say that `baseline_sections:1518` is the shape to copy for the RAISING discipline and
+   `fenced_blocks:1550` for the per-section fence walk, not a function to transplant. Naming the capture's
+   `## Part 1` / `## Appendix` headings and the `## Part 1` echo at `:587` in one parenthesis is what makes
+   the narrowing checkable instead of a reader's inference. Task 7's wording already states the right
+   contract and should be the one Task 3 mirrors, not the reverse.
+
+### Non-blocking notes
+
+- **The `REASONS` pin's own comment goes stale the moment Task 2 moves the number.**
+  `tests/test_name_gate.py:121-122` reads "fifteen members before this item, sixteen after"; after Task 2
+  it is wrong in both halves. `## Scope Boundary` bounds the edit to "`len(REASONS) == 16` to `17` … and
+  no new `def test_`", which a literal builder reads as forbidding the comment touch. One sentence
+  admitting the adjacent comment into the bounded edit removes the ambiguity; nothing machine-checked
+  moves either way.
+- **The precondition-5 fence and §6 quote the target sentence in words the file does not use.** Both
+  render it as "a `manager:` or `introduced_by:` key"; the file says
+  "a `manager:` or `introduced_by:` on a schema-drift or forward-compatibility note" — there is no "key".
+  Task 7 quotes it correctly. Since that fence is the conductor's hand-edit instruction, it is the one
+  place the quote most needs to be the file's bytes.
+- **Task 7's section boundary is durable against the splitter but not against a fenced `## ` line.** §0 R6
+  and `## Verification`'s reader 2 argue durability from the archive-split leaf's target
+  (gate-round sections, not `## Exploration Notes`), which I verified. The residual the argument does not
+  cover is finding 2's shape one file over: a line-start `## ` inside a fenced block anywhere in
+  `:83-1119` would truncate the selected text early and redden this item on somebody else's correct ship.
+  There is none today (the next line-start `## ` after `:83` is `## Approach` at `:1120`). A fence-aware
+  boundary, or one line recording the measured absence as part of the coupling declaration, closes it at
+  the same cost as the declaration already being written.
+
+### Carried-forward notes
+
+- **Round 1, note 1 (`:113` is a `Path` constant, not the declared-headings parse)** — CLOSED in §10,
+  §11.1 and Task 3, re-anchored to `baseline_sections:1518` + `fenced_blocks:1550`, both of which I read
+  at their symbols. The re-anchoring is correct; what it now needs is finding 2's contract.
+  AC-4(d)'s surviving `:113` citation is signed text and is CORRECT as used there — it names the baseline
+  document's path constant, which is exactly what that clause is disclaiming.
+- **Round 1, note 2 (§1.3 and §2 disagreed on the dedupe comparand)** — CLOSED. §2 branch 2 now binds and
+  compares `dedupe_probe(entry)` against `Marker.source`, and AC-1(b) pins that equality.
+- **Round 1, note 3 (no route from a `Marker` to its key)** — CLOSED by `_compose_key` + `Marker.key`
+  (§1.2, §1.3, Task 3(b)), with the one-expression argument stated where AC-2(e)'s scan cannot reach.
+- **Round 1, note 4 (`get_section` not imported by `lint_vault.py`)** — CLOSED in §5, and I confirmed the
+  import list at `lint_vault.py:38-43` is exactly the four names §5 says it is.
+- **Round 1, note 5 (`STRUCTURAL_LINE_PATTERN`'s bound is a superset, not the union)** — CLOSED in §1.1,
+  with the two inert extra members and the `# `/`#### ` complement both stated; the threat modeler's
+  round 2 independently agreed this strengthens guard 5's coverage claim.
+- **Round 1, note 6 (`CORPUS_PINNED_ISSUES` unnamed in the pin sweep)** — CLOSED in §9's second corpus
+  and Task 12.
+- **Architect round 4, notes 1–3 / round 3 notes 1–2** — remain CLOSED by §0 R1–R5; re-verified R1's
+  five-member filtered set against the capture's probes and R2's sample-kind reading against
+  `## Parity samples`.
+- **Threat modeler, note 1 (an `intro-by` entry ALREADY outside a `## Timeline` span is invisible to both
+  the accessor and `intro_by_without_marker`)** — STILL OPEN as a deliberately accepted residual.
+  Re-deferred: exposure measured at zero by precondition 2's re-runnable predicate, the standing
+  instrument is named, and the typed door has zero callers until HAL9000 WI-082.
+- **Threat modeler, note 2 (`IntroRecord.introducer` is attacker-influenceable and returned verbatim)** —
+  STILL OPEN and correctly outside this tree. Re-deferred: the library must not sanitize for a consumer;
+  recorded for HAL9000 WI-078 and orchestrator WI-194.
+- **Threat modeler, note 3 (the D7 window's security reading)** — STILL OPEN by D7's standing ruling.
+  Re-deferred as ruled scope.
+- **Threat modeler round 2, note 1 (the `REASONS` pin must move as an EQUALITY, never be loosened to
+  `>=` or deleted)** — STILL OPEN as a disclosure for whoever reads the diff. Re-deferred: the document
+  names the target value and states the obligation as a predicate, so the note's job is to tell a reviewer
+  which of two legal-looking edits is the wrong one. I am restating it here so it survives into the build
+  review.
+- **Data-premise residual 1 ("all 86 legacy `[intro]` entries are OUTBOUND" has no re-runnable
+  predicate)** — STILL OPEN, governs no criterion. Re-deferred with its closing predicate already named,
+  to be run at build-start re-grounding.
+- **Data-premise residual 2 (HAL9000 WI-082's mint is uncommitted in HAL9000's working tree)** — STILL
+  OPEN and outside this tree. Re-deferred: the id is issued and `next_id` advanced, so precondition 4's
+  record is truthful; committing it is HAL9000's act.
+
+```verdict
+gate: spec-reviewer
+verdict: REVISE
+date: 2026-09-29
+model: claude-opus-5
+targets: Task 7, Task 3, #design
+prior: held
+basis: folded-material
+findings: 2/5
+note: Round 1's three findings are all CLOSED and I verified each against the code rather than the fold's account (the `REASONS` size pin at tests/test_name_gate.py:124 is now owned by Task 2 with a write target, three §9 rows and a re-swept sixteen-module Regression row I re-ran; Task 12 drops the floor and its three pins are each discharged by a standing check I confirmed consumes them; AC-3(c)'s oracle is now positive and section-scoped). Both new findings land in the fold's own material and are one class — a textual oracle prescribed against a markdown file whose bytes were not read at the granularity the oracle needs. Task 7 asserts the phrase "a `manager:` on a schema-drift or forward-compatibility note" is PRESENT, but docs/vault-fixtures.md is hard-wrapped and that sentence spans :279-280, so after the conductor's one-sentence deletion the phrase still contains a newline and the literal test is RED, with the builder unable to edit the file and the conductor never told the wrapping is load-bearing (the ABSENCE half is contiguous on :279 and fine, which is what hides it). And Task 3 prescribes the `baseline_sections:1518` selector, which I read at its symbol: it is a TOTAL heading parse that raises on any heading outside its declared table, while the capture carries `## Part 1` at :57 and again at :587 inside the Appendix's python fence plus `## Appendix` at :470 — so a faithful copy raises before reaching a yaml fence, and Task 7's narrower wording of the same instrument is the reading that works, leaving the builder to pick between two tasks. Everything else verified clean: all citations re-read for the property each asserts, REASONS confirmed to carry exactly one size pin tree-wide, the containment wall confirmed to permit a second `vault` binding from the one door, the signed frame byte-identical with R6 classified non-drifting, and the M1 fold's two quotes confirmed faithful where they claim to be.
+```
+
+## Threat Model — 2026-09-29 (round 3)
+
+**Recommendation: PROMOTE to threat-modeled**, with M1 re-emitted UNCHANGED on Task 2 and ONE new
+required mitigation, M2, on Task 3. Both are declared below; a later declaration supersedes an earlier
+one, so this round's pair is the operative set.
+
+Round 3, cold-start at HEAD `be6e2fe` with the working tree carrying the spec-writer's SECOND 2026-09-29
+fold — the spec review's round-2 findings, closed as one class in the new §12. Carry-forward read in full
+before reviewing: my own rounds 1 and 2, the `## Mitigation Folds` record, both spec-review rounds, both
+injection-hunter rounds, and behind those the architect's round 4, the AC red-team's round 2, the
+`ac-signoff` fence (`ac_hash a2bb3913f2c8` — `## Intent` and all four criteria still FROZEN) and the
+data-premise PROMOTE. **Disclosure about method:** this cage grants no shell, so I could not diff the
+working tree against HEAD. I read the fold's new material at source instead — §12 end to end, the
+restatements in Tasks 3, 7 and 12, §0 R6, reader 1 and reader 2 — and I re-read the capture's own
+heading and fence structure rather than taking any round's account of it. That is the stronger read for
+this round's finding, which is about bytes nobody had counted.
+
+### Trigger check
+
+Unchanged and still firing — five of nine: external input (`text`/`discriminator` originate in an inbound
+third-party introduction; both new readers run over 5,664 untrusted vault files), persistence (every write
+lands in a note through `vault_io`), trust-boundary crossing (the prose channel and the machine channels
+rendered into one contiguous block), filesystem operations on user-owned files, and access control in the
+weak sense (`gate_write` gains a refusal arm). Still not firing: no secrets, credentials, tokens or OAuth
+scopes; no MCP scope; no network at all; no external message. Review run in full.
+
+### M1, re-read: STILL CLOSED, and nothing in this fold went near it
+
+I re-read the four surfaces that carry guard 5 rather than trusting the fold record's claim that they did
+not move, and they are unmoved. `STRUCTURAL_LINE_PATTERN` is still `re.compile(r"^#{2,3} ", re.MULTILINE)`
+(§1.1), still declared with exactly two readers and still a strict SUPERSET whose two extra members are
+inert; §1.4's guard 5 still carries both silent effects (an injected `## `-prefixed line TERMINATES the
+span, an injected duplicate heading SHADOWS it) plus the field sweep that makes the door TOTAL over its
+generator; Task 2 still writes it and has not been deferred; Task 3's clause (c3) still ships four claimed
+shapes, five near-misses and the span-loss CONSEQUENCE by string surgery outside the door. The
+`## Mitigation Folds` record's own re-verification is therefore correct, and M1's `desc` is re-emitted
+byte-identically because what it REQUIRES has not moved.
+
+One property I re-derived this round rather than carrying: the near-miss set and the guard's reach still
+agree with the readers. An indented `  ## x` is asserted to CONSTRUCT in (c3), and it is correctly a
+near-miss on both sides — `SECTION_HEADING_PATTERN` (`^## (.+)$`) and §12 Rule 1's boundary test
+(`line.startswith("## ")`) are each line-anchored, so an indented heading truncates nothing. The `# ` /
+`#### ` complement is likewise still outside all of them.
+
+### What this fold's new material does to the security posture
+
+The fold's substance is §12: a per-oracle enumeration of every textual read this item makes over a
+committed markdown file, plus two rules made total over that surface. Most of it is test-oracle
+engineering with no threat surface, and I say which is which rather than waving at the set.
+
+- **Rule 2 (whitespace normalization of every phrase oracle) is security-neutral and strictly stronger as
+  a test.** Its only failure direction is a false RED — normalization can join unrelated text across a
+  paragraph boundary, never delete a phrase that is present — and the ABSENT half it protects still pins
+  the conductor's edit, since `introduced_by` occurs in `docs/vault-fixtures.md` exactly twice (`:279`,
+  `:1434`) and `:1434` is excluded STRUCTURALLY by the section selection.
+- **Rule 1's new helpers land in the containment-preserving shape.** `select_sections(text, names)` and
+  `select_fenced_blocks(section_text)` take TEXT, not paths, so no file I/O enters `tests/derivations.py`
+  — the module every check in §9's table imports — and the read stays in the check modules. Neither uses
+  `ast`, so §9's single-homing row is unmoved, and Task 11 RUNS `modules_using_ast` over the final text of
+  every edited file, which makes that machine-closed rather than asserted.
+- **No new denial-of-service or disclosure surface.** Both helpers are single-pass line walks; `_HEX40`
+  (`tests/test_lint_vault_fix_rules.py:1515`, read at its symbol this round) is a fixed-width class
+  between lookarounds and backtracks nowhere. The RAISE messages Rule 1 prescribes quote a heading name
+  from a conductor-committed document — no vault bytes, no note-derived identity, so mitigation 2's
+  content-free-refusal property is untouched on the test side as well.
+- **Task 12's narrowing still drops no security check.** All four of this item's AC checks remain its
+  obligation, AC-1(c), AC-1(c2), AC-3(b) and AC-4(f) included.
+- **AC-1(a3)'s HEAD read moved the right way.** A SET-singleton assertion over the file's 40-hex tokens is
+  strictly stronger than "the first match": the capture declares the same HEAD four times (`:7`, `:59`,
+  `:171`, `:179`), and a re-run capture that declared TWO different HEADs — the exact shape a botched
+  staleness refresh produces — is now RED instead of green on whichever came first.
+
+### The one new finding: the probe span's completeness is unasserted, and its loss is SILENT
+
+This is M2. It lands in the fold's own material — §12's next-level sweep — and it is the FAIL-DIRECTION
+dimension that sweep did not turn: *when a selected span truncates, is the check RED, or is it green over
+a narrowed oracle?* §12 answers it once, uniformly, and the answer is right for three of the four oracles
+and wrong for the fourth.
+
+§12's Rule 1 declares its fence-unawareness as a residual and states the consequence generally: a
+line-start `## ` introduced inside a fence in a selected span "would truncate that span early **and redden
+this item** on somebody else's correct ship." I checked that claim per span rather than per section, and
+it does not hold uniformly:
+
+- **`## Exploration Notes` (oracle 3) — REDDENS.** Truncation drops the sentence, the PRESENT half fails.
+  Fail-safe.
+- **`## Counts` (oracle 4) — REDDENS.** Task 7 asserts the span yields EXACTLY ONE fence first, so a
+  truncated span yields zero and is RED. Fail-safe, and it is the only oracle that already carries an
+  explicit completeness assertion.
+- **`## Parity samples` (oracle 1) — REDDENS, and not by accident.** AC-1(a2) asserts
+  `PARITY_KINDS == {s["kind"] for s in samples}` against a frozen five-member constant, so a sample set
+  short by one kind is RED. The sample span is protected by a criterion written for a different purpose.
+- **`## Validation boundary` (oracle 1's refusal half, AC-1(c2)) — does NOT redden on a partial
+  truncation.** Task 3's non-vacuity assertions are that the probe set is non-empty, that both verdict
+  values are present, and that the guarded set is non-empty. Those catch a TOTAL loss. They do not catch a
+  PARTIAL one: the equality `{p in accept if library_refuses(p)} == {p in accept if guarded(p)}` holds
+  over any SUBSET of the probes, so a truncation that removes some but not all of the five guarded accept
+  probes leaves AC-1(c2) green over a narrowed population.
+
+**Why that is a security finding and not a tidiness one.** AC-1(c2) is not an ordinary parity test — it is
+the ANTI-WIDENING RATCHET over the forgery guard set, and the document names it as such in three places:
+§1.4 calls the equality the reason "the exception cannot be widened"; R1 says the FILTER is what makes a
+sixth guard "show up on both sides"; and `## Risk Analysis` row 2 names it verbatim as what holds the
+over-refusal risk — *"pinned as a SET EQUALITY against the capture's `accept` probes (AC-1(c2), R1), so the
+exception cannot be widened one case at a time."* A silently narrowed probe set retires that ratchet while
+the floor stays green, and the failure it would let through is the one row 2 describes: a library guard
+that refuses an input HAL9000 accepts, whose first victim is HAL9000's own caller post-cutover, on the
+inbound-introduction path where the counterparty string is third-party-supplied.
+
+**The trigger is scheduled, not hypothetical.** D7's cutover item (HAL9000 WI-082) has as its FIRST ACT
+"re-run the capture at HAL9000's then-HEAD, diff against the anchor" — so this artifact is certain to be
+regenerated, and R1 correctly refuses a pinned probe count precisely because a re-run capture legitimately
+probes more boundary values. The condition remains unlikely: `yaml.safe_dump` indents block scalars, so no
+line inside a `yaml` fence begins at column 0, which is the structural reason §12's measurement holds
+rather than a property of today's bytes. That is why this is a mitigation to fold and not a reason to
+bounce the spec — and why I am requiring it rather than leaving a note, since the cost is one derived
+assertion and the alternative is a stated control that weakens silently at a moment already on the
+calendar.
+
+**The closing shape, measured against the capture's bytes this round rather than prescribed by
+reference** — which is the discipline §12 exists to enforce, and it would be a poor finding that violated
+it. I counted the capture's line-start fences and headings myself. Its line-start yaml-info fences
+are SIX inside `## Parity samples` (`:225`, `:236`, `:247`, `:258`, `:269`, `:279`) and TWENTY-NINE inside
+`## Validation boundary` (`:292` through `:462`), thirty-five in the file and none anywhere else: Part 1's
+three fences are `python` (`:61`, `:173`, `:181`) and the Appendix's one is `python` (`:474`, closed at
+`:603`, with the `## Part 1` echo at `:587` inside it). So a whole-file accounting is available and exact
+— *the two selected spans' yaml-fence counts SUM to the file's own line-start yaml-fence count* — and it
+is position-free, wrap-insensitive, count-pin-free, and RED on a truncation of EITHER span whether the
+truncating `## ` line sits inside a fence or outside one. It also survives a re-run capture that adds
+probes, because both sides of the accounting move together. The requirement is the property; the spec
+writer owns the expression. **One byte-level caveat the mechanism turns on, so it is not discovered at
+build time:** `fenced_blocks:1550` DISCARDS the info string — the opening fence line is consumed by the
+triple-backtick `startswith` branch at `:1554-1559` and never appended — so a `select_fenced_blocks` copied as
+written cannot tell a `yaml` fence from a `python` one. §11.1 nonetheless asks for "every fenced block
+whose info string is `yaml`". That is inert inside the two selected spans, where every fence is `yaml`,
+but the whole-file leg of this accounting needs the info string, so it must be retained or taken by a
+separate line-anchored match.
+
+### STRIDE re-read — deltas only
+
+The five axes rounds 1 and 2 verified clean verified clean again on the same reads; I record only what
+this fold changed.
+
+**Tampering.** Unchanged on the product. Guard 5 still closes the section channel at the write door and
+the door is still TOTAL over §1.4's field generator. The lock discipline is untouched: one `note_lock`
+spanning read, dedupe and write with `precondition=_stamp`
+(`obsidian_schemas/repositories/person.py:1498-1546`), so the TOCTOU shape still does not exist. What this
+fold touches on this axis is the INTEGRITY OF THE PIN over the guard set, which is M2 — the finding is
+about the assurance artifact, not about a path an attacker walks, and I say so plainly rather than dressing
+it as a product tampering vector.
+
+**Repudiation.** Unchanged and slightly better served: the `REASONS` obligation Task 2 now owns is
+stated as a predicate with the target value named, and Task 12 re-reads the pins through STANDING checks
+rather than a hand reading, so the pin accounting is itself recorded rather than attested.
+
+**Information disclosure.** Unchanged. `refused_value` still carries the constant key and never a
+person's name (D4, `obsidian_schemas/name_gate.py:_refuse:174-192`); the three detector messages still
+name the key or the heading and never a stored value; and the new test-side helpers introduce no message
+carrying vault content.
+
+**Spoofing, Denial of service, Elevation of privilege.** Unchanged and unchallenged by the fold. The
+marker remains an unauthenticated channel over a trusted store with `IntroRecord.source` pinned to the
+bytes on the page as the audit route; both module patterns stay line-anchored with no nested quantifier
+and the readers stay total over 5,664 files; and the accessor's path resolution is contained on both legs
+(`repositories/base.py:406-414`'s `is_relative_to` check and `:379-390`'s dict lookup — neither joins a
+caller string onto a path).
+
+### Mitigations verified in place
+
+The standing set, re-verified this round. 1. Marker-channel forgery closed at construction (§1.4 guards
+1–4, pinned by AC-1(c) and enumerated as a set equality by AC-1(c2), on inputs HAL9000 itself accepts).
+2. Refusals carry no note-derived content (§1.4, D4), enforced by `bounded_message`'s enumerated reasons
+and its `from None` suppression (`obsidian_schemas/errors.py:177-188`) and by `_refuse`'s rules 1–3,
+extended to the new leaf by Task 2's hierarchy assertions. 3. Fail-closed on the write path, total on the
+read path (validation in `__post_init__`; AC-3(b) asserts NO FILE CHANGED at all five driven arms).
+4. Path containment on the new read (`base.py:406-414`, `:379-390`). 5. Atomicity and lock discipline
+unchanged (`person.py:1498-1546`; the accessor's unlocked read sanctioned and non-torn,
+`vault_io.py:641-663`). 6. Untrusted-byte readers raise nothing and build nothing (§1.3, §8.4), with the
+linter's triage order preserved by placement (`scripts/lint_vault.py:378-397`) and asserted by AC-4(f).
+7. The section channel closed at the write door — M1, re-emitted below.
+
+Note which of these M2 protects rather than adds to: mitigation 1's guard set is verified in place on a
+READ, and AC-1(c2) is what keeps it from being WIDENED later. M2 is about that second property only.
+Guard behaviour itself is pinned twice more, independently of the probe span — AC-1(c) asserts each of the
+five guards raises with its named pattern, and Task 3's (c3) ships guard 5's reach as fixtures — which is
+why a narrowed (c2) is a ratchet loss rather than a loss of the guards.
+
+### Required mitigations
+
+```mitigation
+kind: required
+id: M1
+desc: TimelineEntry refuses a `text` carrying a line that matches `^#{2,3} `, because a markdown heading in the prose channel truncates or shadows the `## Timeline` span that the accessor (§3), the marker-anchored dedupe (AC-1(e)) and both new detectors (§5) all read through, silently hiding every older entry from all three; the guard refuses no probe the capture records as accepted, so AC-1(c2)'s set equality and the signed criteria frame are unmoved.
+landed: Task 2
+```
+
+```mitigation
+kind: required
+id: M2
+desc: Task 3 asserts the COMPLETENESS of the `## Validation boundary` span it selects from the capture, so a truncated selection is RED rather than green over a narrowed probe set; today's non-vacuity clauses catch only a TOTAL loss, and a partial one leaves AC-1(c2)'s guard-set equality satisfied over a subset, silently retiring the anti-widening ratchet §1.4, R1 and Risk Analysis row 2 all name as what stops the over-refusal exception being widened one case at a time.
+landed: Task 3
+```
+
+M1 is re-emitted byte-identically and stays on Task 2, the task that writes guard 5. M2 lands on Task 3
+because Task 3 is where `select_sections` and `select_fenced_blocks` are written and where the capture's
+two spans are consumed; the sibling assertion already exists one clause away, in Task 7's "assert the
+section yields EXACTLY ONE fence first", so the fold is a clause in a check this task already ships and
+touches no frozen fence. It needs no re-signature for the same reason M1 did not: AC-1(c2) is a set
+equality over the capture's accept probes and a completeness assertion adds no member to either side of
+it — it asserts that the population both sides are drawn FROM was read whole.
+
+### Notes (non-blocking)
+
+- **`## Parity samples`' protection against the same truncation is incidental, and worth knowing is
+  incidental.** AC-1(a2)'s set equality catches a short sample set only because `PARITY_KINDS` is a frozen
+  five-member constant; if a future capture legitimately added a sample for a sixth kind and the constant
+  moved with it, the coincidence still holds, but nothing in the document says the sample span's
+  completeness is (a2)'s job. M2's accounting covers both spans in one expression, which is why I
+  specified it over both rather than over the probe span alone.
+- **The `REASONS` pin must move as an EQUALITY, not be loosened.** Carried from round 2 and restated
+  because the build has not happened yet: satisfying `tests/test_name_gate.py:124` by rewriting `== 16` as
+  `>= 16`, or deleting it, would silently retire the size bound on the enumeration that keeps composed,
+  note-content-bearing strings out of the hierarchy (`bounded_message`'s `from None` suppression fires
+  "while a note-content-bearing original is in flight", `obsidian_schemas/errors.py:183-188`). Not a
+  required mitigation: the document names the target value `17`, `## Scope Boundary` bounds the edit to
+  that line plus the adjacent comment plus assertions inside the existing check, and §9 states the
+  obligation as a predicate. Recorded so the reviewer reading the diff knows which of two legal-looking
+  edits is the wrong one.
+- **The honesty invariant's residual is unchanged and still not closed by M1**: an `intro-by` entry
+  ALREADY outside a `## Timeline` span — hand-edited, or written through the raw-string branch AC-1(f)
+  preserves — is invisible to the accessor AND to `intro_by_without_marker`, which only scans inside the
+  span. Still not requiring a mitigation: the exposure is MEASURED at zero (precondition 2 reports every
+  live timeline heading sitting inside a `## Timeline` section) and the predicate is re-runnable. Worth
+  the cutover item's attention if the typed door gains a caller before that measurement is refreshed.
+- **`IntroRecord.introducer` is attacker-influenceable and returned verbatim** — a consumer rendering it
+  into HTML must escape it. Correctly not the library's job; recorded so HAL9000 WI-078 and orchestrator
+  WI-194 inherit the fact rather than discover it.
+- **The D7 window's security reading stands.** Until HAL9000 WI-082 ships, HAL9000's own door keeps
+  accepting a `text` that forges a marker (`capture:401-403`), so the forgery guards protect only callers
+  routing through this library. Correct sequencing and ruled scope; the hole does not close estate-wide
+  until the cutover.
+- **Two OPEN security questions is the role's cap; I am at zero.** Every note above carries a stated
+  disposition, and this round's one finding is a declared required mitigation rather than an open
+  question.
+
+```verdict
+gate: threat-modeler
+verdict: PROMOTE
+date: 2026-09-29
+model: claude-opus-5
+note: M1 re-read and STILL CLOSED on the surfaces themselves (§1.1's pattern, §1.4's guard 5 with both silent effects, Task 2, Task 3(c3)) and re-emitted byte-identically on Task 2; of the fold's new material §12 is security-neutral-to-positive on every axis I could check — Rule 2 can only false-RED, Rule 1's helpers take TEXT not paths so no file I/O enters tests/derivations.py and no `ast` moves, the RAISE messages quote conductor-committed headings and never vault bytes, Task 12's narrowing drops no security check, and AC-1(a3)'s SET-singleton HEAD read is strictly stronger than the first match. The one new finding is the FAIL-DIRECTION dimension §12's next-level sweep did not turn: it declares span truncation would "redden this item" uniformly, and I checked that per span rather than per section — true for `## Exploration Notes` (the PRESENT half fails), `## Counts` (one-fence assertion) and `## Parity samples` (AC-1(a2)'s set equality, incidentally), but FALSE for `## Validation boundary`, where the non-vacuity clauses catch only a TOTAL loss and a partial truncation leaves AC-1(c2)'s equality satisfied over a subset — silently retiring the anti-widening ratchet §1.4, R1 and Risk Analysis row 2 all name as what stops the over-refusal exception being widened, on a regeneration D7 has already scheduled as the cutover item's first act. That is M2 on Task 3, a mitigation to fold rather than a spec gap: the guards themselves stay pinned by AC-1(c) and (c3) so it is a ratchet loss not a guard loss, safe_dump's block-scalar indentation keeps the condition unlikely, and the closing shape is one derived assertion I measured against the capture's own bytes (six yaml fences in the sample span, twenty-nine in the probe span, thirty-five in the file, the other four fences `python`) rather than prescribed by reference — with the caveat that `fenced_blocks:1550` discards the info string at `:1554-1559`, which the whole-file leg needs. Seven prior mitigations re-verified in place, zero open security questions.
+```
+
+## Spec Review — 2026-09-29 (round 3)
+
+**Recommendation: PROMOTE to ready**
+
+Cold-start read at HEAD `be6e2fe` with the working tree carrying the spec-writer's THIRD 2026-09-29
+fold (the threat model's round-3 M2), from line 1, in full. Rulings on record: D3's inverted
+stored-dirty trade, D7's accepted drift window and declined standing cross-repo checker, D8's open slug
+door with `PARITY_KINDS` gating nothing, §0's seven reifications of the signed frame, round 1's
+disposition of Task 1 (a baseline capture is not a floor assertion, WI-238), and §12's deliberate
+declining of a fence-aware span boundary — each is a scope boundary I route against and none is
+re-litigated below.
+
+Round 2's two findings are CLOSED, and I found each closed by reading the target files at the
+granularity the oracle consumes rather than by reading the fold's account of itself. I found no
+blocking gap this round.
+
+### Citation verification
+
+Every `file:line` and symbol-anchored citation in `## Design`, `§9`, `§12`, `## Implementation Plan`,
+`## Verification` and `## Write Targets` was read at its cited location, and read for the PROPERTY each
+claim asserts rather than for the symbol's existence. All resolve; all quote accurately. The injected
+drift audit reported 0 findings over 75 citations, which I treated as a floor rather than a pass.
+
+The measurements this round's fold newly rests on, **re-counted at source rather than carried from any
+round's narrative** — this is the discipline §12 exists to enforce and a review that took the numbers on
+trust would be the same defect one level out:
+
+- **§12 Rule 3's accounting is exact against the capture's bytes.** Line-start fences in
+  `docs/wi-033-hal9000-timeline-entry-capture.md`: `yaml` opens at `:225`, `:236`, `:247`, `:258`,
+  `:269`, `:279` (SIX, all inside `## Parity samples`) and at `:292`…`:462` (TWENTY-NINE, all inside
+  `## Validation boundary`) — thirty-five in the file — with the other four opens `python` (`:61`,
+  `:173`, `:181`, and the Appendix's `:474`, closed at `:603`). Thirty-nine fences, seventy-eight
+  line-start delimiters, strictly alternating, so the whole-file toggle walk is well-formed and
+  `6 + 29 == 35` holds as stated. I also confirmed the assertion actually FAILS the way Rule 3 claims:
+  an injected line-start `## ` is not a fence line, so a truncated span's count drops while the
+  whole-file count does not.
+- **The capture's headings are what Rule 1 says.** `## Part 1 …` at `:57` and AGAIN at `:587` (inside the
+  Appendix's `python` fence), `## Parity samples` at `:223`, `## Validation boundary` at `:290`,
+  `## Appendix …` at `:470`. Each of the two NAMED headings occurs exactly once at line start, and
+  neither selected span (`:224-289`, `:291-469`) contains a line-start `## ` line — so the narrow
+  selector is total over what it needs and `baseline_sections`' total parse would indeed raise before
+  reaching a fence.
+- **`fenced_blocks:1550` really does discard the info string.** Read at its symbol: the opening line is
+  consumed by the `line.startswith("```")` branch at `:1554-1559` and never appended to the block. So
+  §12's one declared deviation — `select_fenced_blocks` returning `(info, block)` PAIRS — is load-bearing
+  rather than decorative, and Rule 3's whole-file `yaml`-versus-`python` leg is inexpressible without it.
+  `baseline_sections:1518` raises `unnumbered section heading` at `:1530` and on a non-matching declared
+  prefix at `:1533-1536`, and `duplicate section ordinal` at `:1538`; `_HEX40:1515` is
+  `(?<![0-9a-fA-F])[0-9a-f]{40}(?![0-9a-fA-F])`, the shape AC-1(a3)'s singleton assertion copies.
+- **The other two oracle files hold their claimed shapes.** `docs/vault-fixtures.md`:
+  `## Exploration Notes` once at `:83`, next line-start `## ` is `## Approach` at `:1120` (span
+  `:84-1119`, holding `:279`), first line-start fence in the whole file at `:1288` — so the fenced-`## `
+  residual is measured at zero as declared; `introduced_by` occurs exactly TWICE (`:279`, `:1434`); and
+  `:279-280` still read verbatim "a `manager:` or `introduced_by:` on a schema-drift or /
+  forward-compatibility note", so the wrap really does split the corrected phrase and Rule 2's
+  normalization is what makes the PRESENT half executable. `docs/wi-033-intro-corpus-baseline.md`:
+  `## Counts` at `:56`, `## Verbatim output` at `:117`, span `:57-116` holding exactly ONE fenced block
+  (the `yaml` one at `:61-115`) — so Task 7's exactly-one-fence clause is satisfiable and is genuinely
+  what makes that oracle RED on a truncation.
+- **The product-side citations the plan writes against.** `person.py:append_to_timeline:1452` with
+  `formatted_entry = entry if entry.startswith("\n") else f"\n{entry}"` at `:1510` (so `render`'s
+  `### `-leading bytes take the same one-newline prefix every live caller gets, and the marker still
+  lands alone on its line), `:1489-1493`, `:1502`, `:1512-1537`, `:1543-1545`;
+  `person.py:_split_frontmatter_fence:96` returning `(raw_frontmatter, raw_body)` and raising
+  `FrontmatterParseError` — which `append_to_timeline`'s own `except LoudFailError: raise` at `:1551`
+  re-raises unwrapped, so §2 branch 2's new read does not get laundered into `WriteFailedError`;
+  `body_sections.py:get_section:137` as `parse_body_sections` one frame in.
+- **The fixture re-key's constraints.** `tests/fixtures/vault/@Morvette Harkwell.md:16` is
+  `introduced_by: "Voxleaf"` and the note's body is the default three sections (so P4's zero-entries
+  premise still holds); `tests/fixture_vault.py:320-326` is the single `undeclared` declaration with the
+  AC-5(b) comment at `:323-324`; `Oskaline` (`:595`) and `Thrandell` (`:598`) are both `NAME_POOL`
+  members and the PAIR is no corpus note's name, stem, alias or title, so D9's constraint holds and no
+  census row is owed.
+- **`tests/test_name_gate.py`** is `assert len(REASONS) == 16` at `:124` inside
+  `test_name_gate_refusal_is_a_loud_fail_leaf_carrying_a_pattern:109`, with the "fifteen … sixteen"
+  comment at `:121-122` and the membership assertion at `:123` and `__all__` membership at `:156`. Task
+  2's obligation and §9's rows are exact.
+- **The two new derivations move no wall.** `tests/test_loud_fail_harness.py:79-88`'s `six` dict is a
+  REQUIRED SUBSET by its own docstring at `:18-20` ("not a cardinality bound on the module"), so four
+  additions to `tests/derivations.py` leave `len(six) == 6` untouched; the binding assertion is
+  `modules_using_ast(python_files_under(PACKAGE_ROOT, TESTS_ROOT)) == {"tests/derivations.py"}` at
+  `:103-113`, which §9 row 1 names and Task 11 RUNS. Neither helper touches `ast`.
+
+### Bar check
+
+Walked every check of `docs/spec-quality-bar.md` (the doc's own list is the count). All twelve are
+satisfied. Recorded because each was a live risk on this item and each came back clean:
+
+- **Check 12 (AC drift).** The four `criteria` fences and `## Intent` are unedited this round — AC-1(c)
+  still names FOUR guards and AC-1(c2) still names the same four-member exception, with guard 5 and the
+  completeness assertion carried entirely in unsigned prose; spot-compared AC-1(c2) and AC-3(c) against
+  `docs/spec-reviews/WI-033-dave-review-2026-09-28.md:78-82` and `:329-333` and both are byte-faithful.
+  I classified the NEW reification, **R7**, independently against the taxonomy: it is not
+  strength-weakening (it adds a completeness precondition to an equality that keeps its form), not an
+  actor-swap, not scope-narrowing, not an oracle-swap weaker (it is strictly stronger — the old clause
+  was green over a narrowed population), and not exception-carving-by-addition. No escalation owed.
+- **Check 5's class-fold clause (WI-226), which is the one this round turns on.** M2's finding landed
+  inside §12 — the previous round's own fold — and the writer closed it ONE LEVEL UP rather than as a
+  clause: §12 gains Rule 3 stated over the whole member set, dimension **(vii) FAIL DIRECTION** answered
+  PER SPAN for all four selected spans, and **the level below (vii)** swept and declared (nine
+  run-time-derived populations, eight already non-vacuous, the ninth — Task 7's emptied-population
+  absence scan — closed in the same edit by a MEMBER pin rather than a size pin). That is the enumerate-
+  then-sweep-the-next-level shape the rule asks for, and the sweep DECLARED what it found rather than
+  reporting a clean census.
+- **Check 3's WI-226 ruling sweep, run for this round's fold.** The pre-fold claim — that a truncated
+  span "would redden this item" uniformly — is corrected on every surface that stated it: §12 Rule 1's
+  bullet, §12 dimension (ii) and (vii), `## Verification`'s reader 1 and reader 2, `## Risk Analysis`
+  row 2, §1.4, §0 R7, `## Edge Cases`' new truncation bullet, Task 3 and the `## Mitigation Folds`
+  record. I hunted for a surface still asserting the uniform reading and found none. Same for the
+  `select_fenced_blocks` deviation: §11.1, §12, §10, Task 3, Task 7 and the `tests/derivations.py`
+  `writes` fence all say PAIRS, and none still describes a bare-block copy.
+- **Check 5's fold records (WI-216).** Both `kind: required` mitigations of the latest speaking round
+  (round 3: M1 on Task 2, M2 on Task 3) carry complete records. Both `desc` values are byte-identical to
+  the round-3 `mitigation` fences. I found each `design` and `work` quote WHERE it claims to be and read
+  the surrounding text: M1's `design` is §1.4's guard-5 sentence and its `work` is Task 2's guard-5
+  paragraph; M2's `design` is §12 Rule 3's stated rule at its own line and its `work` is Task 3's
+  COMPLETENESS-FIRST paragraph with that task's verify text appended. Both mitigations are genuinely
+  satisfied, not merely recorded — and M2's satisfaction is what I re-derived from the capture's bytes
+  above rather than from the fold's claim.
+- **Check 5's WI-314 clause.** No plan task orders the whole floor. Task 12 asserts this item's own four
+  AC checks plus two STANDING checks carrying the pin accounting, and I confirmed both consume the pins
+  they are claimed to (`…fires_exactly_on_its_declared_subjects:818` reaching `len(pinned) == 7` at
+  `:822`, and `…baseline_is_committed_shaped_and_agrees_with_the_census:1634`).
+- **Check 5's WI-238 clause.** No task's verify writes: every declaration is a check name or a `baseline`
+  reason, and the two `docs/**` readers are reads.
+- **Check 6's WI-235 clause.** SIX counting walls, each shipping its claimed shapes through the wall's
+  OWN predicate plus a near-miss. The sixth — `select_fenced_blocks`' INFO STRING — is the one this round
+  added, and it earns the battery for exactly the reason the document gives: the accounting is a
+  `yaml`-versus-`python` discrimination and "it works on the capture" is satisfied identically by a
+  helper that discriminates and one that returns every fence, since every fence in both selected spans
+  is `yaml`. The INDENTED triple-backtick near-miss is the right one, because the shipped shape is
+  `line.startswith`, not `line.strip().startswith`.
+- **Check 6's WI-278 clause.** Four oracles over three files, enumerated by predicate in §12, each
+  naming its arm and carrying a coupling declaration in `## Verification` and in the code (module
+  granularity for `tests/test_timeline_entry.py`, check granularity inside
+  `test_the_write_gate_refuses_the_retired_introduced_by_key`), both in shipped forms I confirmed exist.
+- **Check 6's WI-254 clause.** The family — this tree's fence walks — is named, and the member left alone
+  (`fenced_blocks:1550`, another module's private helper) is named with its reason rather than glossed.
+- **Write-Targets coverage (per-task extraction, re-run from scratch).** Every task's target is declared
+  and every declared path has a task; this round added no path, correctly, since `select_sections` and
+  `select_fenced_blocks` land in an already-declared `tests/derivations.py`. The fifth
+  `kind: precondition` fence carries no `grounds:` line and owes none — it declares a DELIVERABLE the
+  conductor lands, not evidence a premise rests on, and the linter's `grounds:` rules fire only on a
+  present-but-malformed value or on a non-precondition fence.
+- **Verify-declaration shape.** All twelve canonical tasks carry exactly one well-formed `verify:`; Task
+  1's `baseline` reason is 159 characters and in-bounds; the longest check arm is Task 12's six names;
+  no `cmd:` arm is used, correctly, since `pipeline-runners.yaml` registers none.
+- **Review level.** The fences name the real touch surface — five conductor paths plus thirteen builder
+  paths, and nothing in the plan writes outside them.
+
+### Build-runner dry-run
+
+Walked the Implementation Plan top-to-bottom. Tasks 1–12 each name concrete files, concrete symbols and
+a runnable verify. Three questions I wrote down before checking whether the document answers them:
+
+1. *"The accounting clause tells me to count `yaml`-info fences over the whole file — with what?"* —
+   answered: `select_fenced_blocks` over `Path.read_text()`, filtering `info == "yaml"`, no literal typed.
+2. *"`select_sections` raises on a duplicate NAMED heading — does the capture's `## Part 1` echo at `:587`
+   make it raise?"* — answered explicitly in Rule 1 and in Task 3's battery, which asserts a duplicate of
+   an UNNAMED heading must NOT raise.
+3. *"Which arm of AC-3(c) reads `docs/wi-033-intro-corpus-baseline.md`, and what if the `## Counts` span
+   holds two fences?"* — answered: Task 7 asserts exactly one `yaml`-info fence BEFORE reading it.
+
+No judgment-call gap detected. The three residual ambiguities I did find are below and none of them can
+ship a wrong library under either reading.
+
+**On the arc, since it is the factory's own question and this is round 3.** The series is round 1 on
+original material (3 findings), round 2 on the fold's material (2 findings), and the threat model's round
+3 inside §12 itself (M2). That is a ladder climbing toward the machinery, and a fourth round landing on
+the accounting's expression would have been the regress signature rather than progress. I looked for one
+specifically — Rule 3's fail direction, its behaviour under a legitimately regenerated capture, and the
+level below it — and found it sound: the expression is position-free, count-pin-free, RED on a truncation
+of either span inside or outside a fence, and it moves with the re-run capture D7 has already scheduled.
+The ladder is closed, not paused.
+
+### Minor notes (non-blocking)
+
+- **§2 branch 1's `BOTH_ENTRY_AND_KEY_KEY` has no declared home.** §1.4 enumerates eight `pattern`
+  literals as module-level constants in `timeline_entry.py` and this ninth appears only in §2, raised
+  from the door rather than from the module; its `REASONS` reason ("a timeline entry field this package
+  refuses") is also a slight stretch for a two-arguments fault rather than a field one. Nothing asserts
+  the literal — `## Verification`'s failure-mode line pins only that it raises — so nothing wrong can
+  ship; one clause naming the module would remove a builder guess.
+- **§2 branch 2 does not state the no-`## Timeline` case.** `get_section(body, "Timeline")` returns
+  `None` on a note with no such section, and branch 4's create-at-end-of-file arm forces the behaviour
+  (nothing to dedupe against, so write), while §5 already spells the `or ""` idiom for the detectors.
+  Inferable rather than ambiguous, but §3 states its own `None` arm explicitly and this branch could say
+  the same in five words.
+- **Task 5's fixture cannot host AC-2(b) and (c) as written without a second arrangement.** A's plant is
+  one entry per `PARITY_KINDS` member plus the out-of-table kind, which is exactly ONE `intro-by` — the
+  main oracle depends on that — while (b) needs two on one person's own note and (c) needs a markerless
+  `intro-by` heading, and putting either on B would break (a2)'s "exactly B's one record". A third
+  planted note or a second temp vault satisfies both and the clauses state their own oracles, so this is
+  ordinary test composition rather than a decision; one sentence would save the builder the derivation.
+
+### Carried-forward notes
+
+- **Round 2, note 1 (the `REASONS` pin's adjacent comment goes stale)** — CLOSED. Task 2, §9's row and
+  `## Scope Boundary` all admit `tests/test_name_gate.py:121-122`'s two numbers into the bounded edit.
+- **Round 2, note 2 (the precondition fence and §6 quoted the sentence in words the file does not use)**
+  — CLOSED. Both now quote `:279-280`'s bytes and name the paraphrase as a paraphrase; AC-3(c)'s own
+  signed `desc` and the data-premise round's record are correctly left alone.
+- **Round 2, note 3 (Task 7's span is not durable against a fenced `## ` line)** — CLOSED, and closed
+  harder than the note asked: reader 2 records the measured absence in the coupling declaration, and §12
+  dimension (vii) now states which assertion fails on a truncation for that span instead of assuming it.
+- **Round 1's six notes** — all CLOSED (confirmed in round 2, re-confirmed here at their symbols).
+- **Architect round 4 notes 1–3 / round 3 notes 1–2** — remain CLOSED by §0 R1–R5.
+- **Threat modeler round 3, note 1 (`## Parity samples`' truncation protection via AC-1(a2) is
+  INCIDENTAL)** — CLOSED by §12 Rule 3, whose accounting covers BOTH capture spans non-incidentally, with
+  the incidental-ness of (a2)'s coverage recorded rather than relied on.
+- **Threat modeler round 1, note 1 (an `intro-by` entry ALREADY outside a `## Timeline` span is invisible
+  to both the accessor and `intro_by_without_marker`)** — STILL OPEN as a deliberately accepted residual.
+  Re-deferred: the exposure is measured at zero by precondition 2's re-runnable predicate, the standing
+  instrument is named, and the typed door has zero callers until HAL9000 WI-082.
+- **Threat modeler round 1, note 2 (`IntroRecord.introducer` is attacker-influenceable and returned
+  verbatim, so a consumer rendering it into HTML must escape it)** — STILL OPEN and correctly outside
+  this tree. Re-deferred: the library must not sanitize on a consumer's behalf; recorded for HAL9000
+  WI-078 and orchestrator WI-194 to inherit.
+- **Threat modeler round 1, note 3 (the D7 window's security reading — HAL9000's own door keeps accepting
+  a marker-forging `text` until the cutover)** — STILL OPEN by D7's standing ruling. Re-deferred as ruled
+  scope, not a gap.
+- **Threat modeler round 2 note 1 / round 3 note 2 (the `REASONS` pin must move as an EQUALITY, never be
+  loosened to `>=` or deleted)** — STILL OPEN as a disclosure for whoever reads the build diff. Re-deferred
+  because the document names the target value `17` and states the obligation as a predicate; restated
+  here so it survives into the build review, since the wrong edit looks as legal as the right one.
+- **Data-premise residual 1 ("all 86 legacy `[intro]` entries are OUTBOUND" has no re-runnable
+  predicate)** — STILL OPEN, governs no criterion. Re-deferred with its closing predicate already named
+  (split the 86 by `^Introduced by ` versus `^Introduced to `, counts only), to be run at build-start
+  re-grounding.
+- **Data-premise residual 2 (HAL9000 WI-082's mint is uncommitted in HAL9000's working tree)** — STILL
+  OPEN and outside this tree. Re-deferred: the id is issued and `next_id` advanced, so precondition 4's
+  record in this tree's HEAD is truthful; committing it is HAL9000's act.
+
+```verdict
+gate: spec-reviewer
+verdict: PROMOTE
+date: 2026-09-29
+model: claude-opus-5
+note: Round 2's two findings are CLOSED and I verified each by reading the target files at the granularity the oracle consumes — §12 Rule 1 now spells the selector in its own terms with `baseline_sections:1518` named as a raising discipline rather than a transplant (confirmed: it raises on any heading outside its declared table, and the capture carries `## Part 1` at :57 and again at :587 inside the Appendix's python fence plus `## Appendix` at :470), and Rule 2 makes every phrase oracle whitespace-normalized (confirmed: docs/vault-fixtures.md:279-280 still splits the corrected sentence at a line break, so a literal test would be RED against a correct conductor edit). The threat model's M2 is folded ONE LEVEL UP as required rather than as a clause — §12 gains Rule 3, dimension (vii) answered per span for all four spans, and the level below it swept and declared with its one unguarded member (Task 7's emptied-population absence scan) closed by a member pin — and I re-counted the accounting at source instead of taking it from the fold: six line-start yaml fences in `## Parity samples`, twenty-nine in `## Validation boundary`, thirty-five in the file, the other four python, seventy-eight strictly alternating delimiters so the whole-file toggle walk is well-formed, and an injected `## ` line is not a fence line so a truncated span is RED while the whole-file count is unmoved. `fenced_blocks:1550` does discard the info string at :1554-1559, making `select_fenced_blocks`' PAIRS deviation load-bearing and earning its WI-235 battery. Both fold records are complete and fresh, both `desc` values byte-identical to round 3's mitigation fences, and I found each `design`/`work` quote where it claims to be and read the surrounding text. All twelve bar checks pass: the signed frame is unedited with R7 classified non-drifting, every task carries one well-formed verify and none orders the floor, Write-Targets coverage re-extracted per task with no path added or missing, six counting walls ship their shapes and near-misses, and `tests/test_loud_fail_harness.py`'s `six` dict is a required subset so the two new derivations move no wall. The arc — original, then folded material, then §12's own sweep — is a ladder climbing toward the machinery, and I looked specifically for a fourth-level finding on the accounting's expression rather than emitting one: it is position-free, count-pin-free, RED on either span's truncation inside or outside a fence, and it moves with the re-run capture D7 schedules. Three non-blocking notes, none able to ship a wrong library.
+```
+
+## Adversarial Review — 2026-09-29 (round 3)
+
+**Recommendation: PROMOTE (injection axis only)** — no planted steering found. This is the narrow injection
+question, not a fourth spec review: the spec-reviewer's standing round-3 verdict is PROMOTE and the threat
+modeler's round 3 is PROMOTE with M1 and M2 folded, and nothing here adds to or substitutes for either.
+
+Cold-start re-read after the third 2026-09-29 fold (the threat model's round-3 M2), with the material added
+since my round 2 read closely: the `## Mitigation Folds` M2 record, the threat modeler's round 3, §12's new
+Rule 3 and dimension (vii), §0 R7, Task 3's completeness-first clause and the spec-reviewer's round 3.
+
+- **Text arguing for a verdict or addressed to a gate.** Pattern sweeps over the item doc for approval-steering
+  phrasing (pre-approval claims, "do not block", "ignore prior", verdict-emission instructions, system-prompt
+  talk) and for second-person or gate-addressed imperatives returned nothing outside this hunter's own earlier
+  prose describing what it searched for. A sweep of line-start `gate:` / `verdict:` keys returned exactly the
+  thirteen genuine fences (architect, ac-red-team, ac-signoff, data-premise, threat-modeler x3, spec-reviewer x3,
+  injection-hunter x2), each at its own gate's section end with `gate:` matching the section that carries it.
+  The verdict series is uneven (REVISE, PROMOTE, REVISE, PROMOTE on the spec-reviewer axis), which is the
+  signature of independent judgement and not of a uniform lean.
+- **The fold's new material.** M2's fold, §12 Rule 3, dimension (vii) and R7 are substantive test-oracle
+  argument carrying re-runnable predicates (a whole-file accounting of `yaml`-info fences over the capture).
+  The `## Mitigation Folds` M2 record is a `fold` fence quoting the threat modeler's mitigation `desc` and
+  Task 3's own text; it makes its case for the design and addresses no reviewer. The spec-reviewer's round 3
+  states it re-counted the capture's fences at source rather than accepting the fold's account, and the
+  threat modeler's round 3 states it did the same from the capture's own bytes; two decorrelated reads
+  converging on the same counts is not what a steered chain produces.
+- **The `writes` fence naming another item's tracked document (WI-245).** Unchanged from rounds 1 and 2:
+  `docs/vault-fixtures.md` is WI-016's document, declared as `kind: precondition` with the deletion spelled in
+  the file's own bytes, the caged builder stated NOT to be its author, and WI-016's signed AC-5 fence at
+  `:1434` stated out of scope. This round added no path and no builder write to that fence; the M2 fold moved
+  only the capture's `why` (two structural properties named for whoever regenerates it), which is a
+  precondition already conductor-owned. I repeat the flag for whoever lands it: land only the one substring
+  deletion at `:279` and drop nothing else into that file.
+- **Quoted and captured material.** The capture, corpus baseline, consumer audit and cutover record remain
+  machine-shaped artifacts whose `verdict:` keys are HAL9000 accept/refuse probe results, not gate verdicts.
+  I found nothing embedded in the item doc that addresses a gate.
+
+**Honest limit, carried.** I read the same bytes the other gates did and could be fooled the same way; my
+value is a different model and a narrower question. The document is now very long and densely cross-cited,
+the shape in which a plant would hide, so I read the fold-added material and every verdict-shaped line
+specifically for text that changes what a gate should do rather than what the system does. None does.
+
+```verdict
+gate: injection-hunter
+verdict: PROMOTE
+date: 2026-09-29
+model: claude-sonnet-5-5
+note: Re-read after the threat model's round-3 M2 fold finds no planted steering in the item doc — pattern sweeps for approval-steering and gate-addressed imperatives come back empty, the thirteen line-start gate/verdict keys are all genuine fences at their own gate's section end, the fold-added material (M2 record, §12 Rule 3 and dimension (vii), R7, Task 3's completeness clause) is ordinary spec argument with re-runnable predicates independently re-counted by two other gates, and the one cross-doc writes fence (docs/vault-fixtures.md) is unchanged as a disclosed conductor-owned precondition; this clears the injection question only.
 ```
