@@ -1,7 +1,7 @@
 {
   "project": "obsidian-schemas",
   "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
-  "last_scanned": "2026-09-29T11:02:07Z",
+  "last_scanned": "2026-09-30T13:25:38Z",
   "next_id": 35,
   "items": [
     {
@@ -3979,7 +3979,6 @@
     }
   ],
   "queue_order": [
-    "WI-033",
     "WI-030",
     "WI-028",
     "WI-025",
