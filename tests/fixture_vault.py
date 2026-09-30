@@ -41,7 +41,7 @@ CORPUS_ROOT = Path(__file__).resolve().parent / "fixtures" / "vault"
 #: `sha256` over the sorted sequence of (corpus-relative POSIX path, file bytes),
 #: each field NUL-framed. Editing, adding or deleting any fixture note without
 #: regenerating this constant is RED (AC-1(a)).
-CORPUS_DIGEST = "c1c762b6fef148fe45936eac1c335851effa5cb0bd8bcb5092a1e2faf524d64c"
+CORPUS_DIGEST = "a08d6d40d2bb0a76273ea746d865b23a5955e9f4a618b4055939a26d5bfcf2af"
 
 #: The ONE ISBN placeholder the corpus uses (Design §6.4). An ISBN-13 is a
 #: 13-digit run the phone predicate matches and an ISBN has no reserved range to
@@ -322,7 +322,7 @@ NOTES: dict = {
         fields=_person("Morvette Harkwell"),
         # AC-5(b) clause 3: a value for a key no model declares is an identity
         # position BY DEFAULT, with no manifest flag to opt out.
-        undeclared={"introduced_by": "Voxleaf"},
+        undeclared={"manager": "Oskaline Thrandell"},
     ),
     "@Caldreth Zebrant.md": NoteSpec(
         declared_type="person",

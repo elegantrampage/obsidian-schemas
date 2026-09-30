@@ -145,6 +145,41 @@ class NameGateRefusal(LoudFailError):
     pattern: Optional[str] = None
 
 
+class TimelineEntryRefusal(LoudFailError):
+    """A timeline entry field was declined by the vocabulary's write door (WI-033).
+
+    A leaf of LoudFailError **directly**, never of NoteParseError, for exactly
+    NameGateRefusal's reason above: that subtree is what `base._skip_reason` maps
+    to a skip reason, and the note here is perfectly loadable — a WRITE was
+    declined. Its own TYPE rather than a `NameGateRefusal` with a different
+    `pattern`, because the two doors refuse different things and a handler that
+    ABSORBS must be able to say which: a name judgement and an entry-field
+    judgement land in different channels an operator reads.
+
+    The same idiom the hierarchy states throughout applies: a handler that
+    RE-RAISES may filter on the root; a handler that ABSORBS — records, counts,
+    logs and continues — must filter on this exact type, and every oracle
+    asserting the entry door refused names `TimelineEntryRefusal` and its
+    `pattern` rather than the root, because sibling leaves raise from the same
+    frames and a root filter would misattribute them.
+
+    NOT retryable: the refusal is a deterministic function of the payload, so an
+    identical retry gets an identical refusal — the same reading
+    `NameGateRefusal` carries, and the distinction StaleEntityWrite (retry after
+    refresh) and ExternalWriteConflict (the retry re-reads) already draw here.
+
+    Declares NO __init__ — the hierarchy's one constructor is what bounds the
+    message. `pattern` is a source literal from
+    `obsidian_schemas/timeline_entry.py` naming WHICH guard fired; it is set as an
+    ATTRIBUTE after construction rather than passed in, and it does NOT render
+    into the message. No note-derived value reaches the constructor at all: at
+    this door the refused value is a person's name or a note's prose, which is
+    precisely what `name_gate.py:_refuse`'s rule 2 exists to keep out.
+    """
+
+    pattern: Optional[str] = None
+
+
 # Exactly the literals of the construction table below — nothing else.
 # Extended only by editing this set alongside that table; bounded_message
 # refuses anything else at first construction. Enumerated, not derived, so that
@@ -167,6 +202,10 @@ REASONS: frozenset = frozenset({
     "target changed since it was read",                   # ExternalWriteConflict, WI-004 door 1
     "a note already exists at the destination",           # NoteAlreadyExists, WI-004 doors 2c/3
     "the write introduces a name this package refuses",   # NameGateRefusal, WI-021
+    # TimelineEntryRefusal, WI-033. ONE member for the whole door, guard 5
+    # included: the reason is per-DOOR and `pattern` is what distinguishes the
+    # faults, exactly as the gate's one literal above covers all eight of its arms.
+    "a timeline entry field this package refuses",
 })
 
 # LoudFailError.__init__ — the hierarchy's ONE constructor and the sole caller of

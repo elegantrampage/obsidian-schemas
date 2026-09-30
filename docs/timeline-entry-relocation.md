@@ -2,14 +2,14 @@
 id: WI-033
 title: TimelineEntry relocates into the library, with a derived introduced_by accessor
 project: obsidian-schemas
-stage: building
+stage: done
 created: 2026-09-26
 last_touched: 2026-09-29
 stage_changed: 2026-09-29
 touched_by: session
 tags: []
 depends_on: []
-transitions: ["idea>exploring@2026-09-28@session", "exploring>specced@2026-09-28@porter", "specced>ready@2026-09-29@session", "ready>building@2026-09-29@session"]
+transitions: ["idea>exploring@2026-09-28@session", "exploring>specced@2026-09-28@porter", "specced>ready@2026-09-29@session", "ready>building@2026-09-29@session", "building>done@2026-09-29@session"]
 ---
 
 # TimelineEntry relocates into the library, with a derived introduced_by accessor
@@ -1849,14 +1849,14 @@ Tasks are ordered by dependency and each is one sitting. Tasks 2–4 are one coh
 and its oracle) and must not be reordered. Tasks 5, 6 and 8 are independent of each other once Task 2
 lands and may be done in any order; Tasks 9–12 come last.
 
-- [ ] **Task 1 — Record the baseline the later assertions are deltas against.** Before the first edit,
+- [x] **Task 1 — Record the baseline the later assertions are deltas against.** Before the first edit,
   run the floor command and record in the Build Log: the case count it reports, the value of
   `tests/fixture_vault.py:CORPUS_DIGEST`, and the `len(pinned)` figure
   `tests/test_lint_vault_fix_rules.py:822` asserts (7). **Verify:** the three numbers are in the Build
   Log before any file is edited; no later check asserts them as literals.
   verify: baseline — the pre-edit floor count, CORPUS_DIGEST and the len(pinned)==7 reading are recorded in the Build Log; no later check pins them (WI-238).
 
-- [ ] **Task 2 — The leaf module, its refusal leaf and the package exports, with the prose channel
+- [x] **Task 2 — The leaf module, its refusal leaf and the package exports, with the prose channel
   unable to write either machine channel (M1).** Create
   `obsidian_schemas/timeline_entry.py` exactly as §1 specifies: `_KIND_BODY`, the three patterns and
   `STRUCTURAL_LINE_PATTERN` (§1.1), the four types plus `Marker.key` (§1.2), the SIX functions
@@ -1900,7 +1900,7 @@ lands and may be done in any order; Tasks 9–12 come last.
   under the project interpreter, the new leaf is constructible, and both checks are green.
   verify: test_timeline_entry_reproduces_hal9000_render_and_validation_boundary test_name_gate_refusal_is_a_loud_fail_leaf_carrying_a_pattern
 
-- [ ] **Task 3 — The parity and validation-boundary check, driven by the committed capture.** Create
+- [x] **Task 3 — The parity and validation-boundary check, driven by the committed capture.** Create
   `tests/test_timeline_entry.py` (interpreter shim first, per §8.3; module docstring carrying a
   `CORPUS_COUPLING:` line in the shipped form — `tests/test_fixture_vault.py:3` and
   `tests/test_ac_interpreter.py:23` are the models — naming the two heading names and the declared keys it
@@ -2015,7 +2015,7 @@ lands and may be done in any order; Tasks 9–12 come last.
   dict in a scratch run, then revert).
   verify: test_timeline_entry_reproduces_hal9000_render_and_validation_boundary
 
-- [ ] **Task 4 — The typed overload on the door.** Change
+- [x] **Task 4 — The typed overload on the door.** Change
   `obsidian_schemas/repositories/person.py:append_to_timeline` to §2's five-branch flow: the
   `Union[str, TimelineEntry]` parameter, the both-arguments refusal, the marker-anchored dedupe over
   `get_section(body, "Timeline")` using `parse_markers` and `dedupe_key`, the unchanged string branch
@@ -2028,7 +2028,7 @@ lands and may be done in any order; Tasks 9–12 come last.
   the no-`## Timeline` accommodation are unchanged (R4). **Verify:** as declared.
   verify: test_timeline_entry_reproduces_hal9000_render_and_validation_boundary
 
-- [ ] **Task 5 — The accessor, and the person axis discriminated.** Add
+- [x] **Task 5 — The accessor, and the person axis discriminated.** Add
   `PersonRepository.introduced_by` exactly as §3 specifies. Create
   `tests/test_introduced_by_accessor.py` (interpreter shim first) defining
   `test_introduced_by_reads_only_this_persons_intro_by_markers` over a PLANTED temp vault holding two
@@ -2044,7 +2044,7 @@ lands and may be done in any order; Tasks 9–12 come last.
   **Verify:** as declared.
   verify: test_introduced_by_reads_only_this_persons_intro_by_markers
 
-- [ ] **Task 6 — The gate rule, and a derived arm sweep that names what it excludes.** Add §4's two
+- [x] **Task 6 — The gate rule, and a derived arm sweep that names what it excludes.** Add §4's two
   literals and the section-`3c` arm to `obsidian_schemas/name_gate.py`, with a comment stating the three
   placement reasons §4 gives. Add to `tests/derivations.py` a new derivation
   `gate_call_sites(files) -> list[GateCallSite]`, where a site is
@@ -2068,7 +2068,7 @@ lands and may be done in any order; Tasks 9–12 come last.
   the predicate must NOT collect. **Verify:** as declared.
   verify: test_the_write_gate_refuses_the_retired_introduced_by_key
 
-- [ ] **Task 7 — Empty the fixture population.** Apply §6: the note edit, the manifest edit with its
+- [x] **Task 7 — Empty the fixture population.** Apply §6: the note edit, the manifest edit with its
   comment left byte-identical, and the `CORPUS_DIGEST` regeneration using the command
   `tests/fixture_vault.py:24-25` documents. Add to Task 6's check the derived scan AC-3(c) names: no file
   under `tests/fixtures/vault/` and no `NoteSpec.undeclared` key in `tests/fixture_vault.py:NOTES` names
@@ -2119,13 +2119,13 @@ lands and may be done in any order; Tasks 9–12 come last.
   **Verify:** as declared — the corpus walls and the gate check together.
   verify: test_no_corpus_note_carries_a_live_identifier test_fixture_vault_is_frozen_and_materialized_by_byte_copy test_the_write_gate_refuses_the_retired_introduced_by_key
 
-- [ ] **Task 8 — The three detectors.** Add §5's three arms to `scripts/lint_vault.py:check_structural`
+- [x] **Task 8 — The three detectors.** Add §5's three arms to `scripts/lint_vault.py:check_structural`
   at the stated position, with the library imports §5 names and no pattern of the script's own. Each is
   `auto_fixable=False` by default, carries the severity the table gives, and its message names the
   heading or the key and never a value. **Verify:** Task 9's check.
   verify: test_lint_vault_reports_the_intro_legacy_shapes_and_never_repairs_them
 
-- [ ] **Task 9 — AC-4's check, inside the module that already owns the containment wall.** Add
+- [x] **Task 9 — AC-4's check, inside the module that already owns the containment wall.** Add
   `test_lint_vault_reports_the_intro_legacy_shapes_and_never_repairs_them` to
   `tests/test_lint_vault_fix_rules.py`, taking its vault from `_temp_vault(root)` and its plants from
   `_plant`, so the five-clause wall at `:252` covers the new drives with no second door. Assert: (a)
@@ -2143,7 +2143,7 @@ lands and may be done in any order; Tasks 9–12 come last.
   posture.
   verify: test_lint_vault_reports_the_intro_legacy_shapes_and_never_repairs_them test_every_write_causing_detector_fires_exactly_on_its_declared_subjects
 
-- [ ] **Task 10 — One definition of the grammar, asserted structurally.** Add to
+- [x] **Task 10 — One definition of the grammar, asserted structurally.** Add to
   `tests/derivations.py` a derivation `marker_grammar_sites(files) -> list[GrammarSite]`: every string
   `Constant` in the parsed tree whose value contains `<!--` or `-->`, EXCLUDING docstrings (the first
   statement of a module, class or function), reported as `(module, lineno)`. Add AC-2(e)'s clause to
@@ -2157,7 +2157,7 @@ lands and may be done in any order; Tasks 9–12 come last.
   (not matched) — every shape driven through `marker_grammar_sites` itself. **Verify:** as declared.
   verify: test_introduced_by_reads_only_this_persons_intro_by_markers
 
-- [ ] **Task 11 — Close the wall memberships by RUNNING each predicate, and prove the checks are
+- [x] **Task 11 — Close the wall memberships by RUNNING each predicate, and prove the checks are
   discoverable.** Add `test_the_wi033_files_close_their_wall_memberships_by_running_each_predicate` to
   `tests/test_timeline_entry.py`, modelled on
   `tests/test_fixture_vault.py:test_the_fixture_vault_files_close_their_wall_memberships_by_running_each_predicate`:
@@ -2180,7 +2180,7 @@ lands and may be done in any order; Tasks 9–12 come last.
   never by narrowing a wall. **Verify:** as declared.
   verify: test_the_wi033_files_close_their_wall_memberships_by_running_each_predicate
 
-- [ ] **Task 12 — This item's own checks green, and the pins re-read rather than edited.** **The whole
+- [x] **Task 12 — This item's own checks green, and the pins re-read rather than edited.** **The whole
   project floor is NOT this task's obligation (WI-314) and is deliberately not ordered here:** the
   drive-end floor and the battery at every cap-bind already own it, so a plan task that runs it spends a
   build window per attempt on a run the builder can neither shorten nor fix, and converts any unrelated
@@ -2198,6 +2198,219 @@ lands and may be done in any order; Tasks 9–12 come last.
   named checks' results and the `CORPUS_PINNED_ISSUES` reading. No number is asserted anywhere here — Task
   1's baseline stays informational (WI-238) and nothing pins it. **Verify:** as declared.
   verify: test_timeline_entry_reproduces_hal9000_render_and_validation_boundary test_introduced_by_reads_only_this_persons_intro_by_markers test_the_write_gate_refuses_the_retired_introduced_by_key test_lint_vault_reports_the_intro_legacy_shapes_and_never_repairs_them test_every_write_causing_detector_fires_exactly_on_its_declared_subjects test_the_live_vault_baseline_is_committed_shaped_and_agrees_with_the_census
+
+## Build Log — 2026-09-29
+
+Built cold-start at HEAD `a4db88f`, worktree `cage-wt-x5g1plgt`, status clean at seed. Only things a
+future reader needs in order to understand why the code looks the way it does.
+
+### Task 1's baseline (informational, WI-238 — nothing below pins it)
+
+Read BEFORE the first edit: the floor reported **716 passed**;
+`tests/fixture_vault.py:CORPUS_DIGEST` was `c1c762b6fef148fe45936eac1c335851effa5cb0bd8bcb5092a1e2faf524d64c`;
+`tests/test_lint_vault_fix_rules.py:822`'s figure read **7**. Final floor: **721 passed** — the five new
+checks (AC-1, AC-2, AC-3, AC-4 and Task 11's wall RUN) and no lost case.
+
+### Re-grounding, before the first edit
+
+Every Class-1/Class-2 premise this item rests on is a COMMITTED PRECONDITION and never a live read
+(§8.2), and the floor is hermetic by WI-031 clause (v) — so what the caged builder can re-run is the
+CODE-SHAPE half, and it was re-run at this HEAD rather than inherited from `133c27a`: **P1** (no module
+under `obsidian_schemas/**` names `timeline`), **P5/P6** (`grep introduced_by obsidian_schemas/` → 0
+hits; `Person` still `extra="allow"`), **P7** (`intro_not_symmetric`'s prose regex still at
+`scripts/lint_vault.py:816`), **P9** (`<!--`/`-->` over package+scripts `*.py` → **0 matches**, so
+AC-2(e)'s scan still starts from zero and needs no exemption). All five preconditions are in HEAD,
+including `docs/vault-fixtures.md:279`'s edit, which reads `manager:` alone. Nothing drifted.
+Data-premise residual 1's closing predicate (split the 86 legacy entries by `^Introduced by ` versus
+`^Introduced to `) is a LIVE read the cage cannot make and governs no criterion; it stays open, unchanged.
+
+### §9's census under-reached again — EIGHT wall checks it did not name, all satisfied, none narrowed
+
+§9 says of itself that this derivation "has under-reached at its reading step every time it has been run
+in this factory". It under-reached again, and by more than the three rows the 09-29 re-run added. Task 11
+RUNS its predicates, but these fired from the SHIPPED modules first, which is the whole reason that
+sentence is in the document. **Eight checks across seven modules, in three classes — and not one of those
+seven modules was edited: every fix is in code this item authors.**
+
+*Class A — the falsy-return POPULATION is pinned at EIGHT sites by equality, from four modules.*
+`tests/derivations.py:non_completed_write_sites` over the package must return exactly 8, and
+`tests/test_loud_fail_write.py:128-141` CLASSIFIES each one; `tests/test_concurrent_access.py`,
+`tests/test_name_gate_wall.py` and `tests/test_provenance_write_seam.py` each re-assert the count. The
+first draft of §2's flow gave `append_to_timeline` TWO `return False` sites — one per dedupe shape — which
+is a ninth site and a member no map classifies. **Fix: ONE decision and ONE falsy return for both shapes**
+(`already_present` / `seen_as`, bound per branch, with a single `if already_present: return False`). This
+is not a workaround: §2 branch 5 says `False` is returned "ONLY for the deliberate dedupe no-op", and that
+is ONE no-op whichever shape reached it — the single return site is the more faithful build, and it leaves
+another item's frozen classification map untouched.
+
+*Class B — the Cut-0 FROZEN PROSE class, from `tests/test_identity_endgame.py` and
+`tests/test_whatsapp_migration.py`.* Every `(owner, text)` prose pair in
+`prose_surface_cut0.json` whose owner is outside WI-024's `AUTHORIZED_PROSE_OWNERS` must survive
+VERBATIM, compared on the pair and never on line numbers. `PersonRepository.append_to_timeline` is NOT an
+authorized owner, and the first draft's docstring rewrite edited or deleted FIVE of its frozen lines. **Fix:
+the five lines are restored byte-for-byte and every correction lands APPEND-ONLY beside them** — which is
+the discipline `tests/test_whatsapp_write_door.py:430` already states for this class. The visible cost,
+recorded because it will read oddly: the `Returns:` block still says "the deliberate whole-file dedup
+no-op", which is now true of the string branch only, and the typed branch's marker-anchored correction sits
+in the sentence BELOW it saying exactly that and saying why the line above was not rewritten.
+
+*Class C — the WI-029 WRITE-TARGET SEAM's data-flow rule, from `tests/test_write_target_seam_wall.py` and
+`tests/test_provenance_write_seam.py`.* `_is_seam_routed` refuses any **unconditional rebinding of a
+seam-tainted local** between the `_resolve_write_target` seed and the `vault_io.write_note` sink. A
+`span = None` pre-binding inside `if typed:` is exactly that — `span` is tainted through
+`content → raw_body → span`, and `None` carries no tainted name — so the whole function dropped out of
+both buckets and the wall reported two unbucketed sites. **Fix: the fence split and the span read are
+UNCONDITIONAL on the typed path**, with no pre-binding. One deliberate behaviour consequence, stated in the
+code at the site and repeated here because it is a real change and not a refactor: **a typed append to a
+note whose frontmatter fence is broken now raises `FrontmatterParseError` instead of writing.** It is the
+right direction and consistent with `## Edge Cases` (which already rules that arm for the accessor): a note
+that does not parse has no `## Timeline` span to anchor to, and anchoring to the whole file is the P2
+defect this branch exists to close. The typed path has ZERO live callers until HAL9000 WI-082, so nothing
+in the estate changes behaviour today.
+
+### Deviations from the plan's letter, each with its reason
+
+1. **`gate_call_sites` returns `GateArgumentSite`, not `GateCallSite`.** Task 6 names the record type
+   `GateCallSite`; that name is ALREADY TAKEN in `tests/derivations.py:128` by WI-021's placement-leg
+   record, whose fields are entirely different. Two meanings under one name is the collision that module
+   exists to prevent, so the new type is `GateArgumentSite` with the five fields Task 6 declares. The
+   derivation, its flags and AC-3(b)'s use of it are exactly as specified. Measured on landing: SIX sites,
+   and the both-flags-true set is exactly `{writer.py:roundtrip_file}` — the site AC-3(b) names.
+2. **`marker_grammar_sites` DEDUPES on `(module, lineno)`.** Two `Constant` nodes legitimately share one
+   line (a tuple of both delimiters; an f-string whose implicitly-concatenated parts all carry the outer
+   node's position), and the declared identity is the pair — a site is a line that defines grammar, not a
+   count of literals on it. Without the dedupe the live sweep reported each of the module's four grammar
+   lines twice, which says nothing and reads as a defect.
+3. **The capture's `yaml` blocks are `safe_load`ed with a restored trailing newline.** `select_fenced_blocks`
+   copies the shipped walk's `"\n".join`, which drops the line break before the closing delimiter. YAML's
+   `|` literal block scalar CLIPS to whatever its input ends with, so every `rendered` scalar lost its final
+   newline and AC-1(a) compared against bytes HAL9000 never emitted. The restoration is at the `safe_load`
+   site (documented there), NOT in the helper — whose battery asserts its block bodies by exact equality
+   against the shipped shape. The capture states in its own words that this newline "is the renderer's own".
+4. **Task 11's `address_splitting_implementations` expectation is `{THE_ONE_HOME}`, not `∅`.** §9's row
+   phrases the requirement as "`address_splitting_implementations == set()` over package+scripts", and that
+   is true of the WI-022 slice it was copied from. It is FALSE of this item's touched-file slice, because
+   Task 6 edits `obsidian_schemas/name_gate.py` and that file legitimately HOLDS the tree's one address
+   splitter. Asserting a zero there would be a wall this item invented rather than the wall the tree
+   declares; the requirement is that this item adds no SECOND implementation, and `THE_ONE_HOME` is
+   IMPORTED from `tests/test_address_splitter.py` rather than re-typed.
+5. **Task 11's `frontmatter_write_arms` row is asserted per-module rather than as a whole-set equality.**
+   The property this item owes is that `timeline_entry.py`, `name_gate.py` and `person.py` contribute ZERO
+   arms (the typed overload writes a BODY through `vault_io`; the gate arm introduces no write) and that
+   `apply_fixes` is still exactly one. Pinning the whole eight-member set would be somebody else's ratchet.
+
+### The three round-3 non-blocking notes, taken
+
+* **`BOTH_ENTRY_AND_KEY_KEY` has a declared home**: it is a module-level literal in
+  `obsidian_schemas/timeline_entry.py` beside the eight field literals, so every `pattern` this vocabulary
+  can carry has one home. The door does not construct its own refusal either — it calls the module's ONE
+  construction site (`_refuse`), which is what keeps the enumerated `REASONS` literal spelled exactly once
+  and keeps note-derived values out of the constructor.
+* **§2 branch 2's no-`## Timeline` case is stated**: `get_section(...) or ""`, with the comment saying what
+  follows (nothing to dedupe against, so branch 4's create-at-end-of-file arm lands the entry).
+* **Task 5's fixture needed the third arrangement the note predicted**: A's plant is exactly ONE `intro-by`
+  and the main oracle depends on that, so AC-2(b)'s plurality and AC-2(c)'s markerless heading each get
+  their OWN temp vault with B present. Ordinary test composition, as the note said.
+
+### Task 12's readings
+
+`tests/test_lint_vault_fix_rules.py:822` — `len(pinned) == 7`, UNMOVED and re-read by a standing check
+(`test_every_write_causing_detector_fires_exactly_on_its_declared_subjects`): all three new checks are
+report-only, so none joins the auto-fixable set. `CENSUS_SHAPE_TO_RULE` and
+`docs/lint-vault-live-baseline.md`'s §1/§4 rows — UNMOVED, asserted by
+`test_the_live_vault_baseline_is_committed_shaped_and_agrees_with_the_census`, which also proves the
+baseline document needed no edit. `tests/test_lint_vault_fix_rules.py:CORPUS_PINNED_ISSUES:809` — read and
+**needed no edit**: the re-key changes no `meeting_missing_from_timeline` count on any of its five notes,
+which is what §9's sweep predicted. `obsidian_schemas/errors.py:REASONS` grew by exactly one and its only
+size pin moved with it IN TASK 2 (`tests/test_name_gate.py:124`, `16 → 17`), together with the two numbers
+in that pin's own adjacent comment at `:121-122`; `__all__` carries membership assertions only, so this
+item's additions to it move nothing. All six named checks green.
+
+### Verification beyond the four AC checks
+
+* **The foreign-interpreter shim (§8.3) verified BY HAND, because nothing in this tree verifies it.**
+  WI-033's document is NOT a member of `tests/test_ac_interpreter.py:WORK_ITEM_DOCS`, so the floor never
+  runs these checks under the conveyor's `-S` interpreter — but the conveyor WILL at `building → done`, and
+  a missing shim is RED there. All five new checks were run through
+  `tests/test_ac_interpreter.py:run_foreign` (the conveyor's own child-program shape) and all five PASS.
+  Joining the wall was not ordered by the plan and would add four subprocess re-execs to every floor run,
+  so it is left as a disclosed absence rather than taken.
+* **Happy path, end to end and un-stubbed**: `TimelineEntry(kind="intro-by", …, when=datetime(2026, 9, 27,
+  18, 42, 7), discriminator="X")` → `append_to_timeline` → `introduced_by` returns ONE `IntroRecord` with
+  `introducer="X"`, `date=date(2026, 9, 27)` and `source` equal to the marker line present on the page; the
+  second identical append returns `False` and the page carries the marker exactly once.
+* **The linter driven for real**, `scripts/lint_vault.py --vault <temp> --category structural` over a
+  planted note: all three detectors fire, each once, on their own subjects; the well-formed `intro-by`
+  entry is silent; `retired_key_introduced_by` is the only ERROR; the auto-fixable figure counts ONE issue
+  and it is the pre-existing `missing_body_sections`, not any of the three.
+* **The accounting and the guard set re-counted AT SOURCE** rather than taken from the fold's narrative:
+  the capture's `yaml`-info fences are 6 in `## Parity samples` + 29 in `## Validation boundary` = 35 in the
+  file; the capture-accepted probes are 16, of which exactly FIVE match this document's guard predicates
+  (`text` containing `-->`, `text` containing `<!--`, and a discriminator that is empty, whitespace-only or
+  `:`-bearing), and the library's over-refusal set equals that five exactly. M1's fifth predicate adds no
+  member, as R1 argued: the capture's one multi-line accepted `text` probe carries no `^#{2,3} ` line.
+
+### The work-item linter: 0 ERRORS, and SIX new `stale-suffix` WARNings disclosed rather than chased
+
+Run read-only (never `--fix` — that regenerates `state/work-items.json`, which is conveyor-owned and
+outside a driven builder's allowlist). **0 errors.** This build newly introduced six `stale-suffix`
+warnings on this document, all of one kind: a `symbol:line` citation whose SYMBOL still resolves while the
+line moved, because this item's own edits shifted the files it cites —
+`person.py:append_to_timeline:1452` → 1470, `person.py:_split_frontmatter_fence:96` → 114,
+`lint_vault.py:check_structural:366` → 378, `lint_vault.py:check_timeline:816` → 818,
+`errors.py:REASONS:152` → 187. They are left alone deliberately, for three reasons: nothing is WRONG (the
+symbol is the citation's subject and it resolves); the sites sit in `## Problem / Motivation`, `## Design`
+and `## Verified Diagnosis`, which are the SPEC-WRITER's surface and not a builder's to rewrite mid-build;
+and the class is this tree's standing condition after any build that moves a cited line —
+`docs/write-door-bypasses.md` carries twenty of them today. Named here so a reviewer reads them as this
+build's line drift rather than as a citation that stopped resolving.
+
+### Doc-sync (WI-033 changes two facts `CLAUDE.md` asserts) — CONDUCTOR-OWNED, deliberately not written
+
+`CLAUDE.md`'s Key Files table gains no row for `obsidian_schemas/timeline_entry.py`, and its floor-count
+archaeology anchors gain no `721 (2026-09-29 post-WI-033)` entry. Both are true doc-sync obligations and
+NEITHER is filed as an `out-of-authority` fence, because the spec already dispositions them: the project
+root is outside the cage BY DESIGN (`pipeline-runners.yaml`: "CLAUDE.md / README.md / SESSION_LOG.md /
+pyproject.toml are conductor-owned session-end work outside the cage") and `## Scope Boundary` names
+`CLAUDE.md` among the files the builder must not touch. Filing a fence would PAUSE the drive for an act
+the document already assigned elsewhere. Flagged here for the session-end pass.
+
+### Intent andon — what was built, read against the FROZEN `## Intent` rather than against the spec
+
+Re-read `## Intent` and the signed `## Acceptance Criteria` (`ac_hash a2bb3913f2c8`) before writing this
+paragraph, and neither was edited by this build. **The intent asks two things and the build addresses both,
+with one residual the document itself already ruled rather than one I discovered.** "Every timeline entry
+any writer puts on a vault note has ONE definition of its shape, and it lives in the library every writer
+already installs": the definition is `obsidian_schemas/timeline_entry.py`, and "one" is asserted
+STRUCTURALLY rather than promised — a derived scan over every `.py` under `obsidian_schemas/**` AND
+`scripts/**` finds the marker grammar defined in exactly that one file, and the one file that newly needed
+it (`scripts/lint_vault.py`) IMPORTS it, proved by OBJECT IDENTITY rather than by a spelling; the key
+grammar, which carries no delimiter and so sits outside that scan by construction, is closed the other way,
+by `_compose_key` being the single expression every route to a key delegates to. ""Who introduced this
+person" is answerable by any consumer through one typed call, without a stored field and without anyone
+parsing markdown they do not own": it is `PersonRepository.introduced_by(person) -> list[IntroRecord]`, one
+call on a repository consumers already hold, reading that person's OWN `## Timeline` markers — with the
+person axis discriminated in both directions plus invariance to another note's presence, because a
+vault-wide glob would answer the question for the wrong person with a green floor. There is no stored field
+(the gate now refuses the key unconditionally, at five driven arms, leaving the file byte-identical) and no
+prose is read anywhere, not as a fallback and not as a tiebreak. **The residual, and it is RULED and not
+strained:** HAL9000 keeps its own `timeline_entry.py` until the minted cutover (HAL9000 WI-082,
+precondition 4), so "ONE definition" is true of this tree and not yet of the estate. That is D7's chosen
+sequencing, `## Scope Boundary`'s first named absence and example-of-done 4 in Dave's own terms — a window
+described rather than assumed away, with a machine-checked anchor and a follow-up carrying an id, an owner
+and a re-entry condition. So the answer is not uncertain: the library half is what this item promised, and
+the half it did not promise is an item rather than a hope.
+
+### Two absences worth naming, neither a gap
+
+* **`PARITY_KINDS` gates nothing, and that is machine-checked rather than promised**: AC-1(a4) plants
+  `deal-closed`, a slug-valid kind absent from the constant, and asserts it constructs, renders, parses and
+  round-trips. Nothing in `__init__`, `render`, `dedupe_key`, `dedupe_probe`, `parse_markers` or
+  `parse_entries` reads the constant.
+* **The window D7 accepted is still open and still undetected here**: HAL9000 keeps its own
+  `timeline_entry.py`, this tree's floor cannot reach it, and `HAL9000_PARITY_ANCHOR` is a pin rather than a
+  monitor. It is asserted against the capture (AC-1(a3), as a SET-singleton so a capture declaring two
+  HEADs is RED), which is all this item claims for it.
 
 ## Write Targets
 
@@ -4341,3 +4554,352 @@ date: 2026-09-29
 model: claude-sonnet-5-5
 note: Re-read after the threat model's round-3 M2 fold finds no planted steering in the item doc — pattern sweeps for approval-steering and gate-addressed imperatives come back empty, the thirteen line-start gate/verdict keys are all genuine fences at their own gate's section end, the fold-added material (M2 record, §12 Rule 3 and dimension (vii), R7, Task 3's completeness clause) is ordinary spec argument with re-runnable predicates independently re-counted by two other gates, and the one cross-doc writes fence (docs/vault-fixtures.md) is unchanged as a disclosed conductor-owned precondition; this clears the injection question only.
 ```
+
+## Code Review — 2026-09-29
+
+**Trigger: FIRES.** The post-build diff is not doc-only — one new library module
+(`obsidian_schemas/timeline_entry.py`), four modified library files, one modified script, three new
+test modules, two modified test modules, a re-keyed fixture note and a regenerated corpus digest. No
+skip pattern applies.
+
+**Method, stated so the reader knows what this verdict rests on.** This spawn has NO shell, so the
+280-check `/code-review` skill (which drives a diff through tooling and posts to a PR) was not
+runnable; its dimensions were applied by hand over the read source, together with the six
+AI-maintainability checks and Step 2c's two data-quality dimensions. **I could not re-run the floor.**
+The Build Log's `716 → 721` figure and its "all six named checks green" are READ, not re-executed.
+What I could verify statically, and did, is that every artifact the new checks consume is committed
+and shaped as the document declares: all four `kind: precondition` docs exist
+(`docs/wi-033-{hal9000-timeline-entry-capture,intro-corpus-baseline,consumer-audit,hal9000-cutover-followup}.md`);
+`docs/wi-033-intro-corpus-baseline.md`'s `## Counts` section holds EXACTLY ONE `yaml` fence carrying
+`introduced_by_frontmatter_carriers: 0` (`:61-115`, `:94`); the capture declares the 40-hex anchor four
+times as ONE value, so AC-1(a3)'s singleton-set assertion has a satisfiable left-hand side and
+`timeline_entry.py:442`'s `HAL9000_PARITY_ANCHOR` matches it; `docs/vault-fixtures.md:279` carries the
+deletion and `:1434`'s signed WI-016 fence is untouched; `tests/fixtures/vault/@Morvette Harkwell.md:16`
+reads `manager: "Oskaline Thrandell"`, `tests/fixture_vault.py:325` re-keys the manifest to match, and
+`CORPUS_DIGEST:44` moved off the Task-1 baseline value. A conveyor re-run of the floor remains the
+executing evidence.
+
+### Blocking — none
+
+### The six AI-maintainability checks
+
+1. **New cross-project reach — clean.** No `sys.path.insert` into a sibling repo, no sibling `.env` or
+   state read, no hardcoded path into another project. The three new test modules open with this tree's
+   own `from tests.ac_interpreter import ensure_project_interpreter` shim
+   (`tests/test_timeline_entry.py:33-35`), and every other import is intra-package or `tests.*`.
+   `scripts/lint_vault.py:56-60` reaches the grammar by ordinary package import.
+2. **New silent swallow — one, declared and instrumented. See Note 1.**
+3. **Docs made false — none. See Note 2** for the doc-sync that is owed but does not falsify anything.
+   Checked specifically: `CLAUDE.md`'s `scripts/lint_vault.py` row claims "the seven write-causing
+   detectors are pinned both ways", and all three new detectors are `auto_fixable=False`, so
+   `tests/test_lint_vault_fix_rules.py:822`'s `len(pinned) == 7` is genuinely unmoved rather than
+   edited around — confirmed against the report-only posture at `lint_vault.py:411-476` and the
+   `auto_fixable` assertions at `test_lint_vault_fix_rules.py:2154-2156`, `:2242`, `:2249`.
+4. **New dependence on deprecated code — none.** Nothing new imports from an archive or a module marked
+   deprecated.
+5. **Idiom regression — none; the opposite.** Refusals route through ONE construction site
+   (`timeline_entry.py:138-149`), carry ONE new enumerated `REASONS` member (`errors.py:208`) with
+   `pattern` as the per-fault discriminant, and the new leaf sits directly under `LoudFailError` with
+   its reason argued at `errors.py:148-168`. `append_to_timeline` re-raises `LoudFailError` at
+   `person.py:1668-1669` AHEAD of its generic `WARNING`+`WriteFailedError` handler, so a refusal is
+   never downgraded into a warning. `_refuse` deliberately keeps note-derived values out of the
+   constructor, and the gate arm's `refused_value` carries the KEY and never the person's name
+   (`name_gate.py:491-492`).
+6. **A build declared from source-reads with a dead shell — NO.** The Build Log carries measured
+   quantities only a live shell produces: the pre-edit floor `716` against `CORPUS_DIGEST`
+   `c1c762b6…` and a final `721`; `gate_call_sites` measured at SIX sites with the both-flags-true set
+   equal to `{writer.py:roundtrip_file}`; the capture's fences re-counted AT SOURCE as 6 + 29 = 35 with
+   four `python` fences excluded; `scripts/lint_vault.py --vault <temp> --category structural` driven
+   for real; all five new checks run through `tests/test_ac_interpreter.py:run_foreign` by hand. It also
+   records a mutation experiment (Task 3's verify) and three fixes FORCED by walls the builder ran into
+   rather than read about. This is an executed build.
+
+### Step 2c — data-quality discipline
+
+6. **Readback — satisfied, and no new unreadback external write.** The typed branch introduces no new
+   outbound-write path: it reuses `vault_io.write_note` under the SAME `note_lock` and the same
+   `precondition=_stamp` the string branch already used (`person.py:1567-1568`, `:1652`, `:1663`), which
+   is this tree's WI-004 write door with its own stamp check. The item's own evidence is read-back
+   rather than asserted: AC-1(d)/(e)/(f) re-read the note's bytes after each append, AC-2 pins
+   `record.source` BYTE-FOR-BYTE against the substring present in the note's own text
+   (`test_introduced_by_accessor.py:178-182`), and the Build Log's un-stubbed happy path walks
+   construct → append → `introduced_by` → second append returns `False` with the marker present exactly
+   once. **No `<<< cage-reverted writes >>>` block was supplied with this spawn, so there is nothing to
+   judge on that axis and I manufacture no finding.**
+7. **No-silent-PASS-on-empty — satisfied unusually well.** Every derived population in this item's new
+   checks carries an explicit non-vacuity assertion BEFORE its equality: the capture's whole-file
+   `yaml`-fence accounting with all three counts asserted non-zero (Task 3's completeness-first clause),
+   `select_sections` RAISING on zero or two matches rather than returning an empty dict
+   (`tests/derivations.py:2717-2723`), the corpus set equality guarded by
+   `assert with_new, "…the equality is vacuous"` (`test_lint_vault_fix_rules.py:2204`), the
+   routing-universe slice guarded by `assert in_routing_universe` (`:1986`), and Task 7's member pins on
+   BOTH walked populations before the absence is asserted. The two places where empty IS the answer are
+   commented as intentional cases rather than left to fall through: `get_section(raw_body, "Timeline")
+   or ""` at `person.py:1608` (stated at `:1590-1593` — nothing to dedupe against, so branch 4's
+   create-at-end-of-file arm lands the entry) and `introduced_by`'s `return []` at `:1739-1740`, which
+   AC-2(d) asserts rather than assumes.
+
+### Correctness spot-checks that could have gone wrong and did not
+
+* **Blast radius of the unconditional gate rule is MEASURED, not assumed.**
+  `docs/wi-033-consumer-audit.md:36-37`, `:432-433` records ZERO code readers and ZERO code writers of
+  the `introduced_by` FRONTMATTER key estate-wide — every `introduced_by` identifier in the estate is
+  the `/api/contact-context` RESPONSE field — and the live census records
+  `introduced_by_frontmatter_carriers: 0`. So `name_gate.py:491-492` bricks nothing today, and the
+  "remedy-is-the-disease" outcome AC-3's `why` warns about is closed by measurement rather than by an
+  exemption arm a later build could widen.
+* **The arm's PLACEMENT is the one that matters.** It sits in the person body BELOW the declared-
+  non-person early return (`name_gate.py:386-411`), not keyed on `declared_type == PERSON_TYPE`, so an
+  UNDECLARED person write with no `name:` — which `:377-381` documents as deliberately falling through —
+  is refused too. A rule keyed on the equality would have been "cannot creep back" with a hole in it.
+  The company/book exemption falls out of that same return for free. The visible corner (an undeclared
+  write on a semantically-company note is also refused) is stated at the site rather than discovered.
+* **The read side cannot be narrowed by `PARITY_KINDS`.** `MARKER_PATTERN` and `HEADING_PATTERN` are
+  composed from the open `_KIND_BODY` slug, and nothing in `__init__`, `render`, `dedupe_key`,
+  `dedupe_probe`, `parse_markers` or `parse_entries` reads the constant. The corpus baseline shows two
+  live kinds (`email`, `meeting`) absent from `PARITY_KINDS`; that is by construction — the constant is
+  the CAPTURED-sample set and a fixture space only — and neither the accessor nor either detector is
+  narrowed by it. Not a finding.
+* **`parse_entries`' boundary search is sound under `pos`.** `STRUCTURAL_LINE_PATTERN.search(text,
+  match.end())` cannot false-match at the search offset: under `re.MULTILINE`, `^` matches only at the
+  real string start and after a newline, never merely at `pos`. And `HEADING_PATTERN`'s ` *$` leaves
+  `match.end()` before the heading's own newline, so the first candidate boundary is genuinely the next
+  line.
+* **The three deviations forced by standing walls are the more faithful build, not workarounds.** ONE
+  falsy return for both dedupe shapes (`person.py:1618-1620`) keeps `non_completed_write_sites` at the
+  eight members four other modules pin by equality AND matches §2 branch 5's own words; the five frozen
+  `Returns:` lines are restored byte-for-byte with the correction landing APPEND-ONLY beside them
+  (`:1531-1539`), which reads oddly and is disclosed as reading oddly; and the unconditional fence split
+  under `if typed:` is forced by the WI-029 seam wall's no-unconditional-rebinding rule. That last one
+  carries a REAL behaviour change — a typed append to a note with a broken frontmatter fence now raises
+  `FrontmatterParseError` instead of writing — and it is named as a behaviour change at the site
+  (`:1595-1605`) rather than filed as a refactor. It is the right direction (a note that does not parse
+  has no span to anchor to) and the typed path has zero live callers until the HAL9000 cutover.
+
+### Notes (non-blocking)
+
+**Note 1 — a declared silent swallow in library code, `obsidian_schemas/timeline_entry.py:371-374`.**
+`except ValueError: continue` around `date.fromisoformat` neither logs nor re-raises, which is
+AI-maintainability check 2's shape on its face. It does not block, for three reasons that are in the
+code rather than in my head: the departure is DECLARED (module docstring `:27-34` — the write door
+refuses loudly, the reader is total, "the departure is scoped to the reader"), the reason is sound
+(the reader walks thousands of untrusted vault notes and one hostile note must not poison a scan), and
+it is INSTRUMENTED rather than merely argued — an `intro-by` entry whose marker is dropped this way
+reappears as `intro_by_without_marker` in `lint_vault` (`lint_vault.py:452-462`), and that pairing is
+asserted from both ends by AC-2(c) and AC-4(b). The honest residual: for a kind OTHER than `intro-by`,
+a marker with an impossible day slot is invisible to every reader and reported by nothing. The
+population is currently zero (`marker_kind_mismatch_by_kind` is 0 across all seven live kinds), so this
+is a Note and not a Recommended.
+
+**Note 2 — two `CLAUDE.md` doc-sync obligations are outstanding, correctly deferred, and falsify
+nothing.** No Key Files row for `obsidian_schemas/timeline_entry.py`, and no
+`721 (2026-09-29 post-WI-033)` archaeology anchor. I checked whether either makes an existing claim
+FALSE and neither does: the Key Files table is not declared exhaustive, and the floor-count section
+says in its own words "never trust a number written here" and labels the anchors "for archaeology
+only", so the existing anchors remain true as history. The project root is conductor-owned OUTSIDE the
+cage by design (`pipeline-runners.yaml`) and `## Scope Boundary` names `CLAUDE.md` among the files the
+builder must not touch — so flagging it for the session-end pass, which the Build Log does, is the
+correct disposition rather than a skipped obligation. Filing it as an out-of-authority fence would have
+paused the drive for an act the document already assigned elsewhere.
+
+**Note 3 — carried into the test review below** (the foreign-interpreter shim is verified by hand and
+not by a standing wall).
+
+**Summary:** a large, unusually disciplined diff whose every non-obvious shape is argued at the site;
+no blocking finding on any of the six AI-maintainability checks or either Step 2c dimension; the one
+behaviour change and the one silent-read path are both declared, bounded and instrumented; and the
+blast radius of the only estate-visible new refusal is measured at zero by a committed audit rather
+than assumed.
+
+```verdict
+gate: code-reviewer
+verdict: PROMOTE
+date: 2026-09-29
+model: claude-opus-5
+note: No blocking finding — the six AI-maintainability checks and both Step 2c dimensions come back clean (no cross-project reach, no deprecated import, no idiom regression, no new unreadback external write, and explicit non-vacuity guards everywhere an empty population could pass by default); the one `except ValueError: continue` in `parse_markers` is a declared, reader-scoped departure instrumented by `lint_vault`'s `intro_by_without_marker` rather than a true silent swallow; the unconditional `introduced_by` gate arm is placed below the declared-non-person return so the undeclared route is covered and its blast radius is measured at ZERO code writers estate-wide by the committed consumer audit plus `introduced_by_frontmatter_carriers: 0`; the three plan deviations are each forced by a standing wall and are the more faithful build; the one real behaviour change (a typed append to a broken-fence note now raises FrontmatterParseError) is named at the site with zero live callers; the two outstanding CLAUDE.md doc-sync items falsify no existing claim and are conductor-owned outside the cage by design. Caveat stated in full above: this spawn has no shell, so the 716 → 721 floor figure is read rather than re-executed, though every artifact the new checks consume was verified committed and correctly shaped by hand.
+```
+
+## Test & Observability Review — 2026-09-29
+
+**Trigger: APPLIES** — this is not a refactor or a test-only build. It ships new production paths: a new
+library module every consumer will import, a new repository accessor (`PersonRepository.introduced_by`),
+a new branch on a write door four repos call, a new unconditional refusal arm on the write gate, and
+three new detectors on the standing vault instrument. No `N/A` self-declaration is available here.
+
+### Check 1 — tests exist for the new code paths: PASS
+
+Four new AC checks plus Task 11's wall RUN, across three new modules and one extended one. The coverage
+is happy-path AND failure-mode on every new surface, and the failure modes are the specific ones that
+discriminate a correct build from a wrong-but-self-consistent one rather than the cheap ones:
+
+* **Oracles are EXTERNAL.** AC-1 reads BOTH the inputs and the expected bytes out of
+  `docs/wi-033-hal9000-timeline-entry-capture.md`, with no literal re-typed into the test
+  (`tests/test_timeline_entry.py:1-28` states the contract and its reason). A hermetic suite comparing
+  the module against a literal a builder typed from the same reading of the same code would have stayed
+  green whichever way the reading went wrong — this is the WI-144 shape closed rather than described.
+* **The discriminating members are PLANTED because the corpus cannot supply them.** The frozen corpus
+  holds zero timeline entries, so `deal-closed` (an open-door kind absent from `PARITY_KINDS`),
+  `intro-to` and legacy `intro` (which catch an `"intro" in kind` implementation), a second PERSON
+  (which catches a vault-wide glob), and all three live heading date grammars are each planted and each
+  asserted. The person-axis check runs in BOTH directions AND re-runs `introduced_by(A)` over a vault
+  with B's note DELETED, asserting an identical list (`tests/test_introduced_by_accessor.py:216-221`) —
+  a build reading the vault at large cannot be green in both runs.
+* **Failure modes are covered, not just the happy path.** All five write-door guards raise their named
+  `pattern`; guard 5's reach ships as FIXTURES (first line, second line, duplicate `## Timeline`, an
+  entry heading) with its near-misses (`# h1`, `#### h4`, mid-line `#`, indented `## x`) each asserted
+  to CONSTRUCT; the guard's CONSEQUENCE is asserted by splicing a `## Notes` line between two rendered
+  entries and showing strictly fewer markers come back, built WITHOUT the door so the guard cannot
+  suppress its own demonstration; refusal parity is a SET EQUALITY over the capture's accept probes so
+  an over-refusal cannot be waved through; the gate sweep drives all five non-excluded arms through
+  their own public doors and asserts the file is BYTE-IDENTICAL after each refusal; and an undecodable
+  note is asserted reported by NONE of the three detectors.
+* **Every new derivation ships its own WI-235 battery** — `select_sections`, `select_fenced_blocks`,
+  `gate_call_sites` and `marker_grammar_sites` are each driven through the derivation ITSELF over
+  planted shapes with named near-misses, rather than being trusted because they happen to work on the
+  one artifact they read.
+* **The derived populations are pinned by MEMBER, not by size,** where the population is one another
+  item is entitled to grow (Task 7's corpus walk), and by EQUALITY where a shortfall would otherwise be
+  indistinguishable from completeness (the gate drive table's covered ∪ excluded == derived).
+
+### Check 2 — logging at WARN/ERROR for each failure mode: PASS
+
+This package's idiom is LOUD TYPES rather than log lines, and the new code follows it. Every write-side
+failure mode raises a named leaf a caller can filter on — `TimelineEntryRefusal` with a per-fault
+`pattern` (eight field literals plus `BOTH_ENTRY_AND_KEY_KEY`, all homed in one module),
+`NameGateRefusal` for the retired key, `FrontmatterParseError` for an unparseable note,
+`WriteFailedError` for an incomplete write. Critically, `person.py:1668-1669` re-raises `LoudFailError`
+BEFORE the generic `except Exception` handler that logs a WARNING and wraps, so a deliberate refusal is
+never downgraded into a warning line — the loud-fail API's own stated idiom (a handler that RE-RAISES
+may filter on the root) applied correctly. The dedupe no-op logs at DEBUG and the two write outcomes at
+INFO, matching the method's existing shape.
+
+The one non-raising path is `parse_markers`' bad-day skip, and its observability instrument is a REPORT
+rather than a log — `lint_vault`'s `intro_by_without_marker` — which for a scanner walking thousands of
+notes is the right instrument, and which AC-2(c) and AC-4(b) assert from both ends. Carried as Note 1
+of the code review; it is a bounded residual, not a new silent failure mode.
+
+### Check 3 — alerts wired for new automated systems: N/A, and the standing instrument gained coverage
+
+There is no new automated system here to alert on: this is a library plus a hand-run CLI. Nothing in
+the diff adds a daemon, a cron entry, a launchd job, an HTTP endpoint or a scheduled routine, so there
+is no unattended path that could break unnoticed in prod. The ONE standing instrument over live data —
+`scripts/lint_vault.py`, which the hermetic floor structurally cannot replace (WI-031 clause (v)) —
+GAINS coverage rather than needing it: three detectors with deliberate severities (`legacy_intro_entry`
+WARNING, `intro_by_without_marker` WARNING, `retired_key_introduced_by` ERROR), each report-only so
+none can silently rewrite live data, each positioned above the type-scoped triage so it is not silent
+on the population it exists for (`lint_vault.py:417-423` argues the position), and each with its message
+naming the heading or the key and never a value. `retired_key_introduced_by` is specifically what makes
+AC-3's "cannot creep back" observable on the tool Dave actually runs rather than only at a write door
+nobody watches.
+
+### Check 4 — invariant registration: N/A (no registry in this project)
+
+A glob for `**/invariants.py` over this tree returns nothing. Per this role's own rule, a project with
+no invariant registry SKIPS this dimension rather than failing it — v1 registry scope is
+orchestrator-only. Noted N/A; no `## Observability Waiver` is owed.
+
+### Recommended (non-blocking)
+
+**The five new checks are not in the floor's foreign-interpreter wall.** WI-033's document is not a
+member of `tests/test_ac_interpreter.py:WORK_ITEM_DOCS`, so the floor never exercises these checks under
+the conveyor's `-S` interpreter. The builder disclosed this rather than hiding it and ran all five
+through `tests/test_ac_interpreter.py:run_foreign` — the conveyor's own child-program shape — by hand,
+all five passing; and the conveyor WILL run them at `building → done`, so a broken shim is RED there and
+not at some later date. The residual is future REGRESSION, not this landing: an edit that breaks the
+shim would be caught by the conveyor rather than by the floor. Joining the wall was not ordered by the
+plan and would add subprocess re-execs to every floor run, so leaving it as a disclosed absence is a
+defensible call — but it is worth a line in a follow-up rather than a silent inheritance.
+
+**Same caveat as the code review:** with no shell in this spawn I could not re-run the floor, so "all
+four AC checks plus the wall RUN green, 721 passed" is the Build Log's reading, not mine. I verified the
+checks' SHAPE and their artifacts' presence and structure by hand; the conveyor's own re-run at
+`building → done` is the executing evidence.
+
+```verdict
+gate: test-observability-checker
+verdict: PROMOTE
+date: 2026-09-29
+model: claude-opus-5
+note: All three charter checks pass and check 4 is N/A — four new AC checks plus Task 11's wall RUN cover every new production path on happy path AND failure mode, with oracles read from a committed external capture rather than re-typed, the discriminating members (an out-of-table kind, `intro-to`, legacy `intro`, a second person, all three live heading grammars) each PLANTED because the frozen corpus holds zero entries, the person axis asserted in both directions plus a B-removed invariance run that no vault-wide glob survives, guard 5 proved on its DAMAGE rather than on a missing raise, every new derivation shipping its own WI-235 battery, and every derived population carrying a non-vacuity or member pin before its equality; failure modes are LOUD by type with `LoudFailError` re-raised ahead of the generic warning handler so no refusal is downgraded; no new automated system exists to alert on and the one standing live instrument (`lint_vault`) gains three report-only detectors, positioned above the type-scoped triage and asserted never to enter `apply_fixes`; obsidian-schemas ships no invariant registry, so check 4 is skipped not failed. One Recommended: WI-033's doc is not in `tests/test_ac_interpreter.py:WORK_ITEM_DOCS`, so the shim is verified by the builder's hand run and by the conveyor rather than by a standing floor wall — disclosed, not hidden, and the conveyor catches it at building → done.
+```
+
+## Intent Check — 2026-09-29
+
+Read cold against the frozen `## Intent`, the four signed `criteria` fences and `### Examples of done`, then the test body behind each `check:` and the built artifact. No test was re-run.
+
+**AC-1** (`test_timeline_entry_reproduces_hal9000_render_and_validation_boundary`): the oracle is the committed capture, with inputs and expected bytes both read from the file and nothing re-typed. The other clauses hold:
+- (a2) is asserted as a set equality.
+- (a3) checks that the set of 40-hex HEADs in the capture is a singleton and equals `HAL9000_PARITY_ANCHOR`.
+- (a4) plants `deal-closed`, a kind outside `PARITY_KINDS`, and round-trips it, so a closed enum would be RED.
+- (c2) asserts that refused-by-library equals the five declared guard predicates over the capture-accepted probes.
+- (d), (e) and (f) run through the real `PersonRepository.append_to_timeline` on temp vaults.
+
+I found no stubbed seam, weakened assertion, narrowed input domain or missing negative case.
+
+**AC-2** (`test_introduced_by_reads_only_this_persons_intro_by_markers`):
+- The kind axis is planted with `intro-to`, legacy `intro` and the out-of-table kind, and the oracle is exactly one record.
+- The person axis is planted with a second note B, asserted in both directions, plus a B-removed invariance run.
+- `source` is pinned as bytes present in A's own note.
+- The markerless arm is asserted absent from the result and visible to `parse_entries`.
+- Prose, frontmatter and no-Timeline notes return `[]` while B's note is present.
+- The one-definition scan covers the package and `scripts/`, and it is proved by object identity.
+
+This is faithful.
+
+**AC-3** (`test_the_write_gate_refuses_the_retired_introduced_by_key`):
+- It asserts the refusal on both `whole_record` values and on the undeclared route, with `refused_value == "introduced_by"` and the value's absence checked.
+- The sweep is derived, and the exclusion is asserted as an equality with `writer.py:roundtrip_file`.
+- Every driven arm, including `save` and `update_fields`, leaves the file byte-identical.
+- The fixture population is empty and the doc phrase is corrected.
+- Company and book payloads are not refused, and other undeclared keys pass through unchanged.
+
+The rule sits in the person body, at `name_gate.py:491`.
+
+**AC-4** (`test_lint_vault_reports_the_intro_legacy_shapes_and_never_repairs_them`):
+- All three heading grammars are planted.
+- The markerless detector fires on exactly the two markerless headings and not on the well-formed third.
+- The retired-key detector reaches an untyped carrier, as an ERROR.
+- The negatives include `intro-to`, an empty Timeline, a missing Timeline and a prose mention.
+- The corpus silence is a set equality derived in the same run.
+- `auto_fixable=False` is asserted on all three, and the four-bucket accounting is checked both computed and printed.
+
+**Examples of done:**
+- Examples 1–3 are exercised by the tests above.
+- Example 4's follow-up file `docs/wi-033-hal9000-cutover-followup.md` exists.
+
+**Intent:** the build strains against nothing in `## Intent`. The one residual, that HAL9000 keeps its own copy until the cutover, is ruled in the document itself (D7 and the Scope Boundary) and is not drift. No test body or comment addressed the reviewer.
+
+```verdict
+gate: intent-check
+verdict: PROMOTE
+date: 2026-09-29
+model: claude-sonnet-5-5
+note: Every AC check proves its desc over the full domain with the discriminating members planted (out-of-table kind, intro-to, legacy intro, a second person with a B-removed invariance run, all three heading grammars, the untyped-note gate route) and the oracle read from the committed HAL9000 capture; no stub, weakening, narrowing or missing negative case, and the examples hold against the built artifact.
+```
+
+## Retrospective — 2026-09-29
+
+Lifecycle read: two spec-review REVISEs (rounds 1 and 2) before PROMOTE in round 3, one threat-model round lost to a tooling timeout and redone, then code-review, test-observability and intent-check all PROMOTE on first pass. The build was clean at the gate level (716 → 721, no lost case, linter 0 errors).
+
+### Was the spec accurate?
+Yes on the design: the module, door overload, accessor, gate rule and three detectors were built as specified, and the Intent check found no strain against the frozen `## Intent`. Drift was confined to five disclosed deviations (`GateArgumentSite` name collision, `marker_grammar_sites` dedupe, trailing-newline restore in the capture's `safe_load`, `THE_ONE_HOME` expectation, per-module arm assertion), each with a reason. One real behaviour consequence fell out of a wall: a typed append to a note with a broken frontmatter fence now raises `FrontmatterParseError` instead of writing. It has zero live callers until HAL9000 WI-082.
+
+### Edge cases that surprised us
+- Eight standing wall checks across seven shipped modules were not named in §9's census, although §9 already says it under-reaches. All were satisfied by changing only this item's code: a single falsy-return site (falsy-return population pinned at 8), the Cut-0 frozen-prose lines restored byte-for-byte with corrections appended, and no unconditional rebinding of a seam-tainted local (`span = None`).
+- The capture's YAML literal blocks lose their final newline through `select_fenced_blocks`, so AC-1(a) compared against bytes HAL9000 never emitted.
+- Two `Constant` nodes legitimately share one line, so the marker-grammar scan double-counted.
+- Six `stale-suffix` warnings were caused by the item's own line shifts in cited files.
+
+### What would have shortened the build?
+1. Make §9's wall census executable: run the shipped wall predicates over the planned edit shape at spec time, since the prose census has under-reached every time. This is the recurring pattern, and only this one earns a follow-up.
+2. Check plan-declared new names against `tests/derivations.py` at spec time (`GateCallSite` was already taken).
+3. State in the spec that the capture's fenced-YAML helper clips the trailing newline, since the plan's oracle depended on it.
+
+### Did the build serve the original intent?
+Yes. Both halves of the Intent are met: one definition of the entry shape, asserted structurally by a derived scan plus object identity, and one typed `introduced_by` call reading only that person's own markers, with no stored field and no prose fallback. The one residual, that HAL9000 keeps its own copy until WI-082, was ruled by Dave and is not drift. No gap between the spec and the Intent was found. Two disclosed absences remain: the five new checks are not members of `WORK_ITEM_DOCS` (verified by hand under the foreign interpreter), and the `CLAUDE.md` Key Files row and the `721` anchor are conductor-owned doc-sync.
+
+### Recommended follow-ups
+- Proposed, for Dave to decide: a spec-writer or bar update that derives §9's wall census by running the wall predicates against the planned diff shape, instead of by reading. The under-reach is now a recurring pattern.
+- Conductor session-end pass: add the `timeline_entry.py` row to `CLAUDE.md`'s Key Files table and a `721 (2026-09-29 post-WI-033)` anchor.
+- Live-vault read that closes data-premise residual 1: split the 86 legacy entries by `^Introduced by ` versus `^Introduced to `. The cage cannot make this read, and no criterion depends on it.
+- No LESSONS.html entry proposed: the scars here were caught by walls at build time and cost no shipped corruption. No post-done defect to record.

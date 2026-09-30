@@ -15,7 +15,7 @@ import re
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, List, Literal, Tuple, Type
+from typing import Optional, List, Literal, Tuple, Type, Union
 
 from ..models import Person
 from ..name_validation import (
@@ -70,10 +70,28 @@ from ..errors import (
     FrontmatterParseError,
     LoudFailError,
     NoteAlreadyExists,
+    TimelineEntryRefusal,
     WriteFailedError,
     bounded_message,
     chainable_cause,
 )
+# WI-033: the timeline-entry VOCABULARY is the library's own now, and this door
+# reads it rather than re-typing any part of it. `timeline_entry` is a LEAF whose
+# only intra-package import is `errors`, so this closes no cycle.
+from ..timeline_entry import (
+    BOTH_ENTRY_AND_KEY_KEY,
+    IntroRecord,
+    INTRO_BY_KIND,
+    TimelineEntry,
+    dedupe_probe,
+    parse_markers,
+    render,
+)
+# The vocabulary's ONE refusal construction site, imported rather than repeated:
+# it is what keeps the enumerated `REASONS` literal spelled exactly once and
+# keeps note-derived values out of the constructor. A second `TimelineEntryRefusal(...)`
+# here would be a second spelling of both decisions.
+from ..timeline_entry import _refuse as _refuse_timeline_field
 from .base import BaseRepository
 # WI-021: `normalize_phone` / `phones_match` MOVED to the stdlib-only leaf
 # `obsidian_schemas/phone_normalization.py` so `name_gate.py` can name the
@@ -1452,7 +1470,7 @@ class PersonRepository(BaseRepository[Person]):
     def append_to_timeline(
         self,
         person: Person,
-        entry: str,
+        entry: Union[str, TimelineEntry],
         deduplicate_key: Optional[str] = None,
     ) -> bool:
         """
@@ -1466,21 +1484,72 @@ class PersonRepository(BaseRepository[Person]):
         entry lands rather than being dropped. Every pre-existing byte is
         preserved and the frontmatter stays byte-identical.
 
+        TWO INPUT SHAPES, and the difference is the whole of WI-033's door fix:
+
+        * A ``TimelineEntry`` (the TYPED path). Both the rendered bytes AND the
+          dedupe key are derived from that ONE object, so the key a caller
+          dedupes on can no longer disagree with the marker the write embeds.
+          Dedupe is MARKER-ANCHORED: it compares ``timeline_entry.dedupe_probe``
+          — the verbatim ``<!-- {key} -->`` line the same ``render`` emits —
+          against the markers inside the ``## Timeline`` span, so a ``## Notes``
+          line quoting the key is outside the span and a quoted key inside it
+          that is not a well-formed marker line does not match. An entry with NO
+          discriminator has no event identity and is therefore NOT deduped at
+          all (the vocabulary's own rule): two identical ``note`` entries
+          legitimately write twice. Supplying a ``deduplicate_key`` ALONGSIDE a
+          typed entry is refused with ``TimelineEntryRefusal`` — the typed path
+          derives the key, and a second one is the caller asking this door to
+          disagree with itself.
+        * A ``str`` (the shipped path). Byte-for-byte today's behaviour,
+          INCLUDING the whole-file substring dedupe below. Unguarded by design
+          rather than by omission: the vocabulary's validation lives on
+          ``TimelineEntry`` CONSTRUCTION, this branch takes a string nobody
+          typed exactly as it does today, and narrowing it would change live
+          callers — one of which dedupes a high-volume meeting line on a bare
+          stem matched whole-file and would duplicate it on every re-run.
+
+        **THE ANCHORING IS A READ; THE WRITE MECHANISM IS UNTOUCHED.** The typed
+        path locates ``## Timeline`` for its dedupe test through
+        ``body_sections.get_section``, which is ``parse_body_sections`` one frame
+        in. The WRITE remains the string insertion below, and the
+        no-``## Timeline`` accommodation is not touched: its comment states at
+        length why the ``parse_body_sections``/``write_body_sections`` round trip
+        must never be the write mechanism here, and nothing on this path
+        introduces one.
+
         Args:
             person: The person whose timeline to update
             entry: The full entry to append (e.g., "### Dec 3, 2025\\n[[Meeting]]...")
+                   — or, since WI-033, a ``TimelineEntry``, from which BOTH the
+                   rendered bytes and the dedupe key are derived.
             deduplicate_key: Optional string to check for duplicates.
                             If provided and found in existing content, skip the update.
+                            Refused (WI-033) when ``entry`` is a ``TimelineEntry``:
+                            that path derives its own key, and a second one is the
+                            caller asking this door to disagree with itself.
 
         Returns:
             True if the entry was added (including when the section was
             created). False ONLY for the deliberate whole-file dedup no-op —
             a failure no longer reports itself as this same False (WI-020 N4).
+            On the TYPED path that one deliberate False is the MARKER-ANCHORED
+            dedupe no-op rather than a whole-file one (WI-033). The sentence above
+            is left VERBATIM rather than rewritten: it is frozen prose of an owner
+            this item is not authorized to edit, so the correction lands
+            APPEND-ONLY beside it.
 
         Raises:
             ValueError: If person not found in repository
+            TimelineEntryRefusal: If a typed entry arrives with a dedupe key
             WriteFailedError: If the write did not complete
         """
+        # WI-033, branch 1 — a typed entry AND a key is refused BEFORE the note is
+        # resolved or locked: the fault is in the CALL, not in the note, and
+        # nothing should be opened to discover it.
+        typed = isinstance(entry, TimelineEntry)
+        if typed and deduplicate_key is not None:
+            _refuse_timeline_field(BOTH_ENTRY_AND_KEY_KEY)
+
         # PROVENANCE first, then today's name-keyed lookup (WI-029): a body
         # write of an entity the library parsed lands in the note it was
         # parsed from, so a timeline entry for one member of a live
@@ -1499,15 +1568,63 @@ class PersonRepository(BaseRepository[Person]):
                 content, _stamp = vault_io.read_note(file_path)
 
                 # Check for duplicate if key provided
-                if deduplicate_key and deduplicate_key in content:
-                    logger.debug(f"Timeline entry already exists for {person.name}: {deduplicate_key}")
+                #
+                # ONE decision and ONE falsy return for BOTH shapes (WI-033). The
+                # single return site is not tidiness: this function's falsy
+                # returns are a derived population three standing walls pin by
+                # equality, and "False ONLY for the deliberate dedup no-op" is
+                # one no-op whichever shape reached it.
+                if typed:
+                    # BRANCH 2 — MARKER-ANCHORED dedupe over ONE comparand.
+                    # `Marker.source` is the verbatim `<!-- {key} -->` line the
+                    # same `render` emits, so `probe` is the only string compared
+                    # and a key that is passed can never fail to be the key that
+                    # was embedded. Not a substring test at all: a `## Notes` line
+                    # quoting the key is outside the span, and a quoted key inside
+                    # the span that is not a well-formed marker LINE does not
+                    # match.
+                    #
+                    # A `None` probe means NO DEDUPE — a free-text entry has no
+                    # event identity, and inventing one would suppress a second,
+                    # genuinely intended entry with the same words.
+                    # `or ""` is the no-`## Timeline` case, stated rather than
+                    # inferred: `get_section` returns `None` there, `parse_markers`
+                    # over "" yields nothing to dedupe against, and branch 4's
+                    # create-at-end-of-file arm then lands the entry.
+                    #
+                    # The fence split is UNCONDITIONAL on this path rather than
+                    # nested under a non-`None` probe, and that is forced rather
+                    # than stylistic: the seam wall refuses any unconditional
+                    # rebinding of a seam-tainted local between the resolve and
+                    # the write, so a `span = None` pre-binding is not available
+                    # here. The visible consequence is deliberate — a typed append
+                    # to a note whose frontmatter fence is broken now raises
+                    # `FrontmatterParseError` instead of writing, which is the
+                    # right direction: a note that does not parse has no
+                    # `## Timeline` span to anchor to, and anchoring to the whole
+                    # file is the P2 defect this branch exists to close.
+                    probe = dedupe_probe(entry)
+                    _fm, raw_body = _split_frontmatter_fence(content, file_path)
+                    span = get_section(raw_body, "Timeline") or ""
+                    already_present = probe is not None and any(
+                        marker.source == probe for marker in parse_markers(span))
+                    seen_as = probe
+                else:
+                    # BRANCH 3 — the shipped string path, byte-for-byte today's
+                    # behaviour INCLUDING the whole-file substring test.
+                    already_present = bool(deduplicate_key) and deduplicate_key in content
+                    seen_as = deduplicate_key
+
+                if already_present:
+                    logger.debug(f"Timeline entry already exists for {person.name}: {seen_as}")
                     return False
 
                 # Find the Timeline section
                 timeline_marker = "## Timeline"
 
                 # Ensure entry starts with newline for clean formatting
-                formatted_entry = entry if entry.startswith("\n") else f"\n{entry}"
+                text = render(entry) if typed else entry
+                formatted_entry = text if text.startswith("\n") else f"\n{text}"
 
                 # WI-020 AC-5 Predicate 3 — ACCOMMODATE, with PRESERVATION.
                 #
@@ -1555,6 +1672,80 @@ class PersonRepository(BaseRepository[Person]):
                                            path=file_path, cause=e))
             raise WriteFailedError("write did not complete",
                                    path=file_path, cause=e) from chainable_cause(e)
+
+    def introduced_by(self, person: Person) -> List[IntroRecord]:
+        """"Who introduced this person", as typed values (WI-033).
+
+        THE ONE typed call every consumer uses, so nobody parses a markdown
+        convention this library owns. Four properties, each a RULE rather than an
+        accident:
+
+        1. **THE MARKER IS THE ONLY CHANNEL.** Not the heading, not the prose, not
+           frontmatter. The counterparty comes from the marker's discriminator
+           slot and the day from its day slot — the machine slots WI-077's writer
+           fills at the same moment it renders the sentence, which is why the
+           three legacy heading date grammars on disk cost this method nothing.
+           The prose is the LOSSY copy and is never read, not as a fallback and
+           not as a tiebreak.
+        2. **THE FILTER IS THE EXACT SLUG** ``INTRO_BY_KIND``, never a substring
+           and never ``PARITY_KINDS`` membership. Legacy ``[intro]`` is NOT a
+           source: every one of those entries records the OPPOSITE direction.
+           ``intro-to`` is the introducer-side mirror of the same event and is
+           likewise not a source. A kind this library never captured yields no
+           record and does not raise.
+        3. **THE READ IS SCOPED TO THAT PERSON'S OWN NOTE.** No glob, no
+           vault-wide scan, no index walk. The note is resolved by PROVENANCE
+           first and by name second — byte-for-byte the two-step
+           ``append_to_timeline`` uses — so an append followed by a read cannot
+           reach a different note than the one just written.
+        4. **``source`` IS THE BYTES ON THE PAGE**, so a consumer that disagrees
+           with this answer has the exact substring to quote.
+
+        Order is STORED DOCUMENT ORDER, which is newest-first: the door PREPENDS
+        despite its name, and that is what every reader of the vault already sees.
+
+        An ``intro-by`` heading carrying NO well-formed marker has no counterparty
+        slot and therefore no right answer; it is absent from this result and is
+        REPORTED by ``lint_vault``'s ``intro_by_without_marker``, which is the
+        declared marker that keeps this narrowing honest rather than convenient.
+
+        Returns:
+            Every ``IntroRecord`` on this person's own ``## Timeline``, newest
+            first. ``[]`` for a note with no ``## Timeline`` section at all —
+            absence of entries is a legitimate answer.
+
+        Raises:
+            ValueError: If person not found in repository
+            FrontmatterParseError: If the note's frontmatter fence is broken —
+                absence of a PARSEABLE note is not a legitimate answer.
+        """
+        # The same two-step the door uses (WI-029): the READ and the WRITE must
+        # agree about which note is this person's note, or the divergence class
+        # WI-029 just closed re-opens on the one seam it closed.
+        file_path = self._resolve_write_target(person)
+        if file_path is None:
+            file_path = self.get_file_path(person.name)
+        if not file_path or not file_path.exists():
+            raise ValueError(f"Person file not found: {person.name}")
+
+        # NO LOCK, and that is sanctioned rather than overlooked: `read_note`'s own
+        # contract states that a read outside the lock cannot lose a note and that
+        # forbidding it would forbid the legitimate unlocked read, and `write_note`
+        # is atomic — so a concurrent writer yields old bytes or new bytes and
+        # never torn ones. This returns a snapshot.
+        content, _stamp = vault_io.read_note(file_path)
+        _fm, raw_body = _split_frontmatter_fence(content, file_path)
+        timeline = get_section(raw_body, "Timeline")
+        if timeline is None:
+            return []
+
+        return [
+            IntroRecord(introducer=marker.discriminator,
+                        date=marker.day,
+                        source=marker.source)
+            for marker in parse_markers(timeline)
+            if marker.kind == INTRO_BY_KIND
+        ]
 
     def append_to_body_section(
         self,

@@ -13,7 +13,7 @@ roles: []
 birthday: ""
 created: "2026-01-04"
 tags: [person]
-introduced_by: "Voxleaf"
+manager: "Oskaline Thrandell"
 ---
 
 ## To Discuss

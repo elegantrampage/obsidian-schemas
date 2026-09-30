@@ -2029,3 +2029,268 @@ def _check_every_criterion_resolves_to_exactly_one_module():
         module = check_module(check)          # raises unless exactly one match
         assert module == Path(__file__).resolve(), (
             f"{check} resolves to {module.name}, not this module")
+
+
+# ==========================================================================
+# WI-033 AC-4 — `lint_vault` makes the legacy and retired shapes VISIBLE and
+# repairs NONE of them.
+#
+# It lands HERE, in the module that already owns the containment door and the
+# planting helpers, so the five-clause wall at the top of this file covers the new
+# drives with no second door — and the report-only posture is the only arm
+# buildable inside a hermetic cage at all, because the hermetic floor structurally
+# cannot watch the live vault and a report-only rule owes the live baseline no row.
+# ==========================================================================
+
+#: The three new check ids, spelled here exactly as this module spells every other
+#: check id it pins. All THREE are report-only.
+LEGACY_INTRO_CHECK = "legacy_intro_entry"
+MARKERLESS_INTRO_BY_CHECK = "intro_by_without_marker"
+RETIRED_KEY_CHECK = "retired_key_introduced_by"
+WI033_CHECKS = (LEGACY_INTRO_CHECK, MARKERLESS_INTRO_BY_CHECK, RETIRED_KEY_CHECK)
+
+#: The three heading date grammars the ruling's audit measured LIVE, in the
+#: proportion 43 / 38 / 5. Planted rather than sampled for the reason that governs
+#: every fixture in this item — the frozen corpus holds zero timeline entries — and
+#: named explicitly because a detector written against ONE of them would be silent
+#: on nearly half the corpus while passing a single-grammar test.
+LEGACY_HEADING_DATES = ("December 3, 2025", "2026-09-27T18:42:07", "2026-09-27")
+
+
+def _timeline_note(stem, timeline_body, extra_frontmatter="", entity_type="person"):
+    head = f"---\ntype: {entity_type}\nname: {stem.lstrip('@')}\n{extra_frontmatter}---\n\n"
+    if entity_type is None:
+        head = f"---\nname: {stem.lstrip('@')}\n{extra_frontmatter}---\n\n"
+    return f"{head}## To Discuss\n\n## Timeline\n{timeline_body}\n## Notes\n"
+
+
+def _issues_for(issues, check):
+    return [i for i in issues if i.check == check]
+
+
+def test_lint_vault_reports_the_intro_legacy_shapes_and_never_repairs_them():
+    """AC-4's verify. Zero-arg and raising, per the check contract."""
+    with _temp_root() as root:
+        _check_the_three_detectors_fire_on_their_own_subjects(root)     # (a)(b)(c)
+    with _temp_root() as root:
+        _check_the_detectors_are_silent_on_the_planted_negatives(root)  # (d), plants
+    _check_the_detectors_are_silent_over_the_frozen_corpus()            # (d), corpus
+    with _temp_root() as root:
+        _check_a_fix_drive_still_accounts_for_every_auto_fixable_issue(root)  # (e)
+    with _temp_root() as root:
+        _check_an_undecodable_note_is_reported_by_none_of_the_three(root)     # (f)
+
+
+def _check_the_three_detectors_fire_on_their_own_subjects(root):
+    vault = _temp_vault(root)
+
+    # (a) — one issue per `[intro]` heading, across ALL THREE heading grammars.
+    legacy_body = "".join(
+        f"\n### {when} [intro]\nIntroduced to [[@Somebody]] via email\n"
+        for when in LEGACY_HEADING_DATES)
+    legacy = _plant(vault, "@Ostrivane Harkwell",
+                    _timeline_note("@Ostrivane Harkwell", legacy_body))
+
+    # (b) — one issue per `intro-by` heading carrying no well-formed marker. The
+    # third entry's marker is present and well-formed, so it is NOT reported: the
+    # detector reports exactly the entries the accessor cannot see.
+    markerless_body = (
+        "\n### March 4, 2026 [intro-by]\nIntroduced by somebody.\n"
+        "\n### 2026-03-05 [intro-by]\nIntroduced by somebody else.\n"
+        "\n### March 6, 2026 [intro-by]\nIntroduced by [[@Wexley|Wexley]] via gmail\n"
+        "<!-- intro-by:2026-03-06:Wexley -->\n")
+    markerless = _plant(vault, "@Sennaby Ostrakine",
+                        _timeline_note("@Sennaby Ostrakine", markerless_body))
+
+    # (c) — one issue per carrier, INCLUDING an untyped note. The detector's reach
+    # is deliberately wider than the gate's: the key is retired as a VOCABULARY
+    # matter, and a note the report skipped would be a note nobody could find.
+    typed_carrier = _plant(vault, "@Quillam Ostrakine", _timeline_note(
+        "@Quillam Ostrakine", "\n", extra_frontmatter='introduced_by: "Sam Tucker"\n'))
+    untyped_carrier = _plant(
+        vault, "@Ravensby Ostrakine",
+        "---\nname: Ravensby Ostrakine\nintroduced_by: \"Sam Tucker\"\n---\n\n"
+        "## Timeline\n\n")
+
+    _files, _idx, issues = _scan(vault)
+
+    legacy_issues = _issues_for(issues, LEGACY_INTRO_CHECK)
+    assert len(legacy_issues) == len(LEGACY_HEADING_DATES), (
+        f"expected one `{LEGACY_INTRO_CHECK}` issue per planted `[intro]` heading "
+        f"({len(LEGACY_HEADING_DATES)} grammars); got {len(legacy_issues)}")
+    assert {i.file_path for i in legacy_issues} == {legacy}
+    # The message names the HEADING and the note, and every grammar's own date text
+    # reaches it — which is what says the detector is date-AGNOSTIC rather than
+    # pattern-matching one dialect.
+    for when in LEGACY_HEADING_DATES:
+        assert any(when in i.message for i in legacy_issues), when
+    assert all(i.severity == lint_vault.Severity.WARNING for i in legacy_issues)
+
+    marker_issues = _issues_for(issues, MARKERLESS_INTRO_BY_CHECK)
+    assert len(marker_issues) == 2, (
+        f"exactly the two markerless `intro-by` headings are reported; the "
+        f"well-formed third is not. Got {[i.message for i in marker_issues]}")
+    assert {i.file_path for i in marker_issues} == {markerless}
+    assert all(i.severity == lint_vault.Severity.WARNING for i in marker_issues)
+
+    # The grammar the detector uses is the LIBRARY's, asserted by OBJECT IDENTITY
+    # — which proves the import rather than a spelling of it.
+    from obsidian_schemas import timeline_entry
+    assert lint_vault.parse_entries is timeline_entry.parse_entries
+    assert lint_vault.INTRO_BY_KIND is timeline_entry.INTRO_BY_KIND
+    assert lint_vault.LEGACY_INTRO_KIND is timeline_entry.LEGACY_INTRO_KIND
+
+    retired_issues = _issues_for(issues, RETIRED_KEY_CHECK)
+    assert {i.file_path for i in retired_issues} == {typed_carrier, untyped_carrier}, (
+        "one issue per carrier of ANY type and of none — the untyped note is the "
+        "route the gate rule keeps closed and must not be the route the report "
+        "misses")
+    assert all(i.severity == lint_vault.Severity.ERROR for i in retired_issues)
+    # The message names the KEY and never its VALUE.
+    for issue in retired_issues:
+        assert "introduced_by" in issue.message
+        assert "Sam Tucker" not in issue.message
+
+    # NEVER REPAIRS — all three are report-only, so none enters `apply_fixes`.
+    for check in WI033_CHECKS:
+        assert all(not i.auto_fixable for i in _issues_for(issues, check)), check
+
+
+def _check_the_detectors_are_silent_on_the_planted_negatives(root):
+    vault = _temp_vault(root)
+    _plant(vault, "@Thrandell Ostrivane", _timeline_note(
+        "@Thrandell Ostrivane",
+        "\n### September 27, 2026 [intro-by]\nIntroduced by [[@Wexley|Wexley]] via gmail\n"
+        "<!-- intro-by:2026-09-27:Wexley -->\n"))
+    # `intro-to` is the specific negative that catches a SUBSTRING-matching
+    # implementation — the same wrong-but-self-consistent build the accessor's kind
+    # axis discriminates against.
+    _plant(vault, "@Ulvestre Ostrakine", _timeline_note(
+        "@Ulvestre Ostrakine",
+        "\n### September 27, 2026 [intro-to]\nIntroduced Dave to [[@Wexley|Wexley]] via gmail\n"
+        "<!-- intro-to:2026-09-27:Wexley -->\n"))
+    _plant(vault, "@Varnholt Ostrivane", _timeline_note("@Varnholt Ostrivane", "\n"))
+    _plant(vault, "@Wexlund Ostrakine",
+           "---\ntype: person\nname: Wexlund Ostrakine\n---\n\n## Notes\n\nno timeline.\n")
+    _plant(vault, "@Yolvenna Ostrivane", _timeline_note(
+        "@Yolvenna Ostrivane",
+        "\n### September 27, 2026 [note]\nAn introduction came up in conversation.\n"))
+
+    _files, _idx, issues = _scan(vault)
+    for check in WI033_CHECKS:
+        fired = _issues_for(issues, check)
+        assert fired == [], (
+            f"`{check}` fired on a planted NEGATIVE: "
+            f"{[(i.file_path.name, i.message) for i in fired]}")
+
+
+def _check_the_detectors_are_silent_over_the_frozen_corpus():
+    """(d)'s corpus half, as a SET EQUALITY whose baseline is DERIVED IN THE SAME
+    RUN rather than read from a committed file.
+
+    The referent is named because a clause pointing at a non-existent one cannot be
+    run: this tree has no committed fixture-corpus issue set —
+    `docs/lint-vault-live-baseline.md` is the LIVE-vault bracket and is NOT this
+    clause's referent — so the baseline is the SAME scan's output with the three
+    rule ids filtered out. A set equality rather than a count, so a new issue that
+    displaces an old one cannot cancel out.
+    """
+    with _temp_root() as root:
+        vault = _temp_vault(root)
+        _files, _idx, issues = _scan(vault)
+
+    with_new = {(i.file_path.name, i.check) for i in issues}
+    without_new = {pair for pair in with_new if pair[1] not in WI033_CHECKS}
+    assert with_new, "the corpus scan produced no issues at all — the equality is vacuous"
+    assert with_new == without_new, (
+        f"the three new checks are not silent over the frozen corpus (which after "
+        f"the re-key carries no `introduced_by` and no timeline entries at all): "
+        f"{sorted(with_new - without_new)}")
+
+
+def _plant_the_mixed_fix_subjects(into):
+    """A vault carrying BOTH a planted auto-fixable issue and one subject for each
+    of the three new report-only checks."""
+    # The auto-fixable half (a missing body section), so the partition has
+    # something to account for at all.
+    _plant(into, "@Zebrant Ostrivane", _person("@Zebrant Ostrivane", body="## Notes\n"))
+    # The report-only half: all three new checks fire on this one note.
+    _plant(into, "@Ashquill Ostrivane", _timeline_note(
+        "@Ashquill Ostrivane",
+        "\n### December 3, 2025 [intro]\nIntroduced to [[@Somebody]] via email\n"
+        "\n### March 4, 2026 [intro-by]\nIntroduced by somebody.\n",
+        extra_frontmatter='introduced_by: "Sam Tucker"\n'))
+
+
+def _check_a_fix_drive_still_accounts_for_every_auto_fixable_issue(root):
+    """(e). A `--fix` drive over a vault carrying BOTH a planted auto-fixable issue
+    and the three new ones: the four-bucket total still equals the auto-fixable
+    issue count, and the new issues are counted as NON-fixable rather than
+    entering the partition.
+
+    TWO materializations of the same plant, for the reason the shipped AC-4 leg
+    already takes: `apply_fixes` REPAIRS its subjects, so a printed-line drive over
+    a vault the computed leg already fixed reads zero on every bucket and would
+    pass a summary line that printed constants.
+    """
+    vault = _temp_vault(root)
+    _plant_the_mixed_fix_subjects(vault)
+
+    _files, idx, issues = _scan(vault)
+    new_issues = [i for i in issues if i.check in WI033_CHECKS]
+    assert len(new_issues) == 3, [i.check for i in new_issues]
+    assert all(not i.auto_fixable for i in new_issues)
+
+    fixable = _fixable(issues)
+    assert fixable, "the planted auto-fixable issue did not materialize"
+    # NONE of the new issues is in the partition's INPUT, which is the structural
+    # form of "never repairs" — they cannot be mis-accounted because they never
+    # arrive.
+    assert all(i.check not in WI033_CHECKS for i in fixable)
+
+    with contextlib.redirect_stderr(io.StringIO()):
+        outcome = lint_vault.apply_fixes(fixable, vault, idx)
+    accounted = (outcome.repaired + len(outcome.refused)
+                 + len(outcome.errored) + len(outcome.declined))
+    assert accounted == len(fixable), (
+        f"the four-bucket partition accounts for {accounted} of {len(fixable)} "
+        f"auto-fixable issues with the three new checks enabled")
+
+    # The operator's printed line, over a FRESH materialization: the four buckets
+    # still total the auto-fixable count, and the new issues sit on the summary's
+    # NON-fixable side — present in the issue total, absent from the auto-fixable
+    # figure and from every bucket.
+    with _temp_root() as printed_root:
+        vault = _temp_vault(printed_root)
+        _plant_the_mixed_fix_subjects(vault)
+        pre_fix = _fixable(_scan(vault)[2])
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed), \
+                contextlib.redirect_stderr(io.StringIO()):
+            reported = lint_vault.run_lint(vault, do_fix=True, quiet=True)
+        figures = _summary_figures(printed.getvalue())
+
+    assert sum(figures[label] for label in ("repaired", "refused", "errored",
+                                            "declined")) == len(pre_fix), (
+        f"the printed four-bucket total is {figures}; the same plant carried "
+        f"{len(pre_fix)} auto-fixable issues")
+    # The new issues are REPORTED (they are in the run's own issue list) and are
+    # not auto-fixable, which is exactly "counted by the non-fixable figure".
+    reported_new = [i for i in reported if i.check in WI033_CHECKS]
+    assert len(reported_new) == 3, [i.check for i in reported_new]
+    assert all(not i.auto_fixable for i in reported_new)
+
+
+def _check_an_undecodable_note_is_reported_by_none_of_the_three(root):
+    """(f). WI-026's triage order stays intact: an undecodable note is reported as
+    undecodable, ONCE, and never as four separate faults."""
+    vault = _temp_vault(root)
+    broken = _plant_bytes(vault, "@Brenvik Ostrakine", UNDECODABLE)
+
+    _files, _idx, issues = _scan(vault)
+    for_broken = [i for i in issues if i.file_path == broken]
+    assert [i.check for i in for_broken] == ["unreadable_note"], (
+        f"an undecodable note must be reported ONCE, as unreadable; got "
+        f"{[i.check for i in for_broken]}")
+    for check in WI033_CHECKS:
+        assert [i for i in _issues_for(issues, check) if i.file_path == broken] == []

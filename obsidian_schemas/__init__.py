@@ -54,6 +54,23 @@ from obsidian_schemas.errors import (
     ExternalWriteConflict,
     NoteAlreadyExists,
     NameGateRefusal,
+    TimelineEntryRefusal,
+)
+from obsidian_schemas.timeline_entry import (
+    TimelineEntry,
+    IntroRecord,
+    Marker,
+    Entry,
+    render,
+    dedupe_key,
+    dedupe_probe,
+    parse_markers,
+    parse_entries,
+    PARITY_KINDS,
+    HAL9000_PARITY_ANCHOR,
+    INTRO_BY_KIND,
+    INTRO_TO_KIND,
+    LEGACY_INTRO_KIND,
 )
 from obsidian_schemas.body_sections import (
     parse_body_sections,
@@ -132,6 +149,23 @@ __all__ = [
     "NoteAlreadyExists",
     # The semantic write gate's refusal (WI-021)
     "NameGateRefusal",
+    # The timeline-entry vocabulary (WI-033) — ONE definition of the shape every
+    # writer puts on a vault note, and the typed record the accessor returns.
+    "TimelineEntryRefusal",
+    "TimelineEntry",
+    "IntroRecord",
+    "Marker",
+    "Entry",
+    "render",
+    "dedupe_key",
+    "dedupe_probe",
+    "parse_markers",
+    "parse_entries",
+    "PARITY_KINDS",
+    "HAL9000_PARITY_ANCHOR",
+    "INTRO_BY_KIND",
+    "INTRO_TO_KIND",
+    "LEGACY_INTRO_KIND",
     # Body Sections
     "parse_body_sections",
     "write_body_sections",

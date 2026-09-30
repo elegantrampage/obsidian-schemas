@@ -92,6 +92,19 @@ WHATSAPP_PATTERN: str = "whatsapp_not_a_jid"
 #: The one identifier key this gate judges by VALUE rather than by container shape.
 WHATSAPP_KEY: str = "whatsapp"
 
+#: WI-033. The RETIRED person frontmatter key. Retired and NOT modelled: its one
+#: live value was converted by hand through the sanctioned doors on 2026-09-28 and
+#: the key removed, so the population an unconditional ban could brick is EMPTY
+#: rather than exempted — which is what lets the rule stay unconditional with no
+#: exemption arm for a later build to widen. "Who introduced this person" is
+#: answered by `PersonRepository.introduced_by` from the timeline's own marker slot.
+RETIRED_PERSON_KEY: str = "introduced_by"
+
+#: Its refusal's pattern. The gate's OWN literal, like `UNDECLARED_PATTERN` and
+#: `WHATSAPP_PATTERN` above — never a `NameValidator` branch record, because this
+#: is not a name judgement at all.
+RETIRED_KEY_PATTERN: str = "retired_person_key"
+
 # The parens form — `Name (a@b.com)` — which `Email.parse` deliberately does not
 # accept. The splitter owns it BEFORE delegating, which is the whole of what
 # "owns the parens form" means: the address it extracts still goes through
@@ -444,6 +457,39 @@ def gate_write(
         # ONE WRITTEN SHAPE. The key set is unchanged, so THE OUTPUT NEVER GROWS
         # still holds by construction.
         result[WHATSAPP_KEY] = _as_stored_list(members)
+
+    # ---- 3c. The RETIRED key (WI-033) — UNCONDITIONAL, one place, one literal ----
+    #
+    # Three reasons for this exact position, each quoting the code's own argument:
+    #
+    # * IN THE PERSON BODY, not keyed on `declared_type == PERSON_TYPE`. `:373`'s
+    #   `declared_type is not None and declared_type != PERSON_TYPE` is guarded
+    #   that way precisely so "an UNDECLARED write that introduces identifiers but
+    #   NO `name:` must fall THROUGH", and a person note missing its `type:` takes
+    #   exactly that route — so a rule keyed on the equality would leave it free
+    #   to carry the key, which is "cannot creep back" with a hole in it.
+    #   `company` and `book` are exempted for FREE by that same return, which is
+    #   correct: the ruling retires a PERSON key, and extending the ban to every
+    #   entity type would be an unsigned subtraction. The visible corner, stated
+    #   rather than discovered: an UNDECLARED write on a note that is semantically
+    #   a company is ALSO refused for carrying the key. That is the ruled trade —
+    #   covering the undeclared PERSON route matters more than exempting an
+    #   undeclared COMPANY one for a key nothing may carry — and the live exposure
+    #   is nil, because every driven arm derives a declaration.
+    # * AFTER THE NAME ARM AND THE WHATSAPP ARM, for `3b`'s own stated reason:
+    #   corpus notes declare a refusal `Verdict` naming a NAME pattern and write
+    #   their whole declared field set through this door, so keeping the name
+    #   refusal first makes those declarations true BY CONSTRUCTION. A third arm
+    #   inherits that obligation, and it is not a name judgement either.
+    # * BEFORE SECTION 4, so nothing is normalized on a payload that is about to
+    #   be refused, and the refusal lands before any write in every arm.
+    #
+    # `refused_value` carries the KEY and never the key's value: at this arm the
+    # value is a person's NAME, and `_refuse`'s rule 2 exists to keep note-derived
+    # identity out of refusals. The key is a constant that identifies the fault
+    # completely.
+    if RETIRED_PERSON_KEY in introduced:
+        _refuse(RETIRED_KEY_PATTERN, refused_value=RETIRED_PERSON_KEY)
 
     # ---- 4. Addresses ------------------------------------------------------
     #

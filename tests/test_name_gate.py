@@ -26,6 +26,7 @@ from obsidian_schemas.errors import (
     LoudFailError,
     NameGateRefusal,
     NoteParseError,
+    TimelineEntryRefusal,
 )
 from obsidian_schemas.name_validation import (
     COMPANY_TIER1_BRANCHES,
@@ -45,6 +46,10 @@ from obsidian_schemas.repositories.base import UNREADABLE, _skip_reason
 from tests.support import temp_dir
 
 REFUSAL_REASON = "the write introduces a name this package refuses"
+# WI-033's one new `REASONS` member, spelled here for the same reason the line
+# above is: the pin below is over the SET, and a reason imported from the module
+# it guards would be the module asserting itself.
+TIMELINE_REFUSAL_REASON = "a timeline entry field this package refuses"
 
 # The seven DISTINCT keys nine chain branches raise, plus `empty`. Not derived
 # from the table — that would be the table asserting itself — but written down
@@ -118,10 +123,10 @@ def test_name_gate_refusal_is_a_loud_fail_leaf_carrying_a_pattern():
     # the message, exactly as StaleEntityWrite and NoteAlreadyExists rely on.
     assert "__init__" not in NameGateRefusal.__dict__
 
-    # REASONS is a FROZEN population, so equality is the right pin: fifteen
-    # members before this item, sixteen after.
+    # REASONS is a FROZEN population, so equality is the right pin: sixteen
+    # members before this item, seventeen after.
     assert REFUSAL_REASON in REASONS
-    assert len(REASONS) == 16
+    assert len(REASONS) == 17
 
     exc = NameGateRefusal(REFUSAL_REASON)
     assert exc.pattern is None, "`pattern` defaults to None until the gate sets it"
@@ -136,6 +141,38 @@ def test_name_gate_refusal_is_a_loud_fail_leaf_carrying_a_pattern():
         )
     else:
         raise AssertionError("a non-member reason must be refused at construction")
+
+    # WI-033's leaf lands BESIDE this one, in this same check rather than in a
+    # sibling: `check_module` is a `def <name>(` substring scan that raises on
+    # anything but exactly one match tree-wide, so a new top-level `def test_`
+    # here would be a second name to resolve for no coverage. The four
+    # assertions mirror the four made above, on the other leaf.
+    assert issubclass(TimelineEntryRefusal, LoudFailError)
+    assert not issubclass(TimelineEntryRefusal, NoteParseError)
+    assert "__init__" not in TimelineEntryRefusal.__dict__
+    assert TIMELINE_REFUSAL_REASON in REASONS
+
+    timeline_exc = TimelineEntryRefusal(TIMELINE_REFUSAL_REASON)
+    assert timeline_exc.pattern is None, (
+        "`pattern` defaults to None until the entry door sets it")
+    assert TimelineEntryRefusal.pattern is None
+    assert str(timeline_exc) == TIMELINE_REFUSAL_REASON
+    assert "path=" not in str(timeline_exc)
+    assert "declared_type=" not in str(timeline_exc)
+    assert "cause=" not in str(timeline_exc)
+
+    try:
+        TimelineEntryRefusal("a reason nobody enumerated")
+    except ValueError as rejected:
+        assert not isinstance(rejected, LoudFailError), (
+            "the REASONS refusal is a bare ValueError from BOTH leaves — the "
+            "guard is the hierarchy's one constructor, not the subclass"
+        )
+    else:
+        raise AssertionError("a non-member reason must be refused at construction")
+
+    assert obsidian_schemas.TimelineEntryRefusal is TimelineEntryRefusal
+    assert "TimelineEntryRefusal" in obsidian_schemas.__all__
 
     # THE MESSAGE LEG, AND ITS SCOPE, DECLARED IN ONE LINE: this asserts the
     # hierarchy's bound on an exception THIS TEST constructs. It is green under

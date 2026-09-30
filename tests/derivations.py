@@ -2659,3 +2659,234 @@ def _attribute_names(node) -> set:
     mentions `note_lock` as an attribute and not as a `Name`, so a rule written
     on `_names_in` alone would see no lock at any site in this package."""
     return {n.attr for n in ast.walk(node) if isinstance(n, ast.Attribute)}
+
+
+# --------------------------------------------------------------------------
+# WI-033 §12 — the markdown-oracle derivations. TWO readers need each of these
+# (`tests/test_timeline_entry.py` over the parity capture and
+# `tests/test_retired_key_gate_rule.py` over `docs/vault-fixtures.md` +
+# `docs/wi-033-intro-corpus-baseline.md`), and a markdown selector spelled twice
+# is the duplication §12 exists to prevent — so they are homed HERE, the tree's
+# one shared home for test-side derivations, and IMPORTED by both.
+#
+# Neither uses `ast`, so the single-AST-home equality is unmoved either way.
+#
+# The shipped `tests/test_lint_vault_fix_rules.py:baseline_sections` /
+# `fenced_blocks` pair stays exactly where it is and is NOT re-homed: it is that
+# module's own private helper over its own artifact, and moving another item's
+# module member is work this item was not asked for. So there are two spellings
+# of a four-line fence walk in the tree after this item, declared rather than
+# glossed.
+# --------------------------------------------------------------------------
+
+def select_sections(text: str, names: Iterable[str]) -> dict:
+    """`{name: section text}` for each `## ` heading NAMED, and RAISE otherwise.
+
+    The contract, spelled in its OWN terms rather than by reference to a shipped
+    function — which is the WI-033 §12 Rule 1 the item's spec review cost:
+
+    * For each NAME in `names`, find the lines of `text` for which
+      `line.rstrip() == name` — an EXACT, line-start, WHOLE-LINE match. So
+      `## Foo bar` does not satisfy the name `## Foo`, and an indented
+      `  ## Foo` satisfies nothing. This is the one place it deliberately
+      DIFFERS from `test_lint_vault_fix_rules.py:baseline_sections:1518`, which
+      matches by PREFIX because its artifact's headings carry qualifiers.
+    * RAISE if a name matches ZERO lines or MORE THAN ONE. That is
+      `baseline_sections`' RAISING DISCIPLINE, which is what IS copied from it:
+      a selector that finds nothing must be RED, never an empty dict.
+    * A section's text runs from the line AFTER its heading to the line BEFORE
+      the next line whose `line.startswith("## ")` is true, **whatever that
+      heading is** — or to end of file.
+    * Every `## ` line the `names` list does not mention is IGNORED as a
+      selection candidate and HONOURED as a boundary. That is why
+      `baseline_sections` is a discipline to copy and NOT a function to
+      transplant: it is a TOTAL parse that raises on any heading outside its own
+      declared table, and the parity capture carries three such lines.
+
+    DELIBERATELY FENCE-UNAWARE, exactly as the tree's one shipped section
+    selector is. The residual that buys is declared rather than hidden: a
+    line-start `## ` introduced INSIDE a fenced block in a selected span would
+    truncate that span early. A fence-aware boundary would be a second markdown
+    grammar this tree does not have, for a case measured at zero across every
+    file any consumer selects; the consumers carry the assertion that makes such
+    a truncation LOUD (§12 Rule 3) rather than resting on that measurement.
+    """
+    lines = text.splitlines()
+    wanted = list(names)
+    out = {}
+    for name in wanted:
+        hits = [i for i, line in enumerate(lines) if line.rstrip() == name]
+        if len(hits) != 1:
+            raise AssertionError(
+                f"heading {name!r} matches {len(hits)} line(s) at line-start "
+                f"whole-line equality — a section selector that finds none or "
+                f"two is RED, never an empty dict")
+        start = hits[0] + 1
+        end = len(lines)
+        for i in range(start, len(lines)):
+            if lines[i].startswith("## "):
+                end = i
+                break
+        out[name] = "\n".join(lines[start:end])
+    return out
+
+
+def select_fenced_blocks(section_text: str) -> list:
+    """The triple-backtick blocks of one text, in order, as `(info, block)` PAIRS.
+
+    The SHAPE is `test_lint_vault_fix_rules.py:fenced_blocks:1550`'s — toggle on
+    any line whose `startswith("```")` is true, blocks in order, and never
+    `line.strip().startswith`, so an INDENTED triple-backtick is not a delimiter.
+
+    **ONE deviation from a verbatim copy, and it is load-bearing: the INFO STRING
+    IS RETAINED.** The shipped function DISCARDS it — the opening fence line is
+    consumed by its triple-backtick branch at `:1554-1559` and never appended to
+    the block — so a copy taken as written cannot tell a `yaml` fence from a
+    `python` one, which is exactly what both of this item's readers filter on and
+    what §12 Rule 3's whole-file accounting is expressed in.
+
+    `info` is the opening fence line with its leading backticks and surrounding
+    whitespace stripped (`""` for a fence opened with no info string). `block` is
+    the lines between the delimiters, neither delimiter included.
+    """
+    blocks = []
+    current = None
+    info = ""
+    for line in section_text.splitlines():
+        if line.startswith("```"):
+            if current is None:
+                current = []
+                info = line.lstrip("`").strip()
+            else:
+                blocks.append((info, "\n".join(current)))
+                current = None
+                info = ""
+        elif current is not None:
+            current.append(line)
+    return blocks
+
+
+# --------------------------------------------------------------------------
+# WI-033 Task 6 — the gated-write ARGUMENT sweep.
+#
+# A DIFFERENT question from `gate_call_declarations` above, which classifies the
+# declaration SHAPE per write ARM. This one enumerates the gate CALLS themselves
+# and reports, per call, whether each of the two arguments that decide "can this
+# site carry a person frontmatter delta at all" is a refusing LITERAL. That is
+# what lets AC-3(b)'s drive table state its own exclusion as an EQUALITY rather
+# than leave a derived sweep's shortfall to be inferred.
+#
+# The type is `GateArgumentSite` and not `GateCallSite`: that name is already
+# taken, by the placement-leg record WI-021 ships above, and two meanings under
+# one name is the collision this module exists to prevent.
+# --------------------------------------------------------------------------
+
+class GateArgumentSite(NamedTuple):
+    module: str
+    qualname: str
+    ordinal: int                      # position among that function's gate calls, from 1
+    fields_is_empty_literal: bool      # the first positional is a literal `{}`
+    declared_type_is_none_literal: bool  # `declared_type=` is the literal `None`
+
+
+def _is_empty_mapping_literal(node) -> bool:
+    return isinstance(node, ast.Dict) and not node.keys
+
+
+def _is_none_literal(node) -> bool:
+    return isinstance(node, ast.Constant) and node.value is None
+
+
+def gate_call_sites(files: Iterable[Path]) -> list:
+    """Every call resolving to `gate_write`, with its two structural arguments.
+
+    Resolution reuses `_resolves_to` / `_import_aliases`, so a bare name, an
+    attribute call and an IMPORT ALIAS are all collected — the WI-232 shape, where
+    a matcher keyed on the literal name silently drops the one arm whose import
+    lives inside a function.
+
+    A site whose fields argument is a literal empty mapping AND whose
+    `declared_type` is the literal `None` structurally CANNOT carry a person
+    frontmatter delta; every other site can. Both flags are read off SYNTAX rather
+    than off a runtime value on purpose: the question is what the site can EVER
+    pass, and a runtime probe answers only what it passed once.
+    """
+    out = []
+    for path in files:
+        tree = _parse(path)
+        aliases = _import_aliases(tree, GATE_FUNCTION)
+        for fid, func in _iter_functions(path, tree):
+            calls = [node for node in ast.walk(func)
+                     if _resolves_to(node, GATE_FUNCTION, aliases)]
+            calls.sort(key=_pos)
+            for ordinal, call in enumerate(calls, start=1):
+                fields = call.args[0] if call.args else None
+                declared = None
+                for keyword in call.keywords:
+                    if keyword.arg == "declared_type":
+                        declared = keyword.value
+                        break
+                out.append(GateArgumentSite(
+                    fid.module, fid.qualname, ordinal,
+                    fields is not None and _is_empty_mapping_literal(fields),
+                    declared is not None and _is_none_literal(declared),
+                ))
+    out.sort()
+    return out
+
+
+# --------------------------------------------------------------------------
+# WI-033 Task 10 — ONE definition of the marker grammar, asserted structurally.
+# --------------------------------------------------------------------------
+
+class GrammarSite(NamedTuple):
+    module: str
+    lineno: int
+
+
+def marker_grammar_sites(files: Iterable[Path]) -> list:
+    """Every string literal DEFINING the marker grammar: one containing `<!--` or
+    `-->`, EXCLUDING docstrings.
+
+    The predicate is a DEFINITION and not a mention. Three exclusions make that
+    true rather than approximate, and each is a shape that must stay legal:
+
+    * A DOCSTRING — the first statement of a module, class or function — may quote
+      the delimiters while explaining them, and every module that reads the
+      grammar has reason to. Excluded by POSITION, so a docstring cannot be
+      confused with an assignment that happens to sit first.
+    * A COMMENT is invisible here by construction: `ast` drops comments entirely,
+      which is exactly why this is read off parsed syntax rather than off source
+      text. A text grep cannot tell a declaration from the `#` line above it.
+    * An IMPORT of the grammar contributes no `Constant` at all, so "every other
+      file IMPORTS it" is satisfiable — which is the LESSONS #4 rule ("route to
+      the first, do not copy it") stated as a predicate a test can run.
+
+    A near-miss carrying `<!` and `--` separately is not a member: the test is the
+    whole delimiter, so the predicate cannot pass by matching everything.
+
+    Records are DEDUPED on the declared identity `(module, lineno)`, because two
+    Constants can legitimately share one line — a tuple of both delimiters, or an
+    f-string whose implicitly-concatenated parts all carry the outer node's
+    position. A site is a line that defines grammar, not a count of literals on it.
+    """
+    out = set()
+    for path in files:
+        tree = _parse(path)
+        docstrings = set()
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef,
+                                 ast.AsyncFunctionDef)):
+                body = getattr(node, "body", None) or []
+                if (body and isinstance(body[0], ast.Expr)
+                        and isinstance(body[0].value, ast.Constant)
+                        and isinstance(body[0].value.value, str)):
+                    docstrings.add(id(body[0].value))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Constant) or not isinstance(node.value, str):
+                continue
+            if id(node) in docstrings:
+                continue
+            if "<!--" in node.value or "-->" in node.value:
+                out.add(GrammarSite(module_id(path), node.lineno))
+    return sorted(out)

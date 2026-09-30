@@ -39,13 +39,25 @@ from obsidian_schemas.body_sections import (
     ENTITY_BODY_CONFIG,
     ensure_sections_exist,
     get_expected_sections,
+    get_section,
     parse_body_sections,
 )
 from obsidian_schemas.models import TYPE_TO_MODEL
 from obsidian_schemas.parser import parse_frontmatter
 from obsidian_schemas.writer import update_frontmatter_fields
 from obsidian_schemas.errors import NameGateRefusal, NoteAlreadyExists
-from obsidian_schemas.name_gate import gate_write
+from obsidian_schemas.name_gate import RETIRED_PERSON_KEY, gate_write
+# WI-033: the timeline-entry grammar is the LIBRARY's, and this script READS it by
+# importing it — it defines no pattern and no delimiter literal of its own, which
+# AC-2(e)'s derived scan asserts structurally over `obsidian_schemas/**` AND
+# `scripts/**`. This file is exactly where the second copy of a parser has already
+# appeared once (`intro_not_symmetric`'s prose regex), so it is the file most
+# likely to grow a third.
+from obsidian_schemas.timeline_entry import (
+    INTRO_BY_KIND,
+    LEGACY_INTRO_KIND,
+    parse_entries,
+)
 # WI-032: the report-only `whatsapp_not_storable` arm calls the ONE classifier and
 # catches the ONE refusal it can raise. `identifier.py` is a leaf, so this closes
 # no cycle and adds no vault reach.
@@ -395,6 +407,73 @@ def check_structural(files: list[VaultFile], idx: dict) -> list[LintIssue]:
                 )
             )
             continue
+
+        # WI-033's three REPORT-ONLY detectors, modelled byte-for-byte on the
+        # shipped `whatsapp_not_storable` arm below: `auto_fixable` left at its
+        # `False` default, so none of them enters `apply_fixes` and `--fix`'s
+        # four-bucket delta contract is untouched while it still repairs those
+        # notes' OTHER issues.
+        #
+        # POSITION — immediately after the `parse_error` guard and BEFORE the
+        # `no_frontmatter` arm, and that is prescribed rather than free. The four
+        # arms below all `continue`, and each is TYPE-SCOPED TRIAGE: a retired key
+        # on an untyped note is exactly the route the gate rule keeps closed, and
+        # `[intro]` entries are counted over every `*.md` rather than over typed
+        # person notes. Placing these arms below the triage would make both
+        # detectors silent on the population they exist for.
+        #
+        # Why the detectors' reach is WIDER than the gate's, stated so the two do
+        # not read as a contradiction: the GATE refuses exactly where the ruling
+        # retires the key (a person-declared or undeclared write), because refusing
+        # a `company` write would be an unsigned subtraction. The DETECTOR reports
+        # every carrier whatever its `type:`, because the key is retired as a
+        # VOCABULARY matter and a note the report skipped would be a note nobody
+        # could find. The report costs a line and repairs nothing.
+        timeline_span = get_section(vf.body, "Timeline") or ""
+        for timeline_entry_read in parse_entries(timeline_span):
+            # legacy_intro_entry (ruling §3) — the 86 outbound `[intro]` entries
+            # stay exactly as they are and stay VISIBLE. Rewriting them to
+            # `intro-to` is a separate live migration with its own bracket and
+            # buys the accessor nothing: every one records the OPPOSITE direction.
+            if timeline_entry_read.kind == LEGACY_INTRO_KIND:
+                issues.append(
+                    LintIssue(
+                        vf.path, "legacy_intro_entry", Severity.WARNING,
+                        f"legacy `[{LEGACY_INTRO_KIND}]` timeline entry "
+                        f"'{timeline_entry_read.date_text}' — the outbound kind; "
+                        f"`introduced_by` facts live on `{INTRO_BY_KIND}` entries",
+                        "structural",
+                    )
+                )
+            # intro_by_without_marker — an entry the accessor structurally CANNOT
+            # see. This is the honesty invariant for its narrowed promise: a
+            # markerless entry has no counterparty slot and therefore no right
+            # answer, so it is reported rather than guessed at.
+            if (timeline_entry_read.kind == INTRO_BY_KIND
+                    and timeline_entry_read.marker is None):
+                issues.append(
+                    LintIssue(
+                        vf.path, "intro_by_without_marker", Severity.WARNING,
+                        f"`[{INTRO_BY_KIND}]` timeline entry "
+                        f"'{timeline_entry_read.date_text}' carries no well-formed "
+                        f"marker, so `introduced_by` cannot read it",
+                        "structural",
+                    )
+                )
+
+        # retired_key_introduced_by — ERROR, because auto-deleting a frontmatter
+        # value is data loss and the direction is a JUDGEMENT. The message names
+        # the KEY and never its value, which is a person's name.
+        if RETIRED_PERSON_KEY in vf.frontmatter:
+            issues.append(
+                LintIssue(
+                    vf.path, "retired_key_introduced_by", Severity.ERROR,
+                    f"frontmatter carries the retired key `{RETIRED_PERSON_KEY}`; "
+                    f"the write door refuses it — move the fact to an "
+                    f"`[{INTRO_BY_KIND}]` timeline entry and delete the key",
+                    "structural",
+                )
+            )
 
         # no_frontmatter — @ prefixed with no frontmatter
         if vf.is_at_prefixed and not vf.frontmatter:

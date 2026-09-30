@@ -1,7 +1,7 @@
 {
   "project": "obsidian-schemas",
   "project_path": "/Users/davewascha/Workspaces/obsidian-schemas",
-  "last_scanned": "2026-09-29T09:08:46Z",
+  "last_scanned": "2026-09-29T11:02:07Z",
   "next_id": 35,
   "items": [
     {
@@ -2803,7 +2803,7 @@
     {
       "id": "WI-033",
       "title": "TimelineEntry relocates into the library, with a derived introduced_by accessor",
-      "stage": "building",
+      "stage": "done",
       "file": "docs/timeline-entry-relocation.md",
       "created": "2026-09-26",
       "last_touched": "2026-09-29",
@@ -2841,6 +2841,13 @@
         {
           "from": "ready",
           "to": "building",
+          "at": "2026-09-29",
+          "by": "session",
+          "forced": false
+        },
+        {
+          "from": "building",
+          "to": "done",
           "at": "2026-09-29",
           "by": "session",
           "forced": false
@@ -2905,6 +2912,27 @@
           "date": "2026-09-29",
           "model": "claude-sonnet-5-5",
           "note": "Re-read after the threat model's round-3 M2 fold finds no planted steering in the item doc \u2014 pattern sweeps for approval-steering and gate-addressed imperatives come back empty, the thirteen line-start gate/verdict keys are all genuine fences at their own gate's section end, the fold-added material (M2 record, \u00a712 Rule 3 and dimension (vii), R7, Task 3's completeness clause) is ordinary spec argument with re-runnable predicates independently re-counted by two other gates, and the one cross-doc writes fence (docs/vault-fixtures.md) is unchanged as a disclosed conductor-owned precondition; this clears the injection question only."
+        },
+        "code-reviewer": {
+          "gate": "code-reviewer",
+          "verdict": "PROMOTE",
+          "date": "2026-09-29",
+          "model": "claude-opus-5",
+          "note": "No blocking finding \u2014 the six AI-maintainability checks and both Step 2c dimensions come back clean (no cross-project reach, no deprecated import, no idiom regression, no new unreadback external write, and explicit non-vacuity guards everywhere an empty population could pass by default); the one `except ValueError: continue` in `parse_markers` is a declared, reader-scoped departure instrumented by `lint_vault`'s `intro_by_without_marker` rather than a true silent swallow; the unconditional `introduced_by` gate arm is placed below the declared-non-person return so the undeclared route is covered and its blast radius is measured at ZERO code writers estate-wide by the committed consumer audit plus `introduced_by_frontmatter_carriers: 0`; the three plan deviations are each forced by a standing wall and are the more faithful build; the one real behaviour change (a typed append to a broken-fence note now raises FrontmatterParseError) is named at the site with zero live callers; the two outstanding CLAUDE.md doc-sync items falsify no existing claim and are conductor-owned outside the cage by design. Caveat stated in full above: this spawn has no shell, so the 716 \u2192 721 floor figure is read rather than re-executed, though every artifact the new checks consume was verified committed and correctly shaped by hand."
+        },
+        "test-observability-checker": {
+          "gate": "test-observability-checker",
+          "verdict": "PROMOTE",
+          "date": "2026-09-29",
+          "model": "claude-opus-5",
+          "note": "All three charter checks pass and check 4 is N/A \u2014 four new AC checks plus Task 11's wall RUN cover every new production path on happy path AND failure mode, with oracles read from a committed external capture rather than re-typed, the discriminating members (an out-of-table kind, `intro-to`, legacy `intro`, a second person, all three live heading grammars) each PLANTED because the frozen corpus holds zero entries, the person axis asserted in both directions plus a B-removed invariance run that no vault-wide glob survives, guard 5 proved on its DAMAGE rather than on a missing raise, every new derivation shipping its own WI-235 battery, and every derived population carrying a non-vacuity or member pin before its equality; failure modes are LOUD by type with `LoudFailError` re-raised ahead of the generic warning handler so no refusal is downgraded; no new automated system exists to alert on and the one standing live instrument (`lint_vault`) gains three report-only detectors, positioned above the type-scoped triage and asserted never to enter `apply_fixes`; obsidian-schemas ships no invariant registry, so check 4 is skipped not failed. One Recommended: WI-033's doc is not in `tests/test_ac_interpreter.py:WORK_ITEM_DOCS`, so the shim is verified by the builder's hand run and by the conveyor rather than by a standing floor wall \u2014 disclosed, not hidden, and the conveyor catches it at building \u2192 done."
+        },
+        "intent-check": {
+          "gate": "intent-check",
+          "verdict": "PROMOTE",
+          "date": "2026-09-29",
+          "model": "claude-sonnet-5-5",
+          "note": "Every AC check proves its desc over the full domain with the discriminating members planted (out-of-table kind, intro-to, legacy intro, a second person with a B-removed invariance run, all three heading grammars, the untyped-note gate route) and the oracle read from the committed HAL9000 capture; no stub, weakening, narrowing or missing negative case, and the examples hold against the built artifact."
         }
       },
       "verdicts": [
@@ -2988,6 +3016,27 @@
           "date": "2026-09-29",
           "model": "claude-sonnet-5-5",
           "note": "Re-read after the threat model's round-3 M2 fold finds no planted steering in the item doc \u2014 pattern sweeps for approval-steering and gate-addressed imperatives come back empty, the thirteen line-start gate/verdict keys are all genuine fences at their own gate's section end, the fold-added material (M2 record, \u00a712 Rule 3 and dimension (vii), R7, Task 3's completeness clause) is ordinary spec argument with re-runnable predicates independently re-counted by two other gates, and the one cross-doc writes fence (docs/vault-fixtures.md) is unchanged as a disclosed conductor-owned precondition; this clears the injection question only."
+        },
+        {
+          "gate": "code-reviewer",
+          "verdict": "PROMOTE",
+          "date": "2026-09-29",
+          "model": "claude-opus-5",
+          "note": "No blocking finding \u2014 the six AI-maintainability checks and both Step 2c dimensions come back clean (no cross-project reach, no deprecated import, no idiom regression, no new unreadback external write, and explicit non-vacuity guards everywhere an empty population could pass by default); the one `except ValueError: continue` in `parse_markers` is a declared, reader-scoped departure instrumented by `lint_vault`'s `intro_by_without_marker` rather than a true silent swallow; the unconditional `introduced_by` gate arm is placed below the declared-non-person return so the undeclared route is covered and its blast radius is measured at ZERO code writers estate-wide by the committed consumer audit plus `introduced_by_frontmatter_carriers: 0`; the three plan deviations are each forced by a standing wall and are the more faithful build; the one real behaviour change (a typed append to a broken-fence note now raises FrontmatterParseError) is named at the site with zero live callers; the two outstanding CLAUDE.md doc-sync items falsify no existing claim and are conductor-owned outside the cage by design. Caveat stated in full above: this spawn has no shell, so the 716 \u2192 721 floor figure is read rather than re-executed, though every artifact the new checks consume was verified committed and correctly shaped by hand."
+        },
+        {
+          "gate": "test-observability-checker",
+          "verdict": "PROMOTE",
+          "date": "2026-09-29",
+          "model": "claude-opus-5",
+          "note": "All three charter checks pass and check 4 is N/A \u2014 four new AC checks plus Task 11's wall RUN cover every new production path on happy path AND failure mode, with oracles read from a committed external capture rather than re-typed, the discriminating members (an out-of-table kind, `intro-to`, legacy `intro`, a second person, all three live heading grammars) each PLANTED because the frozen corpus holds zero entries, the person axis asserted in both directions plus a B-removed invariance run that no vault-wide glob survives, guard 5 proved on its DAMAGE rather than on a missing raise, every new derivation shipping its own WI-235 battery, and every derived population carrying a non-vacuity or member pin before its equality; failure modes are LOUD by type with `LoudFailError` re-raised ahead of the generic warning handler so no refusal is downgraded; no new automated system exists to alert on and the one standing live instrument (`lint_vault`) gains three report-only detectors, positioned above the type-scoped triage and asserted never to enter `apply_fixes`; obsidian-schemas ships no invariant registry, so check 4 is skipped not failed. One Recommended: WI-033's doc is not in `tests/test_ac_interpreter.py:WORK_ITEM_DOCS`, so the shim is verified by the builder's hand run and by the conveyor rather than by a standing floor wall \u2014 disclosed, not hidden, and the conveyor catches it at building \u2192 done."
+        },
+        {
+          "gate": "intent-check",
+          "verdict": "PROMOTE",
+          "date": "2026-09-29",
+          "model": "claude-sonnet-5-5",
+          "note": "Every AC check proves its desc over the full domain with the discriminating members planted (out-of-table kind, intro-to, legacy intro, a second person with a B-removed invariance run, all three heading grammars, the untyped-note gate route) and the oracle read from the committed HAL9000 capture; no stub, weakening, narrowing or missing negative case, and the examples hold against the built artifact."
         }
       ],
       "acceptance_criteria": [
